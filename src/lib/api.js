@@ -84,6 +84,7 @@ export const adminApi = {
   createGalleryAlbum: album => request('/admin/gallery/albums', { method: 'POST', body: JSON.stringify(album) }),
   addGalleryPhoto: (albumId, photo) => request(`/admin/gallery/albums/${albumId}/photos`, { method: 'POST', body: JSON.stringify(photo) }),
   deleteGalleryAlbum: albumId => request(`/admin/gallery/albums/${albumId}`, { method: 'DELETE' }),
+  deleteGalleryPhoto: (albumId, photoId) => request(`/admin/gallery/albums/${albumId}/photos/${photoId}`, { method: 'DELETE' }),
 
   // Team & Leadership
   listClubTeam: () => request('/admin/team'),

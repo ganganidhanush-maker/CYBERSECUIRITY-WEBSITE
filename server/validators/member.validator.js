@@ -2,22 +2,35 @@ import crypto from 'node:crypto'
 import { z } from 'zod'
 import { normalizeImageUrl } from '../utils/image-url.js'
 
-const optionalText = maxLength => z.string().trim().max(maxLength).optional().transform(value => value || null)
-const optionalEmail = () => z.string().trim().email('Enter a valid email address.').max(191).optional().or(z.literal('')).transform(value => value || null)
+const optionalText = maxLength => z.union([z.string(), z.null(), z.undefined()]).transform(value => {
+  if (typeof value === 'string' && value.trim()) return value.trim().slice(0, maxLength)
+  return null
+})
+
+const optionalEmail = () => z.union([
+  z.string().trim().email('Enter a valid email address.').max(191),
+  z.literal(''),
+  z.null(),
+  z.undefined(),
+]).transform(val => (typeof val === 'string' && val.trim() ? val.trim() : null))
 
 export const complaintSchema = z.object({
-  subject: z.string().trim().min(3).max(255),
-  message: z.string().trim().min(10).max(5000),
+  subject: z.string().trim().min(2, 'Subject is required.').max(255),
+  message: z.string().trim().min(5, 'Message must be at least 5 characters.').max(5000),
 })
 
 export const profileUpdateSchema = z.object({
-  name: z.string().trim().min(2).max(120).optional(),
+  name: optionalText(120),
   rollNumber: optionalText(64),
   department: optionalText(120),
-  year: z.number().int().min(1).max(8).nullable().optional(),
+  year: z.union([z.string(), z.number(), z.null(), z.undefined()]).transform(val => {
+    if (!val) return null
+    const num = Number(val)
+    return Number.isFinite(num) && num >= 1 && num <= 8 ? num : null
+  }),
   email: optionalEmail(),
   phone: optionalText(32),
-  profileImage: z.string().optional().nullable().transform(value => normalizeImageUrl(value)),
+  profileImage: z.union([z.string(), z.null(), z.undefined()]).transform(value => normalizeImageUrl(value)),
   bio: optionalText(500),
   instagramUrl: optionalText(255),
   githubUrl: optionalText(255),
@@ -31,18 +44,21 @@ export const eventActivityInputSchema = z.object({
   id: z.string().optional(),
   name: z.string().trim().min(1, 'Activity name is required.').max(120),
   description: optionalText(500),
-  price: z.union([z.string(), z.number()]).transform(val => {
+  price: z.union([z.string(), z.number(), z.null(), z.undefined()]).transform(val => {
     const num = Number(val || 0)
     return Number.isFinite(num) && num >= 0 ? num : 0
   }),
-  capacity: z.union([z.string(), z.number()]).optional().nullable().transform(val => {
+  capacity: z.union([z.string(), z.number(), z.null(), z.undefined()]).transform(val => {
     if (!val) return null
     const num = Number(val)
     return Number.isFinite(num) && num > 0 ? num : null
   }),
   isAvailable: z.boolean().optional().default(true),
   instructions: optionalText(2000),
-  sortOrder: z.number().int().min(0).max(999).optional().default(0),
+  sortOrder: z.union([z.string(), z.number(), z.null(), z.undefined()]).transform(val => {
+    const num = Number(val || 0)
+    return Number.isFinite(num) ? num : 0
+  }),
 })
 
 export const eventFormFieldInputSchema = z.object({
@@ -54,29 +70,29 @@ export const eventFormFieldInputSchema = z.object({
 })
 
 export const eventInputSchema = z.object({
-  title: z.string().trim().min(3, 'Event title must be at least 3 characters.').max(255),
+  title: z.string().trim().min(2, 'Event title is required.').max(255),
   shortDescription: optionalText(500),
   description: optionalText(5000),
-  eventType: z.string().trim().min(2, 'Category / type is required.').max(100),
+  eventType: z.string().trim().min(1, 'Category / type is required.').max(100),
   dateTime: z.string().trim().min(1, 'Event date is required.').refine(value => !Number.isNaN(new Date(value).getTime()), 'Enter a valid date and time.'),
   startTime: optionalText(50),
   endTime: optionalText(50),
   venue: optionalText(255),
   location: optionalText(255),
-  capacity: z.union([z.string(), z.number()]).optional().nullable().transform(value => {
-    if (value === undefined || value === null || value === '') return null
+  capacity: z.union([z.string(), z.number(), z.null(), z.undefined()]).transform(value => {
+    if (!value) return null
     const parsed = Number(value)
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null
   }),
-  photoUrl: z.string().optional().nullable().transform(value => normalizeImageUrl(value)),
+  photoUrl: z.union([z.string(), z.null(), z.undefined()]).transform(value => normalizeImageUrl(value)),
   status: z.enum(['UPCOMING', 'OPEN', 'LIVE', 'CLOSED', 'COMPLETED', 'DRAFT']).optional().default('UPCOMING'),
   coordinatorName: optionalText(120),
   coordinatorContact: optionalText(120),
   organizingTeam: optionalText(255),
   speakerName: optionalText(120),
-  speakerPhoto: z.string().optional().nullable().transform(value => normalizeImageUrl(value)),
+  speakerPhoto: z.union([z.string(), z.null(), z.undefined()]).transform(value => normalizeImageUrl(value)),
   speakerDesignation: optionalText(120),
-  registrationDeadline: z.string().optional().nullable().transform(val => val && !Number.isNaN(new Date(val).getTime()) ? new Date(val) : null),
+  registrationDeadline: z.union([z.string(), z.null(), z.undefined()]).transform(val => val && !Number.isNaN(new Date(val).getTime()) ? new Date(val) : null),
   contactEmail: optionalEmail(),
   contactPhone: optionalText(32),
   socialLinks: z.any().optional(),
@@ -87,15 +103,15 @@ export const eventInputSchema = z.object({
   faq: z.any().optional(),
   notes: optionalText(5000),
   requiresPayment: z.boolean().optional().default(false),
-  paymentAmount: z.union([z.string(), z.number()]).optional().nullable().transform(value => {
-    if (value === undefined || value === null || value === '') return null
+  paymentAmount: z.union([z.string(), z.number(), z.null(), z.undefined()]).transform(value => {
+    if (!value) return null
     const parsed = Number(value)
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : null
   }),
-  paymentQrUrl: z.string().optional().nullable().transform(value => normalizeImageUrl(value)),
+  paymentQrUrl: z.union([z.string(), z.null(), z.undefined()]).transform(value => normalizeImageUrl(value)),
   paymentUpiId: optionalText(120),
   paymentInstructions: optionalText(2000),
-  paymentDeadline: z.string().optional().nullable().transform(val => val && !Number.isNaN(new Date(val).getTime()) ? new Date(val) : null),
+  paymentDeadline: z.union([z.string(), z.null(), z.undefined()]).transform(val => val && !Number.isNaN(new Date(val).getTime()) ? new Date(val) : null),
   requirePaymentProof: z.boolean().optional().default(false),
   allowMultipleActivities: z.boolean().optional().default(false),
   activities: z.array(eventActivityInputSchema).optional(),
@@ -105,10 +121,10 @@ export const eventInputSchema = z.object({
 export const eventRegistrationSchema = z.object({
   selectedActivityIds: z.array(z.string()).optional(),
   paymentReference: optionalText(120),
-  paymentProofUrl: z.string().optional().nullable().transform(value => normalizeImageUrl(value)),
+  paymentProofUrl: z.union([z.string(), z.null(), z.undefined()]).transform(value => normalizeImageUrl(value)),
   branch: optionalText(120),
   section: optionalText(64),
-  year: z.union([z.string(), z.number()]).optional().nullable().transform(val => {
+  year: z.union([z.string(), z.number(), z.null(), z.undefined()]).transform(val => {
     if (!val) return null
     const num = Number(val)
     return Number.isFinite(num) ? num : null
@@ -125,20 +141,20 @@ export const paymentVerificationSchema = z.object({
 })
 
 export const galleryAlbumSchema = z.object({
-  name: z.string().trim().min(2).max(120),
+  name: z.string().trim().min(1, 'Album name is required.').max(120),
   description: optionalText(500),
-  coverImage: z.string().optional().nullable().transform(value => normalizeImageUrl(value)),
+  coverImage: z.union([z.string(), z.null(), z.undefined()]).transform(value => normalizeImageUrl(value)),
 })
 
 export const galleryPhotoSchema = z.object({
-  imageUrl: z.string().transform(value => normalizeImageUrl(value, { optional: false })),
+  imageUrl: z.string().min(1, 'Photo image is required.').transform(value => normalizeImageUrl(value, { optional: false })),
   caption: optionalText(255),
 })
 
 export const clubTeamMemberSchema = z.object({
-  name: z.string().trim().min(2, 'Name is required.').max(120),
-  roleTitle: z.string().trim().min(2, 'Role title is required.').max(120),
-  photoUrl: z.string().optional().nullable().transform(value => normalizeImageUrl(value)),
+  name: z.string().trim().min(1, 'Name is required.').max(120),
+  roleTitle: z.string().trim().min(1, 'Role title is required.').max(120),
+  photoUrl: z.union([z.string(), z.null(), z.undefined()]).transform(value => normalizeImageUrl(value)),
   bio: optionalText(500),
   collegeEmail: optionalEmail(),
   contactEmail: optionalEmail(),
@@ -148,14 +164,14 @@ export const clubTeamMemberSchema = z.object({
   twitterUrl: optionalText(255),
   portfolioUrl: optionalText(255),
   skills: optionalText(500),
-  year: z.union([z.string(), z.number()]).optional().nullable().transform(val => {
+  year: z.union([z.string(), z.number(), z.null(), z.undefined()]).transform(val => {
     if (!val) return null
     const num = Number(val)
     return Number.isFinite(num) ? num : null
   }),
   branch: optionalText(120),
   achievements: optionalText(5000),
-  sortOrder: z.union([z.string(), z.number()]).optional().nullable().transform(val => {
+  sortOrder: z.union([z.string(), z.number(), z.null(), z.undefined()]).transform(val => {
     const num = Number(val || 0)
     return Number.isFinite(num) ? num : 0
   }),
@@ -168,7 +184,7 @@ export const deleteProtectedAccountSchema = z.object({
 })
 
 export const clubSettingsSchema = z.object({
-  introVideoUrl: z.string().optional().nullable(),
+  introVideoUrl: optionalText(5000),
   introVideoEnabled: z.boolean().optional().default(true),
   instagramUrl: optionalText(255),
   githubUrl: optionalText(255),

@@ -95,6 +95,13 @@ model Profile {
   email        String?  @unique @db.VarChar(191)
   phone        String?  @db.VarChar(32)
   profileImage String?  @map("profile_image") @db.LongText
+  bio          String?  @db.VarChar(500)
+  instagramUrl String?  @map("instagram_url") @db.VarChar(255)
+  githubUrl    String?  @map("github_url") @db.VarChar(255)
+  linkedinUrl  String?  @map("linkedin_url") @db.VarChar(255)
+  portfolioUrl String?  @map("portfolio_url") @db.VarChar(255)
+  skills       String?  @db.VarChar(500)
+  achievements String?  @db.LongText
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)

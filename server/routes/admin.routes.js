@@ -11,6 +11,7 @@ import {
   deleteClubTeamMember,
   deleteEvent,
   deleteGalleryAlbum,
+  deleteGalleryPhoto,
   deleteMember,
   editMember,
   exportEventRegistrationsCsv,
@@ -73,6 +74,7 @@ adminRouter.put('/payments/:registrationId/verify', requirePermission('PAYMENTS_
 adminRouter.get('/gallery/albums', requirePermission('GALLERY_VIEW'), asyncHandler(listGalleryAlbums))
 adminRouter.post('/gallery/albums', requirePermission('GALLERY_MANAGE'), adminWriteRateLimiter, asyncHandler(createGalleryAlbum))
 adminRouter.post('/gallery/albums/:albumId/photos', requirePermission('GALLERY_MANAGE'), adminWriteRateLimiter, asyncHandler(addGalleryPhoto))
+adminRouter.delete('/gallery/albums/:albumId/photos/:photoId', requirePermission('GALLERY_MANAGE'), adminWriteRateLimiter, asyncHandler(deleteGalleryPhoto))
 adminRouter.delete('/gallery/albums/:albumId', requirePermission('GALLERY_MANAGE'), adminWriteRateLimiter, asyncHandler(deleteGalleryAlbum))
 
 // Club Team & Leadership Management

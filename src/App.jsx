@@ -68,26 +68,55 @@ function toPortalUser(user) {
   }
 }
 
+const toSafeUser = toPortalUser
+
 // ----------------------------------------------------
 // Intro Video Experience (Students on Login)
 // ----------------------------------------------------
 function IntroVideoExperience({ onComplete }) {
+  const [videoUrl, setVideoUrl] = useState('')
+  const [duration, setDuration] = useState(120)
+  const [currentTime, setCurrentTime] = useState(0)
   const [canProceed, setCanProceed] = useState(false)
-  const [secondsRemaining, setSecondsRemaining] = useState(120)
 
   useEffect(() => {
+    let mounted = true
+    memberApi.getPublicClubSettings()
+      .then(({ settings }) => {
+        if (mounted && settings?.introVideoUrl) {
+          setVideoUrl(settings.introVideoUrl)
+        }
+      })
+      .catch(() => {})
+    return () => { mounted = false }
+  }, [])
+
+  const isYouTube = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')
+  let embedUrl = videoUrl
+  if (isYouTube) {
+    const videoId = videoUrl.includes('youtu.be/')
+      ? videoUrl.split('youtu.be/')[1]?.split('?')[0]
+      : new URLSearchParams(new URL(videoUrl.startsWith('http') ? videoUrl : `https://${videoUrl}`).search).get('v')
+    if (videoId) {
+      embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&controls=0&rel=0&modestbranding=1`
+    }
+  }
+
+  // Timer for fallback or YouTube embed
+  useEffect(() => {
+    if (videoUrl && !isYouTube) return
     const timer = setInterval(() => {
-      setSecondsRemaining(prev => {
-        if (prev <= 1) {
+      setCurrentTime(prev => {
+        if (prev + 1 >= duration) {
           clearInterval(timer)
           setCanProceed(true)
-          return 0
+          return duration
         }
-        return prev - 1
+        return prev + 1
       })
     }, 1000)
     return () => clearInterval(timer)
-  }, [])
+  }, [duration, videoUrl, isYouTube])
 
   async function handleFinish() {
     try {
@@ -98,32 +127,89 @@ function IntroVideoExperience({ onComplete }) {
     onComplete()
   }
 
+  function handleVideoEnded() {
+    setCanProceed(true)
+  }
+
+  function handleTimeUpdate(e) {
+    const curr = Math.floor(e.target.currentTime)
+    const dur = Math.floor(e.target.duration)
+    setCurrentTime(curr)
+    if (dur && Number.isFinite(dur) && dur > 0) {
+      setDuration(dur)
+    }
+    if (curr >= dur && dur > 0) {
+      setCanProceed(true)
+    }
+  }
+
+  function handleLoadedMetadata(e) {
+    const dur = Math.floor(e.target.duration)
+    if (dur && Number.isFinite(dur) && dur > 0) {
+      setDuration(dur)
+    }
+  }
+
+  const secondsRemaining = Math.max(0, duration - currentTime)
+
   return (
     <div className="intro-video-overlay">
       <div className="intro-video-container">
         <div className="intro-video-header">
-          <b>CYBER SECURITY CLUB · OFFICIAL COMMUNITY BRIEFING</b>
-          <span>{canProceed ? '✓ BRIEFING COMPLETE' : `MANDATORY INTRO · ${Math.floor(secondsRemaining / 60)}:${String(secondsRemaining % 60).padStart(2, '0')}`}</span>
+          <b>CYBER SECURITY CLUB · MANDATORY COMMUNITY BRIEFING</b>
+          <span>
+            {canProceed
+              ? '✓ BRIEFING COMPLETE'
+              : `MANDATORY INTRO · ${Math.floor(currentTime / 60)}:${String(currentTime % 60).padStart(2, '0')} / ${Math.floor(duration / 60)}:${String(duration % 60).padStart(2, '0')}`}
+          </span>
         </div>
-        <div style={{ position: 'relative', background: '#000', aspectRatio: '16/9', display: 'grid', placeContent: 'center', textAlign: 'center', padding: '20px' }}>
-          <div style={{ maxWidth: '640px' }}>
-            <Crest small />
-            <h2 style={{ font: '700 24px Syne', color: '#edf7ff', margin: '18px 0 8px' }}>Welcome to the Cyber Security Club</h2>
-            <p style={{ color: '#8aa2b4', fontSize: '13px', lineHeight: '1.7', margin: '0 0 20px' }}>
-              Welcome to the Department of Cyber Security official student network. We empower students with hands-on defense labs, capture-the-flag competitions, industry certifications, and ethical cybersecurity practices.
-            </p>
-            <div style={{ padding: '12px', borderRadius: '8px', background: '#08121e', border: '1px solid #48b7f433', color: '#72e0b4', font: '600 11px "DM Mono", monospace' }}>
-              🔒 SECURE MEMBER INITIALIZATION IN PROGRESS...
+
+        <div style={{ position: 'relative', background: '#000', aspectRatio: '16/9', overflow: 'hidden' }}>
+          {videoUrl && !isYouTube ? (
+            <video
+              src={videoUrl}
+              autoPlay
+              playsInline
+              controls={false}
+              disablePictureInPicture
+              controlsList="nodownload nofullscreen noremoteplayback"
+              onEnded={handleVideoEnded}
+              onTimeUpdate={handleTimeUpdate}
+              onLoadedMetadata={handleLoadedMetadata}
+              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+            />
+          ) : isYouTube && embedUrl ? (
+            <iframe
+              src={embedUrl}
+              title="Club Intro Video"
+              allow="autoplay; encrypted-media"
+              style={{ width: '100%', height: '100%', border: 0 }}
+            />
+          ) : (
+            <div style={{ width: '100%', height: '100%', display: 'grid', placeContent: 'center', textAlign: 'center', padding: '20px' }}>
+              <div style={{ maxWidth: '640px' }}>
+                <Crest small />
+                <h2 style={{ font: '700 24px Syne', color: '#edf7ff', margin: '18px 0 8px' }}>
+                  Welcome to the Cyber Security Club
+                </h2>
+                <p style={{ color: '#8aa2b4', fontSize: '13px', lineHeight: '1.7', margin: '0 0 20px' }}>
+                  Welcome to the Department of Cyber Security official student network. We empower students with hands-on defense labs, capture-the-flag competitions, industry certifications, and ethical cybersecurity practices.
+                </p>
+                <div style={{ padding: '12px', borderRadius: '8px', background: '#08121e', border: '1px solid #48b7f433', color: '#72e0b4', font: '600 11px "DM Mono", monospace' }}>
+                  🔒 SECURE MEMBER INITIALIZATION IN PROGRESS... ({secondsRemaining}s remaining)
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
+
         <div className="intro-video-footer">
           {canProceed ? (
             <button className="primary" type="button" onClick={handleFinish} style={{ width: '100%' }}>
               ENTER THE CYBER SECURITY PORTAL &nbsp; →
             </button>
           ) : (
-            <span>Please watch the club introduction to complete member initialization ({secondsRemaining}s)</span>
+            <span>Please watch the club video to complete member initialization ({secondsRemaining}s remaining)</span>
           )}
         </div>
       </div>
@@ -1311,7 +1397,7 @@ function EventManagement({ user, logout, onNavigate }) {
             </div>
 
             <form onSubmit={handleEventSubmit} noValidate>
-              {activeTab === 'basic' && (
+              <div style={{ display: activeTab === 'basic' ? 'block' : 'none' }}>
                 <div className="member-form-grid">
                   <label className="form-wide">
                     Event Title *
@@ -1363,9 +1449,9 @@ function EventManagement({ user, logout, onNavigate }) {
                     </div>
                   )}
                 </div>
-              )}
+              </div>
 
-              {activeTab === 'optional' && (
+              <div style={{ display: activeTab === 'optional' ? 'block' : 'none' }}>
                 <div className="member-form-grid">
                   <label>
                     Coordinator Name
@@ -1417,9 +1503,9 @@ function EventManagement({ user, logout, onNavigate }) {
                     <input name="registrationDeadline" type="datetime-local" defaultValue={events.find(e => e.id === editingEventId)?.registrationDeadline ? new Date(events.find(e => e.id === editingEventId).registrationDeadline).toISOString().slice(0, 16) : ''} />
                   </label>
                 </div>
-              )}
+              </div>
 
-              {activeTab === 'pricing' && (
+              <div style={{ display: activeTab === 'pricing' ? 'block' : 'none' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   <div style={{ display: 'flex', gap: '20px', padding: '14px', background: '#070f1a', borderRadius: '8px', border: '1px solid var(--line)' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: '#edf7ff', fontSize: '12px' }}>
@@ -1493,9 +1579,9 @@ function EventManagement({ user, logout, onNavigate }) {
                     </div>
                   )}
                 </div>
-              )}
+              </div>
 
-              {activeTab === 'fields' && (
+              <div style={{ display: activeTab === 'fields' ? 'block' : 'none' }}>
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
                     <p style={{ margin: 0, color: '#8aa2b4', fontSize: '12px' }}>
@@ -1525,7 +1611,7 @@ function EventManagement({ user, logout, onNavigate }) {
                     ))
                   )}
                 </div>
-              )}
+              </div>
 
               {error && <div className="error" role="alert" style={{ marginTop: '14px' }}>{error}</div>}
               {message && <div className="member-form-success" role="status" style={{ marginTop: '14px' }}>{message}</div>}
@@ -2036,6 +2122,7 @@ function OurTeamShowcase({ user, logout, onNavigate }) {
 // ----------------------------------------------------
 function ClubSettingsManager({ user, logout, onNavigate }) {
   const [settings, setSettings] = useState({})
+  const [videoPreview, setVideoPreview] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -2043,10 +2130,24 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
   useEffect(() => {
     let mounted = true
     adminApi.getClubSettings()
-      .then(({ settings: dict }) => { if (mounted) setSettings(dict) })
+      .then(({ settings: dict }) => {
+        if (mounted) {
+          setSettings(dict)
+          setVideoPreview(dict.introVideoUrl || '')
+        }
+      })
       .catch(err => { if (mounted) setError(err.message) })
     return () => { mounted = false }
   }, [])
+
+  function handleVideoFile(file) {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      setVideoPreview(reader.result)
+    }
+    reader.readAsDataURL(file)
+  }
 
   async function handleSave(e) {
     e.preventDefault()
@@ -2054,8 +2155,11 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
     setMessage('')
     setError('')
 
+    const urlInput = String(form.get('introVideoUrl') || '').trim()
+    const finalVideoUrl = videoPreview || urlInput || null
+
     const payload = {
-      introVideoUrl: String(form.get('introVideoUrl') || '').trim() || null,
+      introVideoUrl: finalVideoUrl,
       instagramUrl: String(form.get('instagramUrl') || '').trim() || null,
       githubUrl: String(form.get('githubUrl') || '').trim() || null,
       linkedinUrl: String(form.get('linkedinUrl') || '').trim() || null,
@@ -2069,7 +2173,7 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
     setSubmitting(true)
     try {
       await adminApi.updateClubSettings(payload)
-      setMessage('Settings & Social Links updated.')
+      setMessage('Settings & Social Links updated successfully.')
     } catch (err) {
       setError(err.message)
     } finally {
@@ -2087,7 +2191,7 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
             </button>
             <p className="eyebrow">CENTRAL CONFIGURATION</p>
             <h1>Social Links & Club Media</h1>
-            <p>Manage official social media presences, community links, and intro video settings.</p>
+            <p>Upload mandatory student intro briefing videos of any length, and configure official club social channels.</p>
           </div>
         </div>
 
@@ -2098,9 +2202,41 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
           <form onSubmit={handleSave}>
             <div className="member-form-grid">
               <label className="form-wide">
-                Club Intro Video URL / Video Stream
-                <input name="introVideoUrl" placeholder="https://..." defaultValue={settings.introVideoUrl || ''} />
+                Upload Mandatory Intro Video (Any Length — MP4 / WebM)
+                <input
+                  type="file"
+                  accept="video/*"
+                  onChange={e => {
+                    const file = e.target.files?.[0]
+                    if (file) handleVideoFile(file)
+                  }}
+                />
               </label>
+
+              <label className="form-wide">
+                Or Paste Video URL / Stream / YouTube Embed Link
+                <input
+                  name="introVideoUrl"
+                  placeholder="https://... (Direct MP4 URL or YouTube link)"
+                  value={videoPreview}
+                  onChange={e => setVideoPreview(e.target.value)}
+                />
+              </label>
+
+              {videoPreview && (
+                <div className="form-wide" style={{ background: '#050a12', padding: '12px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <b style={{ color: '#72e0b4', fontSize: '11px', font: '600 11px "DM Mono", monospace' }}>▶ INTRO VIDEO PREVIEW</b>
+                    <button type="button" className="action-btn delete-btn" onClick={() => setVideoPreview('')}>Remove Video</button>
+                  </div>
+                  {videoPreview.includes('youtube.com') || videoPreview.includes('youtu.be') ? (
+                    <p style={{ color: '#8aa2b4', fontSize: '12px' }}>YouTube Video Linked: {videoPreview}</p>
+                  ) : (
+                    <video src={videoPreview} controls style={{ width: '100%', maxHeight: '240px', borderRadius: '6px' }} />
+                  )}
+                </div>
+              )}
+
               <label>
                 Instagram Profile Link
                 <input name="instagramUrl" placeholder="https://instagram.com/..." defaultValue={settings.instagramUrl || ''} />
@@ -2799,6 +2935,8 @@ function GalleryManagement({ user, logout, onNavigate }) {
   async function createAlbum(e) {
     e.preventDefault()
     const form = new FormData(e.currentTarget)
+    setMessage('')
+    setError('')
     try {
       const { album } = await adminApi.createGalleryAlbum({
         name: String(form.get('name') || '').trim(),
@@ -2806,9 +2944,26 @@ function GalleryManagement({ user, logout, onNavigate }) {
         coverImage: photoPreview || null,
       })
       setAlbums(c => [album, ...c])
+      setSelectedAlbum(album)
       e.currentTarget.reset()
       setPhotoPreview('')
-      setMessage(`Album "${album.name}" created.`)
+      setMessage(`Album "${album.name}" created successfully.`)
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  async function removeAlbum(albumId, e) {
+    if (e) e.stopPropagation()
+    if (!confirm('Are you sure you want to permanently delete this album and all its photos?')) return
+    setMessage('')
+    setError('')
+    try {
+      await adminApi.deleteGalleryAlbum(albumId)
+      setAlbums(c => c.filter(a => a.id !== albumId))
+      if (selectedAlbum?.id === albumId) setSelectedAlbum(null)
+      if (activeLightbox) setActiveLightbox(null)
+      setMessage('Album deleted successfully.')
     } catch (err) {
       setError(err.message)
     }
@@ -2818,6 +2973,8 @@ function GalleryManagement({ user, logout, onNavigate }) {
     e.preventDefault()
     if (!selectedAlbum) return
     const form = new FormData(e.currentTarget)
+    setMessage('')
+    setError('')
     try {
       const { photo } = await adminApi.addGalleryPhoto(selectedAlbum.id, {
         imageUrl: photoPreview,
@@ -2827,7 +2984,28 @@ function GalleryManagement({ user, logout, onNavigate }) {
       setSelectedAlbum(c => (c ? { ...c, photos: [photo, ...(c.photos || [])] } : c))
       e.currentTarget.reset()
       setPhotoPreview('')
-      setMessage('Photo added.')
+      setMessage('Photo uploaded to album successfully.')
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  async function removePhoto(albumId, photoId, e) {
+    if (e) e.stopPropagation()
+    if (!confirm('Are you sure you want to delete this photo from the album?')) return
+    setMessage('')
+    setError('')
+    try {
+      await adminApi.deleteGalleryPhoto(albumId, photoId)
+      setAlbums(c => c.map(a => {
+        if (a.id === albumId) {
+          return { ...a, photos: (a.photos || []).filter(p => p.id !== photoId) }
+        }
+        return a
+      }))
+      setSelectedAlbum(c => (c ? { ...c, photos: (c.photos || []).filter(p => p.id !== photoId) } : c))
+      if (activeLightbox?.id === photoId) setActiveLightbox(null)
+      setMessage('Photo deleted.')
     } catch (err) {
       setError(err.message)
     }
@@ -2841,9 +3019,9 @@ function GalleryManagement({ user, logout, onNavigate }) {
             <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
               ← COMMAND CENTER
             </button>
-            <p className="eyebrow">MEDIA MANAGEMENT</p>
-            <h1>Event Albums & Photo Showcase</h1>
-            <p>Curate event photos, workshop highlights, and competition galleries.</p>
+            <p className="eyebrow">EXCLUSIVE MEDIA MANAGEMENT</p>
+            <h1>Event Albums & Photo Gallery</h1>
+            <p>Create, update, add photos, or delete albums. Only authorized club administrators have permission to edit.</p>
           </div>
         </div>
 
@@ -2853,7 +3031,7 @@ function GalleryManagement({ user, logout, onNavigate }) {
         <div className="member-management-grid" style={{ marginBottom: '28px' }}>
           <article className="account-form-card">
             <p className="eyebrow">NEW ALBUM</p>
-            <h2>Create Album</h2>
+            <h2>Create New Album</h2>
             <form onSubmit={createAlbum}>
               <div className="member-form-grid">
                 <label>
@@ -2871,16 +3049,35 @@ function GalleryManagement({ user, logout, onNavigate }) {
                     if (f) readImageFile(f, setPhotoPreview)
                   }} />
                 </label>
+                {photoPreview && !selectedAlbum && (
+                  <div className="event-upload-preview form-wide">
+                    <img src={photoPreview} alt="Cover preview" />
+                    <button type="button" className="preview-remove" onClick={() => setPhotoPreview('')}>✕</button>
+                  </div>
+                )}
               </div>
               <button className="primary login-button" type="submit" style={{ marginTop: '12px' }}>CREATE ALBUM</button>
             </form>
           </article>
 
-          {selectedAlbum && (
+          {selectedAlbum ? (
             <article className="account-form-card">
-              <p className="eyebrow">UPLOAD PHOTO</p>
-              <h2>Add to: {selectedAlbum.name}</h2>
-              <form onSubmit={addPhoto}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <p className="eyebrow">UPLOAD PHOTO</p>
+                  <h2>Add to: {selectedAlbum.name}</h2>
+                </div>
+                <button
+                  type="button"
+                  className="action-btn delete-btn"
+                  onClick={(e) => removeAlbum(selectedAlbum.id, e)}
+                  style={{ padding: '6px 12px' }}
+                >
+                  🗑 Delete Album
+                </button>
+              </div>
+
+              <form onSubmit={addPhoto} style={{ marginTop: '10px' }}>
                 <label style={{ display: 'block', marginBottom: '8px' }}>
                   Photo File *
                   <input type="file" accept="image/*" required onChange={e => {
@@ -2888,6 +3085,12 @@ function GalleryManagement({ user, logout, onNavigate }) {
                     if (f) readImageFile(f, setPhotoPreview)
                   }} />
                 </label>
+                {photoPreview && (
+                  <div className="event-upload-preview" style={{ marginBottom: '10px' }}>
+                    <img src={photoPreview} alt="Photo upload preview" />
+                    <button type="button" className="preview-remove" onClick={() => setPhotoPreview('')}>✕</button>
+                  </div>
+                )}
                 <label style={{ display: 'block', marginBottom: '12px' }}>
                   Caption
                   <input name="caption" placeholder="e.g. Workshop Lab Session" />
@@ -2895,46 +3098,110 @@ function GalleryManagement({ user, logout, onNavigate }) {
                 <button className="primary login-button" type="submit">UPLOAD PHOTO</button>
               </form>
             </article>
+          ) : (
+            <article className="account-form-card" style={{ display: 'grid', placeContent: 'center', textAlign: 'center', minHeight: '180px', color: '#8aa2b4' }}>
+              <p>Click on any album below to upload photos or manage its contents.</p>
+            </article>
           )}
         </div>
 
-        <div className="gallery-grid">
-          {albums.map(a => (
-            <div key={a.id} className="album-card-box" onClick={() => setSelectedAlbum(a)} style={{ borderColor: selectedAlbum?.id === a.id ? '#48b7f4' : undefined }}>
-              <div className="album-cover">
-                {a.coverImage || a.photos?.[0]?.imageUrl ? (
-                  <img src={a.coverImage || a.photos[0].imageUrl} alt={a.name} />
-                ) : (
-                  <div className="album-cover-placeholder">{a.name.slice(0, 2).toUpperCase()}</div>
-                )}
-                <span className="album-photo-count">{a.photos?.length || 0} photos</span>
-              </div>
-              <div className="album-details">
-                <h3>{a.name}</h3>
-                <p>{a.description || 'Club photo collection'}</p>
-              </div>
-            </div>
-          ))}
+        <div className="section-title" style={{ marginTop: '24px' }}>
+          <div>
+            <p className="eyebrow">ALBUM DIRECTORY</p>
+            <h2>All Albums ({albums.length})</h2>
+          </div>
         </div>
 
-        {selectedAlbum?.photos?.length > 0 && (
-          <div style={{ marginTop: '36px' }}>
-            <div className="section-title">
-              <div>
-                <p className="eyebrow">PHOTOS</p>
-                <h2>{selectedAlbum.name}</h2>
-              </div>
-            </div>
-            <div className="gallery-grid" style={{ marginTop: '16px' }}>
-              {selectedAlbum.photos.map(p => (
-                <div key={p.id} className="album-card-box" onClick={() => setActiveLightbox(p)}>
-                  <div className="album-cover">
-                    <img src={p.imageUrl} alt={p.caption || 'Event'} />
-                  </div>
-                  {p.caption && <div className="album-details"><p>{p.caption}</p></div>}
+        {loading ? (
+          <p className="directory-state">Loading gallery albums...</p>
+        ) : albums.length === 0 ? (
+          <p className="directory-state">No albums created yet. Use the form above to add your first album.</p>
+        ) : (
+          <div className="gallery-grid">
+            {albums.map(a => (
+              <div
+                key={a.id}
+                className="album-card-box"
+                onClick={() => setSelectedAlbum(a)}
+                style={{
+                  borderColor: selectedAlbum?.id === a.id ? '#48b7f4' : undefined,
+                  cursor: 'pointer',
+                  position: 'relative',
+                }}
+              >
+                <div className="album-cover">
+                  {a.coverImage || a.photos?.[0]?.imageUrl ? (
+                    <img src={a.coverImage || a.photos[0].imageUrl} alt={a.name} />
+                  ) : (
+                    <div className="album-cover-placeholder">{a.name.slice(0, 2).toUpperCase()}</div>
+                  )}
+                  <span className="album-photo-count">{a.photos?.length || 0} photos</span>
                 </div>
-              ))}
+                <div className="album-details">
+                  <h3>{a.name}</h3>
+                  <p>{a.description || 'Club photo collection'}</p>
+                </div>
+                <div style={{ padding: '8px 12px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <small style={{ color: '#85d7ff' }}>{selectedAlbum?.id === a.id ? '✓ Selected' : 'Click to manage'}</small>
+                  <button
+                    type="button"
+                    className="action-btn delete-btn"
+                    onClick={(e) => removeAlbum(a.id, e)}
+                    style={{ fontSize: '10px', padding: '4px 8px' }}
+                    title="Delete entire album"
+                  >
+                    🗑 Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {selectedAlbum && (
+          <div style={{ marginTop: '36px', borderTop: '1px solid var(--line)', paddingTop: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <p className="eyebrow">SELECTED ALBUM PHOTOS</p>
+                <h2>{selectedAlbum.name} ({selectedAlbum.photos?.length || 0} Photos)</h2>
+              </div>
+              <button
+                type="button"
+                className="action-btn delete-btn"
+                onClick={(e) => removeAlbum(selectedAlbum.id, e)}
+              >
+                🗑 Delete Album
+              </button>
             </div>
+
+            {(!selectedAlbum.photos || selectedAlbum.photos.length === 0) ? (
+              <p className="directory-state" style={{ marginTop: '16px' }}>No photos uploaded to this album yet. Use the "Upload Photo" card above.</p>
+            ) : (
+              <div className="gallery-grid" style={{ marginTop: '16px' }}>
+                {selectedAlbum.photos.map(p => (
+                  <div key={p.id} className="album-card-box" style={{ position: 'relative' }}>
+                    <div className="album-cover" onClick={() => setActiveLightbox(p)} style={{ cursor: 'pointer' }}>
+                      <img src={p.imageUrl} alt={p.caption || 'Event'} />
+                    </div>
+                    {p.caption && (
+                      <div className="album-details" onClick={() => setActiveLightbox(p)} style={{ cursor: 'pointer' }}>
+                        <p>{p.caption}</p>
+                      </div>
+                    )}
+                    <div style={{ padding: '6px 10px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'flex-end' }}>
+                      <button
+                        type="button"
+                        className="action-btn delete-btn"
+                        onClick={(e) => removePhoto(selectedAlbum.id, p.id, e)}
+                        style={{ fontSize: '10px', padding: '4px 8px' }}
+                      >
+                        🗑 Remove Photo
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -2942,8 +3209,19 @@ function GalleryManagement({ user, logout, onNavigate }) {
           <div className="photo-lightbox" onClick={() => setActiveLightbox(null)}>
             <div className="photo-lightbox-content" onClick={e => e.stopPropagation()}>
               <button className="lightbox-close" onClick={() => setActiveLightbox(null)}>✕</button>
-              <img src={activeLightbox.imageUrl} alt="Lightbox" />
-              {activeLightbox.caption && <p style={{ color: '#fff', textAlign: 'center', marginTop: '8px' }}>{activeLightbox.caption}</p>}
+              <img src={activeLightbox.imageUrl} alt="Lightbox preview" />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
+                {activeLightbox.caption ? <p style={{ color: '#fff', margin: 0 }}>{activeLightbox.caption}</p> : <span />}
+                {selectedAlbum && (
+                  <button
+                    type="button"
+                    className="action-btn delete-btn"
+                    onClick={(e) => removePhoto(selectedAlbum.id, activeLightbox.id, e)}
+                  >
+                    🗑 Delete Photo
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -3228,7 +3506,7 @@ function App() {
     authApi.me()
       .then(async ({ user: authUser }) => {
         if (!mounted) return
-        const portalUser = toSafeUser(authUser)
+        const portalUser = toPortalUser(authUser)
         setUser(portalUser)
 
         // Check session status (intro video & queue)
@@ -3260,7 +3538,7 @@ function App() {
       setScreen('two-factor')
       return
     }
-    const portalUser = toSafeUser(result.user)
+    const portalUser = toPortalUser(result.user)
     setUser(portalUser)
 
     try {
@@ -3279,7 +3557,7 @@ function App() {
 
   async function verifyTwoFactor(code) {
     const { user: authUser } = await authApi.verifyTwoFactor(code)
-    const portalUser = toSafeUser(authUser)
+    const portalUser = toPortalUser(authUser)
     setUser(portalUser)
     navigateTo(portalUser.role === 'STUDENT' ? 'student-dashboard' : 'admin-dashboard')
   }

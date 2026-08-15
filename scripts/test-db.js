@@ -3,10 +3,8 @@ import { prisma } from '../server/db/prisma.js'
 
 try {
   await prisma.$queryRaw`SELECT 1`
-  const userCols = await prisma.$queryRaw`DESCRIBE users`
-  const permCols = await prisma.$queryRaw`DESCRIBE permission_assignments`
-  console.log('users columns', userCols)
-  console.log('permission_assignments columns', permCols)
+  const profileCols = await prisma.$queryRaw`DESCRIBE profiles`
+  console.log('profiles columns', profileCols)
 } catch (error) {
   console.log('DB FAIL:', error.message)
 } finally {

@@ -1,6 +1,18 @@
 import { z } from 'zod'
 import { memberPermissions } from '../config/permissions.js'
 
+const optionalText = maxLength => z.union([z.string(), z.null(), z.undefined()]).transform(value => {
+  if (typeof value === 'string' && value.trim()) return value.trim().slice(0, maxLength)
+  return null
+})
+
+const optionalEmail = () => z.union([
+  z.string().trim().email('Enter a valid email address.').max(191),
+  z.literal(''),
+  z.null(),
+  z.undefined(),
+]).transform(val => (typeof val === 'string' && val.trim() ? val.trim() : null))
+
 const memberId = z.string().trim()
   .min(5, 'Member ID must be at least 5 characters.')
   .max(32, 'Member ID must be 32 characters or fewer.')
@@ -14,7 +26,11 @@ const strongPassword = z.string()
   .regex(/\d/, 'Password must include at least one number.')
   .regex(/[^A-Za-z0-9]/, 'Password must include at least one special symbol (e.g. !@#$%).')
 
-export const loginSchema = z.object({ memberId, password: z.string().min(1, 'Password is required.').max(128) })
+export const loginSchema = z.object({
+  memberId,
+  password: z.string().min(1, 'Password is required.').max(128),
+})
+
 export const passwordResetRequestSchema = z.object({ memberId })
 export const passwordResetSchema = z.object({ token: z.string().length(64).regex(/^[a-f0-9]+$/), password: strongPassword })
 export const passwordConfirmationSchema = z.object({ password: z.string().min(1).max(128), code: z.string().trim().regex(/^\d{6}$/) })
@@ -41,22 +57,23 @@ export const accountStatusSchema = z.object({
 
 const memberPermissionSchema = z.enum(memberPermissions)
 
-const optionalText = maxLength => z.string().trim().max(maxLength).optional().transform(value => value || null)
-
 export const createMemberSchema = z.object({
   memberId,
   password: strongPassword,
   role: roleEnumSchema,
   profile: z.object({
-    name: z.string().trim().min(2, 'Name must be at least 2 characters.').max(120),
+    name: z.string().trim().min(1, 'Name is required.').max(120),
     rollNumber: optionalText(64),
     department: optionalText(120),
-    year: z.number().int().min(1).max(8).nullable().optional(),
-    email: z.string().trim().email('Please enter a valid email address.').max(191).optional().or(z.literal('')).transform(value => value || null),
+    year: z.union([z.string(), z.number(), z.null(), z.undefined()]).transform(val => {
+      if (!val) return null
+      const num = Number(val)
+      return Number.isFinite(num) && num >= 1 && num <= 8 ? num : null
+    }),
+    email: optionalEmail(),
     phone: optionalText(32),
   }),
   permissions: z.array(memberPermissionSchema).optional().transform(perms => {
-    // If not provided, will be auto-derived from role in controller
     return perms && perms.length ? perms : undefined
   }),
 })

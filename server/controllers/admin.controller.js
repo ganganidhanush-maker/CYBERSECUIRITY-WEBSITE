@@ -727,6 +727,37 @@ export async function deleteGalleryAlbum(request, response) {
   return response.status(204).end()
 }
 
+export async function deleteGalleryPhoto(request, response) {
+  const { albumId, photoId } = request.params
+  const photo = await prisma.galleryPhoto.findFirst({
+    where: { id: photoId, albumId },
+  })
+  if (!photo) return response.status(404).json({ message: 'Photo not found.' })
+
+  await prisma.galleryPhoto.delete({ where: { id: photo.id } })
+
+  const album = await prisma.galleryAlbum.findUnique({
+    where: { id: albumId },
+    include: { photos: { take: 1 } },
+  })
+  if (album && album.coverImage === photo.imageUrl) {
+    const nextCover = album.photos[0]?.imageUrl || null
+    await prisma.galleryAlbum.update({
+      where: { id: album.id },
+      data: { coverImage: nextCover },
+    })
+  }
+
+  await tryWriteAuditLog({
+    actorUserId: request.user.id,
+    action: 'GALLERY_PHOTO_DELETED',
+    metadata: { albumId, photoId },
+    ...auditRequest(request),
+  })
+
+  return response.status(204).end()
+}
+
 export async function listClubTeam(request, response) {
   const team = await prisma.clubTeamMember.findMany({ orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] })
   return response.status(200).json({ team })
