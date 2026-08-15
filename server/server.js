@@ -1,6 +1,7 @@
 import { createApp } from './app.js'
 import { assertRuntimeConfiguration, env } from './config/env.js'
 import { prisma } from './db/prisma.js'
+import { bootstrapDatabase } from './db/bootstrap.js'
 import { verifyMailConfiguration } from './services/mailer.service.js'
 import { startAuditRetentionJob } from './services/audit-retention.service.js'
 
@@ -8,6 +9,7 @@ assertRuntimeConfiguration()
 
 try {
   await prisma.$queryRaw`SELECT 1`
+  await bootstrapDatabase()
   if (env.isProduction) await verifyMailConfiguration()
 } catch (error) {
   console.error('Startup validation failed: required local services are unavailable.', error.message)
