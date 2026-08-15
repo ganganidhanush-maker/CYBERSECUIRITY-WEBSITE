@@ -1,0 +1,23 @@
+services:
+  database:
+    image: mariadb:11.7
+    container_name: csc-mrdu-mariadb
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: cyber_security_club
+      MARIADB_USER: club_portal
+      MARIADB_PASSWORD: ${LOCAL_DB_PASSWORD:?Run npm run db:local:start first}
+      MARIADB_RANDOM_ROOT_PASSWORD: 'yes'
+    ports:
+      - '3306:3306'
+    volumes:
+      - csc_mrdu_mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD-SHELL', 'mariadb-admin ping -h localhost -uclub_portal -p"$$MARIADB_PASSWORD" --silent']
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 15s
+
+volumes:
+  csc_mrdu_mariadb_data:
