@@ -74,7 +74,7 @@ export function createSessionManager() {
     clearExpired: true,
     checkExpirationInterval: 900_000,
     expiration: env.sessionMaxAgeMs,
-    createDatabaseTable: false,
+    createDatabaseTable: true,
     schema: { tableName: 'sessions', columnNames: { session_id: 'session_id', expires: 'expires', data: 'data' } },
   })
   const store = new EncryptedSessionStore(mysqlStore)
