@@ -83,8 +83,8 @@ export function createApp() {
   if (env.isProduction) {
     const distDirectory = path.join(workspaceRoot, 'dist')
     app.use(express.static(distDirectory, { index: false, maxAge: '1h', etag: true }))
-    app.get('*', (request, response, next) => {
-      if (request.path.startsWith('/api/')) return next()
+    app.use((request, response, next) => {
+      if (request.method !== 'GET' || request.path.startsWith('/api/')) return next()
       response.sendFile(path.join(distDirectory, 'index.html'))
     })
   }
