@@ -11,7 +11,7 @@
     "build": "prisma generate && vite build",
     "railway-build": "prisma generate && prisma migrate deploy && vite build",
     "vercel-build": "prisma generate && prisma migrate deploy && vite build",
-    "postinstall": "prisma generate",
+    "postinstall": "prisma generate || true",
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "node --test test/**/*.test.js",
