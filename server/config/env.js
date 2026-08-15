@@ -12,12 +12,22 @@ const optionalUrlList = z.string().trim().optional().transform(value => {
   return []
 })
 
+const defaultSessionSecret = 'IsxziOPEC-xh7F0MLX5PGcEXZeMjOxnqRS9vvT4HgYWESsXy-9TRuCSNh5kQ-hSn'
+const defaultSessionKey = 'bvwvqKm85SqF4N2pUlpFCNTDOAoSn/QOxofnCIO6Ibg='
+
+const resolvedDatabaseUrl = process.env.DATABASE_URL
+  || process.env.MYSQL_URL
+  || process.env.MYSQLDATABASE_URL
+  || process.env.MYSQL_PUBLIC_URL
+  || process.env.MARIADB_URL
+  || process.env.DATABASE_PRIVATE_URL
+
 const rawEnvironment = {
-  nodeEnv: process.env.NODE_ENV || 'development',
-  port: process.env.PORT,
-  databaseUrl: process.env.DATABASE_URL,
-  sessionSecret: process.env.SESSION_SECRET,
-  sessionEncryptionKey: process.env.SESSION_ENCRYPTION_KEY,
+  nodeEnv: process.env.NODE_ENV || 'production',
+  port: process.env.PORT || 3000,
+  databaseUrl: resolvedDatabaseUrl,
+  sessionSecret: process.env.SESSION_SECRET || defaultSessionSecret,
+  sessionEncryptionKey: process.env.SESSION_ENCRYPTION_KEY || defaultSessionKey,
   corsOrigin: process.env.CORS_ORIGIN,
   publicAppUrl: process.env.PUBLIC_APP_URL || railwayDomain || undefined,
   sessionMaxAgeMs: process.env.SESSION_MAX_AGE_MS,
@@ -35,7 +45,9 @@ const rawEnvironment = {
 const parsed = z.object({
   nodeEnv: nodeEnvSchema,
   port: integer(3000, 80, 65535),
-  databaseUrl: z.string().url().refine(value => ['mysql:', 'mariadb:'].includes(new URL(value).protocol), 'DATABASE_URL must use mysql or mariadb'),
+  databaseUrl: z.string({
+    required_error: 'DATABASE_URL is missing. Please add a MySQL service on Railway or set the DATABASE_URL environment variable in your service settings.',
+  }).url().refine(value => ['mysql:', 'mariadb:'].includes(new URL(value).protocol), 'DATABASE_URL must use mysql or mariadb protocol'),
   sessionSecret: z.string().min(32),
   sessionEncryptionKey: z.string().min(40).refine(value => {
     try { return Buffer.from(value, 'base64').length === 32 } catch { return false }
