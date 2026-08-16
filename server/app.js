@@ -68,7 +68,7 @@ export function createApp() {
   app.use(sessionManager.middleware)
   app.use(csrfProtection)
 
-  app.get('/api/v1/health', async (request, response) => {
+  app.get(['/api/v1/health', '/api/health'], async (request, response) => {
     try {
       await prisma.$queryRaw`SELECT 1`
       response.status(200).json({ status: 'ok', database: 'connected', requestId: request.id })
@@ -76,10 +76,10 @@ export function createApp() {
       response.status(503).json({ status: 'unavailable', database: 'unavailable', requestId: request.id })
     }
   })
-  app.get('/api/v1/docs', (request, response) => response.status(200).json(getOpenApiDocument()))
-  app.use('/api/v1/auth', authRouter)
-  app.use('/api/v1/admin', adminRouter)
-  app.use('/api/v1/member', memberRouter)
+  app.get(['/api/v1/docs', '/api/docs'], (request, response) => response.status(200).json(getOpenApiDocument()))
+  app.use(['/api/v1/auth', '/api/auth'], authRouter)
+  app.use(['/api/v1/admin', '/api/admin'], adminRouter)
+  app.use(['/api/v1/member', '/api/member'], memberRouter)
 
   if (env.isProduction) {
     const distDirectory = path.join(workspaceRoot, 'dist')
