@@ -3,8 +3,15 @@ import bcrypt from 'bcrypt'
 import { prisma } from '../server/db/prisma.js'
 
 async function fixLogin() {
-  const presidentMemberId = (process.env.PRESIDENT_MEMBER_ID || '25EU07R0015').toUpperCase()
-  const presidentPassword = process.env.PRESIDENT_INITIAL_PASSWORD || 'Dh@nush@dmin_csmrdu2029'
+  const presidentMemberId = (process.env.PRESIDENT_MEMBER_ID || process.argv[2])?.toUpperCase()
+  const presidentPassword = process.env.PRESIDENT_INITIAL_PASSWORD || process.argv[3]
+
+  if (!presidentMemberId || !presidentPassword) {
+    console.error('Error: Please provide PRESIDENT_MEMBER_ID and PRESIDENT_INITIAL_PASSWORD in your environment or as command line arguments.')
+    console.error('Usage: node scripts/fix-login.js <MEMBER_ID> <PASSWORD>')
+    process.exit(1)
+  }
+
   const rounds = Number(process.env.BCRYPT_ROUNDS || 12)
   const passwordHash = await bcrypt.hash(presidentPassword, rounds)
 
@@ -33,8 +40,8 @@ async function fixLogin() {
       totpSecretEncrypted: null,
       profile: {
         create: {
-          name: process.env.PRESIDENT_NAME || 'Dhanush',
-          email: 'president@cybersecurity.club',
+          name: process.env.PRESIDENT_NAME || 'Primary President',
+          email: process.env.PRESIDENT_EMAIL || 'president@cybersecurity.club',
         },
       },
     },
@@ -51,7 +58,6 @@ async function fixLogin() {
 
   console.log(`✓ President account ready:`)
   console.log(`  Member ID: ${president.memberId}`)
-  console.log(`  Password:  ${presidentPassword}`)
   console.log(`  Role:      ${president.role} (Primary Admin: ${president.isPrimaryAdmin})`)
   console.log(`  2FA:       Disabled (You can enable it in Security settings after logging in)`)
 }

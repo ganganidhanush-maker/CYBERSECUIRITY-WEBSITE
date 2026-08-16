@@ -33,6 +33,11 @@ import {
   verifyPayment,
 } from '../controllers/admin.controller.js'
 import {
+  listAdminSubscriptions,
+  rejectAdminSubscription,
+  verifyAdminSubscription,
+} from '../controllers/subscription.controller.js'
+import {
   requireAdmin,
   requireAuth,
   requirePermission,
@@ -66,9 +71,12 @@ adminRouter.get('/events/:eventId/details', requirePermission('EVENT_MANAGE'), a
 adminRouter.get('/events/:eventId/export-csv', requirePermission('EVENT_MANAGE'), asyncHandler(exportEventRegistrationsCsv))
 adminRouter.get('/events/:eventId/registrations', requirePermission('REGISTRATIONS_VIEW'), asyncHandler(listEventRegistrations))
 
-// Payment Management
+// Payment & Subscription Management
 adminRouter.get('/payments', requirePermission('PAYMENTS_VIEW'), asyncHandler(listPayments))
 adminRouter.put('/payments/:registrationId/verify', requirePermission('PAYMENTS_VERIFY'), adminWriteRateLimiter, asyncHandler(verifyPayment))
+adminRouter.get('/subscriptions', requirePermission('PAYMENTS_VIEW'), asyncHandler(listAdminSubscriptions))
+adminRouter.put('/subscriptions/:id/verify', requirePermission('PAYMENTS_VERIFY'), adminWriteRateLimiter, asyncHandler(verifyAdminSubscription))
+adminRouter.put('/subscriptions/:id/reject', requirePermission('PAYMENTS_VERIFY'), adminWriteRateLimiter, asyncHandler(rejectAdminSubscription))
 
 // Gallery Studio
 adminRouter.get('/gallery/albums', requirePermission('GALLERY_VIEW'), asyncHandler(listGalleryAlbums))

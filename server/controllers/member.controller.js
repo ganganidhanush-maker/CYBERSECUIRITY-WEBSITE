@@ -311,7 +311,11 @@ export async function completeIntroVideo(request, response) {
 export async function getSessionStatus(request, response) {
   const isStudent = request.user.role === 'STUDENT'
   const isPrimary = Boolean(request.user.isPrimaryAdmin)
-  const introVideoCompleted = isPrimary || !isStudent || Boolean(request.session?.introVideoCompleted)
+
+  const introVideoSetting = await prisma.clubSetting.findUnique({ where: { key: 'introVideoEnabled' } })
+  const isVideoEnabled = introVideoSetting?.value !== 'false' && introVideoSetting?.value !== false
+
+  const introVideoCompleted = isPrimary || !isStudent || !isVideoEnabled || Boolean(request.session?.introVideoCompleted)
 
   let activeStudentCount = 1
   try {

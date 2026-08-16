@@ -25,6 +25,13 @@ enum AccountStatus {
   DISABLED
 }
 
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  REJECTED
+}
+
 enum UserPermission {
   ACCOUNT_MANAGEMENT
   DASHBOARD_VIEW
@@ -69,6 +76,7 @@ model User {
   auditEntries           AuditLog[]             @relation("AuditActor")
   auditTargets           AuditLog[]             @relation("AuditTarget")
   complaints             Complaint[]
+  subscriptions          Subscription[]
 
   @@map("users")
 }
@@ -310,3 +318,28 @@ model ClubSetting {
 
   @@map("club_settings")
 }
+
+model Subscription {
+  id              String             @id @default(cuid()) @db.VarChar(191)
+  userId          String             @map("user_id") @db.VarChar(191)
+  amount          Decimal            @db.Decimal(10, 2)
+  paymentDate     DateTime           @map("payment_date")
+  transactionRef  String             @map("transaction_ref") @db.VarChar(120)
+  paymentMethod   String?            @map("payment_method") @db.VarChar(60)
+  receiptImage    String?            @map("receipt_image") @db.LongText
+  status          SubscriptionStatus @default(PENDING)
+  submittedAt     DateTime           @default(now()) @map("submitted_at")
+  verifiedBy      String?            @map("verified_by") @db.VarChar(191)
+  verifiedAt      DateTime?          @map("verified_at")
+  rejectionReason String?            @map("rejection_reason") @db.VarChar(500)
+  expiresAt       DateTime?          @map("expires_at")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([expiresAt])
+  @@map("subscriptions")
+}
+

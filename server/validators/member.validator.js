@@ -184,8 +184,18 @@ export const deleteProtectedAccountSchema = z.object({
 })
 
 export const clubSettingsSchema = z.object({
+  siteStatus: z.enum(['ACTIVE', 'HIBERNATING']).optional(),
+  hibernationStartedAt: optionalText(64),
+  subscriptionEnabled: z.boolean().optional(),
+  subscriptionMonthlyAmount: z.union([z.string(), z.number()]).optional(),
+  subscriptionUpiId: optionalText(120),
+  subscriptionQrUrl: z.union([z.string(), z.null(), z.undefined()]).transform(value => normalizeImageUrl(value)),
+  introVideoEnabled: z.boolean().optional(),
   introVideoUrl: optionalText(5000),
-  introVideoEnabled: z.boolean().optional().default(true),
+  introVideoRequireTwoMinutes: z.boolean().optional(),
+  clubName: optionalText(120),
+  contactEmail: optionalEmail(),
+  contactPhone: optionalText(32),
   instagramUrl: optionalText(255),
   githubUrl: optionalText(255),
   linkedinUrl: optionalText(255),

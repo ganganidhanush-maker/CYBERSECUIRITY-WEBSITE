@@ -219,11 +219,8 @@ export async function deleteMember(request, response) {
   if (!target) return response.status(404).json({ message: 'Resource not found' })
   if (target.id === request.user.id) return response.status(400).json({ message: 'You cannot delete your own account.' })
 
-  if (target.isPrimaryAdmin) {
-    const parsed = deleteProtectedAccountSchema.safeParse(request.body)
-    if (!parsed.success) return response.status(400).json({ message: 'The Primary President account requires a valid authentication code to delete.' })
-    const verification = await verifyPresidentActionCode(target, parsed.data.authenticationCode)
-    if (!verification.ok) return response.status(403).json({ message: verification.message })
+  if (target.isPrimaryAdmin || target.role === 'PRESIDENT') {
+    return response.status(403).json({ message: 'The Primary President account cannot be deleted. Primary President status must first be transferred to another administrator.' })
   }
 
   await prisma.user.delete({ where: { id: target.id } })
@@ -804,6 +801,28 @@ export async function getClubSettings(request, response) {
 export async function updateClubSettings(request, response) {
   const parsed = clubSettingsSchema.safeParse(request.body)
   if (!parsed.success) return response.status(400).json({ message: 'Invalid settings payload.' })
+
+  const globalPresidentKeys = [
+    'siteStatus',
+    'hibernationStartedAt',
+    'subscriptionEnabled',
+    'subscriptionMonthlyAmount',
+    'subscriptionUpiId',
+    'subscriptionQrUrl',
+    'introVideoEnabled',
+    'introVideoUrl',
+    'introVideoRequireTwoMinutes',
+  ]
+
+  const hasGlobalKey = Object.keys(parsed.data).some(k => globalPresidentKeys.includes(k) && parsed.data[k] !== undefined)
+  if (hasGlobalKey && !request.user.isPrimaryAdmin) {
+    return response.status(403).json({ message: 'Only the Primary President can modify global site, subscription, or video settings.' })
+  }
+
+  // If site status is being changed to HIBERNATING, record the timestamp if not already provided
+  if (parsed.data.siteStatus === 'HIBERNATING' && !parsed.data.hibernationStartedAt) {
+    parsed.data.hibernationStartedAt = new Date().toISOString()
+  }
 
   const entries = Object.entries(parsed.data)
   for (const [key, val] of entries) {

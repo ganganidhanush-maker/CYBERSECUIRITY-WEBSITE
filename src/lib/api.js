@@ -30,7 +30,12 @@ async function request(path, options = {}, retried = false) {
     return request(path, options, true)
   }
   if (!response.ok) {
-    throw new Error(body.message || 'Something went wrong. Please try again.')
+    const error = new Error(body.message || 'Something went wrong. Please try again.')
+    error.status = response.status
+    error.code = body.code
+    error.hibernating = body.hibernating
+    error.hibernationStartedAt = body.hibernationStartedAt
+    throw error
   }
   return body
 }
@@ -75,9 +80,14 @@ export const adminApi = {
   getEventDetailsWithStats: eventId => request(`/admin/events/${eventId}/details`),
   listEventRegistrations: eventId => request(`/admin/events/${eventId}/registrations`),
 
-  // Payments
+  // Event Payments
   listPayments: () => request('/admin/payments'),
   verifyPayment: (registrationId, paymentStatus, paymentNotes) => request(`/admin/payments/${registrationId}/verify`, { method: 'PUT', body: JSON.stringify({ paymentStatus, paymentNotes }) }),
+
+  // Student Membership Subscriptions
+  listSubscriptions: () => request('/admin/subscriptions'),
+  verifySubscription: id => request(`/admin/subscriptions/${id}/verify`, { method: 'PUT' }),
+  rejectSubscription: (id, rejectionReason) => request(`/admin/subscriptions/${id}/reject`, { method: 'PUT', body: JSON.stringify({ rejectionReason }) }),
 
   // Gallery
   listGalleryAlbums: () => request('/admin/gallery/albums'),
@@ -115,4 +125,6 @@ export const memberApi = {
   getSessionStatus: () => request('/member/session-status'),
   completeIntroVideo: () => request('/member/intro-video/complete', { method: 'POST' }),
   completeWaitingQueue: () => request('/member/waiting-queue/complete', { method: 'POST' }),
+  getSubscriptionStatus: () => request('/member/subscription/status'),
+  submitSubscription: data => request('/member/subscription/submit', { method: 'POST', body: JSON.stringify(data) }),
 }
