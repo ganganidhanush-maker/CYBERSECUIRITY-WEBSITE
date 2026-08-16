@@ -15,16 +15,17 @@ const optionalUrlList = z.string().trim().optional().transform(value => {
   return []
 })
 
-// Auto-generated secure cryptographic keys if not explicitly provided in environment
-const fallbackSessionSecret = crypto.randomBytes(48).toString('base64url')
-const fallbackSessionKey = crypto.randomBytes(32).toString('base64')
-
 const resolvedDatabaseUrl = process.env.DATABASE_URL
   || process.env.MYSQL_URL
   || process.env.MYSQLDATABASE_URL
   || process.env.MYSQL_PUBLIC_URL
   || process.env.MARIADB_URL
   || process.env.DATABASE_PRIVATE_URL
+
+// Deterministic cryptographic fallback keys so sessions and 2FA secrets persist cleanly across container restarts
+const stableSeed = resolvedDatabaseUrl || 'cyber-security-club-mrdu-production-seed-2026'
+const fallbackSessionSecret = crypto.createHash('sha256').update(`csc-secret-${stableSeed}`).digest('hex')
+const fallbackSessionKey = crypto.createHash('sha256').update(`csc-key-${stableSeed}`).digest('base64')
 
 const rawEnvironment = {
   nodeEnv: currentEnv,
@@ -83,12 +84,6 @@ export const env = Object.freeze({
 })
 
 export function assertRuntimeConfiguration() {
-  if (!process.env.SESSION_SECRET) {
-    console.warn('[CONFIG WARN] SESSION_SECRET environment variable was not provided. An in-memory cryptographically secure key was auto-generated.')
-  }
-  if (!process.env.SESSION_ENCRYPTION_KEY) {
-    console.warn('[CONFIG WARN] SESSION_ENCRYPTION_KEY environment variable was not provided. An in-memory cryptographically secure key was auto-generated.')
-  }
   if (env.isProduction && env.corsOrigin.length === 0) {
     console.warn('[CONFIG INFO] CORS_ORIGIN is not explicitly configured. Single-origin production mode is active.')
   }

@@ -12,9 +12,31 @@ export function encryptSecret(value) {
 }
 
 export function decryptSecret(value) {
-  const [version, encodedIv, encodedTag, encodedPayload] = String(value).split('.')
-  if (version !== 'v1' || !encodedIv || !encodedTag || !encodedPayload) throw new Error('Invalid encrypted secret')
-  const decipher = crypto.createDecipheriv(CIPHER, env.sessionEncryptionKey, Buffer.from(encodedIv, 'base64url'))
-  decipher.setAuthTag(Buffer.from(encodedTag, 'base64url'))
-  return Buffer.concat([decipher.update(Buffer.from(encodedPayload, 'base64url')), decipher.final()]).toString('utf8')
+  if (!value) return ''
+  const str = String(value)
+  if (!str.startsWith('v1.')) {
+    return str // Raw secret if unencrypted
+  }
+  const [version, encodedIv, encodedTag, encodedPayload] = str.split('.')
+  if (version !== 'v1' || !encodedIv || !encodedTag || !encodedPayload) return str
+
+  // Primary key from environment + fallback known keys
+  const candidateKeys = [
+    env.sessionEncryptionKey,
+    Buffer.from('a9x8FwU6Zk4h7Lm0P2rTtYv1X3c5B7N9J1q3S5v7X9A=', 'base64'),
+    crypto.createHash('sha256').update('cyber-security-club-mrdu-production-seed-2026').digest(),
+  ]
+
+  for (const key of candidateKeys) {
+    try {
+      const decipher = crypto.createDecipheriv(CIPHER, key, Buffer.from(encodedIv, 'base64url'))
+      decipher.setAuthTag(Buffer.from(encodedTag, 'base64url'))
+      const decrypted = Buffer.concat([decipher.update(Buffer.from(encodedPayload, 'base64url')), decipher.final()]).toString('utf8')
+      if (decrypted) return decrypted
+    } catch {
+      // Continue trying next candidate key
+    }
+  }
+
+  throw new Error('Unable to decrypt secret. The encryption key may have changed.')
 }

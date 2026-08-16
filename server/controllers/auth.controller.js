@@ -114,7 +114,7 @@ export async function verifyTwoFactorLogin(request, response) {
   const parsed = totpCodeSchema.safeParse(request.body)
   const pendingUserId = request.session?.pendingTwoFactorUserId
   const pendingAt = request.session?.pendingTwoFactorAt
-  if (!parsed.success || !pendingUserId || !pendingAt || Date.now() - pendingAt > 5 * 60_000) {
+  if (!parsed.success || !pendingUserId || !pendingAt || Date.now() - pendingAt > 10 * 60_000) {
     await destroySession(request)
     response.clearCookie('csc.sid', sessionCookieOptions)
     return response.status(401).json({ message: 'Two-factor verification expired. Please log in again.' })
@@ -127,10 +127,16 @@ export async function verifyTwoFactorLogin(request, response) {
     return response.status(401).json({ message: 'Two-factor verification expired. Please log in again.' })
   }
   let validCode = false
-  try { validCode = verifyTotp(decryptSecret(user.totpSecretEncrypted), parsed.data.code) } catch { validCode = false }
+  try {
+    const rawSecret = decryptSecret(user.totpSecretEncrypted)
+    validCode = verifyTotp(rawSecret, parsed.data.code)
+  } catch (err) {
+    console.error('[2FA VERIFICATION ERROR]:', err.message)
+    validCode = false
+  }
   if (!validCode) {
     await tryWriteAuditLog({ actorUserId: user.id, action: 'TWO_FACTOR_LOGIN_FAILED', ...auditRequest(request) })
-    return response.status(401).json({ message: 'Invalid authentication code.' })
+    return response.status(401).json({ message: 'Invalid authentication code. Please check your authenticator app.' })
   }
 
   const csrfToken = await establishAuthenticatedSession(request, user)

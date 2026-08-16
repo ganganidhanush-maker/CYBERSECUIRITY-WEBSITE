@@ -566,8 +566,8 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
         <div style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', background: 'rgba(5, 10, 18, 0.6)', border: '1px solid rgba(82, 187, 245, 0.2)', borderRadius: '10px', width: 'fit-content' }}>
           <span style={{ color: '#70ddb4', fontSize: '14px' }}>🔒</span>
           <div>
-            <b style={{ color: '#edf7ff', fontSize: '11px', display: 'block' }}>ZERO-TRUST VERIFIED PORTAL</b>
-            <small style={{ color: '#728da1', font: '500 9px "DM Mono", monospace' }}>256-BIT SESSION ENCRYPTION ACTIVE</small>
+            <b style={{ color: '#edf7ff', fontSize: '11px', display: 'block' }}>CYBER SECURITY CLUB PORTAL</b>
+            <small style={{ color: '#728da1', font: '500 9px "DM Mono", monospace' }}>OFFICIAL STUDENT & FACULTY ACCESS · MRDU</small>
           </div>
         </div>
       </section>
@@ -597,7 +597,7 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
                   maxLength={32}
                   pattern="[A-Za-z0-9]+"
                   autoComplete="username"
-                  placeholder="e.g. 25EU07R0015"
+                  placeholder="e.g. CSC2026M01"
                   value={memberIdVal}
                   onChange={e => setMemberIdVal(e.target.value.toUpperCase())}
                 />
@@ -763,7 +763,7 @@ function PasswordResetRequest({ onBack }) {
             <label htmlFor="recovery-member-id">Member ID</label>
             <div className="login-input-wrapper">
               <span className="login-input-icon">👤</span>
-              <input id="recovery-member-id" name="memberId" required maxLength={32} pattern="[A-Za-z0-9]+" autoComplete="username" placeholder="e.g. 25EU07R0015" />
+              <input id="recovery-member-id" name="memberId" required maxLength={32} pattern="[A-Za-z0-9]+" autoComplete="username" placeholder="e.g. CSC2026M01" />
             </div>
           </div>
 
@@ -1170,7 +1170,7 @@ function MemberManagement({ user, logout, onNavigate }) {
               <div className="member-form-grid">
                 <label>
                   Member ID (Unique)
-                  <input name="memberId" required placeholder="e.g. 25EU07R0099" />
+                  <input name="memberId" required placeholder="e.g. CSC2026M01" />
                 </label>
                 <label>
                   Assigned Club Role

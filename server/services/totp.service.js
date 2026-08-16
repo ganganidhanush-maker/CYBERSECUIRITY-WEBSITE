@@ -59,9 +59,16 @@ export function generateTotp(secret, timestamp = Date.now()) {
 }
 
 export function verifyTotp(secret, code, timestamp = Date.now()) {
-  if (!/^\d{6}$/.test(String(code))) return false
-  return [-30_000, 0, 30_000].some(offset => {
-    const expected = generateToken(secret, timestamp + offset)
-    return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(String(code)))
+  if (!secret || !/^\d{6}$/.test(String(code).trim())) return false
+  const cleanCode = String(code).trim()
+  // Industry-standard window covering ±60 seconds to tolerate device clock drift
+  const timeOffsets = [-60_000, -30_000, 0, 30_000, 60_000]
+  return timeOffsets.some(offset => {
+    try {
+      const expected = generateToken(secret, timestamp + offset)
+      return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(cleanCode))
+    } catch {
+      return false
+    }
   })
 }
