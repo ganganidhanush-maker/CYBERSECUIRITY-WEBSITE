@@ -517,6 +517,8 @@ function LivePortal({ user, logout, activeTab, onNavigate, title, children }) {
 function FinalLogin({ onSignIn, onForgotPassword }) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [memberIdVal, setMemberIdVal] = useState('')
 
   async function submit(event) {
     event.preventDefault()
@@ -540,71 +542,114 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
 
   return (
     <main className="login-page">
-      <section className="showcase">
+      <section className="login-showcase">
         <div className="grid-overlay" />
-        <div className="showcase-top">
-          <i /> MRDU OFFICIAL STUDENT COMMUNITY
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#85d7ff', font: '600 10px "DM Mono", monospace', letterSpacing: '.12em', zIndex: 2 }}>
+          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#70ddb4', boxShadow: '0 0 10px #70ddb4', display: 'inline-block' }} />
+          OFFICIAL STUDENT COMMUNITY · MRDU
         </div>
-        <div className="showcase-inner">
+
+        <div style={{ position: 'relative', zIndex: 2, maxWidth: '560px', margin: '40px 0' }}>
           <Crest />
-          <div className="showcase-copy">
+          <div style={{ marginTop: '28px' }}>
             <p className="eyebrow">DEPARTMENT OF CYBER SECURITY</p>
-            <h1>Secure today.<br /><em>Protect tomorrow.</em></h1>
-            <p>Sign in to access your Cyber Security Club command center and portal.</p>
+            <h1 style={{ font: '800 clamp(32px, 4vw, 54px)/1.08 Syne', color: '#edf7ff', margin: '8px 0 16px', letterSpacing: '-.04em' }}>
+              Defend the digital frontier.<br />
+              <em style={{ color: '#85d7ff', fontStyle: 'normal' }}>Empower tomorrow.</em>
+            </h1>
+            <p style={{ color: '#9bb7cc', fontSize: '14px', lineHeight: '1.7', margin: 0 }}>
+              The official hub for student cybersecurity operations, ethical hacking sandboxes, live CTFs, and certified technical workshops.
+            </p>
           </div>
         </div>
-        <div className="network">
-          <span>◉</span>
+
+        <div style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', background: 'rgba(5, 10, 18, 0.6)', border: '1px solid rgba(82, 187, 245, 0.2)', borderRadius: '10px', width: 'fit-content' }}>
+          <span style={{ color: '#70ddb4', fontSize: '14px' }}>🔒</span>
           <div>
-            <b>NETWORK STATUS</b>
-            <small>All systems operational</small>
+            <b style={{ color: '#edf7ff', fontSize: '11px', display: 'block' }}>ZERO-TRUST VERIFIED PORTAL</b>
+            <small style={{ color: '#728da1', font: '500 9px "DM Mono", monospace' }}>256-BIT SESSION ENCRYPTION ACTIVE</small>
           </div>
-          <label>SECURE ACCESS</label>
         </div>
-        <small className="coordinates">MRDU // HYD-17.443 / 78.349</small>
       </section>
+
       <section className="login-panel">
         <div className="login-card">
-          <div className="security-label">SECURE MEMBER ACCESS</div>
-          <h2>Welcome back.</h2>
-          <p>Sign in to access the club portal.</p>
+          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+            <Crest small />
+            <span className="badge badge-president" style={{ marginTop: '12px', display: 'inline-block' }}>
+              SECURE MEMBER ACCESS
+            </span>
+            <h2 style={{ font: '700 24px Syne', color: '#edf7ff', margin: '10px 0 4px' }}>Sign in to Portal</h2>
+            <p style={{ color: '#7e95a7', fontSize: '12px', margin: 0 }}>
+              Enter your authorized Member ID and password.
+            </p>
+          </div>
+
           <form onSubmit={submit} noValidate>
-            <label htmlFor="final-member-id">Member ID</label>
-            <div className="field">
-              <input
-                id="final-member-id"
-                name="memberId"
-                required
-                maxLength={32}
-                pattern="[A-Za-z0-9]+"
-                autoComplete="username"
-                placeholder="Enter your Member ID"
-              />
+            <div className="login-field-group">
+              <label htmlFor="final-member-id">Member ID</label>
+              <div className="login-input-wrapper">
+                <span className="login-input-icon">👤</span>
+                <input
+                  id="final-member-id"
+                  name="memberId"
+                  required
+                  maxLength={32}
+                  pattern="[A-Za-z0-9]+"
+                  autoComplete="username"
+                  placeholder="e.g. 25EU07R0015"
+                  value={memberIdVal}
+                  onChange={e => setMemberIdVal(e.target.value.toUpperCase())}
+                />
+              </div>
             </div>
-            <label htmlFor="final-password">Password</label>
-            <div className="field">
-              <input
-                id="final-password"
-                name="password"
-                type="password"
-                required
-                minLength={12}
-                maxLength={128}
-                autoComplete="current-password"
-                placeholder="Enter your password"
-              />
+
+            <div className="login-field-group">
+              <label htmlFor="final-password">Account Password</label>
+              <div className="login-input-wrapper">
+                <span className="login-input-icon">🔒</span>
+                <input
+                  id="final-password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  minLength={12}
+                  maxLength={128}
+                  autoComplete="current-password"
+                  placeholder="Enter your password"
+                />
+                <button
+                  type="button"
+                  className="login-pwd-toggle"
+                  onClick={() => setShowPassword(p => !p)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  title={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? '🙈' : '👁'}
+                </button>
+              </div>
             </div>
-            {error && <div className="error" role="alert">{error}</div>}
-            <button className="primary login-button" disabled={loading}>
-              {loading ? 'AUTHENTICATING...' : 'LOG IN'}
+
+            {error && (
+              <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid #ef444455', color: '#fca5a5', fontSize: '12px', marginBottom: '16px' }} role="alert">
+                ⚠️ {error}
+              </div>
+            )}
+
+            <button className="primary" disabled={loading} style={{ width: '100%', minHeight: '46px', fontSize: '11px' }}>
+              {loading ? 'AUTHENTICATING SECURE SESSION…' : 'AUTHENTICATE & SIGN IN →'}
             </button>
           </form>
-          <button className="back-button" type="button" onClick={onForgotPassword} style={{ marginTop: '16px' }}>
-            Forgot your password?
-          </button>
-          <div className="authorized">AUTHORIZED MEMBERS ONLY</div>
+
+          <div className="login-footer-links">
+            <button className="back-button" type="button" onClick={onForgotPassword} style={{ margin: 0, fontSize: '11px' }}>
+              Forgot password?
+            </button>
+            <small style={{ color: '#577287', font: '500 9px "DM Mono", monospace' }}>
+              MRDU // HYD
+            </small>
+          </div>
         </div>
-        <footer>© 2026 CYBER SECURITY CLUB, MRDU · SECURED PORTAL</footer>
       </section>
     </main>
   )
@@ -629,30 +674,48 @@ function TwoFactorLogin({ onVerify, onBack }) {
   }
 
   return (
-    <main className="auth-loading" style={{ minHeight: '100vh', display: 'grid', placeContent: 'center' }}>
-      <section className="login-card" style={{ background: '#0d1520', padding: '32px', borderRadius: '14px', border: '1px solid var(--line)' }}>
-        <div className="security-label">TWO-FACTOR AUTHENTICATION</div>
-        <h2>Verify your sign-in</h2>
-        <p>Enter the six-digit code from your authenticator app.</p>
+    <main className="hibernation-page">
+      <div className="grid-overlay" />
+      <section className="login-card" style={{ maxWidth: '440px', textAlign: 'center' }}>
+        <Crest small />
+        <span className="badge badge-president" style={{ margin: '14px 0 8px', display: 'inline-block' }}>
+          TWO-FACTOR VERIFICATION
+        </span>
+        <h2 style={{ font: '700 24px Syne', color: '#edf7ff', margin: '4px 0 8px' }}>Security Challenge</h2>
+        <p style={{ color: '#8aa2b4', fontSize: '13px', margin: '0 0 20px' }}>
+          Enter the six-digit TOTP code from your authenticator app.
+        </p>
+
         <form onSubmit={submit}>
-          <label htmlFor="two-factor-code">Authentication code</label>
-          <div className="field">
-            <input
-              id="two-factor-code"
-              value={code}
-              onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              placeholder="000000"
-              required
-            />
+          <div className="login-field-group" style={{ textAlign: 'left' }}>
+            <label htmlFor="two-factor-code">Authentication Code</label>
+            <div className="login-input-wrapper">
+              <span className="login-input-icon">🔑</span>
+              <input
+                id="two-factor-code"
+                value={code}
+                onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="000000"
+                required
+                style={{ textAlign: 'center', fontSize: '18px', letterSpacing: '0.3em', paddingLeft: '20px' }}
+              />
+            </div>
           </div>
-          {error && <div className="error" role="alert">{error}</div>}
-          <button className="primary login-button" disabled={loading || code.length !== 6}>
-            {loading ? 'VERIFYING...' : 'VERIFY AND CONTINUE'}
+
+          {error && (
+            <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid #ef444455', color: '#fca5a5', fontSize: '12px', marginBottom: '16px' }} role="alert">
+              ⚠️ {error}
+            </div>
+          )}
+
+          <button className="primary" disabled={loading || code.length !== 6} style={{ width: '100%', minHeight: '46px' }}>
+            {loading ? 'VERIFYING…' : 'VERIFY & CONTINUE →'}
           </button>
         </form>
-        <button className="back-button" type="button" onClick={onBack} style={{ marginTop: '16px' }}>
+
+        <button className="back-button" type="button" onClick={onBack} style={{ marginTop: '20px', display: 'inline-flex' }}>
           ← Back to sign in
         </button>
       </section>
@@ -681,25 +744,42 @@ function PasswordResetRequest({ onBack }) {
   }
 
   return (
-    <main className="auth-loading" style={{ minHeight: '100vh', display: 'grid', placeContent: 'center' }}>
-      <section className="login-card" style={{ background: '#0d1520', padding: '32px', borderRadius: '14px', border: '1px solid var(--line)' }}>
-        <div className="security-label">PASSWORD RECOVERY</div>
-        <h2>Recover your account</h2>
-        <p>Enter your Member ID. If an email is on record, recovery instructions will be provided.</p>
+    <main className="hibernation-page">
+      <div className="grid-overlay" />
+      <section className="login-card" style={{ maxWidth: '440px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <Crest small />
+          <span className="badge badge-president" style={{ margin: '12px 0 6px', display: 'inline-block' }}>
+            PASSWORD RECOVERY
+          </span>
+          <h2 style={{ font: '700 24px Syne', color: '#edf7ff', margin: '4px 0 6px' }}>Reset Your Password</h2>
+          <p style={{ color: '#8aa2b4', fontSize: '12px', margin: 0 }}>
+            Enter your Member ID to receive password recovery instructions.
+          </p>
+        </div>
+
         <form onSubmit={submit}>
-          <label htmlFor="recovery-member-id">Member ID</label>
-          <div className="field">
-            <input id="recovery-member-id" name="memberId" required maxLength={32} pattern="[A-Za-z0-9]+" autoComplete="username" placeholder="e.g. MEMBER12345" />
+          <div className="login-field-group">
+            <label htmlFor="recovery-member-id">Member ID</label>
+            <div className="login-input-wrapper">
+              <span className="login-input-icon">👤</span>
+              <input id="recovery-member-id" name="memberId" required maxLength={32} pattern="[A-Za-z0-9]+" autoComplete="username" placeholder="e.g. 25EU07R0015" />
+            </div>
           </div>
-          {error && <div className="error" role="alert">{error}</div>}
-          {message && <p className="member-form-success" role="status">{message}</p>}
-          <button className="primary login-button" disabled={loading}>
-            {loading ? 'SENDING...' : 'SEND RESET LINK'}
+
+          {error && <p className="member-form-error">⚠️ {error}</p>}
+          {message && <p className="member-form-success">✓ {message}</p>}
+
+          <button className="primary" disabled={loading} style={{ width: '100%', minHeight: '44px', marginTop: '10px' }}>
+            {loading ? 'SENDING INSTRUCTIONS…' : 'SEND RESET INSTRUCTIONS'}
           </button>
         </form>
-        <button className="back-button" type="button" onClick={onBack} style={{ marginTop: '16px' }}>
-          ← Back to sign in
-        </button>
+
+        <div style={{ textAlign: 'center', marginTop: '18px' }}>
+          <button className="back-button" type="button" onClick={onBack}>
+            ← Back to sign in
+          </button>
+        </div>
       </section>
     </main>
   )
@@ -730,29 +810,43 @@ function PasswordReset({ token, onComplete }) {
   }
 
   return (
-    <main className="auth-loading" style={{ minHeight: '100vh', display: 'grid', placeContent: 'center' }}>
-      <section className="login-card" style={{ background: '#0d1520', padding: '32px', borderRadius: '14px', border: '1px solid var(--line)' }}>
-        <div className="security-label">SECURE PASSWORD RESET</div>
-        <h2>Choose a new password</h2>
-        <p>Must be at least 12 characters with uppercase, lowercase, number, and symbol.</p>
+    <main className="hibernation-page">
+      <div className="grid-overlay" />
+      <section className="login-card" style={{ maxWidth: '440px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <Crest small />
+          <h2 style={{ font: '700 24px Syne', color: '#edf7ff', margin: '10px 0 6px' }}>Set New Password</h2>
+          <p style={{ color: '#8aa2b4', fontSize: '12px', margin: 0 }}>
+            Must be at least 12 characters with uppercase, lowercase, number, and symbol.
+          </p>
+        </div>
+
         <form onSubmit={submit}>
-          <label htmlFor="new-password">New password</label>
-          <div className="field">
-            <input id="new-password" name="password" type="password" minLength={12} required autoComplete="new-password" placeholder="At least 12 characters" />
+          <div className="login-field-group">
+            <label htmlFor="new-password">New Password</label>
+            <div className="login-input-wrapper">
+              <input id="new-password" name="password" type="password" minLength={12} required autoComplete="new-password" placeholder="At least 12 characters" />
+            </div>
           </div>
-          <label htmlFor="confirm-password">Confirm password</label>
-          <div className="field">
-            <input id="confirm-password" name="confirmPassword" type="password" minLength={12} required autoComplete="new-password" placeholder="Repeat new password" />
+          <div className="login-field-group">
+            <label htmlFor="confirm-password">Confirm New Password</label>
+            <div className="login-input-wrapper">
+              <input id="confirm-password" name="confirmPassword" type="password" minLength={12} required autoComplete="new-password" placeholder="Repeat password" />
+            </div>
           </div>
-          {error && <div className="error" role="alert">{error}</div>}
-          <button className="primary login-button" disabled={loading}>
-            {loading ? 'UPDATING...' : 'UPDATE PASSWORD'}
+
+          {error && <p className="member-form-error">⚠️ {error}</p>}
+
+          <button className="primary" disabled={loading} style={{ width: '100%', minHeight: '44px', marginTop: '10px' }}>
+            {loading ? 'UPDATING…' : 'UPDATE PASSWORD & SIGN IN'}
           </button>
         </form>
       </section>
     </main>
   )
 }
+
+
 
 // ----------------------------------------------------
 // Account Security (2FA)
