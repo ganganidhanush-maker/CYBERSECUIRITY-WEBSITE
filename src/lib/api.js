@@ -91,10 +91,15 @@ export const adminApi = {
   replySupportTicket: (ticketId, message, status) => request(`/admin/support/${ticketId}/reply`, { method: 'POST', body: JSON.stringify({ message, status }) }),
   updateSupportTicketStatus: (ticketId, status) => request(`/admin/support/${ticketId}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
 
+  // Executive Council Chat (Leads Only)
+  listCouncilMessages: () => request('/admin/chat/messages'),
+  sendCouncilMessage: message => request('/admin/chat/messages', { method: 'POST', body: JSON.stringify({ message }) }),
+
   // Complaints & Audits
   listComplaints: () => request('/admin/complaints'),
   updateComplaintStatus: (complaintId, status) => request(`/admin/complaints/${complaintId}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
   listAuditLogs: () => request('/admin/audit-logs'),
+  clearAuditLogs: authCode => request('/admin/audit-logs/clear', { method: 'POST', body: JSON.stringify({ authCode }) }),
 }
 
 export const memberApi = {

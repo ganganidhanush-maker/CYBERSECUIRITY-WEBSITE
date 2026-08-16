@@ -81,6 +81,7 @@ model User {
   supportTickets         SupportTicket[]        @relation("UserTickets")
   supportReplies         SupportReply[]         @relation("UserTicketReplies")
   notifications          Notification[]
+  councilMessages        CouncilMessage[]       @relation("CouncilUserMessages")
 
   @@map("users")
 }
@@ -394,5 +395,17 @@ model Notification {
   @@index([type])
   @@index([createdAt])
   @@map("notifications")
+}
+
+model CouncilMessage {
+  id        String   @id @default(cuid()) @db.VarChar(191)
+  userId    String   @map("user_id") @db.VarChar(191)
+  message   String   @db.LongText
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User     @relation("CouncilUserMessages", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("council_messages")
 }
 

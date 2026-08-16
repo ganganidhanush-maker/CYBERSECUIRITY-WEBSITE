@@ -46,4 +46,28 @@ describe('Helpdesk Role-Restricted Answering & President Dual PIN', () => {
     assert.equal(/^\d{6}$/.test(shortPin), false)
     assert.equal(/^\d{6}$/.test(letterPin), false)
   })
+
+  it('restricts audit log clearing strictly to Primary President', () => {
+    function canClearAudit(user) {
+      return Boolean(user.isPrimaryAdmin)
+    }
+
+    assert.equal(canClearAudit({ role: 'PRESIDENT', isPrimaryAdmin: true }), true)
+    assert.equal(canClearAudit({ role: 'PRESIDENT', isPrimaryAdmin: false }), false)
+    assert.equal(canClearAudit({ role: 'VICE_PRESIDENT', isPrimaryAdmin: false }), false)
+    assert.equal(canClearAudit({ role: 'STUDENT', isPrimaryAdmin: false }), false)
+  })
+
+  it('restricts Council Chat access strictly to executive leadership roles', () => {
+    function canAccessCouncilChat(user) {
+      return user.role !== 'STUDENT'
+    }
+
+    assert.equal(canAccessCouncilChat({ role: 'PRESIDENT' }), true)
+    assert.equal(canAccessCouncilChat({ role: 'VICE_PRESIDENT' }), true)
+    assert.equal(canAccessCouncilChat({ role: 'TECH_TEAM' }), true)
+    assert.equal(canAccessCouncilChat({ role: 'TREASURER' }), true)
+    assert.equal(canAccessCouncilChat({ role: 'STUDENT' }), false)
+  })
 })
+

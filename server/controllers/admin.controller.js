@@ -996,3 +996,85 @@ export async function updateSupportTicketStatus(request, response) {
 
   return response.status(200).json({ ticket: updated })
 }
+
+// ----------------------------------------------------
+// Clear Audit Logs (Primary President Only)
+// ----------------------------------------------------
+export async function clearAuditLogs(request, response) {
+  if (!request.user.isPrimaryAdmin) {
+    return response.status(403).json({ message: 'Only the Primary President is authorized to clear security audit logs.' })
+  }
+
+  const { authCode } = request.body || {}
+  if (!authCode) {
+    return response.status(400).json({ message: 'Please enter your Master Security PIN or Password to confirm.' })
+  }
+
+  const president = await prisma.user.findUnique({ where: { id: request.user.id } })
+  let valid = false
+
+  if (president.masterSecurityPinHash) {
+    valid = await bcrypt.compare(String(authCode), president.masterSecurityPinHash)
+  }
+  if (!valid && president.passwordHash) {
+    valid = await bcrypt.compare(String(authCode), president.passwordHash)
+  }
+
+  if (!valid) {
+    return response.status(401).json({ message: 'Authentication failed. Invalid Master Security PIN or Password.' })
+  }
+
+  // Delete all existing logs
+  await prisma.auditLog.deleteMany()
+
+  // Record a single fresh audit log
+  await tryWriteAuditLog({
+    actorUserId: request.user.id,
+    action: 'AUDIT_LOG_PURGED_BY_PRIMARY_PRESIDENT',
+    metadata: {
+      purgedBy: request.user.memberId,
+      timestamp: new Date().toISOString(),
+    },
+    ...auditRequest(request),
+  })
+
+  return response.status(200).json({ message: 'Security audit logs cleared successfully.' })
+}
+
+// ----------------------------------------------------
+// Executive Council Chat Room (Leads Only)
+// ----------------------------------------------------
+export async function listCouncilMessages(request, response) {
+  const messages = await prisma.councilMessage.findMany({
+    include: {
+      user: {
+        include: { profile: true },
+      },
+    },
+    orderBy: { createdAt: 'asc' },
+    take: 100,
+  })
+
+  return response.status(200).json({ messages })
+}
+
+export async function sendCouncilMessage(request, response) {
+  const { message } = request.body || {}
+  if (!message || !String(message).trim()) {
+    return response.status(400).json({ message: 'Message text cannot be empty.' })
+  }
+
+  const created = await prisma.councilMessage.create({
+    data: {
+      userId: request.user.id,
+      message: String(message).trim(),
+    },
+    include: {
+      user: {
+        include: { profile: true },
+      },
+    },
+  })
+
+  return response.status(201).json({ message: created })
+}

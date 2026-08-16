@@ -394,6 +394,7 @@ function Sidebar({ user, logout, activeTab, onNavigate, isOpen, onClose }) {
         ['💎', 'Subscriptions', 'admin-subscriptions', has('PAYMENTS_VIEW') || user.role === 'TREASURER' || user.role === 'PRESIDENT'],
         ['💳', 'Event Payments', 'admin-payments', has('PAYMENTS_VIEW')],
         ['💬', 'Helpdesk & Doubts', 'admin-support', true],
+        ['🛡️', 'Council Room', 'admin-chat', true],
         ['▧', 'Gallery', 'admin-gallery', has('GALLERY_VIEW') || has('GALLERY_MANAGE')],
         ['👥', 'Team / Leaders', 'admin-team', has('TEAM_MANAGE')],
         ['⚙', 'Settings & Links', 'admin-settings', has('SETTINGS_MANAGE')],
@@ -4764,13 +4765,41 @@ function AuditLogView({ user, logout, onNavigate }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedLog, setSelectedLog] = useState(null)
 
-  useEffect(() => {
-    let mounted = true
+  // Clear Audit Modal (Primary President Only)
+  const [clearModalOpen, setClearModalOpen] = useState(false)
+  const [authCode, setAuthCode] = useState('')
+  const [clearing, setClearing] = useState(false)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+
+  function loadLogs() {
+    setLoading(true)
     adminApi.listAuditLogs()
-      .then(({ auditLogs }) => { if (mounted) setLogs(auditLogs || []) })
-      .finally(() => { if (mounted) setLoading(false) })
-    return () => { mounted = false }
+      .then(({ auditLogs }) => { setLogs(auditLogs || []) })
+      .finally(() => { setLoading(false) })
+  }
+
+  useEffect(() => {
+    loadLogs()
   }, [])
+
+  async function handleClearAudit(e) {
+    e.preventDefault()
+    setClearing(true)
+    setError('')
+    setMessage('')
+    try {
+      const res = await adminApi.clearAuditLogs(authCode)
+      setMessage(res.message)
+      setClearModalOpen(false)
+      setAuthCode('')
+      loadLogs()
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setClearing(false)
+    }
+  }
 
   const categories = [
     { id: 'ALL', label: 'All Audits', icon: '◫' },
@@ -4809,8 +4838,23 @@ function AuditLogView({ user, logout, onNavigate }) {
             <h1>Security Audit Log</h1>
             <p>Protected immutable logs of administrative activities, logins, and configurations.</p>
           </div>
-          <span className="president-lock">PROTECTED RECORDS</span>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {user.isPrimaryAdmin && (
+              <button
+                type="button"
+                className="action-btn delete-btn"
+                onClick={() => setClearModalOpen(true)}
+                style={{ padding: '7px 14px', fontSize: '11px', fontWeight: 'bold' }}
+              >
+                🗑 CLEAR ALL AUDIT LOGS
+              </button>
+            )}
+            <span className="president-lock">PROTECTED RECORDS</span>
+          </div>
         </div>
+
+        {message && <p className="member-form-success">{message}</p>}
+        {error && <p className="member-form-error">{error}</p>}
 
         {/* Category Filters */}
         <div className="audit-tabs">
@@ -4899,6 +4943,42 @@ function AuditLogView({ user, logout, onNavigate }) {
           )}
         </article>
 
+        {/* Clear Audit Confirmation Modal */}
+        {clearModalOpen && (
+          <div className="photo-lightbox" onClick={() => setClearModalOpen(false)}>
+            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: '#0d1522', padding: '28px', borderRadius: '14px', border: '1px solid #f8717155', maxWidth: '440px', width: '100%' }}>
+              <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                <span style={{ fontSize: '36px' }}>⚠️</span>
+                <h3 style={{ margin: '8px 0 4px', font: '700 20px Syne', color: '#f87171' }}>Clear Audit Logs</h3>
+                <p style={{ color: '#8aa2b4', fontSize: '12px', margin: 0 }}>
+                  This will purge all previous compliance records from the database. Only the Primary President can execute this.
+                </p>
+              </div>
+
+              <form onSubmit={handleClearAudit}>
+                <label style={{ display: 'block', fontSize: '11px', color: '#b4c7d5', marginBottom: '6px' }}>
+                  Enter Master Security PIN or Password *
+                  <input
+                    type="password"
+                    required
+                    placeholder="Enter PIN or password to authorize"
+                    value={authCode}
+                    onChange={e => setAuthCode(e.target.value)}
+                    style={{ width: '100%', height: '40px', padding: '0 12px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', marginTop: '4px' }}
+                  />
+                </label>
+
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '16px' }}>
+                  <button type="button" className="action-btn cancel-btn" onClick={() => setClearModalOpen(false)}>Cancel</button>
+                  <button type="submit" className="primary" disabled={clearing || !authCode} style={{ background: '#dc2626' }}>
+                    {clearing ? 'PURGING…' : 'CONFIRM PURGE'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* Audit Details Modal */}
         {selectedLog && (
           <div className="photo-lightbox" onClick={() => setSelectedLog(null)}>
@@ -4972,6 +5052,135 @@ function AuditLogView({ user, logout, onNavigate }) {
 }
 
 // ----------------------------------------------------
+// Executive Council Chat Room (Leads Only)
+// ----------------------------------------------------
+function CouncilChatView({ user, logout, onNavigate }) {
+  const [messages, setMessages] = useState([])
+  const [text, setText] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [sending, setSending] = useState(false)
+  const messagesEndRef = useRef(null)
+
+  function loadMessages() {
+    adminApi.listCouncilMessages()
+      .then(res => setMessages(res.messages || []))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadMessages()
+    const interval = setInterval(loadMessages, 3500)
+    return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  async function handleSend(e) {
+    e.preventDefault()
+    if (!text.trim() || sending) return
+    setSending(true)
+    try {
+      const res = await adminApi.sendCouncilMessage(text.trim())
+      setMessages(c => [...c, res.message])
+      setText('')
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <LivePortal user={user} logout={logout} activeTab="admin-chat" onNavigate={onNavigate} title="COUNCIL ROOM">
+      <section className="member-management" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)' }}>
+        <div className="member-heading" style={{ marginBottom: '14px' }}>
+          <div>
+            <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
+              ← COMMAND CENTER
+            </button>
+            <p className="eyebrow">RESTRICTED LEADERSHIP CHANNEL</p>
+            <h1>Executive Council Room</h1>
+            <p>Exclusive internal communications room for club leads, coordinators, and the President.</p>
+          </div>
+          <span className="president-lock" style={{ background: '#1c182d', color: '#d5baff', borderColor: '#d5baff44' }}>
+            🛡️ LEADS ONLY
+          </span>
+        </div>
+
+        <article className="account-form-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, padding: '16px' }}>
+          {/* Chat Feed */}
+          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingRight: '6px', marginBottom: '14px' }}>
+            {loading ? (
+              <p className="directory-state" style={{ margin: 'auto' }}>Loading council communications...</p>
+            ) : messages.length === 0 ? (
+              <p className="directory-state" style={{ margin: 'auto' }}>No messages yet. Start the council discussion below!</p>
+            ) : (
+              messages.map(m => {
+                const isMe = m.userId === user.id
+                const isPresident = m.user?.isPrimaryAdmin || m.user?.role === 'PRESIDENT'
+                return (
+                  <div
+                    key={m.id}
+                    style={{
+                      display: 'flex',
+                      gap: '12px',
+                      alignSelf: isMe ? 'flex-end' : 'flex-start',
+                      maxWidth: '80%',
+                      flexDirection: isMe ? 'row-reverse' : 'row',
+                    }}
+                  >
+                    {m.user?.profile?.profileImage ? (
+                      <img src={m.user.profile.profileImage} alt={m.user.name} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: isPresident ? '2px solid #ffb74d' : '1px solid #52bbf555', flexShrink: 0 }} />
+                    ) : (
+                      <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: isPresident ? '#78350f' : '#1c2e42', color: isPresident ? '#ffd54f' : '#85d7ff', display: 'grid', placeItems: 'center', font: '700 11px Syne', flexShrink: 0 }}>
+                        {m.user?.profile?.name?.slice(0, 2).toUpperCase() || m.user?.memberId?.slice(0, 2) || 'CS'}
+                      </div>
+                    )}
+                    <div style={{ background: isMe ? '#163854' : '#081320', border: isPresident ? '1px solid #ffb74d66' : isMe ? '1px solid #52bbf544' : '1px solid var(--line)', padding: '10px 14px', borderRadius: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <b style={{ color: isPresident ? '#ffb74d' : '#85d7ff', fontSize: '11px' }}>
+                          {isPresident ? '👑 ' : ''}{m.user?.profile?.name || m.user?.memberId}
+                        </b>
+                        <span className="badge" style={{ fontSize: '8px', padding: '1px 5px' }}>
+                          {isPresident ? 'PRESIDENT' : getRoleLabel(m.user?.role)}
+                        </span>
+                        <small style={{ color: '#688296', fontSize: '9px', marginLeft: 'auto' }}>
+                          {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </small>
+                      </div>
+                      <p style={{ color: '#edf7ff', fontSize: '12px', margin: 0, lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+                        {m.message}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Message Input */}
+          <form onSubmit={handleSend} style={{ display: 'flex', gap: '10px' }}>
+            <input
+              placeholder={`Send message to Executive Council as ${user.name} (${getRoleLabel(user.role)})...`}
+              value={text}
+              onChange={e => setText(e.target.value)}
+              style={{ flex: 1, height: '44px', padding: '0 16px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
+            />
+            <button className="primary" disabled={sending || !text.trim()} style={{ minHeight: '44px', padding: '0 20px' }}>
+              {sending ? 'SENDING…' : 'SEND ➔'}
+            </button>
+          </form>
+        </article>
+      </section>
+    </LivePortal>
+  )
+}
+
+// ----------------------------------------------------
 // Root App Controller with Path Preservation & Hibernation
 // ----------------------------------------------------
 function App() {
@@ -5002,6 +5211,7 @@ function App() {
     if (['admin/payments', 'admin-payments'].includes(path)) return 'admin-payments'
     if (['admin/subscriptions', 'admin-subscriptions'].includes(path)) return 'admin-subscriptions'
     if (['admin/support', 'admin-support'].includes(path)) return 'admin-support'
+    if (['admin/chat', 'admin-chat'].includes(path)) return 'admin-chat'
     if (['admin/team', 'admin-team'].includes(path)) return 'admin-team'
     if (['admin/gallery', 'admin-gallery'].includes(path)) return 'admin-gallery'
     if (['admin/settings', 'admin-settings'].includes(path)) return 'admin-settings'
@@ -5135,6 +5345,7 @@ function App() {
       if (screen === 'admin-payments') return <PaymentManagement user={user} logout={logout} onNavigate={navigateTo} />
       if (screen === 'admin-subscriptions') return <SubscriptionManagement user={user} logout={logout} onNavigate={navigateTo} />
       if (screen === 'admin-support') return <SupportDeskView user={user} logout={logout} onNavigate={navigateTo} />
+      if (screen === 'admin-chat') return <CouncilChatView user={user} logout={logout} onNavigate={navigateTo} />
       if (screen === 'admin-gallery') return <GalleryManagement user={user} logout={logout} onNavigate={navigateTo} />
       if (screen === 'admin-team') return <TeamManagement user={user} logout={logout} onNavigate={navigateTo} />
       if (screen === 'admin-settings') return <ClubSettingsManager user={user} logout={logout} onNavigate={navigateTo} />

@@ -99,7 +99,21 @@ export async function bootstrapDatabase() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `).catch(() => {})
 
-    // 7. Provision President account if environment credentials provided
+    // 7. Ensure council_messages table exists
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS council_messages (
+        id VARCHAR(191) NOT NULL,
+        user_id VARCHAR(191) NOT NULL,
+        message LONGTEXT NOT NULL,
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (id),
+        INDEX council_messages_user_id_idx (user_id),
+        INDEX council_messages_created_at_idx (created_at),
+        CONSTRAINT fk_council_messages_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `).catch(() => {})
+
+    // 8. Provision President account if environment credentials provided
     const presidentMemberId = process.env.PRESIDENT_MEMBER_ID?.toUpperCase()
     const presidentPassword = process.env.PRESIDENT_INITIAL_PASSWORD
 

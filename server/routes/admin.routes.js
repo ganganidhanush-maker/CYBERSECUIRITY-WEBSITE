@@ -4,6 +4,7 @@ import {
   adminResetPassword,
   changeAccountStatus,
   changeMemberPermissions,
+  clearAuditLogs,
   createClubTeamMember,
   createEvent,
   createGalleryAlbum,
@@ -22,12 +23,14 @@ import {
   listAuditLogs,
   listClubTeam,
   listComplaints,
+  listCouncilMessages,
   listEventRegistrations,
   listEvents,
   listGalleryAlbums,
   listMembers,
   listPayments,
   replyAdminSupportTicket,
+  sendCouncilMessage,
   setPresidentMasterPin,
   transferPresidentRole,
   updateClubSettings,
@@ -107,9 +110,14 @@ adminRouter.get('/support', asyncHandler(listAdminSupportTickets))
 adminRouter.post('/support/:id/reply', adminWriteRateLimiter, asyncHandler(replyAdminSupportTicket))
 adminRouter.put('/support/:id/status', adminWriteRateLimiter, asyncHandler(updateSupportTicketStatus))
 
+// Executive Council Chat (Leads Only)
+adminRouter.get('/chat/messages', asyncHandler(listCouncilMessages))
+adminRouter.post('/chat/messages', adminWriteRateLimiter, asyncHandler(sendCouncilMessage))
+
 // Complaints / Feedback
 adminRouter.get('/complaints', asyncHandler(listComplaints))
 adminRouter.put('/complaints/:complaintId/status', adminWriteRateLimiter, asyncHandler(updateComplaintStatus))
 
 // Security Audit Logs
 adminRouter.get('/audit-logs', requirePermission('AUDIT_VIEW'), asyncHandler(listAuditLogs))
+adminRouter.post('/audit-logs/clear', requirePrimaryPresident, adminWriteRateLimiter, asyncHandler(clearAuditLogs))
