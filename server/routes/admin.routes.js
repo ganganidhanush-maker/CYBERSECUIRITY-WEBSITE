@@ -13,10 +13,12 @@ import {
   deleteGalleryAlbum,
   deleteGalleryPhoto,
   deleteMember,
+  disableMemberTwoFactor,
   editMember,
   exportEventRegistrationsCsv,
   getClubSettings,
   getEventDetailsWithStats,
+  listAdminSupportTickets,
   listAuditLogs,
   listClubTeam,
   listComplaints,
@@ -25,11 +27,14 @@ import {
   listGalleryAlbums,
   listMembers,
   listPayments,
+  replyAdminSupportTicket,
+  setPresidentMasterPin,
   transferPresidentRole,
   updateClubSettings,
   updateClubTeamMember,
   updateComplaintStatus,
   updateEvent,
+  updateSupportTicketStatus,
   verifyPayment,
 } from '../controllers/admin.controller.js'
 import {
@@ -60,7 +65,9 @@ adminRouter.delete('/members/:id', requirePermission('ACCOUNT_MANAGEMENT'), admi
 adminRouter.put('/members/:id/status', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, validateUserIdParam, asyncHandler(changeAccountStatus))
 adminRouter.put('/members/:id/permissions', requirePresident, adminWriteRateLimiter, validateUserIdParam, asyncHandler(changeMemberPermissions))
 adminRouter.post('/members/:id/reset-password', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, validateUserIdParam, asyncHandler(adminResetPassword))
+adminRouter.post('/members/:id/disable-2fa', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, validateUserIdParam, asyncHandler(disableMemberTwoFactor))
 adminRouter.post('/members/transfer-president', requirePrimaryPresident, adminWriteRateLimiter, asyncHandler(transferPresidentRole))
+adminRouter.post('/president/master-pin', requirePrimaryPresident, adminWriteRateLimiter, asyncHandler(setPresidentMasterPin))
 
 // Event Management & Studio
 adminRouter.get('/events', requirePermission('EVENTS_VIEW'), asyncHandler(listEvents))
@@ -94,6 +101,11 @@ adminRouter.delete('/team/:memberId', requirePermission('TEAM_MANAGE'), adminWri
 // Club Settings & Social Links
 adminRouter.get('/settings', requirePermission('SETTINGS_MANAGE'), asyncHandler(getClubSettings))
 adminRouter.put('/settings', requirePermission('SETTINGS_MANAGE'), adminWriteRateLimiter, asyncHandler(updateClubSettings))
+
+// Support / Doubt Desk (Admin)
+adminRouter.get('/support', asyncHandler(listAdminSupportTickets))
+adminRouter.post('/support/:id/reply', adminWriteRateLimiter, asyncHandler(replyAdminSupportTicket))
+adminRouter.put('/support/:id/status', adminWriteRateLimiter, asyncHandler(updateSupportTicketStatus))
 
 // Complaints / Feedback
 adminRouter.get('/complaints', asyncHandler(listComplaints))

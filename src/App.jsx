@@ -380,7 +380,7 @@ function HibernationScreen({ onAdminLogin }) {
 }
 
 // ----------------------------------------------------
-// Navigation & Portal Frame (Responsive Flexbox & Drawer)
+// Navigation, Header & LivePortal Frame
 // ----------------------------------------------------
 function Sidebar({ user, logout, activeTab, onNavigate, isOpen, onClose }) {
   const perms = user.permissions || []
@@ -391,12 +391,14 @@ function Sidebar({ user, logout, activeTab, onNavigate, isOpen, onClose }) {
         ['▦', 'Dashboard', 'admin-dashboard', true],
         ['♙', 'Members', 'admin-members', has('ACCOUNT_MANAGEMENT')],
         ['▢', 'Event Studio', 'admin-events', has('EVENTS_VIEW') || has('EVENT_MANAGE')],
-        ['💳', 'Event Payments', 'admin-payments', has('PAYMENTS_VIEW')],
         ['💎', 'Subscriptions', 'admin-subscriptions', has('PAYMENTS_VIEW') || user.role === 'TREASURER' || user.role === 'PRESIDENT'],
+        ['💳', 'Event Payments', 'admin-payments', has('PAYMENTS_VIEW')],
+        ['💬', 'Helpdesk & Doubts', 'admin-support', true],
         ['▧', 'Gallery', 'admin-gallery', has('GALLERY_VIEW') || has('GALLERY_MANAGE')],
         ['👥', 'Team / Leaders', 'admin-team', has('TEAM_MANAGE')],
         ['⚙', 'Settings & Links', 'admin-settings', has('SETTINGS_MANAGE')],
         ['◫', 'Audit Log', 'admin-audit', has('AUDIT_VIEW')],
+        ['👤', 'My Profile', 'admin-profile', true],
         ['▣', 'Security', 'security', true],
       ].filter(item => item[3])
     : [
@@ -404,6 +406,7 @@ function Sidebar({ user, logout, activeTab, onNavigate, isOpen, onClose }) {
         ['▢', 'Events Catalog', 'student-events', true],
         ['▤', 'My Passes', 'student-registrations', true],
         ['💎', 'Membership', 'student-membership', true],
+        ['💬', 'Helpdesk & Doubts', 'student-support', true],
         ['👥', 'Our Team', 'student-team', true],
         ['▧', 'Gallery', 'student-gallery', true],
         ['👤', 'My Profile', 'student-profile', true],
@@ -448,7 +451,7 @@ function Sidebar({ user, logout, activeTab, onNavigate, isOpen, onClose }) {
   )
 }
 
-function Header({ user, title, onSecurity, onToggleNav }) {
+function Header({ user, title, onProfile, onToggleNav, onOpenNotifications, unreadCount }) {
   return (
     <header className="header">
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -460,18 +463,39 @@ function Header({ user, title, onSecurity, onToggleNav }) {
           <small>CYBER SECURITY CLUB · MRDU</small>
         </div>
       </div>
-      <div className="header-tools">
-        {onSecurity && (
+      <div className="header-tools" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* In-App Notifications Bell */}
+        <button
+          type="button"
+          className="notification-bell-btn"
+          onClick={onOpenNotifications}
+          aria-label="View notifications"
+          title="Notifications & Updates"
+        >
+          <span style={{ fontSize: '16px' }}>🔔</span>
+          {unreadCount > 0 && <span className="notification-badge-count">{unreadCount}</span>}
+        </button>
+
+        {/* Profile Pill */}
+        {onProfile && (
           <button
             type="button"
             className="profile profile-button"
-            onClick={onSecurity}
-            aria-label="Open account security"
-            style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(16, 26, 39, 0.7)', padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--line)', cursor: 'pointer' }}
+            onClick={onProfile}
+            aria-label="Open profile"
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(16, 26, 39, 0.7)', padding: '5px 12px', borderRadius: '8px', border: '1px solid var(--line)', cursor: 'pointer' }}
           >
-            <span style={{ width: '32px', height: '32px', borderRadius: '6px', background: 'linear-gradient(135deg, #2488d8, #18447e)', display: 'grid', placeItems: 'center', color: '#fff', font: '700 11px Syne' }}>
-              {user.initials}
-            </span>
+            {user.profile?.profileImage ? (
+              <img
+                src={user.profile.profileImage}
+                alt={user.name}
+                style={{ width: '32px', height: '32px', borderRadius: '6px', objectFit: 'cover', border: '1px solid #52bbf555' }}
+              />
+            ) : (
+              <span style={{ width: '32px', height: '32px', borderRadius: '6px', background: 'linear-gradient(135deg, #2488d8, #18447e)', display: 'grid', placeItems: 'center', color: '#fff', font: '700 11px Syne' }}>
+                {user.initials}
+              </span>
+            )}
             <div style={{ textAlign: 'left' }}>
               <b style={{ color: '#edf7ff', fontSize: '11px', display: 'block' }}>{user.name}</b>
               <small style={{ color: '#7ba2be', font: '500 9px "DM Mono", monospace', display: 'block' }}>
@@ -485,8 +509,99 @@ function Header({ user, title, onSecurity, onToggleNav }) {
   )
 }
 
-function LivePortal({ user, logout, activeTab, onNavigate, title, children }) {
+function NotificationsModal({ isOpen, onClose, onNavigate }) {
+  const [notifications, setNotifications] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!isOpen) return
+    setLoading(true)
+    memberApi.listNotifications()
+      .then(res => setNotifications(res.notifications || []))
+      .finally(() => setLoading(false))
+  }, [isOpen])
+
+  async function handleMarkAll() {
+    await memberApi.markAllNotificationsRead()
+    setNotifications(c => c.map(n => ({ ...n, isRead: true })))
+  }
+
+  async function handleClickNotification(n) {
+    if (!n.isRead) {
+      await memberApi.markNotificationRead(n.id)
+    }
+    onClose()
+    if (n.linkUrl) {
+      const cleanPath = n.linkUrl.replace(/^\//, '')
+      onNavigate(cleanPath)
+    }
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="photo-lightbox" onClick={onClose}>
+      <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px', width: '100%', background: '#0c1522', padding: '24px', borderRadius: '14px', border: '1px solid var(--line)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '12px', marginBottom: '14px' }}>
+          <div>
+            <h3 style={{ margin: 0, font: '700 18px Syne', color: '#edf7ff' }}>🔔 Notifications & Alerts</h3>
+            <small style={{ color: '#7e95a7' }}>Updates on events, subscriptions, and support replies</small>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button type="button" className="action-btn edit-btn" onClick={handleMarkAll} style={{ fontSize: '10px' }}>Mark all read</button>
+            <button className="lightbox-close" onClick={onClose} style={{ position: 'static' }}>✕</button>
+          </div>
+        </div>
+
+        <div style={{ overflowY: 'auto', flex: 1, paddingRight: '4px' }}>
+          {loading ? (
+            <p className="directory-state">Loading messages...</p>
+          ) : notifications.length === 0 ? (
+            <p className="directory-state">No notifications recorded yet.</p>
+          ) : (
+            notifications.map(n => (
+              <div
+                key={n.id}
+                className={`notification-item ${n.isRead ? 'read' : 'unread'}`}
+                onClick={() => handleClickNotification(n)}
+                style={{
+                  padding: '12px',
+                  borderRadius: '8px',
+                  marginBottom: '8px',
+                  background: n.isRead ? '#050a12' : '#101d2c',
+                  border: n.isRead ? '1px solid var(--line)' : '1px solid #52bbf555',
+                  cursor: 'pointer',
+                  transition: 'background 0.15s ease',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                  <b style={{ color: n.isRead ? '#cbdfe9' : '#85d7ff', fontSize: '12px' }}>{n.title}</b>
+                  <small style={{ color: '#688296', fontSize: '9px', font: '500 "DM Mono", monospace' }}>
+                    {new Date(n.createdAt).toLocaleDateString()}
+                  </small>
+                </div>
+                <p style={{ color: '#9bb7cc', fontSize: '11px', margin: '4px 0 0', lineHeight: '1.5' }}>{n.message}</p>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function LivePortal({ user, logout, activeTab, onNavigate, title, onUserUpdated, children }) {
   const [navOpen, setNavOpen] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  useEffect(() => {
+    let mounted = true
+    memberApi.listNotifications()
+      .then(res => { if (mounted) setUnreadCount(res.unreadCount || 0) })
+      .catch(() => {})
+    return () => { mounted = false }
+  }, [activeTab])
 
   return (
     <main className="portal">
@@ -502,11 +617,22 @@ function LivePortal({ user, logout, activeTab, onNavigate, title, children }) {
         <Header
           user={user}
           title={title}
-          onSecurity={() => onNavigate('security')}
+          onProfile={() => onNavigate(user.isAdminUser ? 'admin-profile' : 'student-profile')}
           onToggleNav={() => setNavOpen(o => !o)}
+          onOpenNotifications={() => setNotifOpen(true)}
+          unreadCount={unreadCount}
         />
         <div className="dashboard">{children}</div>
       </div>
+
+      <NotificationsModal
+        isOpen={notifOpen}
+        onClose={() => {
+          setNotifOpen(false)
+          memberApi.listNotifications().then(res => setUnreadCount(res.unreadCount || 0)).catch(() => {})
+        }}
+        onNavigate={onNavigate}
+      />
     </main>
   )
 }
@@ -679,16 +805,16 @@ function TwoFactorLogin({ onVerify, onBack }) {
       <section className="login-card" style={{ maxWidth: '440px', textAlign: 'center' }}>
         <Crest small />
         <span className="badge badge-president" style={{ margin: '14px 0 8px', display: 'inline-block' }}>
-          TWO-FACTOR VERIFICATION
+          SECURITY CHALLENGE
         </span>
-        <h2 style={{ font: '700 24px Syne', color: '#edf7ff', margin: '4px 0 8px' }}>Security Challenge</h2>
+        <h2 style={{ font: '700 24px Syne', color: '#edf7ff', margin: '4px 0 8px' }}>Security Verification</h2>
         <p style={{ color: '#8aa2b4', fontSize: '13px', margin: '0 0 20px' }}>
-          Enter the six-digit TOTP code from your authenticator app.
+          Enter the six-digit verification code from your authenticator app (or President Master PIN).
         </p>
 
         <form onSubmit={submit}>
           <div className="login-field-group" style={{ textAlign: 'left' }}>
-            <label htmlFor="two-factor-code">Authentication Code</label>
+            <label htmlFor="two-factor-code">6-Digit Security Code / PIN</label>
             <div className="login-input-wrapper">
               <span className="login-input-icon">🔑</span>
               <input
@@ -846,10 +972,8 @@ function PasswordReset({ token, onComplete }) {
   )
 }
 
-
-
 // ----------------------------------------------------
-// Account Security (2FA)
+// Account Security & President Master PIN
 // ----------------------------------------------------
 function AccountSecurity({ user, logout, onNavigate }) {
   const [setup, setSetup] = useState(null)
@@ -858,6 +982,12 @@ function AccountSecurity({ user, logout, onNavigate }) {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Master PIN (Primary President only)
+  const [masterPin, setMasterPin] = useState('')
+  const [masterPinPassword, setMasterPinPassword] = useState('')
+  const [pinMessage, setPinMessage] = useState('')
+  const [pinError, setPinError] = useState('')
 
   async function startSetup() {
     setError('')
@@ -904,6 +1034,20 @@ function AccountSecurity({ user, logout, onNavigate }) {
     }
   }
 
+  async function handleSetMasterPin(e) {
+    e.preventDefault()
+    setPinError('')
+    setPinMessage('')
+    try {
+      const res = await adminApi.setPresidentMasterPin(masterPin, masterPinPassword)
+      setPinMessage(res.message)
+      setMasterPin('')
+      setMasterPinPassword('')
+    } catch (err) {
+      setPinError(err.message)
+    }
+  }
+
   return (
     <LivePortal user={user} logout={logout} activeTab="security" onNavigate={onNavigate} title="ACCOUNT SECURITY">
       <section className="member-management">
@@ -913,17 +1057,61 @@ function AccountSecurity({ user, logout, onNavigate }) {
               ← BACK
             </button>
             <p className="eyebrow">AUTHENTICATION PROTECTION</p>
-            <h1>Account Security & 2FA</h1>
-            <p>Configure multi-factor authentication and manage credential protection.</p>
+            <h1>Account Security & Locks</h1>
+            <p>Configure two-factor protection and manage secondary authorization controls.</p>
           </div>
           <span className="president-lock">
-            {user.twoFactorEnabled ? '2FA ACTIVE' : '2FA NOT CONFIGURED'}
+            {user.twoFactorEnabled ? '2FA ACTIVE' : '2FA OPTIONAL'}
           </span>
         </div>
+
+        {/* Primary President Dual Lock Master PIN Card */}
+        {user.isPrimaryAdmin && (
+          <article className="account-form-card security-card" style={{ maxWidth: '720px', marginBottom: '24px', border: '1px solid #ffb74d55' }}>
+            <p className="eyebrow" style={{ color: '#ffb74d' }}>PRIMARY PRESIDENT SECURITY</p>
+            <h2 style={{ color: '#ffb74d' }}>👑 Dual 6-Digit Master Security PIN (Two Locks)</h2>
+            <p style={{ color: '#9bb7cc', fontSize: '13px', lineHeight: '1.6' }}>
+              Set a dedicated 6-digit Master PIN for your Primary President account. When enabled, signing in requires your password + this 6-digit PIN (independent of authenticator apps).
+            </p>
+            <form onSubmit={handleSetMasterPin} style={{ marginTop: '16px' }}>
+              <div className="member-form-grid">
+                <label>
+                  New 6-Digit Master PIN *
+                  <input
+                    type="password"
+                    maxLength={6}
+                    pattern="\d{6}"
+                    required
+                    placeholder="e.g. 849201"
+                    value={masterPin}
+                    onChange={e => setMasterPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  />
+                </label>
+                <label>
+                  Current Account Password *
+                  <input
+                    type="password"
+                    required
+                    placeholder="Enter current password"
+                    value={masterPinPassword}
+                    onChange={e => setMasterPinPassword(e.target.value)}
+                  />
+                </label>
+              </div>
+              {pinError && <p className="member-form-error">⚠️ {pinError}</p>}
+              {pinMessage && <p className="member-form-success">✓ {pinMessage}</p>}
+              <button className="primary member-submit" disabled={masterPin.length !== 6 || !masterPinPassword} style={{ marginTop: '14px', background: 'linear-gradient(105deg,#f59e0b,#d97706)' }}>
+                SET 6-DIGIT MASTER SECURITY PIN
+              </button>
+            </form>
+          </article>
+        )}
+
+        {/* Standard 2FA Authenticator Card */}
         <article className="account-form-card security-card" style={{ maxWidth: '720px' }}>
           {!user.twoFactorEnabled && !setup && (
             <>
-              <h2>Set up Authenticator App</h2>
+              <h2>Set up Authenticator App (2FA)</h2>
               <p>Add two-factor protection using Google Authenticator, Microsoft Authenticator, or Authy.</p>
               <button className="primary member-submit" type="button" onClick={startSetup} disabled={loading}>
                 {loading ? 'PREPARING…' : 'START 2FA SETUP'}
@@ -980,7 +1168,7 @@ function AccountSecurity({ user, logout, onNavigate }) {
 }
 
 // ----------------------------------------------------
-// Member Management & Leadership Transfer
+// Member Management & Leadership Directory
 // ----------------------------------------------------
 function MemberManagement({ user, logout, onNavigate }) {
   const [members, setMembers] = useState([])
@@ -1009,13 +1197,16 @@ function MemberManagement({ user, logout, onNavigate }) {
   const hasNumber = /\d/.test(passwordInput)
   const hasSymbol = /[^A-Za-z0-9]/.test(passwordInput)
 
-  useEffect(() => {
-    let mounted = true
+  function loadMembers() {
+    setLoading(true)
     adminApi.listMembers()
-      .then(({ users }) => { if (mounted) setMembers(users) })
-      .catch(err => { if (mounted) setError(err.message) })
-      .finally(() => { if (mounted) setLoading(false) })
-    return () => { mounted = false }
+      .then(({ users }) => setMembers(users))
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadMembers()
   }, [])
 
   async function createAccount(e) {
@@ -1082,6 +1273,17 @@ function MemberManagement({ user, logout, onNavigate }) {
     }
   }
 
+  async function handleDisable2FA(member) {
+    if (!confirm(`Are you sure you want to disable 2FA for ${member.name} (${member.memberId})?`)) return
+    try {
+      const res = await adminApi.disableMemberTwoFactor(member.id)
+      setMessage(res.message)
+      loadMembers()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   async function removeMember(member) {
     if (member.isPrimaryAdmin || member.role === 'PRESIDENT') {
       alert('The Primary President account cannot be deleted. Primary President status must first be transferred.')
@@ -1118,8 +1320,7 @@ function MemberManagement({ user, logout, onNavigate }) {
       setMessage(res.message)
       setTransferModalOpen(false)
       setTransferAuthCode('')
-      const { users } = await adminApi.listMembers()
-      setMembers(users)
+      loadMembers()
     } catch (err) {
       setTransferError(err.message)
     }
@@ -1145,7 +1346,7 @@ function MemberManagement({ user, logout, onNavigate }) {
             </button>
             <p className="eyebrow">ROLE-BASED ACCESS CONTROL</p>
             <h1>Club Members & Leaders</h1>
-            <p>Add new club members, assign predefined roles, and oversee authorized access.</p>
+            <p>Add new club members, assign predefined roles, manage 2FA locks, and oversee authorized access.</p>
           </div>
           {user.isPrimaryAdmin && (
             <button className="outline" type="button" onClick={() => setTransferModalOpen(true)}>
@@ -1263,7 +1464,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                 <div className="members-table">
                   <div className="table-header">
                     <span>MEMBER</span>
-                    <span>ROLE & PERMS</span>
+                    <span>ROLE & 2FA</span>
                     <span>CONTACT INFO</span>
                     <span>ACTIONS</span>
                   </div>
@@ -1306,14 +1507,28 @@ function MemberManagement({ user, logout, onNavigate }) {
                           </div>
                         ) : (
                           <>
-                            <div>
-                              <b>{m.name}</b>
-                              <small style={{ color: '#85d7ff', display: 'block' }}>{m.memberId}</small>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              {m.profileImage ? (
+                                <img src={m.profileImage} alt={m.name} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #52bbf555' }} />
+                              ) : (
+                                <span style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#1c2e42', display: 'grid', placeItems: 'center', color: '#85d7ff', font: '700 10px Syne' }}>
+                                  {m.initials}
+                                </span>
+                              )}
+                              <div>
+                                <b>{m.name}</b>
+                                <small style={{ color: '#85d7ff', display: 'block' }}>{m.memberId}</small>
+                              </div>
                             </div>
                             <div>
                               <span className={`badge ${m.isPrimaryAdmin ? 'badge-president' : m.role === 'STUDENT' ? 'badge-student' : 'badge-admin'}`}>
                                 {m.isPrimaryAdmin ? '👑 PRESIDENT' : getRoleLabel(m.role)}
                               </span>
+                              {m.twoFactorEnabled && (
+                                <span className="badge" style={{ background: '#0a3520', color: '#70ddb4', border: '1px solid #70ddb444', marginLeft: '6px', fontSize: '8px' }}>
+                                  🔒 2FA ON
+                                </span>
+                              )}
                             </div>
                             <div>
                               <small>{m.email || 'No email'}</small>
@@ -1325,6 +1540,11 @@ function MemberManagement({ user, logout, onNavigate }) {
                                 {m.accountStatus === 'ACTIVE' ? 'Active' : 'Disabled'}
                               </button>
                               <button className="action-btn edit-btn" onClick={() => setResetModalUser(m)}>Password</button>
+                              {m.twoFactorEnabled && (
+                                <button className="action-btn cancel-btn" onClick={() => handleDisable2FA(m)} title="Disable 2FA if member is locked out">
+                                  Reset 2FA
+                                </button>
+                              )}
                               {!m.isPrimaryAdmin && (
                                 <button className="action-btn delete-btn" onClick={() => removeMember(m)}>Delete</button>
                               )}
@@ -1374,7 +1594,7 @@ function MemberManagement({ user, logout, onNavigate }) {
             <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: '#0d1522', padding: '28px', borderRadius: '12px', border: '1px solid #ff980055', maxWidth: '460px' }}>
               <h3 style={{ margin: '0 0 8px', font: '700 18px Syne', color: '#ffb74d' }}>Transfer Primary Leadership</h3>
               <p style={{ color: '#829bb0', fontSize: '12px', margin: '0 0 16px' }}>
-                Select the administrator who will become the new Primary President. This requires your active 2FA code.
+                Select the administrator who will become the new Primary President.
               </p>
               <form onSubmit={handleTransferLeadership}>
                 <label style={{ display: 'block', color: '#b4c7d5', fontSize: '11px', marginBottom: '6px' }}>
@@ -1393,13 +1613,12 @@ function MemberManagement({ user, logout, onNavigate }) {
                   </select>
                 </label>
                 <label style={{ display: 'block', color: '#b4c7d5', fontSize: '11px', marginBottom: '6px' }}>
-                  Your 6-Digit 2FA Authentication Code
+                  Your 6-Digit Master Security PIN or Password
                   <input
                     required
-                    placeholder="000000"
-                    maxLength={6}
+                    placeholder="Enter Security PIN or Password"
                     value={transferAuthCode}
-                    onChange={e => setTransferAuthCode(e.target.value.replace(/\D/g, ''))}
+                    onChange={e => setTransferAuthCode(e.target.value)}
                     style={{ width: '100%', height: '40px', padding: '0 12px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', marginBottom: '14px' }}
                   />
                 </label>
@@ -1408,6 +1627,517 @@ function MemberManagement({ user, logout, onNavigate }) {
                   <button type="button" className="action-btn cancel-btn" onClick={() => setTransferModalOpen(false)}>Cancel</button>
                   <button type="submit" className="primary" style={{ minHeight: '36px', background: 'linear-gradient(105deg,#f59e0b,#d97706)' }}>
                     CONFIRM TRANSFER
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </section>
+    </LivePortal>
+  )
+}
+
+// ----------------------------------------------------
+// Universal Member Profile Management (Students & Admins)
+// ----------------------------------------------------
+function UniversalProfileView({ user, logout, onNavigate, onProfileUpdated }) {
+  const [profile, setProfile] = useState(user.profile || {})
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [photoPreview, setPhotoPreview] = useState(user.profile?.profileImage || '')
+
+  async function handleSave(e) {
+    e.preventDefault()
+    const form = new FormData(e.currentTarget)
+    setMessage('')
+    setError('')
+
+    const payload = {
+      name: String(form.get('name') || '').trim() || undefined,
+      phone: String(form.get('phone') || '').trim() || null,
+      bio: String(form.get('bio') || '').trim() || null,
+      instagramUrl: String(form.get('instagramUrl') || '').trim() || null,
+      githubUrl: String(form.get('githubUrl') || '').trim() || null,
+      linkedinUrl: String(form.get('linkedinUrl') || '').trim() || null,
+      portfolioUrl: String(form.get('portfolioUrl') || '').trim() || null,
+      skills: String(form.get('skills') || '').trim() || null,
+      profileImage: photoPreview || null,
+    }
+
+    setSubmitting(true)
+    try {
+      const res = await memberApi.updateProfile(payload)
+      setProfile(res.user.profile || {})
+      if (onProfileUpdated) onProfileUpdated(res.user)
+      setMessage('Profile and avatar updated successfully.')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <LivePortal user={user} logout={logout} activeTab={user.isAdminUser ? 'admin-profile' : 'student-profile'} onNavigate={onNavigate} title="MY PROFILE">
+      <section className="member-management">
+        <div className="member-heading">
+          <div>
+            <button className="back-button" type="button" onClick={() => onNavigate(user.isAdminUser ? 'admin-dashboard' : 'student-dashboard')}>
+              ← BACK TO DASHBOARD
+            </button>
+            <p className="eyebrow">IDENTITY & AVATAR</p>
+            <h1>Personal Profile & Avatar</h1>
+            <p>Upload your profile photo and customize your bio, skills, and portfolios.</p>
+          </div>
+          <span className="president-lock">MEMBER ID: {user.memberId}</span>
+        </div>
+
+        {message && <p className="member-form-success">{message}</p>}
+        {error && <p className="member-form-error">{error}</p>}
+
+        <div className="member-management-grid">
+          <article className="account-form-card" style={{ maxWidth: '640px' }}>
+            <form onSubmit={handleSave}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '20px', padding: '14px', background: '#050a12', borderRadius: '10px', border: '1px solid var(--line)' }}>
+                {photoPreview ? (
+                  <img src={photoPreview} alt="Profile" style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #52bbf5' }} />
+                ) : (
+                  <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'linear-gradient(135deg,#2488d8,#18447e)', display: 'grid', placeItems: 'center', color: '#fff', font: '700 24px Syne' }}>
+                    {user.initials}
+                  </div>
+                )}
+                <div>
+                  <b style={{ color: '#edf7ff', fontSize: '14px', display: 'block' }}>Profile Photo</b>
+                  <p style={{ color: '#7e95a7', fontSize: '11px', margin: '2px 0 10px' }}>Upload a JPEG or PNG photo</p>
+                  <label className="action-btn edit-btn" style={{ cursor: 'pointer', display: 'inline-block' }}>
+                    Upload New Image
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ display: 'none' }}
+                      onChange={e => {
+                        const file = e.target.files?.[0]
+                        if (file) readImageFile(file, setPhotoPreview)
+                      }}
+                    />
+                  </label>
+                  {photoPreview && (
+                    <button type="button" className="action-btn cancel-btn" onClick={() => setPhotoPreview('')} style={{ marginLeft: '8px' }}>
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="member-form-grid">
+                <label>
+                  Full Name
+                  <input name="name" defaultValue={profile.name || user.name} />
+                </label>
+                <label>
+                  Phone Number
+                  <input name="phone" defaultValue={profile.phone || ''} placeholder="Phone number" />
+                </label>
+                <label className="form-wide">
+                  Short Bio
+                  <input name="bio" defaultValue={profile.bio || ''} placeholder="e.g. Reverse engineering & CTF enthusiast" />
+                </label>
+                <label className="form-wide">
+                  Cyber Security Skills
+                  <input name="skills" defaultValue={profile.skills || ''} placeholder="e.g. Wireshark, Metasploit, Python, Reverse Engineering" />
+                </label>
+                <label>
+                  GitHub Profile URL
+                  <input name="githubUrl" defaultValue={profile.githubUrl || ''} placeholder="https://github.com/..." />
+                </label>
+                <label>
+                  LinkedIn Profile URL
+                  <input name="linkedinUrl" defaultValue={profile.linkedinUrl || ''} placeholder="https://linkedin.com/in/..." />
+                </label>
+              </div>
+
+              <button className="primary member-submit" type="submit" disabled={submitting} style={{ marginTop: '18px', width: '100%' }}>
+                {submitting ? 'SAVING PROFILE…' : 'SAVE PROFILE & AVATAR'}
+              </button>
+            </form>
+          </article>
+
+          {/* Profile Card Preview */}
+          <article className="account-form-card" style={{ textAlign: 'center' }}>
+            <p className="eyebrow">BADGE PREVIEW</p>
+            <h2>My Member Badge</h2>
+            <div style={{ marginTop: '20px', padding: '24px', background: '#050a12', borderRadius: '12px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              {photoPreview ? (
+                <img src={photoPreview} alt="Profile" style={{ width: '96px', height: '96px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #52bbf5', marginBottom: '14px' }} />
+              ) : (
+                <div style={{ width: '96px', height: '96px', borderRadius: '50%', background: 'linear-gradient(135deg,#2488d8,#18447e)', display: 'grid', placeItems: 'center', color: '#fff', font: '700 30px Syne', marginBottom: '14px' }}>
+                  {user.initials}
+                </div>
+              )}
+              <h3 style={{ margin: '0 0 4px', font: '700 20px Syne', color: '#edf7ff' }}>{profile.name || user.name}</h3>
+              <span className={`badge ${user.isPrimaryAdmin ? 'badge-president' : user.role === 'STUDENT' ? 'badge-student' : 'badge-admin'}`} style={{ marginBottom: '10px' }}>
+                {user.isPrimaryAdmin ? '👑 PRESIDENT' : getRoleLabel(user.role)}
+              </span>
+              <p style={{ color: '#85d7ff', font: '500 11px "DM Mono", monospace', margin: '0 0 10px' }}>
+                MEMBER ID: {user.memberId}
+              </p>
+              <p style={{ color: '#8aa2b4', fontSize: '12px', lineHeight: '1.6', margin: '0 0 14px' }}>
+                {profile.bio || 'Authorized member of Cyber Security Club MRDU.'}
+              </p>
+            </div>
+          </article>
+        </div>
+      </section>
+    </LivePortal>
+  )
+}
+
+// ----------------------------------------------------
+// Student & Admin Customer Support / Doubts Desk
+// ----------------------------------------------------
+function SupportDeskView({ user, logout, onNavigate }) {
+  const [tickets, setTickets] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [selectedTicket, setSelectedTicket] = useState(null)
+  const [replyText, setReplyText] = useState('')
+  const [submittingReply, setSubmittingReply] = useState(false)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [newTaggedRole, setNewTaggedRole] = useState('PRESIDENT')
+  const [newSubject, setNewSubject] = useState('')
+  const [newMessage, setNewMessage] = useState('')
+  const [submittingTicket, setSubmittingTicket] = useState(false)
+  const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+
+  const isStudent = user.role === 'STUDENT'
+  const isPresident = user.isPrimaryAdmin || user.role === 'PRESIDENT'
+
+  function loadTickets() {
+    setLoading(true)
+    const apiCall = isStudent ? memberApi.listSupportTickets() : adminApi.listSupportTickets()
+    apiCall
+      .then(res => setTickets(res.tickets || []))
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadTickets()
+  }, [])
+
+  async function handleCreateTicket(e) {
+    e.preventDefault()
+    setSubmittingTicket(true)
+    setError('')
+    setMessage('')
+    try {
+      const res = await memberApi.createSupportTicket({
+        taggedRole: newTaggedRole,
+        subject: newSubject,
+        message: newMessage,
+      })
+      setTickets(c => [res.ticket, ...c])
+      setShowCreateModal(false)
+      setNewSubject('')
+      setNewMessage('')
+      setMessage(`Doubt submitted for @${newTaggedRole}. Leadership will respond shortly.`)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSubmittingTicket(false)
+    }
+  }
+
+  async function handleSendReply(e) {
+    e.preventDefault()
+    if (!selectedTicket || !replyText.trim()) return
+    setSubmittingReply(true)
+    setError('')
+    try {
+      const apiCall = isStudent
+        ? memberApi.replySupportTicket(selectedTicket.id, replyText)
+        : adminApi.replySupportTicket(selectedTicket.id, replyText)
+
+      const res = await apiCall
+      const updatedTicket = {
+        ...selectedTicket,
+        status: res.status || selectedTicket.status,
+        replies: [...(selectedTicket.replies || []), res.reply],
+      }
+      setSelectedTicket(updatedTicket)
+      setTickets(c => c.map(t => (t.id === selectedTicket.id ? updatedTicket : t)))
+      setReplyText('')
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSubmittingReply(false)
+    }
+  }
+
+  async function handleToggleStatus(ticket, newStatus) {
+    try {
+      const res = await adminApi.updateSupportTicketStatus(ticket.id, newStatus)
+      const updated = { ...ticket, status: newStatus }
+      setSelectedTicket(s => (s?.id === ticket.id ? updated : s))
+      setTickets(c => c.map(t => (t.id === ticket.id ? updated : t)))
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
+  // Permission to reply: Student can reply to own ticket; Admin can reply ONLY if President or matching taggedRole
+  const canReply = isStudent
+    ? selectedTicket?.userId === user.id
+    : isPresident || user.role === selectedTicket?.taggedRole
+
+  return (
+    <LivePortal user={user} logout={logout} activeTab={isStudent ? 'student-support' : 'admin-support'} onNavigate={onNavigate} title="HELPDESK & DOUBTS">
+      <section className="member-management">
+        <div className="member-heading">
+          <div>
+            <button className="back-button" type="button" onClick={() => onNavigate(isStudent ? 'student-dashboard' : 'admin-dashboard')}>
+              ← COMMAND CENTER
+            </button>
+            <p className="eyebrow">COMMUNITY SERVICE & QUERIES</p>
+            <h1>Student Helpdesk & Query Desk</h1>
+            <p>Direct question & answer channel between student members and specialized club council leads.</p>
+          </div>
+          {isStudent && (
+            <button className="primary" type="button" onClick={() => setShowCreateModal(true)}>
+              ＋ &nbsp; ASK A DOUBT / QUERY
+            </button>
+          )}
+        </div>
+
+        {message && <p className="member-form-success">{message}</p>}
+        {error && <p className="member-form-error">{error}</p>}
+
+        <div className="member-management-grid">
+          {/* Tickets List */}
+          <article className="member-list-card">
+            <div className="card-heading">
+              <div>
+                <p className="eyebrow">INQUIRY QUEUE</p>
+                <h2>{isStudent ? 'My Support Queries' : isPresident ? 'All Student Inquiries' : `@${user.role} Inquiries`} ({tickets.length})</h2>
+              </div>
+            </div>
+
+            {loading ? (
+              <p className="directory-state">Loading support inquiries...</p>
+            ) : tickets.length === 0 ? (
+              <p className="directory-state">No inquiries recorded. {isStudent ? 'Have a doubt? Click "Ask a Doubt" above.' : 'No doubts pending for your role.'}</p>
+            ) : (
+              <div className="ticket-list" style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {tickets.map(t => {
+                  const isSelected = selectedTicket?.id === t.id
+                  return (
+                    <div
+                      key={t.id}
+                      className={`ticket-card ${isSelected ? 'selected' : ''}`}
+                      onClick={() => setSelectedTicket(t)}
+                      style={{
+                        padding: '14px',
+                        borderRadius: '10px',
+                        background: isSelected ? '#102235' : '#050a12',
+                        border: isSelected ? '1px solid #52bbf5' : '1px solid var(--line)',
+                        cursor: 'pointer',
+                        transition: 'border-color 0.15s ease',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                        <div>
+                          <span className="badge" style={{ background: '#1c2e42', color: '#ffb74d', border: '1px solid #ffb74d44', fontSize: '9px', marginRight: '6px' }}>
+                            @{t.taggedRole}
+                          </span>
+                          <span className={`badge badge-${t.status.toLowerCase()}`}>
+                            {t.status}
+                          </span>
+                        </div>
+                        <small style={{ color: '#688296', font: '500 9px "DM Mono", monospace' }}>
+                          {new Date(t.createdAt).toLocaleDateString()}
+                        </small>
+                      </div>
+                      <h4 style={{ margin: '8px 0 4px', font: '700 14px Syne', color: '#edf7ff' }}>{t.subject}</h4>
+                      <p style={{ color: '#8aa2b4', fontSize: '11px', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {t.message}
+                      </p>
+                      <div style={{ marginTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <small style={{ color: '#7e95a7' }}>From: {t.user?.profile?.name || t.user?.memberId}</small>
+                        <small style={{ color: '#85d7ff' }}>{t.replies?.length || 0} replies →</small>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </article>
+
+          {/* Ticket Conversation Thread */}
+          <article className="account-form-card" style={{ display: 'flex', flexDirection: 'column', minHeight: '480px' }}>
+            {selectedTicket ? (
+              <>
+                <div style={{ borderBottom: '1px solid var(--line)', paddingBottom: '14px', marginBottom: '14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
+                    <div>
+                      <span className="badge" style={{ background: '#1c2e42', color: '#ffb74d', border: '1px solid #ffb74d44', fontSize: '10px', marginRight: '8px' }}>
+                        TAGGED: @{selectedTicket.taggedRole}
+                      </span>
+                      <span className={`badge badge-${selectedTicket.status.toLowerCase()}`}>
+                        {selectedTicket.status}
+                      </span>
+                      <h3 style={{ margin: '8px 0 4px', font: '700 18px Syne', color: '#edf7ff' }}>{selectedTicket.subject}</h3>
+                      <small style={{ color: '#7e95a7' }}>
+                        Asked by: <b style={{ color: '#85d7ff' }}>{selectedTicket.user?.profile?.name || selectedTicket.user?.memberId}</b> on {new Date(selectedTicket.createdAt).toLocaleString()}
+                      </small>
+                    </div>
+                    {!isStudent && (
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        {selectedTicket.status !== 'RESOLVED' ? (
+                          <button type="button" className="action-btn save-btn" onClick={() => handleToggleStatus(selectedTicket, 'RESOLVED')}>
+                            ✓ Mark Resolved
+                          </button>
+                        ) : (
+                          <button type="button" className="action-btn cancel-btn" onClick={() => handleToggleStatus(selectedTicket, 'OPEN')}>
+                            Re-Open
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <p style={{ color: '#cbdfe9', fontSize: '13px', lineHeight: '1.6', margin: '12px 0 0', padding: '12px', background: '#050a12', borderRadius: '8px', border: '1px solid var(--line)' }}>
+                    {selectedTicket.message}
+                  </p>
+                </div>
+
+                {/* Conversation Chat Bubbles */}
+                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingRight: '4px', marginBottom: '14px' }}>
+                  {(!selectedTicket.replies || selectedTicket.replies.length === 0) ? (
+                    <p className="directory-state" style={{ margin: 'auto' }}>No responses yet. Awaiting leader response.</p>
+                  ) : (
+                    selectedTicket.replies.map(r => {
+                      const isMe = r.userId === user.id
+                      const replierRole = r.user?.role
+                      const isReplierPresident = r.user?.isPrimaryAdmin || replierRole === 'PRESIDENT'
+                      return (
+                        <div
+                          key={r.id}
+                          style={{
+                            alignSelf: isMe ? 'flex-end' : 'flex-start',
+                            maxWidth: '85%',
+                            padding: '12px 16px',
+                            borderRadius: '12px',
+                            background: isMe ? '#163854' : '#081320',
+                            border: isReplierPresident ? '1px solid #ffb74d66' : isMe ? '1px solid #52bbf544' : '1px solid var(--line)',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                            <b style={{ color: isReplierPresident ? '#ffb74d' : '#85d7ff', fontSize: '11px' }}>
+                              {isReplierPresident ? '👑 ' : ''}{r.user?.profile?.name || r.user?.name || r.user?.memberId}
+                            </b>
+                            <span className="badge" style={{ fontSize: '8px', padding: '2px 6px' }}>
+                              {isReplierPresident ? 'PRESIDENT' : getRoleLabel(replierRole)}
+                            </span>
+                            <small style={{ color: '#688296', fontSize: '9px', marginLeft: 'auto' }}>
+                              {new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </small>
+                          </div>
+                          <p style={{ color: '#edf7ff', fontSize: '12px', margin: 0, lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+                            {r.message}
+                          </p>
+                        </div>
+                      )
+                    })
+                  )}
+                </div>
+
+                {/* Reply Box */}
+                {canReply ? (
+                  <form onSubmit={handleSendReply} style={{ display: 'flex', gap: '10px' }}>
+                    <input
+                      placeholder={`Type response as ${user.name} (${getRoleLabel(user.role)})...`}
+                      value={replyText}
+                      onChange={e => setReplyText(e.target.value)}
+                      style={{ flex: 1, height: '42px', padding: '0 14px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
+                    />
+                    <button className="primary" disabled={submittingReply || !replyText.trim()} style={{ minHeight: '42px', padding: '0 18px' }}>
+                      {submittingReply ? 'SENDING…' : 'REPLY →'}
+                    </button>
+                  </form>
+                ) : (
+                  <div style={{ padding: '10px 14px', borderRadius: '8px', background: '#1c1515', border: '1px solid #f8717144', color: '#fca5a5', fontSize: '11px', textAlign: 'center' }}>
+                    🔒 Role Restriction: Only members of <b>@{selectedTicket.taggedRole}</b> or the President are authorized to reply to this query.
+                  </div>
+                )}
+              </>
+            ) : (
+              <div style={{ margin: 'auto', textAlign: 'center', color: '#7e95a7' }}>
+                <p>Select any doubt inquiry from the left to view the thread and respond.</p>
+              </div>
+            )}
+          </article>
+        </div>
+
+        {/* Ask a Doubt Modal (Student) */}
+        {showCreateModal && (
+          <div className="photo-lightbox" onClick={() => setShowCreateModal(false)}>
+            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: '#0d1522', padding: '28px', borderRadius: '14px', border: '1px solid var(--line)', maxWidth: '520px', width: '100%' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <div>
+                  <h3 style={{ margin: 0, font: '700 20px Syne', color: '#edf7ff' }}>Ask a Doubt / Query</h3>
+                  <small style={{ color: '#7e95a7' }}>Tag a specific club leadership council team</small>
+                </div>
+                <button className="lightbox-close" onClick={() => setShowCreateModal(false)} style={{ position: 'static' }}>✕</button>
+              </div>
+
+              <form onSubmit={handleCreateTicket}>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#b4c7d5', marginBottom: '6px' }}>
+                  Tag Club Council Role *
+                  <select
+                    className="member-select"
+                    value={newTaggedRole}
+                    onChange={e => setNewTaggedRole(e.target.value)}
+                    style={{ marginBottom: '14px' }}
+                  >
+                    <option value="PRESIDENT">@PRESIDENT (Executive Leadership)</option>
+                    <option value="VICE_PRESIDENT">@VICE_PRESIDENT (Operations)</option>
+                    <option value="TECH_TEAM">@TECH_TEAM (Labs, CTF, Hacking Tools)</option>
+                    <option value="EVENT_MANAGEMENT">@EVENT_MANAGEMENT (Passes, Workshops)</option>
+                    <option value="TREASURER">@TREASURER (Payments & Membership)</option>
+                    <option value="MEDIA_LEAD">@MEDIA_LEAD (Gallery & Creative)</option>
+                    <option value="PR_TEAM">@PR_TEAM (Outreach & Communication)</option>
+                    <option value="CULTURAL">@CULTURAL (Events & Festivities)</option>
+                    <option value="SECRETARY">@SECRETARY (Documentation & Notices)</option>
+                  </select>
+                </label>
+
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#b4c7d5', marginBottom: '6px' }}>
+                  Subject / Question Topic *
+                  <input
+                    required
+                    placeholder="e.g. Query regarding upcoming Wireshark lab requirements"
+                    value={newSubject}
+                    onChange={e => setNewSubject(e.target.value)}
+                    style={{ width: '100%', height: '40px', padding: '0 12px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', marginBottom: '14px' }}
+                  />
+                </label>
+
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#b4c7d5', marginBottom: '6px' }}>
+                  Description / Details *
+                  <textarea
+                    required
+                    placeholder="Explain your doubt in detail..."
+                    value={newMessage}
+                    onChange={e => setNewMessage(e.target.value)}
+                    style={{ width: '100%', height: '90px', padding: '10px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', marginBottom: '16px', resize: 'none' }}
+                  />
+                </label>
+
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                  <button type="button" className="action-btn cancel-btn" onClick={() => setShowCreateModal(false)}>Cancel</button>
+                  <button type="submit" className="primary" disabled={submittingTicket}>
+                    {submittingTicket ? 'SUBMITTING…' : 'SUBMIT DOUBT INQUIRY'}
                   </button>
                 </div>
               </form>
@@ -3495,113 +4225,6 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
 }
 
 // ----------------------------------------------------
-// Member Self-Profile Management (Student)
-// ----------------------------------------------------
-function StudentProfile({ user, logout, onNavigate }) {
-  const [profile, setProfile] = useState(user.profile || {})
-  const [message, setMessage] = useState('')
-  const [error, setError] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [photoPreview, setPhotoPreview] = useState(user.profile?.profileImage || '')
-
-  async function handleSave(e) {
-    e.preventDefault()
-    const form = new FormData(e.currentTarget)
-    setMessage('')
-    setError('')
-
-    const payload = {
-      name: String(form.get('name') || '').trim() || undefined,
-      phone: String(form.get('phone') || '').trim() || null,
-      bio: String(form.get('bio') || '').trim() || null,
-      instagramUrl: String(form.get('instagramUrl') || '').trim() || null,
-      githubUrl: String(form.get('githubUrl') || '').trim() || null,
-      linkedinUrl: String(form.get('linkedinUrl') || '').trim() || null,
-      portfolioUrl: String(form.get('portfolioUrl') || '').trim() || null,
-      skills: String(form.get('skills') || '').trim() || null,
-      profileImage: photoPreview || null,
-    }
-
-    setSubmitting(true)
-    try {
-      const res = await memberApi.updateProfile(payload)
-      setProfile(res.user.profile || {})
-      setMessage('Profile updated successfully.')
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <LivePortal user={user} logout={logout} activeTab="student-profile" onNavigate={onNavigate} title="MY PROFILE">
-      <section className="member-management">
-        <div className="member-heading">
-          <div>
-            <button className="back-button" type="button" onClick={() => onNavigate('student-dashboard')}>
-              ← BACK TO DASHBOARD
-            </button>
-            <p className="eyebrow">MEMBER PROFILE</p>
-            <h1>Personal Profile & Socials</h1>
-            <p>Customize your bio, cybersecurity skills, and external portfolios.</p>
-          </div>
-          <span className="president-lock">MEMBER ID: {user.memberId}</span>
-        </div>
-
-        {message && <p className="member-form-success">{message}</p>}
-        {error && <p className="member-form-error">{error}</p>}
-
-        <article className="account-form-card" style={{ maxWidth: '780px' }}>
-          <form onSubmit={handleSave}>
-            <div className="member-form-grid">
-              <label>
-                Full Name
-                <input name="name" defaultValue={profile.name || user.name} />
-              </label>
-              <label>
-                Phone Number
-                <input name="phone" defaultValue={profile.phone || ''} placeholder="Phone number" />
-              </label>
-              <label className="form-wide">
-                Short Bio
-                <input name="bio" defaultValue={profile.bio || ''} placeholder="e.g. Reverse engineering & CTF enthusiast" />
-              </label>
-              <label className="form-wide">
-                Cyber Security Skills
-                <input name="skills" defaultValue={profile.skills || ''} placeholder="e.g. Wireshark, Metasploit, Python, Reverse Engineering" />
-              </label>
-              <label>
-                GitHub Profile URL
-                <input name="githubUrl" defaultValue={profile.githubUrl || ''} placeholder="https://github.com/..." />
-              </label>
-              <label>
-                LinkedIn Profile URL
-                <input name="linkedinUrl" defaultValue={profile.linkedinUrl || ''} placeholder="https://linkedin.com/in/..." />
-              </label>
-              <label className="form-wide">
-                Profile Photo
-                <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) readImageFile(f, setPhotoPreview) }} />
-              </label>
-            </div>
-
-            {photoPreview && (
-              <div style={{ marginTop: '12px' }}>
-                <img src={photoPreview} alt="Profile" style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #52bbf5' }} />
-              </div>
-            )}
-
-            <button className="primary member-submit" type="submit" disabled={submitting} style={{ marginTop: '18px' }}>
-              {submitting ? 'SAVING PROFILE…' : 'SAVE PROFILE DETAILS'}
-            </button>
-          </form>
-        </article>
-      </section>
-    </LivePortal>
-  )
-}
-
-// ----------------------------------------------------
 // Student Events Catalog
 // ----------------------------------------------------
 function StudentEvents({ user, logout, onNavigate }) {
@@ -3951,6 +4574,9 @@ function LivePresidentDashboard({ user, logout, onNavigate }) {
             <button type="button" onClick={() => onNavigate('admin-payments')}>
               <i>💳</i><b>Event Payments</b><small>Track pass fees</small>
             </button>
+            <button type="button" onClick={() => onNavigate('admin-support')}>
+              <i>💬</i><b>Helpdesk</b><small>Student doubts</small>
+            </button>
             <button type="button" onClick={() => onNavigate('admin-gallery')}>
               <i>▧</i><b>Gallery</b><small>Photos & albums</small>
             </button>
@@ -4097,10 +4723,10 @@ function LiveStudentDashboard({ user, logout, onNavigate }) {
 function getAuditCategory(action = '') {
   const a = action.toUpperCase()
   if (a.includes('PAYMENT') || a.includes('SUBSCRIPTION') || a.includes('FEE')) return 'PAYMENTS'
-  if (a.includes('LOGIN') || a.includes('LOGOUT') || a.includes('AUTH') || a.includes('2FA') || a.includes('PASSWORD')) return 'AUTH'
+  if (a.includes('LOGIN') || a.includes('LOGOUT') || a.includes('AUTH') || a.includes('2FA') || a.includes('PASSWORD') || a.includes('PIN')) return 'AUTH'
   if (a.includes('MEMBER') || a.includes('ROLE') || a.includes('STATUS') || a.includes('ACCOUNT')) return 'MEMBERS'
   if (a.includes('EVENT') || a.includes('REGISTRATION') || a.includes('PASS')) return 'EVENTS'
-  if (a.includes('SETTING') || a.includes('HIBERNATION') || a.includes('VIDEO') || a.includes('CONFIG')) return 'SYSTEM'
+  if (a.includes('SETTING') || a.includes('HIBERNATION') || a.includes('VIDEO') || a.includes('CONFIG') || a.includes('SUPPORT')) return 'SYSTEM'
   return 'GENERAL'
 }
 
@@ -4149,10 +4775,10 @@ function AuditLogView({ user, logout, onNavigate }) {
   const categories = [
     { id: 'ALL', label: 'All Audits', icon: '◫' },
     { id: 'PAYMENTS', label: 'Payments & Subscriptions', icon: '💳' },
-    { id: 'AUTH', label: 'Authentication & 2FA', icon: '🔑' },
+    { id: 'AUTH', label: 'Authentication & PIN', icon: '🔑' },
     { id: 'MEMBERS', label: 'Members & Roles', icon: '👥' },
     { id: 'EVENTS', label: 'Events & Passes', icon: '▢' },
-    { id: 'SYSTEM', label: 'System & Controls', icon: '⚙' },
+    { id: 'SYSTEM', label: 'System & Support', icon: '⚙' },
   ]
 
   const filteredLogs = logs.filter(entry => {
@@ -4366,6 +4992,7 @@ function App() {
     if (['events', 'student-events'].includes(path)) return 'student-events'
     if (['registrations', 'student-registrations'].includes(path)) return 'student-registrations'
     if (['membership', 'student-membership'].includes(path)) return 'student-membership'
+    if (['support', 'student-support'].includes(path)) return 'student-support'
     if (['team', 'student-team'].includes(path)) return 'student-team'
     if (['gallery', 'student-gallery'].includes(path)) return 'student-gallery'
     if (['profile', 'student-profile'].includes(path)) return 'student-profile'
@@ -4374,10 +5001,12 @@ function App() {
     if (['admin/events', 'admin-events'].includes(path)) return 'admin-events'
     if (['admin/payments', 'admin-payments'].includes(path)) return 'admin-payments'
     if (['admin/subscriptions', 'admin-subscriptions'].includes(path)) return 'admin-subscriptions'
+    if (['admin/support', 'admin-support'].includes(path)) return 'admin-support'
     if (['admin/team', 'admin-team'].includes(path)) return 'admin-team'
     if (['admin/gallery', 'admin-gallery'].includes(path)) return 'admin-gallery'
     if (['admin/settings', 'admin-settings'].includes(path)) return 'admin-settings'
     if (['admin/audit', 'admin-audit'].includes(path)) return 'admin-audit'
+    if (['admin/profile', 'admin-profile'].includes(path)) return 'admin-profile'
     return role === 'STUDENT' ? 'student-dashboard' : 'admin-dashboard'
   }
 
@@ -4505,10 +5134,12 @@ function App() {
       if (screen === 'admin-events') return <EventManagement user={user} logout={logout} onNavigate={navigateTo} />
       if (screen === 'admin-payments') return <PaymentManagement user={user} logout={logout} onNavigate={navigateTo} />
       if (screen === 'admin-subscriptions') return <SubscriptionManagement user={user} logout={logout} onNavigate={navigateTo} />
+      if (screen === 'admin-support') return <SupportDeskView user={user} logout={logout} onNavigate={navigateTo} />
       if (screen === 'admin-gallery') return <GalleryManagement user={user} logout={logout} onNavigate={navigateTo} />
       if (screen === 'admin-team') return <TeamManagement user={user} logout={logout} onNavigate={navigateTo} />
       if (screen === 'admin-settings') return <ClubSettingsManager user={user} logout={logout} onNavigate={navigateTo} />
       if (screen === 'admin-audit') return <AuditLogView user={user} logout={logout} onNavigate={navigateTo} />
+      if (screen === 'admin-profile') return <UniversalProfileView user={user} logout={logout} onNavigate={navigateTo} onProfileUpdated={u => setUser(toPortalUser(u))} />
       if (screen === 'security') return <AccountSecurity user={user} logout={logout} onNavigate={navigateTo} />
       return <LivePresidentDashboard user={user} logout={logout} onNavigate={navigateTo} />
     }
@@ -4517,9 +5148,10 @@ function App() {
     if (screen === 'student-events') return <StudentEvents user={user} logout={logout} onNavigate={navigateTo} />
     if (screen === 'student-registrations') return <StudentRegistrations user={user} logout={logout} onNavigate={navigateTo} />
     if (screen === 'student-membership') return <StudentMembership user={user} logout={logout} onNavigate={navigateTo} />
+    if (screen === 'student-support') return <SupportDeskView user={user} logout={logout} onNavigate={navigateTo} />
     if (screen === 'student-team') return <OurTeamShowcase user={user} logout={logout} onNavigate={navigateTo} />
     if (screen === 'student-gallery') return <StudentGallery user={user} logout={logout} onNavigate={navigateTo} />
-    if (screen === 'student-profile') return <StudentProfile user={user} logout={logout} onNavigate={navigateTo} />
+    if (screen === 'student-profile') return <UniversalProfileView user={user} logout={logout} onNavigate={navigateTo} onProfileUpdated={u => setUser(toPortalUser(u))} />
     if (screen === 'security') return <AccountSecurity user={user} logout={logout} onNavigate={navigateTo} />
     return <LiveStudentDashboard user={user} logout={logout} onNavigate={navigateTo} />
   }

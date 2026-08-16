@@ -3,14 +3,20 @@ import {
   completeIntroVideo,
   completeWaitingQueue,
   createComplaint,
+  createSupportTicket,
   getEventDetails,
   getPublicClubSettings,
   getSessionStatus,
   listClubTeam,
   listGallery,
   listMyRegistrations,
+  listNotifications,
   listPublishedEvents,
+  listStudentSupportTickets,
+  markAllNotificationsRead,
+  markNotificationRead,
   registerForEvent,
+  replyStudentSupportTicket,
   updateProfile,
 } from '../controllers/member.controller.js'
 import {
@@ -48,9 +54,19 @@ memberRouter.get('/events/:eventId', requirePermission('EVENTS_VIEW'), getEventD
 memberRouter.post('/events/:eventId/register', requirePermission('EVENT_REGISTER'), requireActiveSubscription, registerForEvent)
 memberRouter.get('/registrations', requirePermission('REGISTRATIONS_VIEW'), listMyRegistrations)
 
-// Member Profile & Feedback / Technical Support
-memberRouter.put('/profile', requirePermission('PROFILE_EDIT'), updateProfile)
+// Member Profile (Universal for all authenticated roles)
+memberRouter.put('/profile', updateProfile)
 memberRouter.post('/complaints', requirePermission('FEEDBACK_CREATE'), requireActiveSubscription, createComplaint)
+
+// Student Helpdesk & Doubts
+memberRouter.get('/support', listStudentSupportTickets)
+memberRouter.post('/support', createSupportTicket)
+memberRouter.post('/support/:id/reply', replyStudentSupportTicket)
+
+// In-App Notifications
+memberRouter.get('/notifications', listNotifications)
+memberRouter.post('/notifications/:id/read', markNotificationRead)
+memberRouter.post('/notifications/read-all', markAllNotificationsRead)
 
 // Gallery & Team Showcases
 memberRouter.get('/gallery', requirePermission('GALLERY_VIEW'), requireActiveSubscription, listGallery)

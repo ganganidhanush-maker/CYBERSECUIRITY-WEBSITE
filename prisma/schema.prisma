@@ -67,6 +67,7 @@ model User {
   passwordResetExpiresAt DateTime?              @map("password_reset_expires_at")
   totpSecretEncrypted    String?                @map("totp_secret_encrypted") @db.VarChar(512)
   totpEnabled            Boolean                @default(false) @map("totp_enabled")
+  masterSecurityPinHash  String?                @map("master_security_pin_hash") @db.VarChar(255)
   lastLogoutAllDevicesAt DateTime?              @map("last_logout_all_devices_at")
   createdAt              DateTime               @default(now()) @map("created_at")
   updatedAt              DateTime               @updatedAt @map("updated_at")
@@ -77,6 +78,9 @@ model User {
   auditTargets           AuditLog[]             @relation("AuditTarget")
   complaints             Complaint[]
   subscriptions          Subscription[]
+  supportTickets         SupportTicket[]        @relation("UserTickets")
+  supportReplies         SupportReply[]         @relation("UserTicketReplies")
+  notifications          Notification[]
 
   @@map("users")
 }
@@ -341,5 +345,54 @@ model Subscription {
   @@index([status])
   @@index([expiresAt])
   @@map("subscriptions")
+}
+
+model SupportTicket {
+  id         String         @id @default(cuid()) @db.VarChar(191)
+  userId     String         @map("user_id") @db.VarChar(191)
+  taggedRole Role           @map("tagged_role")
+  subject    String         @db.VarChar(255)
+  message    String         @db.LongText
+  status     String         @default("OPEN") @db.VarChar(50)
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
+  user       User           @relation("UserTickets", fields: [userId], references: [id], onDelete: Cascade)
+  replies    SupportReply[]
+
+  @@index([userId])
+  @@index([taggedRole])
+  @@index([status])
+  @@map("support_tickets")
+}
+
+model SupportReply {
+  id        String        @id @default(cuid()) @db.VarChar(191)
+  ticketId  String        @map("ticket_id") @db.VarChar(191)
+  userId    String        @map("user_id") @db.VarChar(191)
+  message   String        @db.LongText
+  createdAt DateTime      @default(now()) @map("created_at")
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user      User          @relation("UserTicketReplies", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([userId])
+  @@map("support_replies")
+}
+
+model Notification {
+  id        String   @id @default(cuid()) @db.VarChar(191)
+  userId    String?  @map("user_id") @db.VarChar(191)
+  type      String   @db.VarChar(50)
+  title     String   @db.VarChar(255)
+  message   String   @db.LongText
+  linkUrl   String?  @map("link_url") @db.VarChar(255)
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("notifications")
 }
 

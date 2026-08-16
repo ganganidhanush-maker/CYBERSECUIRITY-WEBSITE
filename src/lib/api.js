@@ -1,78 +1,60 @@
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || '/api/v1').replace(/\/$/, '')
-let csrfToken = null
+async function request(path, options = {}) {
+  const headers = new Headers(options.headers || {})
+  headers.set('X-Requested-With', 'XMLHttpRequest')
+  if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
+  }
 
-function isStateChanging(method) {
-  return !['GET', 'HEAD', 'OPTIONS'].includes((method || 'GET').toUpperCase())
-}
-
-async function obtainCsrfToken() {
-  const response = await fetch(`${API_BASE_URL}/auth/csrf`, { credentials: 'include' })
-  const body = await response.json().catch(() => ({}))
-  if (!response.ok || !body.csrfToken) throw new Error('Unable to initialize a secure session. Please refresh and try again.')
-  csrfToken = body.csrfToken
-}
-
-async function request(path, options = {}, retried = false) {
-  const method = (options.method || 'GET').toUpperCase()
-  if (isStateChanging(method) && !csrfToken) await obtainCsrfToken()
-  const { headers: suppliedHeaders, ...fetchOptions } = options
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...(isStateChanging(method) ? { 'X-CSRF-Token': csrfToken } : {}), ...suppliedHeaders },
-    ...fetchOptions,
+  const response = await fetch(`/api${path}`, {
+    ...options,
+    headers,
+    credentials: 'same-origin',
   })
 
   if (response.status === 204) return {}
-  const body = await response.json().catch(() => ({}))
-  if (body.csrfToken) csrfToken = body.csrfToken
-  if (response.status === 403 && body.message?.startsWith('Invalid request security token') && !retried) {
-    csrfToken = null
-    return request(path, options, true)
-  }
+
+  const payload = await response.json().catch(() => ({}))
   if (!response.ok) {
-    const error = new Error(body.message || 'Something went wrong. Please try again.')
+    const error = new Error(payload.message || 'Request failed.')
     error.status = response.status
-    error.code = body.code
-    error.hibernating = body.hibernating
-    error.hibernationStartedAt = body.hibernationStartedAt
+    error.code = payload.code
+    error.hibernating = response.status === 503 || payload.code === 'SITE_HIBERNATING'
     throw error
   }
-  return body
+  return payload
 }
 
-export function readImageFile(file, onLoad) {
-  if (!file) return
-  if (file.size > 2 * 1024 * 1024) throw new Error('Image must be 2 MB or smaller.')
+export function readImageFile(file, callback) {
   const reader = new FileReader()
-  reader.onload = () => onLoad(String(reader.result || ''))
+  reader.onload = e => callback(e.target?.result)
   reader.readAsDataURL(file)
 }
 
 export const authApi = {
+  me: () => request('/auth/me'),
   login: (memberId, password) => request('/auth/login', { method: 'POST', body: JSON.stringify({ memberId, password }) }),
   verifyTwoFactor: code => request('/auth/verify-2fa', { method: 'POST', body: JSON.stringify({ code }) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
-  logoutAllDevices: () => request('/auth/logout-all-devices', { method: 'POST' }),
   requestPasswordReset: memberId => request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ memberId }) }),
   resetPassword: (token, password) => request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) }),
-  startTwoFactorSetup: () => request('/auth/two-factor/setup', { method: 'POST' }),
-  confirmTwoFactorSetup: code => request('/auth/two-factor/confirm', { method: 'POST', body: JSON.stringify({ code }) }),
-  disableTwoFactor: (password, code) => request('/auth/two-factor/disable', { method: 'POST', body: JSON.stringify({ password, code }) }),
-  me: () => request('/auth/me'),
+  startTwoFactorSetup: () => request('/auth/2fa/setup', { method: 'POST' }),
+  confirmTwoFactorSetup: code => request('/auth/2fa/confirm', { method: 'POST', body: JSON.stringify({ code }) }),
+  disableTwoFactor: (password, code) => request('/auth/2fa/disable', { method: 'POST', body: JSON.stringify({ password, code }) }),
 }
 
 export const adminApi = {
-  // Members & Roles
+  // Members
   listMembers: () => request('/admin/members'),
-  createMember: account => request('/admin/members', { method: 'POST', body: JSON.stringify(account) }),
-  editMember: (id, data) => request(`/admin/members/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteMember: (id, authenticationCode) => request(`/admin/members/${id}`, { method: 'DELETE', body: JSON.stringify(authenticationCode ? { authenticationCode } : {}) }),
-  updateMemberPermissions: (id, permissions) => request(`/admin/members/${id}/permissions`, { method: 'PUT', body: JSON.stringify({ permissions }) }),
+  createMember: member => request('/admin/members', { method: 'POST', body: JSON.stringify(member) }),
+  editMember: (id, member) => request(`/admin/members/${id}`, { method: 'PUT', body: JSON.stringify(member) }),
   updateMemberStatus: (id, accountStatus) => request(`/admin/members/${id}/status`, { method: 'PUT', body: JSON.stringify({ accountStatus }) }),
-  adminResetPassword: (id, newPassword) => request(`/admin/members/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword }) }),
+  deleteMember: id => request(`/admin/members/${id}`, { method: 'DELETE' }),
+  adminResetPassword: (id, password) => request(`/admin/members/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ password }) }),
+  disableMemberTwoFactor: id => request(`/admin/members/${id}/disable-2fa`, { method: 'POST' }),
   transferPresidentRole: (targetUserId, authenticationCode) => request('/admin/members/transfer-president', { method: 'POST', body: JSON.stringify({ targetUserId, authenticationCode }) }),
+  setPresidentMasterPin: (pin, password) => request('/admin/president/master-pin', { method: 'POST', body: JSON.stringify({ pin, password }) }),
 
-  // Events & Analytics
+  // Events
   listEvents: () => request('/admin/events'),
   createEvent: event => request('/admin/events', { method: 'POST', body: JSON.stringify(event) }),
   updateEvent: (eventId, event) => request(`/admin/events/${eventId}`, { method: 'PUT', body: JSON.stringify(event) }),
@@ -80,11 +62,9 @@ export const adminApi = {
   getEventDetailsWithStats: eventId => request(`/admin/events/${eventId}/details`),
   listEventRegistrations: eventId => request(`/admin/events/${eventId}/registrations`),
 
-  // Event Payments
+  // Payments & Subscriptions
   listPayments: () => request('/admin/payments'),
-  verifyPayment: (registrationId, paymentStatus, paymentNotes) => request(`/admin/payments/${registrationId}/verify`, { method: 'PUT', body: JSON.stringify({ paymentStatus, paymentNotes }) }),
-
-  // Student Membership Subscriptions
+  verifyPayment: (registrationId, paymentStatus) => request(`/admin/payments/${registrationId}/verify`, { method: 'PUT', body: JSON.stringify({ paymentStatus }) }),
   listSubscriptions: () => request('/admin/subscriptions'),
   verifySubscription: id => request(`/admin/subscriptions/${id}/verify`, { method: 'PUT' }),
   rejectSubscription: (id, rejectionReason) => request(`/admin/subscriptions/${id}/reject`, { method: 'PUT', body: JSON.stringify({ rejectionReason }) }),
@@ -105,6 +85,11 @@ export const adminApi = {
   // Settings & Socials
   getClubSettings: () => request('/admin/settings'),
   updateClubSettings: settings => request('/admin/settings', { method: 'PUT', body: JSON.stringify(settings) }),
+
+  // Helpdesk & Doubts
+  listSupportTickets: () => request('/admin/support'),
+  replySupportTicket: (ticketId, message, status) => request(`/admin/support/${ticketId}/reply`, { method: 'POST', body: JSON.stringify({ message, status }) }),
+  updateSupportTicketStatus: (ticketId, status) => request(`/admin/support/${ticketId}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
 
   // Complaints & Audits
   listComplaints: () => request('/admin/complaints'),
@@ -127,4 +112,14 @@ export const memberApi = {
   completeWaitingQueue: () => request('/member/waiting-queue/complete', { method: 'POST' }),
   getSubscriptionStatus: () => request('/member/subscription/status'),
   submitSubscription: data => request('/member/subscription/submit', { method: 'POST', body: JSON.stringify(data) }),
+
+  // Helpdesk & Doubts
+  listSupportTickets: () => request('/member/support'),
+  createSupportTicket: ticket => request('/member/support', { method: 'POST', body: JSON.stringify(ticket) }),
+  replySupportTicket: (ticketId, message) => request(`/member/support/${ticketId}/reply`, { method: 'POST', body: JSON.stringify({ message }) }),
+
+  // Notifications
+  listNotifications: () => request('/member/notifications'),
+  markNotificationRead: id => request(`/member/notifications/${id}/read`, { method: 'POST' }),
+  markAllNotificationsRead: () => request('/member/notifications/read-all', { method: 'POST' }),
 }

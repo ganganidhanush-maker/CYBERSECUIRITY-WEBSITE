@@ -839,3 +839,160 @@ export async function updateClubSettings(request, response) {
   await tryWriteAuditLog({ actorUserId: request.user.id, action: 'CLUB_SETTINGS_UPDATED', metadata: { keys: Object.keys(parsed.data) }, ...auditRequest(request) })
   return response.status(200).json({ message: 'Club settings updated successfully.' })
 }
+
+// ----------------------------------------------------
+// 2FA Admin Deactivation Tool
+// ----------------------------------------------------
+export async function disableMemberTwoFactor(request, response) {
+  const { id } = request.params
+  const target = await prisma.user.findUnique({ where: { id }, include: { profile: true } })
+  if (!target) return response.status(404).json({ message: 'Member not found.' })
+
+  await prisma.user.update({
+    where: { id },
+    data: {
+      totpEnabled: false,
+      totpSecretEncrypted: null,
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+    },
+  })
+
+  await tryWriteAuditLog({
+    actorUserId: request.user.id,
+    targetUserId: id,
+    action: 'MEMBER_2FA_DISABLED_BY_ADMIN',
+    metadata: { targetMemberId: target.memberId, targetName: target.profile?.name },
+    ...auditRequest(request),
+  })
+
+  return response.status(200).json({ message: `Two-factor authentication disabled for ${target.profile?.name || target.memberId}.` })
+}
+
+// ----------------------------------------------------
+// Primary President Dual 6-Digit Master PIN Lock
+// ----------------------------------------------------
+export async function setPresidentMasterPin(request, response) {
+  if (!request.user.isPrimaryAdmin) {
+    return response.status(403).json({ message: 'Only the Primary President can configure the Master Security PIN.' })
+  }
+
+  const { pin, password } = request.body || {}
+  if (!pin || !/^\d{6}$/.test(String(pin))) {
+    return response.status(400).json({ message: 'Master Security PIN must be exactly 6 digits (numbers only).' })
+  }
+
+  const president = await prisma.user.findUnique({ where: { id: request.user.id } })
+  if (password) {
+    const passwordValid = await bcrypt.compare(String(password), president.passwordHash)
+    if (!passwordValid) {
+      return response.status(401).json({ message: 'Current password verification failed.' })
+    }
+  }
+
+  const masterPinHash = await bcrypt.hash(String(pin), env.bcryptRounds)
+  await prisma.user.update({
+    where: { id: request.user.id },
+    data: { masterSecurityPinHash: masterPinHash },
+  })
+
+  await tryWriteAuditLog({
+    actorUserId: request.user.id,
+    action: 'PRESIDENT_MASTER_PIN_UPDATED',
+    ...auditRequest(request),
+  })
+
+  return response.status(200).json({ message: 'Master 6-Digit Security PIN configured successfully.' })
+}
+
+// ----------------------------------------------------
+// Customer Support / Student Doubts Management
+// ----------------------------------------------------
+export async function listAdminSupportTickets(request, response) {
+  const isPresident = request.user.isPrimaryAdmin || request.user.role === 'PRESIDENT'
+  const where = isPresident ? {} : { taggedRole: request.user.role }
+
+  const tickets = await prisma.supportTicket.findMany({
+    where,
+    include: {
+      user: { include: { profile: true } },
+      replies: {
+        include: {
+          user: { include: { profile: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  return response.status(200).json({ tickets })
+}
+
+export async function replyAdminSupportTicket(request, response) {
+  const { id } = request.params
+  const { message, status } = request.body || {}
+
+  if (!message || !String(message).trim()) {
+    return response.status(400).json({ message: 'Reply message cannot be empty.' })
+  }
+
+  const ticket = await prisma.supportTicket.findUnique({ where: { id }, include: { user: true } })
+  if (!ticket) return response.status(404).json({ message: 'Support query ticket not found.' })
+
+  // Strict Role-Restricted Answering Rule: Only tagged role and President can reply
+  const isPresident = request.user.isPrimaryAdmin || request.user.role === 'PRESIDENT'
+  const isTaggedRole = request.user.role === ticket.taggedRole
+
+  if (!isPresident && !isTaggedRole) {
+    return response.status(403).json({
+      message: `Only authorized members of the tagged role (${ticket.taggedRole}) and the President can respond to this inquiry.`,
+    })
+  }
+
+  const reply = await prisma.supportReply.create({
+    data: {
+      ticketId: id,
+      userId: request.user.id,
+      message: String(message).trim(),
+    },
+    include: {
+      user: { include: { profile: true } },
+    },
+  })
+
+  const nextStatus = status || (ticket.status === 'OPEN' ? 'IN_PROGRESS' : ticket.status)
+  await prisma.supportTicket.update({
+    where: { id },
+    data: { status: nextStatus },
+  })
+
+  // Send in-app notification to the student
+  await prisma.notification.create({
+    data: {
+      userId: ticket.userId,
+      type: 'SUPPORT_REPLY',
+      title: `💬 New reply on your query: "${ticket.subject}"`,
+      message: `${request.user.profile?.name || request.user.memberId} (${request.user.role}) answered your question.`,
+      linkUrl: '/student-support',
+    },
+  }).catch(() => {})
+
+  return response.status(201).json({ reply, status: nextStatus })
+}
+
+export async function updateSupportTicketStatus(request, response) {
+  const { id } = request.params
+  const { status } = request.body || {}
+
+  if (!['OPEN', 'IN_PROGRESS', 'RESOLVED'].includes(status)) {
+    return response.status(400).json({ message: 'Invalid status. Must be OPEN, IN_PROGRESS, or RESOLVED.' })
+  }
+
+  const updated = await prisma.supportTicket.update({
+    where: { id },
+    data: { status },
+  })
+
+  return response.status(200).json({ ticket: updated })
+}

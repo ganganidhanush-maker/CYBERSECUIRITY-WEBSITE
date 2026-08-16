@@ -96,6 +96,17 @@ export async function login(request, response) {
     data: { lastLogin: new Date(), failedLoginAttempts: 0, lockedUntil: null },
   })
 
+  // Primary President: Bypasses standard TOTP; uses 6-digit Master PIN if configured
+  if (user.isPrimaryAdmin) {
+    if (user.masterSecurityPinHash) {
+      const csrfToken = await establishTwoFactorChallenge(request, user)
+      return response.status(200).json({ requiresTwoFactor: true, isMasterPin: true, csrfToken })
+    }
+    const csrfToken = await establishAuthenticatedSession(request, user)
+    await tryWriteAuditLog({ actorUserId: user.id, action: 'PRIMARY_PRESIDENT_LOGIN_SUCCESS', ...auditRequest(request) })
+    return response.status(200).json({ user: toSafeUser(user), csrfToken })
+  }
+
   if (user.totpEnabled) {
     if (!user.totpSecretEncrypted) {
       await tryWriteAuditLog({ actorUserId: user.id, action: 'LOGIN_BLOCKED', metadata: { reason: 'MFA_CONFIGURATION_INVALID' }, ...auditRequest(request) })
@@ -121,26 +132,41 @@ export async function verifyTwoFactorLogin(request, response) {
   }
 
   const user = await prisma.user.findUnique({ where: { id: pendingUserId }, include: userInclude })
-  if (!user || user.accountStatus !== 'ACTIVE' || !user.totpEnabled || !user.totpSecretEncrypted) {
+  if (!user || user.accountStatus !== 'ACTIVE') {
     await destroySession(request)
     response.clearCookie('csc.sid', sessionCookieOptions)
     return response.status(401).json({ message: 'Two-factor verification expired. Please log in again.' })
   }
+
   let validCode = false
-  try {
-    const rawSecret = decryptSecret(user.totpSecretEncrypted)
-    validCode = verifyTotp(rawSecret, parsed.data.code)
-  } catch (err) {
-    console.error('[2FA VERIFICATION ERROR]:', err.message)
-    validCode = false
+
+  // Check 1: Primary President Master Security PIN (Two Locks)
+  if (user.isPrimaryAdmin && user.masterSecurityPinHash) {
+    validCode = await bcrypt.compare(String(parsed.data.code), user.masterSecurityPinHash)
   }
+
+  // Check 2: Standard TOTP code from authenticator app
+  if (!validCode && user.totpSecretEncrypted) {
+    try {
+      const rawSecret = decryptSecret(user.totpSecretEncrypted)
+      validCode = verifyTotp(rawSecret, parsed.data.code)
+    } catch (err) {
+      console.error('[2FA VERIFICATION ERROR]:', err.message)
+      validCode = false
+    }
+  }
+
   if (!validCode) {
     await tryWriteAuditLog({ actorUserId: user.id, action: 'TWO_FACTOR_LOGIN_FAILED', ...auditRequest(request) })
-    return response.status(401).json({ message: 'Invalid authentication code. Please check your authenticator app.' })
+    return response.status(401).json({
+      message: user.isPrimaryAdmin && user.masterSecurityPinHash
+        ? 'Invalid 6-digit Master Security PIN.'
+        : 'Invalid authentication code. Please check your authenticator app.',
+    })
   }
 
   const csrfToken = await establishAuthenticatedSession(request, user)
-  await tryWriteAuditLog({ actorUserId: user.id, action: 'TWO_FACTOR_LOGIN_SUCCESS', ...auditRequest(request) })
+  await tryWriteAuditLog({ actorUserId: user.id, action: user.isPrimaryAdmin ? 'PRIMARY_PRESIDENT_LOGIN_SUCCESS' : 'TWO_FACTOR_LOGIN_SUCCESS', ...auditRequest(request) })
   return response.status(200).json({ user: toSafeUser(user), csrfToken })
 }
 

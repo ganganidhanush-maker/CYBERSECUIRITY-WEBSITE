@@ -345,3 +345,151 @@ export async function completeWaitingQueue(request, response) {
   }
   return response.status(200).json({ success: true })
 }
+
+// ----------------------------------------------------
+// Student Helpdesk & Doubts
+// ----------------------------------------------------
+export async function createSupportTicket(request, response) {
+  const { taggedRole, subject, message } = request.body || {}
+
+  const validRoles = [
+    'PRESIDENT',
+    'VICE_PRESIDENT',
+    'TREASURER',
+    'EVENT_MANAGEMENT',
+    'MEDIA_LEAD',
+    'TECH_TEAM',
+    'PR_TEAM',
+    'CULTURAL',
+    'SECRETARY',
+  ]
+
+  if (!taggedRole || !validRoles.includes(taggedRole)) {
+    return response.status(400).json({ message: 'Please select a valid leadership role to tag (e.g. PRESIDENT, TECH_TEAM).' })
+  }
+
+  if (!subject || !String(subject).trim() || !message || !String(message).trim()) {
+    return response.status(400).json({ message: 'Subject and question description are required.' })
+  }
+
+  const ticket = await prisma.supportTicket.create({
+    data: {
+      userId: request.user.id,
+      taggedRole,
+      subject: String(subject).trim(),
+      message: String(message).trim(),
+      status: 'OPEN',
+    },
+    include: {
+      user: { include: { profile: true } },
+      replies: true,
+    },
+  })
+
+  // Notify admins of that role
+  await prisma.notification.create({
+    data: {
+      type: 'SUPPORT_DOUBT',
+      title: `❓ New Doubt for @${taggedRole}`,
+      message: `${request.user.profile?.name || request.user.memberId} asked: "${ticket.subject}"`,
+      linkUrl: '/admin-support',
+    },
+  }).catch(() => {})
+
+  return response.status(201).json({ ticket })
+}
+
+export async function listStudentSupportTickets(request, response) {
+  const tickets = await prisma.supportTicket.findMany({
+    where: { userId: request.user.id },
+    include: {
+      user: { include: { profile: true } },
+      replies: {
+        include: {
+          user: { include: { profile: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  return response.status(200).json({ tickets })
+}
+
+export async function replyStudentSupportTicket(request, response) {
+  const { id } = request.params
+  const { message } = request.body || {}
+
+  if (!message || !String(message).trim()) {
+    return response.status(400).json({ message: 'Reply message cannot be empty.' })
+  }
+
+  const ticket = await prisma.supportTicket.findUnique({ where: { id } })
+  if (!ticket || ticket.userId !== request.user.id) {
+    return response.status(404).json({ message: 'Support ticket not found.' })
+  }
+
+  const reply = await prisma.supportReply.create({
+    data: {
+      ticketId: id,
+      userId: request.user.id,
+      message: String(message).trim(),
+    },
+    include: {
+      user: { include: { profile: true } },
+    },
+  })
+
+  return response.status(201).json({ reply })
+}
+
+// ----------------------------------------------------
+// In-App Notification Center
+// ----------------------------------------------------
+export async function listNotifications(request, response) {
+  const notifications = await prisma.notification.findMany({
+    where: {
+      OR: [
+        { userId: request.user.id },
+        { userId: null },
+      ],
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 30,
+  })
+
+  const unreadCount = notifications.filter(n => !n.isRead).length
+  return response.status(200).json({ notifications, unreadCount })
+}
+
+export async function markNotificationRead(request, response) {
+  const { id } = request.params
+  await prisma.notification.updateMany({
+    where: {
+      id,
+      OR: [
+        { userId: request.user.id },
+        { userId: null },
+      ],
+    },
+    data: { isRead: true },
+  }).catch(() => {})
+
+  return response.status(200).json({ success: true })
+}
+
+export async function markAllNotificationsRead(request, response) {
+  await prisma.notification.updateMany({
+    where: {
+      OR: [
+        { userId: request.user.id },
+        { userId: null },
+      ],
+    },
+    data: { isRead: true },
+  }).catch(() => {})
+
+  return response.status(200).json({ success: true })
+}
+
