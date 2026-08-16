@@ -1,6 +1,11 @@
+let currentCsrfToken = null
+
 async function request(path, options = {}) {
   const headers = new Headers(options.headers || {})
   headers.set('X-Requested-With', 'XMLHttpRequest')
+  if (currentCsrfToken && !headers.has('X-CSRF-Token')) {
+    headers.set('X-CSRF-Token', currentCsrfToken)
+  }
   if (options.body && !(options.body instanceof FormData) && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
@@ -14,6 +19,9 @@ async function request(path, options = {}) {
   if (response.status === 204) return {}
 
   const payload = await response.json().catch(() => ({}))
+  if (payload.csrfToken) {
+    currentCsrfToken = payload.csrfToken
+  }
   if (!response.ok) {
     const error = new Error(payload.message || 'Request failed.')
     error.status = response.status
