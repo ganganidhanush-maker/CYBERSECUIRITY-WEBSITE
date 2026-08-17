@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import clubLogo from './assets/branding/cyber-security-club-logo.jpeg'
-import { adminApi, authApi, memberApi, readImageFile } from './lib/api'
+import { adminApi, authApi, memberApi, readImageFile, readMultipleImageFiles } from './lib/api'
 import { getYouTubeEmbedUrl, parseYouTubeVideoId } from './lib/video'
 import './App.css'
 
