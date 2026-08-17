@@ -61,8 +61,8 @@ export function createApp() {
     return next()
   })
   app.use(cors(corsOptions()))
-  app.use(globalRateLimiter)
-  app.use(express.json({ limit: '4mb' }))
+  app.use(express.json({ limit: '50mb' }))
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }))
   const sessionManager = createSessionManager()
   app.locals.closeSessionStore = sessionManager.close
   app.use(sessionManager.middleware)

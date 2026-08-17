@@ -5,6 +5,7 @@ import {
   createComplaint,
   createSupportTicket,
   getEventDetails,
+  getGalleryAlbum,
   getPublicClubSettings,
   getSessionStatus,
   listClubTeam,
@@ -69,5 +70,6 @@ memberRouter.post('/notifications/:id/read', markNotificationRead)
 memberRouter.post('/notifications/read-all', markAllNotificationsRead)
 
 // Gallery & Team Showcases
-memberRouter.get('/gallery', requirePermission('GALLERY_VIEW'), requireActiveSubscription, listGallery)
+memberRouter.get('/gallery', requirePermission('GALLERY_VIEW'), listGallery)
+memberRouter.get('/gallery/:albumId', requirePermission('GALLERY_VIEW'), getGalleryAlbum)
 memberRouter.get('/team', listClubTeam)

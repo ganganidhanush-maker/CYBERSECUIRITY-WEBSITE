@@ -284,6 +284,16 @@ export async function listGallery(request, response) {
   return response.status(200).json({ albums })
 }
 
+export async function getGalleryAlbum(request, response) {
+  const { albumId } = request.params
+  const album = await prisma.galleryAlbum.findUnique({
+    where: { id: albumId },
+    include: { photos: { orderBy: { createdAt: 'desc' } } },
+  })
+  if (!album) return response.status(404).json({ message: 'Album not found.' })
+  return response.status(200).json({ album })
+}
+
 export async function listClubTeam(request, response) {
   const team = await prisma.clubTeamMember.findMany({
     where: { isActive: true, approvalStatus: { in: ['APPROVED', 'PUBLISHED'] } },

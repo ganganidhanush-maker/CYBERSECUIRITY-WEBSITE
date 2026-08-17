@@ -3515,13 +3515,17 @@ function GalleryManagement({ user, logout, onNavigate }) {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [selectedAlbum, setSelectedAlbum] = useState(null)
-  const [photoPreview, setPhotoPreview] = useState('')
+  const [albumCoverPreview, setAlbumCoverPreview] = useState('')
+  const [stagedPhotos, setStagedPhotos] = useState([])
+  const [batchCaption, setBatchCaption] = useState('')
+  const [uploading, setUploading] = useState(false)
   const [activeLightbox, setActiveLightbox] = useState(null)
+  const fileInputRef = useRef(null)
 
   useEffect(() => {
     let mounted = true
     adminApi.listGalleryAlbums()
-      .then(({ albums: list }) => { if (mounted) setAlbums(list) })
+      .then(({ albums: list }) => { if (mounted) setAlbums(list || []) })
       .catch(err => { if (mounted) setError(err.message) })
       .finally(() => { if (mounted) setLoading(false) })
     return () => { mounted = false }
@@ -3536,36 +3540,93 @@ function GalleryManagement({ user, logout, onNavigate }) {
       const { album } = await adminApi.createGalleryAlbum({
         name: String(form.get('name') || '').trim(),
         description: String(form.get('description') || '').trim() || null,
-        coverImage: photoPreview || null,
+        coverImage: albumCoverPreview || null,
       })
       setAlbums(c => [album, ...c])
       setSelectedAlbum(album)
       e.currentTarget.reset()
-      setPhotoPreview('')
+      setAlbumCoverPreview('')
       setMessage(`Album "${album.name}" created successfully.`)
     } catch (err) {
       setError(err.message)
     }
   }
 
-  async function addPhoto(e) {
-    e.preventDefault()
-    if (!selectedAlbum) return
-    const form = new FormData(e.currentTarget)
-    setMessage('')
+  async function handlePhotosSelected(e) {
+    const files = e.target.files
+    if (!files || files.length === 0) return
     setError('')
     try {
-      const { photo } = await adminApi.addGalleryPhoto(selectedAlbum.id, {
-        imageUrl: photoPreview,
-        caption: String(form.get('caption') || '').trim() || null,
-      })
-      setSelectedAlbum(a => ({ ...a, photos: [photo, ...(a.photos || [])] }))
-      setAlbums(c => c.map(a => (a.id === selectedAlbum.id ? { ...a, photos: [photo, ...(a.photos || [])] } : a)))
-      e.currentTarget.reset()
-      setPhotoPreview('')
-      setMessage('Photo uploaded.')
+      const loaded = await readMultipleImageFiles(files)
+      const newStaged = loaded.map(item => ({
+        id: 'staged_' + Math.random().toString(36).slice(2, 9),
+        name: item.name,
+        size: item.size,
+        dataUrl: item.dataUrl,
+      }))
+      setStagedPhotos(curr => [...curr, ...newStaged])
+      if (fileInputRef.current) fileInputRef.current.value = ''
     } catch (err) {
-      setError(err.message)
+      setError('Failed to read selected image files: ' + err.message)
+    }
+  }
+
+  function removeStagedPhoto(id) {
+    setStagedPhotos(curr => curr.filter(p => p.id !== id))
+  }
+
+  function clearStagedPhotos() {
+    setStagedPhotos([])
+    setBatchCaption('')
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  async function uploadStagedPhotos(e) {
+    e.preventDefault()
+    if (!selectedAlbum) return
+    if (stagedPhotos.length === 0) {
+      setError('Please select at least one photo to upload.')
+      return
+    }
+
+    setUploading(true)
+    setMessage('')
+    setError('')
+
+    try {
+      const photosPayload = stagedPhotos.map(p => ({
+        imageUrl: p.dataUrl,
+        caption: batchCaption ? batchCaption.trim() : null,
+      }))
+
+      const res = await adminApi.addGalleryPhotos(selectedAlbum.id, photosPayload)
+      const addedPhotos = res.photos || (res.photo ? [res.photo] : [])
+
+      setSelectedAlbum(a => ({
+        ...a,
+        coverImage: a.coverImage || addedPhotos[0]?.imageUrl || null,
+        photos: [...addedPhotos, ...(a.photos || [])],
+      }))
+
+      setAlbums(curr =>
+        curr.map(a => {
+          if (a.id === selectedAlbum.id) {
+            return {
+              ...a,
+              coverImage: a.coverImage || addedPhotos[0]?.imageUrl || null,
+              photos: [...addedPhotos, ...(a.photos || [])],
+            }
+          }
+          return a
+        })
+      )
+
+      clearStagedPhotos()
+      setMessage(`✓ ${addedPhotos.length} photo${addedPhotos.length > 1 ? 's' : ''} uploaded successfully to "${selectedAlbum.name}".`)
+    } catch (err) {
+      setError(err.message || 'Failed to upload photos.')
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -3606,7 +3667,7 @@ function GalleryManagement({ user, logout, onNavigate }) {
             </button>
             <p className="eyebrow">VISUAL REPOSITORY</p>
             <h1>Media & Gallery Studio</h1>
-            <p>Create albums, upload event photos, and manage club memories.</p>
+            <p>Create albums, upload multiple event photos at once, and manage club memories.</p>
           </div>
         </div>
 
@@ -3628,42 +3689,121 @@ function GalleryManagement({ user, logout, onNavigate }) {
                 <input name="description" placeholder="Short summary..." />
               </label>
               <label>
-                Cover Photo
-                <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) readImageFile(f, setPhotoPreview) }} />
+                Cover Photo (Optional)
+                <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) readImageFile(f, setAlbumCoverPreview) }} />
               </label>
+              {albumCoverPreview && (
+                <div style={{ margin: '8px 0' }}>
+                  <img src={albumCoverPreview} alt="Cover Preview" style={{ maxHeight: '90px', borderRadius: '6px', border: '1px solid var(--line)' }} />
+                </div>
+              )}
               <button className="primary member-submit" style={{ marginTop: '12px' }}>
                 ＋ &nbsp; CREATE ALBUM
               </button>
             </form>
           </article>
 
-          {/* Upload Photo to Selected Album */}
+          {/* Upload Multiple Photos to Selected Album */}
           {selectedAlbum ? (
             <article className="account-form-card">
-              <p className="eyebrow">UPLOAD TO ALBUM</p>
-              <h2>Add Photo to "{selectedAlbum.name}"</h2>
-              <form onSubmit={addPhoto}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div>
+                  <p className="eyebrow">MULTIPLE UPLOAD</p>
+                  <h2>Add Photos to "{selectedAlbum.name}"</h2>
+                </div>
+                <span className="badge" style={{ background: '#0e2439', color: '#85d7ff', border: '1px solid #52bbf544' }}>
+                  📸 {selectedAlbum.photos?.length || 0} in album
+                </span>
+              </div>
+
+              <form onSubmit={uploadStagedPhotos}>
                 <label>
-                  Photo File *
-                  <input type="file" accept="image/*" required onChange={e => { const f = e.target.files?.[0]; if (f) readImageFile(f, setPhotoPreview) }} />
+                  Choose Images (Select Single or Multiple) *
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handlePhotosSelected}
+                    style={{ marginTop: '4px' }}
+                  />
                 </label>
-                <label>
-                  Caption
-                  <input name="caption" placeholder="e.g. Final round winners" />
+
+                <label style={{ marginTop: '8px', display: 'block' }}>
+                  Caption for this batch (Optional)
+                  <input
+                    placeholder="e.g. Workshop hands-on session / Finals"
+                    value={batchCaption}
+                    onChange={e => setBatchCaption(e.target.value)}
+                  />
                 </label>
-                {photoPreview && (
-                  <div style={{ margin: '10px 0' }}>
-                    <img src={photoPreview} alt="Preview" style={{ maxHeight: '120px', borderRadius: '6px' }} />
+
+                {/* Staged Photos Preview Grid */}
+                {stagedPhotos.length > 0 && (
+                  <div style={{ marginTop: '14px', background: '#07101b', border: '1px solid #52bbf544', borderRadius: '8px', padding: '12px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <b style={{ color: '#85d7ff', fontSize: '11px' }}>
+                        📁 {stagedPhotos.length} Photo{stagedPhotos.length > 1 ? 's' : ''} Ready to Upload
+                      </b>
+                      <button
+                        type="button"
+                        onClick={clearStagedPhotos}
+                        style={{ background: 'transparent', border: 0, color: '#f87171', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}
+                      >
+                        ✕ Clear All
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '8px', maxHeight: '200px', overflowY: 'auto', paddingRight: '4px' }}>
+                      {stagedPhotos.map(p => (
+                        <div key={p.id} style={{ position: 'relative', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--line)', background: '#0c1826' }}>
+                          <img src={p.dataUrl} alt={p.name} style={{ width: '100%', height: '65px', objectFit: 'cover', display: 'block' }} />
+                          <button
+                            type="button"
+                            onClick={() => removeStagedPhoto(p.id)}
+                            title="Remove photo"
+                            style={{
+                              position: 'absolute',
+                              top: '2px',
+                              right: '2px',
+                              width: '18px',
+                              height: '18px',
+                              borderRadius: '50%',
+                              background: 'rgba(239, 68, 68, 0.9)',
+                              color: '#fff',
+                              border: 0,
+                              fontSize: '10px',
+                              display: 'grid',
+                              placeItems: 'center',
+                              cursor: 'pointer',
+                              padding: 0,
+                            }}
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
-                <button className="primary member-submit" disabled={!photoPreview} style={{ marginTop: '12px' }}>
-                  ＋ &nbsp; UPLOAD PHOTO
+
+                <button
+                  type="submit"
+                  className="primary member-submit"
+                  disabled={uploading || stagedPhotos.length === 0}
+                  style={{ marginTop: '14px' }}
+                >
+                  {uploading
+                    ? `⏳ UPLOADING ${stagedPhotos.length} PHOTO${stagedPhotos.length > 1 ? 'S' : ''}…`
+                    : stagedPhotos.length > 0
+                    ? `＋ &nbsp; UPLOAD ${stagedPhotos.length} PHOTO${stagedPhotos.length > 1 ? 'S' : ''}`
+                    : '＋ &nbsp; UPLOAD PHOTOS'}
                 </button>
               </form>
             </article>
           ) : (
             <article className="account-form-card" style={{ display: 'grid', placeContent: 'center', textAlign: 'center', minHeight: '180px', color: '#8aa2b4' }}>
-              <p>Click on any album below to upload photos or manage its contents.</p>
+              <p>Click on any album below to select it and upload multiple photos.</p>
             </article>
           )}
         </div>
@@ -4365,71 +4505,155 @@ function StudentRegistrations({ user, logout, onNavigate }) {
 function StudentGallery({ user, logout, onNavigate }) {
   const [albums, setAlbums] = useState([])
   const [loading, setLoading] = useState(true)
-  const [subRequired, setSubRequired] = useState(false)
+  const [selectedAlbum, setSelectedAlbum] = useState(null)
+  const [loadingAlbum, setLoadingAlbum] = useState(false)
+  const [activeLightbox, setActiveLightbox] = useState(null)
 
   useEffect(() => {
     let mounted = true
     memberApi.listGallery()
       .then(({ albums: list }) => { if (mounted) setAlbums(list || []) })
-      .catch(err => {
-        if (mounted && (err.code === 'SUBSCRIPTION_REQUIRED' || err.message?.includes('membership is inactive'))) {
-          setSubRequired(true)
-        }
-      })
+      .catch(() => {})
       .finally(() => { if (mounted) setLoading(false) })
     return () => { mounted = false }
   }, [])
 
+  async function handleOpenAlbum(album) {
+    setSelectedAlbum(album)
+    setLoadingAlbum(true)
+    try {
+      const res = await memberApi.getGalleryAlbum(album.id)
+      if (res?.album) {
+        setSelectedAlbum(res.album)
+        setAlbums(curr => curr.map(a => (a.id === res.album.id ? res.album : a)))
+      }
+    } catch {
+      // Fallback: keep local album photos if any
+    } finally {
+      setLoadingAlbum(false)
+    }
+  }
+
   return (
     <LivePortal user={user} logout={logout} activeTab="student-gallery" onNavigate={onNavigate} title="CLUB GALLERY">
       <section className="gallery-section">
-        <div className="event-heading">
+        {selectedAlbum ? (
+          // Opened Album View with all photos
           <div>
-            <button className="back-button" type="button" onClick={() => onNavigate('student-dashboard')}>
-              ← BACK TO DASHBOARD
-            </button>
-            <p className="eyebrow">PHOTO MEMORIES</p>
-            <h1>Cyber Security Club Gallery</h1>
-            <p>Highlights, award ceremonies, and lab workshops.</p>
-          </div>
-        </div>
-
-        {subRequired && (
-          <div className="pending-alert-banner" style={{ background: '#3a1818', borderColor: '#ef4444', color: '#ffcdd2', marginBottom: '20px' }}>
-            <div>
-              <b>Member Gallery Locked</b>
-              <p style={{ margin: '2px 0 0', fontSize: '11px' }}>
-                Active student membership is required to view full photo galleries.
-              </p>
+            <div className="event-heading" style={{ marginBottom: '20px' }}>
+              <div>
+                <button className="back-button" type="button" onClick={() => setSelectedAlbum(null)}>
+                  ← BACK TO ALL ALBUMS
+                </button>
+                <p className="eyebrow">ALBUM SHOWCASE</p>
+                <h1>{selectedAlbum.name}</h1>
+                <p>{selectedAlbum.description || 'Club photo collection & highlights'}</p>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span className="badge" style={{ background: '#0e2439', color: '#85d7ff', border: '1px solid #52bbf544', padding: '6px 12px', fontSize: '11px' }}>
+                  📸 {selectedAlbum.photos?.length || 0} Photos
+                </span>
+              </div>
             </div>
-            <button type="button" onClick={() => onNavigate('student-membership')} style={{ background: '#ef4444', color: '#fff' }}>
-              SUBSCRIBE NOW →
-            </button>
+
+            {loadingAlbum ? (
+              <p className="directory-state">Loading album photos...</p>
+            ) : (!selectedAlbum.photos || selectedAlbum.photos.length === 0) ? (
+              <article className="account-form-card" style={{ textAlign: 'center', padding: '40px 20px', color: '#8aa2b4' }}>
+                <p style={{ margin: 0, fontSize: '13px' }}>No photos have been added to this album yet.</p>
+              </article>
+            ) : (
+              <div className="gallery-grid">
+                {selectedAlbum.photos.map(p => (
+                  <div
+                    key={p.id}
+                    className="album-card-box"
+                    onClick={() => setActiveLightbox(p)}
+                    style={{ position: 'relative' }}
+                    title="Click to view full-size photo"
+                  >
+                    <div className="album-cover">
+                      <img src={p.imageUrl} alt={p.caption || selectedAlbum.name} />
+                    </div>
+                    {p.caption && (
+                      <div className="album-details">
+                        <p style={{ color: '#edf7ff', fontWeight: 500 }}>{p.caption}</p>
+                      </div>
+                    )}
+                    <div style={{ padding: '6px 12px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <small style={{ color: '#688296', fontSize: '10px' }}>{new Date(p.createdAt).toLocaleDateString()}</small>
+                      <small style={{ color: '#85d7ff', fontSize: '10px' }}>🔍 Expand</small>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          // Albums Directory List
+          <div>
+            <div className="event-heading">
+              <div>
+                <button className="back-button" type="button" onClick={() => onNavigate('student-dashboard')}>
+                  ← BACK TO DASHBOARD
+                </button>
+                <p className="eyebrow">PHOTO MEMORIES</p>
+                <h1>Cyber Security Club Gallery</h1>
+                <p>Highlights, award ceremonies, and lab workshops. Click any album to view its photos.</p>
+              </div>
+            </div>
+
+            {loading ? (
+              <p className="directory-state">Loading gallery albums...</p>
+            ) : albums.length === 0 ? (
+              <p className="directory-state">No albums published yet.</p>
+            ) : (
+              <div className="gallery-grid">
+                {albums.map(a => (
+                  <div
+                    key={a.id}
+                    className="album-card-box"
+                    onClick={() => handleOpenAlbum(a)}
+                    title={`Open "${a.name}" album`}
+                  >
+                    <div className="album-cover">
+                      {a.coverImage || a.photos?.[0]?.imageUrl ? (
+                        <img src={a.coverImage || a.photos[0].imageUrl} alt={a.name} />
+                      ) : (
+                        <div className="album-cover-placeholder">{a.name.slice(0, 2).toUpperCase()}</div>
+                      )}
+                      <span className="album-photo-count">{a.photos?.length || 0} photos</span>
+                    </div>
+                    <div className="album-details">
+                      <h3>{a.name}</h3>
+                      <p>{a.description || 'Club photo highlights'}</p>
+                    </div>
+                    <div style={{ padding: '8px 14px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <small style={{ color: '#85d7ff', fontWeight: 600 }}>Open Album →</small>
+                      <small style={{ color: '#688296' }}>{a.photos?.length || 0} photos</small>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        {loading ? (
-          <p className="directory-state">Loading gallery...</p>
-        ) : albums.length === 0 ? (
-          <p className="directory-state">No albums published yet.</p>
-        ) : (
-          <div className="gallery-grid">
-            {albums.map(a => (
-              <div key={a.id} className="album-card-box">
-                <div className="album-cover">
-                  {a.coverImage || a.photos?.[0]?.imageUrl ? (
-                    <img src={a.coverImage || a.photos[0].imageUrl} alt={a.name} />
-                  ) : (
-                    <div className="album-cover-placeholder">{a.name.slice(0, 2).toUpperCase()}</div>
-                  )}
-                  <span className="album-photo-count">{a.photos?.length || 0} photos</span>
-                </div>
-                <div className="album-details">
-                  <h3>{a.name}</h3>
-                  <p>{a.description || 'Club photo highlights'}</p>
-                </div>
+        {/* Read-Only Photo Lightbox Modal */}
+        {activeLightbox && (
+          <div className="photo-lightbox" onClick={() => setActiveLightbox(null)}>
+            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()}>
+              <button className="lightbox-close" onClick={() => setActiveLightbox(null)}>✕</button>
+              <img src={activeLightbox.imageUrl} alt={activeLightbox.caption || 'Event photo'} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', padding: '0 4px' }}>
+                <p style={{ color: '#edf7ff', margin: 0, fontSize: '13px', fontWeight: 500 }}>
+                  {activeLightbox.caption || selectedAlbum?.name || 'Club Gallery Photo'}
+                </p>
+                <small style={{ color: '#85d7ff', fontSize: '11px' }}>
+                  {activeLightbox.createdAt ? new Date(activeLightbox.createdAt).toLocaleDateString() : ''}
+                </small>
               </div>
-            ))}
+            </div>
           </div>
         )}
       </section>

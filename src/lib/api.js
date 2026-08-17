@@ -38,6 +38,27 @@ export function readImageFile(file, callback) {
   reader.readAsDataURL(file)
 }
 
+export function readMultipleImageFiles(fileList) {
+  const files = Array.from(fileList || [])
+  return Promise.all(
+    files.map(
+      file =>
+        new Promise((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = e =>
+            resolve({
+              name: file.name,
+              size: file.size,
+              type: file.type,
+              dataUrl: e.target?.result,
+            })
+          reader.onerror = reject
+          reader.readAsDataURL(file)
+        })
+    )
+  )
+}
+
 export const authApi = {
   me: () => request('/auth/me'),
   login: (memberId, password) => request('/auth/login', { method: 'POST', body: JSON.stringify({ memberId, password }) }),
@@ -81,6 +102,7 @@ export const adminApi = {
   listGalleryAlbums: () => request('/admin/gallery/albums'),
   createGalleryAlbum: album => request('/admin/gallery/albums', { method: 'POST', body: JSON.stringify(album) }),
   addGalleryPhoto: (albumId, photo) => request(`/admin/gallery/albums/${albumId}/photos`, { method: 'POST', body: JSON.stringify(photo) }),
+  addGalleryPhotos: (albumId, photos) => request(`/admin/gallery/albums/${albumId}/photos`, { method: 'POST', body: JSON.stringify({ photos }) }),
   deleteGalleryAlbum: albumId => request(`/admin/gallery/albums/${albumId}`, { method: 'DELETE' }),
   deleteGalleryPhoto: (albumId, photoId) => request(`/admin/gallery/albums/${albumId}/photos/${photoId}`, { method: 'DELETE' }),
 
@@ -118,6 +140,7 @@ export const memberApi = {
   updateProfile: profile => request('/member/profile', { method: 'PUT', body: JSON.stringify(profile) }),
   createComplaint: complaint => request('/member/complaints', { method: 'POST', body: JSON.stringify(complaint) }),
   listGallery: () => request('/member/gallery'),
+  getGalleryAlbum: albumId => request(`/member/gallery/${albumId}`),
   listClubTeam: () => request('/member/team'),
   getPublicClubSettings: () => request('/member/settings'),
   getSessionStatus: () => request('/member/session-status'),

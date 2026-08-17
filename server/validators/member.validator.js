@@ -151,6 +151,10 @@ export const galleryPhotoSchema = z.object({
   caption: optionalText(255),
 })
 
+export const galleryPhotosBatchSchema = z.object({
+  photos: z.array(galleryPhotoSchema).min(1, 'At least one photo is required.'),
+})
+
 export const clubTeamMemberSchema = z.object({
   name: z.string().trim().min(1, 'Name is required.').max(120),
   roleTitle: z.string().trim().min(1, 'Role title is required.').max(120),

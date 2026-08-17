@@ -21,6 +21,7 @@ import {
   eventInputSchema,
   galleryAlbumSchema,
   galleryPhotoSchema,
+  galleryPhotosBatchSchema,
   paymentVerificationSchema,
   newId,
 } from '../validators/member.validator.js'
@@ -701,10 +702,49 @@ export async function createGalleryAlbum(request, response) {
 }
 
 export async function addGalleryPhoto(request, response) {
-  const parsed = galleryPhotoSchema.safeParse(request.body)
-  if (!parsed.success) return response.status(400).json({ message: parsed.error.issues[0]?.message || 'Upload a valid photo.' })
   const album = await prisma.galleryAlbum.findUnique({ where: { id: request.params.albumId } })
   if (!album) return response.status(404).json({ message: 'Album not found.' })
+
+  // Handle batch photos upload: { photos: [{ imageUrl, caption }, ...] }
+  if (Array.isArray(request.body.photos)) {
+    const parsed = galleryPhotosBatchSchema.safeParse(request.body)
+    if (!parsed.success) {
+      return response.status(400).json({ message: parsed.error.issues[0]?.message || 'Upload valid photos.' })
+    }
+
+    const createdPhotos = []
+    for (const photoItem of parsed.data.photos) {
+      const created = await prisma.galleryPhoto.create({
+        data: {
+          id: newId(),
+          albumId: album.id,
+          imageUrl: photoItem.imageUrl,
+          caption: photoItem.caption || null,
+        },
+      })
+      createdPhotos.push(created)
+    }
+
+    if (!album.coverImage && createdPhotos.length > 0) {
+      await prisma.galleryAlbum.update({
+        where: { id: album.id },
+        data: { coverImage: createdPhotos[0].imageUrl },
+      })
+    }
+
+    await tryWriteAuditLog({
+      actorUserId: request.user.id,
+      action: 'GALLERY_PHOTOS_BATCH_ADDED',
+      metadata: { albumId: album.id, count: createdPhotos.length },
+      ...auditRequest(request),
+    })
+
+    return response.status(201).json({ photos: createdPhotos, count: createdPhotos.length, photo: createdPhotos[0] })
+  }
+
+  // Handle single photo upload: { imageUrl, caption }
+  const parsed = galleryPhotoSchema.safeParse(request.body)
+  if (!parsed.success) return response.status(400).json({ message: parsed.error.issues[0]?.message || 'Upload a valid photo.' })
 
   const photo = await prisma.galleryPhoto.create({
     data: { id: newId(), albumId: album.id, ...parsed.data },
@@ -713,7 +753,7 @@ export async function addGalleryPhoto(request, response) {
     await prisma.galleryAlbum.update({ where: { id: album.id }, data: { coverImage: photo.imageUrl } })
   }
   await tryWriteAuditLog({ actorUserId: request.user.id, action: 'GALLERY_PHOTO_ADDED', metadata: { albumId: album.id, photoId: photo.id }, ...auditRequest(request) })
-  return response.status(201).json({ photo })
+  return response.status(201).json({ photo, photos: [photo], count: 1 })
 }
 
 export async function deleteGalleryAlbum(request, response) {
