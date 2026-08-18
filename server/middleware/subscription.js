@@ -25,6 +25,17 @@ export async function requireActiveSubscription(request, response, next) {
       return next()
     }
 
+    // Free events are open to all students and guest students without subscription requirement
+    if (request.params.eventId) {
+      const event = await prisma.event.findUnique({
+        where: { id: request.params.eventId },
+        select: { requiresPayment: true, paymentAmount: true },
+      })
+      if (event && !event.requiresPayment) {
+        return next()
+      }
+    }
+
     // Check if student has an active subscription that has not expired
     const activeSubscription = await prisma.subscription.findFirst({
       where: {

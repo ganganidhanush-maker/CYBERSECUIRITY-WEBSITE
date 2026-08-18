@@ -62,6 +62,7 @@ export function readMultipleImageFiles(fileList) {
 export const authApi = {
   me: () => request('/auth/me'),
   login: (memberId, password) => request('/auth/login', { method: 'POST', body: JSON.stringify({ memberId, password }) }),
+  registerGuest: payload => request('/auth/register-guest', { method: 'POST', body: JSON.stringify(payload) }),
   verifyTwoFactor: code => request('/auth/verify-2fa', { method: 'POST', body: JSON.stringify({ code }) }),
   logout: () => request('/auth/logout', { method: 'POST' }),
   requestPasswordReset: memberId => request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ memberId }) }),
@@ -75,6 +76,7 @@ export const adminApi = {
   // Members
   listMembers: () => request('/admin/members'),
   createMember: member => request('/admin/members', { method: 'POST', body: JSON.stringify(member) }),
+  bulkCreateMembers: students => request('/admin/members/bulk', { method: 'POST', body: JSON.stringify({ students }) }),
   editMember: (id, member) => request(`/admin/members/${id}`, { method: 'PUT', body: JSON.stringify(member) }),
   updateMemberStatus: (id, accountStatus) => request(`/admin/members/${id}/status`, { method: 'PUT', body: JSON.stringify({ accountStatus }) }),
   deleteMember: id => request(`/admin/members/${id}`, { method: 'DELETE' }),

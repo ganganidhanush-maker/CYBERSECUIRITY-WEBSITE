@@ -4,6 +4,7 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
 const EXEMPT_PATHS = new Set([
   '/api/v1/auth/login',
+  '/api/v1/auth/register-guest',
   '/api/v1/auth/verify-2fa',
   '/api/v1/auth/forgot-password',
   '/api/v1/auth/reset-password',
@@ -39,6 +40,7 @@ export function csrfProtection(request, response, next) {
     SAFE_METHODS.has(request.method) ||
     EXEMPT_PATHS.has(request.path) ||
     request.path.endsWith('/auth/login') ||
+    request.path.endsWith('/auth/register-guest') ||
     request.path.endsWith('/auth/verify-2fa') ||
     request.path.endsWith('/auth/forgot-password') ||
     request.path.endsWith('/auth/reset-password') ||

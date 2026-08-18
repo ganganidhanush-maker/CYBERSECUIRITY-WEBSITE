@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import clubLogo from './assets/branding/cyber-security-club-logo.jpeg'
 import { adminApi, authApi, memberApi, readImageFile, readMultipleImageFiles } from './lib/api'
+import { downloadIdPass } from './lib/id-pass'
 import { getYouTubeEmbedUrl, parseYouTubeVideoId } from './lib/video'
 import './App.css'
 
@@ -17,6 +18,15 @@ const CLUB_ROLES = [
   { id: 'PR_TEAM', label: 'PR Team', roleType: 'admin' },
   { id: 'CULTURAL', label: 'Cultural', roleType: 'admin' },
   { id: 'SECRETARY', label: 'Secretary', roleType: 'admin' },
+]
+
+const BRANCH_OPTIONS = ['CSE', 'ECE', 'EEE', 'CE', 'ME', 'IT', 'BBA', 'MBA', 'IoT']
+const CSE_SPECIALIZATIONS = ['AIML', 'CS', 'DS', 'General', 'IT', 'IOT', 'AIDS']
+const ACADEMIC_YEARS = [
+  { value: 1, label: '1st Year' },
+  { value: 2, label: '2nd Year' },
+  { value: 3, label: '3rd Year' },
+  { value: 4, label: '4th Year' },
 ]
 
 function getRoleLabel(roleId) {
@@ -641,11 +651,319 @@ function LivePortal({ user, logout, activeTab, onNavigate, title, onUserUpdated,
 // ----------------------------------------------------
 // Login & Auth Recovery Screens
 // ----------------------------------------------------
+function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [collegeChoice, setCollegeChoice] = useState('Malla Reddy (MR) Deemed to be University')
+  const [customCollege, setCustomCollege] = useState('')
+  const [branch, setBranch] = useState('CSE')
+  const [specialization, setSpecialization] = useState('AIML')
+  const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  if (!isOpen) return null
+
+  const effectiveCollege = collegeChoice === 'Other' ? customCollege.trim() : collegeChoice
+
+  async function handleRegister(e) {
+    e.preventDefault()
+    setError('')
+
+    if (!name.trim()) {
+      setError('Please enter your full name.')
+      return
+    }
+    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('Please enter a valid email address.')
+      return
+    }
+    if (collegeChoice === 'Other' && !customCollege.trim()) {
+      setError('Please enter your college name.')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const payload = {
+        name: name.trim(),
+        email: email.trim(),
+        college: effectiveCollege,
+        branch,
+        specialization: branch === 'CSE' ? specialization : null,
+      }
+
+      const res = await authApi.registerGuest(payload)
+      // Automatically download official ID Pass.png
+      await downloadIdPass({
+        name: payload.name,
+        college: payload.college,
+        branch: payload.branch,
+        specialization: payload.specialization,
+        memberId: res.memberId,
+        password: res.password,
+      })
+
+      onSuccess({
+        name: payload.name,
+        college: payload.college,
+        branch: payload.branch,
+        specialization: payload.specialization,
+        memberId: res.memberId,
+        password: res.password,
+      })
+    } catch (err) {
+      setError(err.message || 'Unable to create guest account. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="photo-lightbox" onClick={onClose}>
+      <div className="guest-modal-content" onClick={e => e.stopPropagation()}>
+        <button className="lightbox-close" onClick={onClose}>✕</button>
+        
+        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+          <Crest small />
+          <span className="badge badge-registered" style={{ marginTop: '10px', display: 'inline-block' }}>
+            STUDENT PORTAL REGISTRATION
+          </span>
+          <h2 style={{ font: '700 22px Syne', color: '#edf7ff', margin: '8px 0 4px' }}>
+            Create Student Account
+          </h2>
+          <p style={{ color: '#7e95a7', fontSize: '12px', margin: 0 }}>
+            Guest & External Student Portal Access · MRDU & Partner Colleges
+          </p>
+        </div>
+
+        {error && (
+          <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid #ef444455', color: '#fca5a5', fontSize: '12px', marginBottom: '16px' }} role="alert">
+            ⚠️ {error}
+          </div>
+        )}
+
+        <form onSubmit={handleRegister}>
+          <div className="guest-field-group">
+            <label>Full Name *</label>
+            <input
+              required
+              placeholder="e.g. Rahul Sharma"
+              value={name}
+              onChange={e => setName(e.target.value)}
+            />
+          </div>
+
+          <div className="guest-field-group">
+            <label>Official Email Address *</label>
+            <input
+              type="email"
+              required
+              placeholder="e.g. rahul.sharma@gmail.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+            />
+          </div>
+
+          <div className="guest-field-group">
+            <label>College / Institution Name *</label>
+            <select
+              value={collegeChoice}
+              onChange={e => setCollegeChoice(e.target.value)}
+            >
+              <option value="Malla Reddy (MR) Deemed to be University">Malla Reddy (MR) Deemed to be University</option>
+              <option value="Other">Other (Enter Manually)</option>
+            </select>
+          </div>
+
+          {collegeChoice === 'Other' && (
+            <div className="guest-field-group">
+              <label>Enter College Name *</label>
+              <input
+                required
+                placeholder="e.g. JNTU Hyderabad / Osmania University"
+                value={customCollege}
+                onChange={e => setCustomCollege(e.target.value)}
+              />
+            </div>
+          )}
+
+          <div className="guest-field-group">
+            <label>Branch / Department *</label>
+            <select
+              value={branch}
+              onChange={e => setBranch(e.target.value)}
+            >
+              {BRANCH_OPTIONS.map(b => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+          </div>
+
+          {branch === 'CSE' && (
+            <div className="guest-field-group">
+              <label>CSE Specialization *</label>
+              <select
+                value={specialization}
+                onChange={e => setSpecialization(e.target.value)}
+              >
+                {CSE_SPECIALIZATIONS.map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div style={{ background: '#050d18', border: '1px solid #1c3650', borderRadius: '8px', padding: '12px', margin: '16px 0', fontSize: '11px', color: '#85d7ff' }}>
+            🔒 <b>Automated Credentials & ID Pass Generation:</b>
+            <p style={{ margin: '4px 0 0', color: '#7e9db8', lineHeight: '1.5' }}>
+              Your unique <b>Guest Member ID</b> (e.g. <code>GUEST2026001</code>) and a <b>14-character secure password</b> will be automatically generated. An official <b>ID Pass.png</b> will be downloaded directly to your device.
+            </p>
+          </div>
+
+          <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+            <button
+              type="button"
+              className="action-btn"
+              onClick={onClose}
+              style={{ flex: 1, height: '42px', background: '#111d2b', color: '#85d7ff', border: '1px solid #203a55' }}
+            >
+              CANCEL
+            </button>
+            <button
+              type="submit"
+              className="primary"
+              disabled={submitting}
+              style={{ flex: 2, height: '42px', fontSize: '11px' }}
+            >
+              {submitting ? 'GENERATING ID PASS…' : '⚡ CREATE ACCOUNT & DOWNLOAD PASS'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+function GuestCredentialsSuccessModal({ data, onClose, onProceedToLogin }) {
+  if (!data) return null
+
+  return (
+    <div className="photo-lightbox">
+      <div className="guest-modal-content" style={{ textAlign: 'center', maxWidth: '520px' }}>
+        <span style={{ fontSize: '42px', display: 'block', marginBottom: '8px' }}>🎉</span>
+        <h2 style={{ color: '#edf7ff', font: '700 22px Syne', margin: '0 0 4px' }}>
+          Account Created Successfully!
+        </h2>
+        <p style={{ color: '#70ddb4', fontSize: '12px', fontWeight: 600, margin: '0 0 16px' }}>
+          ✓ Official ID Pass.png has been automatically downloaded to your device
+        </p>
+
+        <div className="guest-credentials-card">
+          <div className="cred-row">
+            <span className="cred-label">STUDENT NAME</span>
+            <span style={{ color: '#fff', fontWeight: 600 }}>{data.name}</span>
+          </div>
+          <div className="cred-row">
+            <span className="cred-label">COLLEGE</span>
+            <span style={{ color: '#9bb7cc', fontSize: '12px' }}>{data.college}</span>
+          </div>
+          <div className="cred-row">
+            <span className="cred-label">BRANCH</span>
+            <span style={{ color: '#9bb7cc', fontSize: '12px' }}>{data.branch}{data.specialization ? ` (${data.specialization})` : ''}</span>
+          </div>
+          <div className="cred-row">
+            <span className="cred-label">MEMBER ID (USERNAME)</span>
+            <span className="cred-value">{data.memberId}</span>
+          </div>
+          <div className="cred-row">
+            <span className="cred-label">GENERATED PASSWORD</span>
+            <span className="cred-value" style={{ color: '#70ddb4', border: '1px solid #70ddb444' }}>{data.password}</span>
+          </div>
+        </div>
+
+        <p style={{ color: '#7e95a7', fontSize: '11px', lineHeight: '1.5', margin: '0 0 20px' }}>
+          Please keep an offline copy of your credentials. You can use this Member ID and Password to sign in to the portal anytime.
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <button
+            type="button"
+            className="action-btn"
+            onClick={() => downloadIdPass(data)}
+            style={{ width: '100%', height: '40px', background: '#0e263d', color: '#85d7ff', border: '1px solid #52bbf555', fontSize: '11px', fontWeight: 600 }}
+          >
+            ⬇ DOWNLOAD ID PASS.PNG AGAIN
+          </button>
+          <button
+            type="button"
+            className="primary"
+            onClick={onProceedToLogin}
+            style={{ width: '100%', height: '44px', fontSize: '11px' }}
+          >
+            PROCEED TO LOGIN →
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ForgotPasswordModal({ isOpen, onClose }) {
+  const [copied, setCopied] = useState(false)
+  if (!isOpen) return null
+
+  function copyEmail() {
+    navigator.clipboard?.writeText('cyberclubmrdu2025@gmail.com')
+    setCopied(true)
+    setTimeout(() => setCopied(false), 3000)
+  }
+
+  return (
+    <div className="photo-lightbox" onClick={onClose}>
+      <div className="guest-modal-content" onClick={e => e.stopPropagation()} style={{ textAlign: 'center', maxWidth: '480px' }}>
+        <button className="lightbox-close" onClick={onClose}>✕</button>
+        <span style={{ fontSize: '38px', display: 'block', marginBottom: '12px' }}>🔐</span>
+        <h3 style={{ color: '#edf7ff', margin: '0 0 8px', font: '700 20px Syne' }}>Password Assistance & Recovery</h3>
+        <p style={{ color: '#9bb7cc', fontSize: '13px', lineHeight: '1.6', margin: '0 0 20px' }}>
+          To reset your password or for student/leadership account assistance, please contact the official Cyber Security Club administration directly:
+        </p>
+        
+        <div style={{ background: '#050c16', border: '1px solid #52bbf544', borderRadius: '8px', padding: '16px', marginBottom: '18px' }}>
+          <small style={{ color: '#728da1', font: '600 10px "DM Mono", monospace', display: 'block', marginBottom: '6px' }}>
+            OFFICIAL CLUB SUPPORT DESK
+          </small>
+          <a href="mailto:cyberclubmrdu2025@gmail.com" style={{ color: '#70ddb4', fontSize: '16px', fontWeight: 700, textDecoration: 'none', display: 'block', marginBottom: '10px' }}>
+            cyberclubmrdu2025@gmail.com
+          </a>
+          <button
+            type="button"
+            onClick={copyEmail}
+            style={{ background: '#112233', border: '1px solid #52bbf544', color: '#85d7ff', padding: '4px 12px', borderRadius: '4px', fontSize: '10px', cursor: 'pointer', font: '600 10px "DM Mono", monospace' }}
+          >
+            {copied ? '✓ COPIED TO CLIPBOARD' : '📋 COPY EMAIL ADDRESS'}
+          </button>
+        </div>
+
+        <p style={{ color: '#688296', fontSize: '11px', lineHeight: '1.5', margin: '0 0 20px' }}>
+          When emailing, please provide your <b>Full Name</b>, <b>College Roll Number / Member ID</b>, and <b>College Name</b> so the admin team can verify your profile.
+        </p>
+
+        <button className="primary" type="button" onClick={onClose} style={{ width: '100%', height: '42px', fontSize: '11px' }}>
+          CLOSE
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function FinalLogin({ onSignIn, onForgotPassword }) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [memberIdVal, setMemberIdVal] = useState('')
+  const [showRegisterModal, setShowRegisterModal] = useState(false)
+  const [showForgotModal, setShowForgotModal] = useState(false)
+  const [guestSuccessData, setGuestSuccessData] = useState(null)
 
   async function submit(event) {
     event.preventDefault()
@@ -768,16 +1086,59 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
             </button>
           </form>
 
-          <div className="login-footer-links">
-            <button className="back-button" type="button" onClick={onForgotPassword} style={{ margin: 0, fontSize: '11px' }}>
-              Forgot password?
+          <div className="login-footer-links" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
+            <button
+              className="back-button"
+              type="button"
+              onClick={() => setShowRegisterModal(true)}
+              style={{ margin: 0, fontSize: '11px', color: '#85d7ff', fontWeight: 600 }}
+            >
+              ⚡ Create Account
             </button>
-            <small style={{ color: '#577287', font: '500 9px "DM Mono", monospace' }}>
-              MRDU // HYD
-            </small>
+            <span style={{ color: '#334b60', fontSize: '12px' }}>|</span>
+            <button
+              className="back-button"
+              type="button"
+              onClick={() => setShowForgotModal(true)}
+              style={{ margin: 0, fontSize: '11px' }}
+            >
+              Forgot Password?
+            </button>
           </div>
         </div>
       </section>
+
+      {/* Guest Student Registration Modal */}
+      {showRegisterModal && (
+        <GuestRegisterModal
+          isOpen={showRegisterModal}
+          onClose={() => setShowRegisterModal(false)}
+          onSuccess={data => {
+            setShowRegisterModal(false)
+            setGuestSuccessData(data)
+          }}
+        />
+      )}
+
+      {/* Auto-Downloaded Credentials Confirmation Modal */}
+      {guestSuccessData && (
+        <GuestCredentialsSuccessModal
+          data={guestSuccessData}
+          onClose={() => setGuestSuccessData(null)}
+          onProceedToLogin={() => {
+            setMemberIdVal(guestSuccessData.memberId)
+            setGuestSuccessData(null)
+          }}
+        />
+      )}
+
+      {/* Forgot Password / Support Modal */}
+      {showForgotModal && (
+        <ForgotPasswordModal
+          isOpen={showForgotModal}
+          onClose={() => setShowForgotModal(false)}
+        />
+      )}
     </main>
   )
 }
@@ -1183,6 +1544,17 @@ function MemberManagement({ user, logout, onNavigate }) {
   const [editData, setEditData] = useState({})
   const [passwordInput, setPasswordInput] = useState('')
 
+  // Bulk Account Creation States
+  const [accountMode, setAccountMode] = useState('single')
+  const [bulkText, setBulkText] = useState('')
+  const [bulkYear, setBulkYear] = useState(1)
+  const [bulkCollegeChoice, setBulkCollegeChoice] = useState('Malla Reddy (MR) Deemed to be University')
+  const [bulkCollegeCustom, setBulkCollegeCustom] = useState('')
+  const [bulkBranch, setBulkBranch] = useState('CSE')
+  const [bulkSpecialization, setBulkSpecialization] = useState('AIML')
+  const [bulkSubmitting, setBulkSubmitting] = useState(false)
+  const [bulkResultModal, setBulkResultModal] = useState(null)
+
   const [transferModalOpen, setTransferModalOpen] = useState(false)
   const [transferTargetId, setTransferTargetId] = useState('')
   const [transferAuthCode, setTransferAuthCode] = useState('')
@@ -1197,6 +1569,73 @@ function MemberManagement({ user, logout, onNavigate }) {
   const hasUpper = /[A-Z]/.test(passwordInput)
   const hasNumber = /\d/.test(passwordInput)
   const hasSymbol = /[^A-Za-z0-9]/.test(passwordInput)
+
+  const effectiveBulkCollege = bulkCollegeChoice === 'Other' ? bulkCollegeCustom.trim() : bulkCollegeChoice
+  const bulkSpecText = bulkSpecialization ? ` - ${bulkSpecialization}` : ''
+  const bulkDepartment = `${bulkBranch}${bulkBranch === 'CSE' ? bulkSpecText : ''} (${effectiveBulkCollege || 'MRDU'})`
+
+  const existingMemberIds = useMemo(() => new Set(members.map(m => m.memberId.toUpperCase())), [members])
+
+  const parsedBulkStudents = useMemo(() => {
+    if (!bulkText || !bulkText.trim()) return []
+    const lines = bulkText.split(/\r?\n/).filter(line => line.trim().length > 0)
+    const batchMemberIds = new Set()
+
+    return lines.map((line, index) => {
+      let parts = line.split('\t')
+      if (parts.length < 2) {
+        parts = line.split(/\s{2,}|\s*,\s*|\s*;\s*/)
+      }
+      if (parts.length < 2) {
+        const spaceParts = line.trim().split(/\s+/)
+        if (spaceParts.length >= 3) {
+          const pass = spaceParts.pop()
+          const roll = spaceParts.pop()
+          const name = spaceParts.join(' ')
+          parts = [name, roll, pass]
+        }
+      }
+
+      const name = String(parts[0] || '').trim()
+      const memberId = String(parts[1] || '').trim().toUpperCase()
+      const password = String(parts[2] || '').trim()
+
+      const errors = []
+      if (!name) errors.push('Missing Name')
+      if (!memberId) {
+        errors.push('Missing Roll Number')
+      } else if (!/^[A-Za-z0-9]{4,32}$/.test(memberId)) {
+        errors.push('Alphanumeric 4-32 chars')
+      } else if (existingMemberIds.has(memberId)) {
+        errors.push('Roll No / Member ID already exists')
+      } else if (batchMemberIds.has(memberId)) {
+        errors.push('Duplicate in this batch')
+      } else {
+        batchMemberIds.add(memberId)
+      }
+
+      if (!password) {
+        errors.push('Missing Password')
+      } else if (password.length < 8) {
+        errors.push('Password min 8 chars')
+      }
+
+      return {
+        index: index + 1,
+        name,
+        memberId,
+        rollNumber: memberId,
+        password,
+        year: Number(bulkYear) || 1,
+        department: bulkDepartment,
+        isValid: errors.length === 0,
+        errors,
+      }
+    })
+  }, [bulkText, bulkYear, bulkDepartment, existingMemberIds])
+
+  const validBulkCount = parsedBulkStudents.filter(s => s.isValid).length
+  const invalidBulkCount = parsedBulkStudents.length - validBulkCount
 
   function loadMembers() {
     setLoading(true)
@@ -1243,6 +1682,47 @@ function MemberManagement({ user, logout, onNavigate }) {
       setError(err.message)
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function handleBulkSubmit(e) {
+    e.preventDefault()
+    const validRows = parsedBulkStudents.filter(s => s.isValid)
+    if (validRows.length === 0) {
+      setError('Please resolve all validation errors in the student batch before creating accounts.')
+      return
+    }
+
+    setBulkSubmitting(true)
+    setError('')
+    setMessage('')
+
+    try {
+      const payload = validRows.map(r => ({
+        name: r.name,
+        memberId: r.memberId,
+        password: r.password,
+        rollNumber: r.rollNumber,
+        year: r.year,
+        department: r.department,
+      }))
+
+      const res = await adminApi.bulkCreateMembers(payload)
+      if (res.createdUsers && res.createdUsers.length > 0) {
+        setMembers(prev => [...res.createdUsers, ...prev])
+      }
+
+      setBulkResultModal(res)
+      if (res.failedCount === 0) {
+        setBulkText('')
+        setMessage(`Successfully created all ${res.successCount} student accounts!`)
+      } else {
+        setMessage(`Batch completed: ${res.successCount} created, ${res.failedCount} failed.`)
+      }
+    } catch (err) {
+      setError(err.message || 'Bulk account creation failed.')
+    } finally {
+      setBulkSubmitting(false)
     }
   }
 
@@ -1362,80 +1842,279 @@ function MemberManagement({ user, logout, onNavigate }) {
         <div className="member-management-grid">
           {/* Account Creation Card */}
           <article className="account-form-card">
-            <p className="eyebrow">PROVISION MEMBER</p>
-            <h2>Create Club Account</h2>
-            <p style={{ color: '#7e95a7', fontSize: '11px', margin: '4px 0 16px' }}>
-              Provisioning account as: <b style={{ color: '#85d7ff' }}>{user.name} ({user.memberId})</b>
-            </p>
-
-            <form onSubmit={createAccount}>
-              <div className="member-form-grid">
-                <label>
-                  Member ID (Unique)
-                  <input name="memberId" required placeholder="e.g. CSC2026M01" />
-                </label>
-                <label>
-                  Assigned Club Role
-                  <select
-                    className="member-select"
-                    value={role}
-                    onChange={e => setRole(e.target.value)}
-                  >
-                    {CLUB_ROLES.map(r => (
-                      <option key={r.id} value={r.id}>
-                        {r.label} ({r.roleType.toUpperCase()})
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Full Name
-                  <input name="name" required placeholder="Full Name" />
-                </label>
-                <label>
-                  College Roll Number
-                  <input name="rollNumber" placeholder="Roll Number" />
-                </label>
-                <label>
-                  Department
-                  <input name="department" placeholder="e.g. Cyber Security" />
-                </label>
-                <label>
-                  Academic Year
-                  <input name="year" type="number" min={1} max={5} placeholder="1 - 4" />
-                </label>
-                <label>
-                  Official Email
-                  <input name="email" type="email" placeholder="student@college.edu" />
-                </label>
-                <label>
-                  Phone Number
-                  <input name="phone" placeholder="Phone number" />
-                </label>
-                <label className="form-wide">
-                  Account Password
-                  <input
-                    type="password"
-                    value={passwordInput}
-                    onChange={e => setPasswordInput(e.target.value)}
-                    required
-                    placeholder="Min 12 chars (Upper, Lower, Number, Symbol)"
-                  />
-                </label>
-              </div>
-
-              <div className="pwd-rules">
-                <span className={`pwd-rule ${hasLength ? 'valid' : ''}`}><i>{hasLength ? '✓' : '○'}</i> 12+ Characters</span>
-                <span className={`pwd-rule ${hasUpper ? 'valid' : ''}`}><i>{hasUpper ? '✓' : '○'}</i> Uppercase Letter</span>
-                <span className={`pwd-rule ${hasLower ? 'valid' : ''}`}><i>{hasLower ? '✓' : '○'}</i> Lowercase Letter</span>
-                <span className={`pwd-rule ${hasNumber ? 'valid' : ''}`}><i>{hasNumber ? '✓' : '○'}</i> Number</span>
-                <span className={`pwd-rule ${hasSymbol ? 'valid' : ''}`}><i>{hasSymbol ? '✓' : '○'}</i> Symbol (!@#$)</span>
-              </div>
-
-              <button className="primary member-submit" disabled={submitting || !hasLength || !hasLower || !hasUpper || !hasNumber || !hasSymbol}>
-                {submitting ? 'PROVISIONING…' : '＋ &nbsp; CREATE MEMBER ACCOUNT'}
+            {/* Tab Switcher: Individual Account vs Bulk Accounts */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', borderBottom: '1px solid var(--line)', paddingBottom: '10px' }}>
+              <button
+                type="button"
+                className={`tab-btn ${accountMode === 'single' ? 'active' : ''}`}
+                onClick={() => setAccountMode('single')}
+                style={{
+                  background: accountMode === 'single' ? '#14304c' : 'transparent',
+                  color: accountMode === 'single' ? '#85d7ff' : '#688296',
+                  border: accountMode === 'single' ? '1px solid #52bbf555' : '1px solid transparent',
+                  padding: '6px 14px',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                👤 Individual Account
               </button>
-            </form>
+              <button
+                type="button"
+                className={`tab-btn ${accountMode === 'bulk' ? 'active' : ''}`}
+                onClick={() => setAccountMode('bulk')}
+                style={{
+                  background: accountMode === 'bulk' ? '#14304c' : 'transparent',
+                  color: accountMode === 'bulk' ? '#85d7ff' : '#688296',
+                  border: accountMode === 'bulk' ? '1px solid #52bbf555' : '1px solid transparent',
+                  padding: '6px 14px',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                📑 Bulk Accounts
+              </button>
+            </div>
+
+            {accountMode === 'single' ? (
+              <>
+                <p className="eyebrow">PROVISION MEMBER</p>
+                <h2>Create Club Account</h2>
+                <p style={{ color: '#7e95a7', fontSize: '11px', margin: '4px 0 16px' }}>
+                  Provisioning account as: <b style={{ color: '#85d7ff' }}>{user.name} ({user.memberId})</b>
+                </p>
+
+                <form onSubmit={createAccount}>
+                  <div className="member-form-grid">
+                    <label>
+                      Member ID (Unique)
+                      <input name="memberId" required placeholder="e.g. CSC2026M01" />
+                    </label>
+                    <label>
+                      Assigned Club Role
+                      <select
+                        className="member-select"
+                        value={role}
+                        onChange={e => setRole(e.target.value)}
+                      >
+                        {CLUB_ROLES.map(r => (
+                          <option key={r.id} value={r.id}>
+                            {r.label} ({r.roleType.toUpperCase()})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Full Name
+                      <input name="name" required placeholder="Full Name" />
+                    </label>
+                    <label>
+                      College Roll Number
+                      <input name="rollNumber" placeholder="Roll Number" />
+                    </label>
+                    <label>
+                      Department
+                      <input name="department" placeholder="e.g. Cyber Security" />
+                    </label>
+                    <label>
+                      Academic Year
+                      <input name="year" type="number" min={1} max={5} placeholder="1 - 4" />
+                    </label>
+                    <label>
+                      Official Email
+                      <input name="email" type="email" placeholder="student@college.edu" />
+                    </label>
+                    <label>
+                      Phone Number
+                      <input name="phone" placeholder="Phone number" />
+                    </label>
+                    <label className="form-wide">
+                      Account Password
+                      <input
+                        type="password"
+                        value={passwordInput}
+                        onChange={e => setPasswordInput(e.target.value)}
+                        required
+                        placeholder="Min 12 chars (Upper, Lower, Number, Symbol)"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="pwd-rules">
+                    <span className={`pwd-rule ${hasLength ? 'valid' : ''}`}><i>{hasLength ? '✓' : '○'}</i> 12+ Characters</span>
+                    <span className={`pwd-rule ${hasUpper ? 'valid' : ''}`}><i>{hasUpper ? '✓' : '○'}</i> Uppercase Letter</span>
+                    <span className={`pwd-rule ${hasLower ? 'valid' : ''}`}><i>{hasLower ? '✓' : '○'}</i> Lowercase Letter</span>
+                    <span className={`pwd-rule ${hasNumber ? 'valid' : ''}`}><i>{hasNumber ? '✓' : '○'}</i> Number</span>
+                    <span className={`pwd-rule ${hasSymbol ? 'valid' : ''}`}><i>{hasSymbol ? '✓' : '○'}</i> Symbol (!@#$)</span>
+                  </div>
+
+                  <button className="primary member-submit" disabled={submitting || !hasLength || !hasLower || !hasUpper || !hasNumber || !hasSymbol}>
+                    {submitting ? 'PROVISIONING…' : '＋ &nbsp; CREATE MEMBER ACCOUNT'}
+                  </button>
+                </form>
+              </>
+            ) : (
+              /* Bulk Account Creation Interface */
+              <div className="bulk-accounts-container">
+                <div>
+                  <p className="eyebrow">BATCH STUDENT PROVISIONING</p>
+                  <h2>Bulk Student Accounts</h2>
+                  <p style={{ color: '#7e95a7', fontSize: '11px', margin: '4px 0 12px' }}>
+                    Paste data for multiple students at once. Roll Number will be assigned as the unique Member ID.
+                  </p>
+                </div>
+
+                <form onSubmit={handleBulkSubmit}>
+                  <div style={{ marginBottom: '14px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                      <label style={{ color: '#9bb7cc', font: '600 11px "DM Mono", monospace' }}>
+                        1. Paste Student Data (Name | Roll Number | Password)
+                      </label>
+                      <small style={{ color: '#70ddb4', fontSize: '10px', font: '500 10px "DM Mono", monospace' }}>
+                        Excel / Tab / Comma Delimited
+                      </small>
+                    </div>
+                    <textarea
+                      className="bulk-textarea"
+                      placeholder={`Paste rows from Excel or text editor:\nStudent 1\t25EU07R0001\tPassword1!\nStudent 2\t25EU07R0002\tPassword2!\nStudent 3\t25EU07R0003\tPassword3!`}
+                      value={bulkText}
+                      onChange={e => setBulkText(e.target.value)}
+                    />
+                  </div>
+
+                  {/* Common Information Settings */}
+                  <div style={{ background: '#050c16', border: '1px solid #1c3650', borderRadius: '8px', padding: '14px', marginBottom: '16px' }}>
+                    <label style={{ color: '#85d7ff', font: '700 11px "DM Mono", monospace', display: 'block', marginBottom: '10px' }}>
+                      2. Common Batch Information (Applies to All Uploaded Accounts)
+                    </label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
+                      <div>
+                        <label style={{ color: '#7e9db8', fontSize: '10px', display: 'block', marginBottom: '4px' }}>ACADEMIC YEAR</label>
+                        <select
+                          value={bulkYear}
+                          onChange={e => setBulkYear(Number(e.target.value))}
+                          style={{ width: '100%', height: '36px', background: '#08111e', border: '1px solid var(--line)', borderRadius: '6px', color: '#edf7ff', padding: '0 8px', fontSize: '11px' }}
+                        >
+                          {ACADEMIC_YEARS.map(y => (
+                            <option key={y.value} value={y.value}>{y.label}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label style={{ color: '#7e9db8', fontSize: '10px', display: 'block', marginBottom: '4px' }}>COLLEGE</label>
+                        <select
+                          value={bulkCollegeChoice}
+                          onChange={e => setBulkCollegeChoice(e.target.value)}
+                          style={{ width: '100%', height: '36px', background: '#08111e', border: '1px solid var(--line)', borderRadius: '6px', color: '#edf7ff', padding: '0 8px', fontSize: '11px' }}
+                        >
+                          <option value="Malla Reddy (MR) Deemed to be University">Malla Reddy (MR) Deemed to be University</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+
+                      {bulkCollegeChoice === 'Other' && (
+                        <div style={{ gridColumn: '1 / -1' }}>
+                          <label style={{ color: '#7e9db8', fontSize: '10px', display: 'block', marginBottom: '4px' }}>CUSTOM COLLEGE NAME</label>
+                          <input
+                            placeholder="Enter College Name"
+                            value={bulkCollegeCustom}
+                            onChange={e => setBulkCollegeCustom(e.target.value)}
+                            style={{ width: '100%', height: '36px', background: '#08111e', border: '1px solid var(--line)', borderRadius: '6px', color: '#edf7ff', padding: '0 10px', fontSize: '11px' }}
+                          />
+                        </div>
+                      )}
+
+                      <div>
+                        <label style={{ color: '#7e9db8', fontSize: '10px', display: 'block', marginBottom: '4px' }}>BRANCH</label>
+                        <select
+                          value={bulkBranch}
+                          onChange={e => setBulkBranch(e.target.value)}
+                          style={{ width: '100%', height: '36px', background: '#08111e', border: '1px solid var(--line)', borderRadius: '6px', color: '#edf7ff', padding: '0 8px', fontSize: '11px' }}
+                        >
+                          {BRANCH_OPTIONS.map(b => (
+                            <option key={b} value={b}>{b}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {bulkBranch === 'CSE' && (
+                        <div>
+                          <label style={{ color: '#7e9db8', fontSize: '10px', display: 'block', marginBottom: '4px' }}>CSE SPECIALIZATION</label>
+                          <select
+                            value={bulkSpecialization}
+                            onChange={e => setBulkSpecialization(e.target.value)}
+                            style={{ width: '100%', height: '36px', background: '#08111e', border: '1px solid var(--line)', borderRadius: '6px', color: '#edf7ff', padding: '0 8px', fontSize: '11px' }}
+                          >
+                            {CSE_SPECIALIZATIONS.map(s => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Live Validation & Preview Table */}
+                  {parsedBulkStudents.length > 0 && (
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <label style={{ color: '#9bb7cc', font: '600 11px "DM Mono", monospace' }}>
+                          3. Batch Preview & Validation ({parsedBulkStudents.length} Students)
+                        </label>
+                        <span className={invalidBulkCount === 0 ? 'bulk-badge-valid' : 'bulk-badge-invalid'}>
+                          {invalidBulkCount === 0 ? `✓ ALL ${validBulkCount} VALID` : `⚠️ ${validBulkCount} VALID · ${invalidBulkCount} ISSUES`}
+                        </span>
+                      </div>
+
+                      <div className="bulk-preview-wrap">
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                          <thead>
+                            <tr style={{ background: '#0a1626', color: '#85d7ff', borderBottom: '1px solid var(--line)', position: 'sticky', top: 0 }}>
+                              <th style={{ padding: '8px 10px', textAlign: 'left' }}>#</th>
+                              <th style={{ padding: '8px 10px', textAlign: 'left' }}>NAME</th>
+                              <th style={{ padding: '8px 10px', textAlign: 'left' }}>ROLL NO / MEMBER ID</th>
+                              <th style={{ padding: '8px 10px', textAlign: 'left' }}>PASSWORD</th>
+                              <th style={{ padding: '8px 10px', textAlign: 'left' }}>STATUS</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {parsedBulkStudents.map(s => (
+                              <tr key={s.index} style={{ borderBottom: '1px solid #142232', background: s.isValid ? 'transparent' : 'rgba(239, 68, 68, 0.08)' }}>
+                                <td style={{ padding: '6px 10px', color: '#688296' }}>{s.index}</td>
+                                <td style={{ padding: '6px 10px', color: '#edf7ff', fontWeight: 500 }}>{s.name || '<Empty>'}</td>
+                                <td style={{ padding: '6px 10px', color: '#85d7ff', fontFamily: 'monospace' }}>{s.memberId || '<Empty>'}</td>
+                                <td style={{ padding: '6px 10px', color: '#9bb7cc', fontFamily: 'monospace' }}>{s.password ? '••••••••' : '<Empty>'}</td>
+                                <td style={{ padding: '6px 10px' }}>
+                                  {s.isValid ? (
+                                    <span style={{ color: '#70ddb4', fontWeight: 600 }}>✓ Valid</span>
+                                  ) : (
+                                    <span style={{ color: '#fca5a5', fontWeight: 500 }}>⚠️ {s.errors.join(', ')}</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="primary"
+                    disabled={bulkSubmitting || validBulkCount === 0}
+                    style={{ width: '100%', minHeight: '44px', fontSize: '11px' }}
+                  >
+                    {bulkSubmitting ? 'CREATING STUDENT ACCOUNTS…' : `⚡ CREATE ${validBulkCount} STUDENT ACCOUNTS`}
+                  </button>
+                </form>
+              </div>
+            )}
           </article>
 
           {/* Member List Directory Card */}
@@ -1631,6 +2310,66 @@ function MemberManagement({ user, logout, onNavigate }) {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk Account Creation Results Modal */}
+        {bulkResultModal && (
+          <div className="photo-lightbox" onClick={() => setBulkResultModal(null)}>
+            <div className="guest-modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '640px' }}>
+              <button className="lightbox-close" onClick={() => setBulkResultModal(null)}>✕</button>
+              <h3 style={{ color: '#edf7ff', font: '700 20px Syne', margin: '0 0 8px' }}>
+                Batch Account Creation Results
+              </h3>
+              <p style={{ color: '#7e95a7', fontSize: '12px', margin: '0 0 16px' }}>
+                {bulkResultModal.message}
+              </p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+                <div style={{ background: '#071813', border: '1px solid #70ddb444', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
+                  <span style={{ color: '#70ddb4', fontSize: '24px', fontWeight: 700, display: 'block' }}>{bulkResultModal.successCount}</span>
+                  <small style={{ color: '#85d7ff', font: '600 10px "DM Mono", monospace' }}>SUCCESSFULLY CREATED</small>
+                </div>
+                <div style={{ background: bulkResultModal.failedCount > 0 ? '#220b0b' : '#0a1420', border: bulkResultModal.failedCount > 0 ? '1px solid #ef444455' : '1px solid var(--line)', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
+                  <span style={{ color: bulkResultModal.failedCount > 0 ? '#fca5a5' : '#688296', fontSize: '24px', fontWeight: 700, display: 'block' }}>{bulkResultModal.failedCount}</span>
+                  <small style={{ color: '#728da1', font: '600 10px "DM Mono", monospace' }}>FAILED / SKIPPED</small>
+                </div>
+              </div>
+
+              {bulkResultModal.failedItems && bulkResultModal.failedItems.length > 0 && (
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ color: '#fca5a5', font: '600 11px "DM Mono", monospace', display: 'block', marginBottom: '6px' }}>
+                    FAILED STUDENT RECORDS ({bulkResultModal.failedItems.length})
+                  </label>
+                  <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #ef444433', borderRadius: '6px', background: '#0a0d14' }}>
+                    <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ background: '#160d0d', color: '#fca5a5', borderBottom: '1px solid #ef444433' }}>
+                          <th style={{ padding: '6px 10px', textAlign: 'left' }}>ROW</th>
+                          <th style={{ padding: '6px 10px', textAlign: 'left' }}>ROLL NO / MEMBER ID</th>
+                          <th style={{ padding: '6px 10px', textAlign: 'left' }}>NAME</th>
+                          <th style={{ padding: '6px 10px', textAlign: 'left' }}>REASON</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {bulkResultModal.failedItems.map((f, idx) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid #1c1414' }}>
+                            <td style={{ padding: '6px 10px', color: '#85d7ff' }}>#{f.row}</td>
+                            <td style={{ padding: '6px 10px', color: '#edf7ff', fontFamily: 'monospace' }}>{f.memberId}</td>
+                            <td style={{ padding: '6px 10px', color: '#9bb7cc' }}>{f.name}</td>
+                            <td style={{ padding: '6px 10px', color: '#fca5a5' }}>{f.reason}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              <button className="primary" type="button" onClick={() => setBulkResultModal(null)} style={{ width: '100%', height: '42px', fontSize: '11px' }}>
+                CLOSE SUMMARY
+              </button>
             </div>
           </div>
         )}

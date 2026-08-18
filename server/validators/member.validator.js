@@ -213,3 +213,31 @@ export const clubSettingsSchema = z.object({
 export function newId() {
   return crypto.randomUUID()
 }
+
+export const guestRegisterSchema = z.object({
+  name: z.string().trim().min(2, 'Full name is required.').max(120),
+  email: z.string().trim().email('Enter a valid email address.').max(191),
+  college: z.string().trim().min(2, 'College name is required.').max(120),
+  branch: z.string().trim().min(2, 'Branch is required.').max(50),
+  specialization: optionalText(50),
+  phone: optionalText(32),
+})
+
+export const bulkStudentItemSchema = z.object({
+  name: z.string().trim().min(1, 'Student name is required.').max(120),
+  memberId: z.string().trim().min(4, 'Roll Number / Member ID must be at least 4 characters.').max(32),
+  password: z.string().min(8, 'Password must be at least 8 characters.').max(128),
+  rollNumber: optionalText(64),
+  department: optionalText(120),
+  year: z.union([z.string(), z.number(), z.null(), z.undefined()]).transform(val => {
+    if (!val) return null
+    const num = Number(val)
+    return Number.isFinite(num) ? num : null
+  }),
+  email: optionalEmail(),
+  phone: optionalText(32),
+})
+
+export const bulkCreateMembersSchema = z.object({
+  students: z.array(bulkStudentItemSchema).min(1, 'Please provide at least one student account.'),
+})

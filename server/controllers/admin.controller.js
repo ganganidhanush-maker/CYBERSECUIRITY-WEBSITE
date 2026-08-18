@@ -15,6 +15,7 @@ import {
   transferPresidentSchema,
 } from '../validators/auth.validator.js'
 import {
+  bulkCreateMembersSchema,
   clubSettingsSchema,
   clubTeamMemberSchema,
   deleteProtectedAccountSchema,
@@ -100,6 +101,146 @@ export async function createMember(request, response) {
     }
     throw error
   }
+}
+
+export async function bulkCreateMembers(request, response) {
+  const parsed = bulkCreateMembersSchema.safeParse(request.body)
+  if (!parsed.success) {
+    const message = parsed.error.issues[0]?.message || 'Please provide a valid list of student accounts.'
+    return response.status(400).json({ message })
+  }
+
+  const { students } = parsed.data
+  const studentPermissions = getRolePermissions('STUDENT')
+
+  const rawMemberIds = students.map(s => s.memberId.toUpperCase())
+  const existingUsers = await prisma.user.findMany({
+    where: { memberId: { in: rawMemberIds } },
+    select: { memberId: true },
+  })
+  const existingSet = new Set(existingUsers.map(u => u.memberId))
+
+  const emailsToCheck = students.map(s => s.email).filter(Boolean)
+  const existingProfiles = emailsToCheck.length > 0
+    ? await prisma.profile.findMany({
+      where: { email: { in: emailsToCheck } },
+      select: { email: true },
+    })
+    : []
+  const existingEmailSet = new Set(existingProfiles.map(p => p.email))
+
+  const seenInBatch = new Set()
+  const seenEmailInBatch = new Set()
+
+  const successList = []
+  const failedItems = []
+
+  for (let i = 0; i < students.length; i++) {
+    const s = students[i]
+    const rowNum = i + 1
+    const memId = s.memberId.toUpperCase()
+
+    if (existingSet.has(memId)) {
+      failedItems.push({
+        row: rowNum,
+        memberId: memId,
+        name: s.name,
+        reason: 'Member ID already exists in the system.',
+      })
+      continue
+    }
+
+    if (seenInBatch.has(memId)) {
+      failedItems.push({
+        row: rowNum,
+        memberId: memId,
+        name: s.name,
+        reason: 'Duplicate Member ID within the uploaded batch.',
+      })
+      continue
+    }
+
+    if (s.email) {
+      if (existingEmailSet.has(s.email)) {
+        failedItems.push({
+          row: rowNum,
+          memberId: memId,
+          name: s.name,
+          reason: `Email ${s.email} is already associated with an account.`,
+        })
+        continue
+      }
+      if (seenEmailInBatch.has(s.email)) {
+        failedItems.push({
+          row: rowNum,
+          memberId: memId,
+          name: s.name,
+          reason: `Duplicate email ${s.email} within the uploaded batch.`,
+        })
+        continue
+      }
+    }
+
+    seenInBatch.add(memId)
+    if (s.email) seenEmailInBatch.add(s.email)
+
+    try {
+      const passwordHash = await bcrypt.hash(s.password, env.bcryptRounds)
+      const user = await prisma.user.create({
+        data: {
+          memberId: memId,
+          passwordHash,
+          role: 'STUDENT',
+          isPrimaryAdmin: false,
+          accountStatus: 'ACTIVE',
+          profile: {
+            create: {
+              name: s.name,
+              rollNumber: s.rollNumber || memId,
+              department: s.department || null,
+              year: s.year || null,
+              email: s.email || null,
+              phone: s.phone || null,
+            },
+          },
+          permissions: {
+            create: studentPermissions.map(permission => ({ permission })),
+          },
+        },
+        include: userInclude,
+      })
+
+      successList.push(flattenMember(user))
+    } catch (err) {
+      failedItems.push({
+        row: rowNum,
+        memberId: memId,
+        name: s.name,
+        reason: err.message || 'Database error creating account.',
+      })
+    }
+  }
+
+  if (successList.length > 0) {
+    await tryWriteAuditLog({
+      actorUserId: request.user.id,
+      action: 'BULK_ACCOUNTS_CREATED',
+      metadata: {
+        totalSubmitted: students.length,
+        successCount: successList.length,
+        failedCount: failedItems.length,
+      },
+      ...auditRequest(request),
+    })
+  }
+
+  return response.status(200).json({
+    message: `Processed ${students.length} accounts. Successfully created: ${successList.length}, Failed: ${failedItems.length}`,
+    successCount: successList.length,
+    failedCount: failedItems.length,
+    failedItems,
+    createdUsers: successList,
+  })
 }
 
 export async function changeAccountStatus(request, response) {

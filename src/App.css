@@ -1959,3 +1959,139 @@ body {
   border-color: #52bbf577 !important;
 }
 
+/* ---------------------------------------------------- */
+/* Guest Registration & Bulk Account Management */
+/* ---------------------------------------------------- */
+.guest-modal-content {
+  background: #09121e;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 30px;
+  max-width: 560px;
+  width: 92%;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(82, 187, 245, 0.1);
+}
+
+.guest-field-group {
+  margin-bottom: 14px;
+}
+
+.guest-field-group label {
+  display: block;
+  color: #9bb7cc;
+  font: 600 11px 'DM Mono', monospace;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.guest-field-group input,
+.guest-field-group select {
+  width: 100%;
+  height: 42px;
+  background: #050a12;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: #edf7ff;
+  padding: 0 12px;
+  font-size: 13px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.guest-field-group input:focus,
+.guest-field-group select:focus {
+  border-color: #52bbf5;
+  box-shadow: 0 0 10px rgba(82, 187, 245, 0.25);
+  outline: none;
+}
+
+.guest-credentials-card {
+  background: #040913;
+  border: 1px solid #52bbf566;
+  border-radius: 10px;
+  padding: 18px;
+  margin: 16px 0;
+  text-align: left;
+}
+
+.cred-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #142538;
+}
+
+.cred-row:last-child {
+  border-bottom: none;
+}
+
+.cred-label {
+  color: #728da1;
+  font: 500 11px 'DM Mono', monospace;
+}
+
+.cred-value {
+  color: #85d7ff;
+  font: 700 14px 'DM Mono', monospace;
+  background: #0a192c;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #52bbf533;
+}
+
+.bulk-accounts-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.bulk-textarea {
+  width: 100%;
+  min-height: 120px;
+  background: #050a12;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: #edf7ff;
+  padding: 12px;
+  font: 500 12px 'DM Mono', monospace;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.bulk-textarea:focus {
+  border-color: #52bbf5;
+  outline: none;
+  box-shadow: 0 0 10px rgba(82, 187, 245, 0.2);
+}
+
+.bulk-preview-wrap {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #070e17;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.bulk-badge-valid {
+  background: #143522;
+  color: #70ddb4;
+  border: 1px solid #70ddb444;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font: 600 10px 'DM Mono', monospace;
+}
+
+.bulk-badge-invalid {
+  background: #3a1515;
+  color: #fca5a5;
+  border: 1px solid #ef444455;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font: 600 10px 'DM Mono', monospace;
+}
+
+
