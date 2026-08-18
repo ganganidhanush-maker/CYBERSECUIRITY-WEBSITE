@@ -1,4 +1,4 @@
-const MAX_IMAGE_BYTES = 2 * 1024 * 1024
+const MAX_IMAGE_BYTES = 25 * 1024 * 1024 // 25 MB max per image upload
 
 export function normalizeImageUrl(value, { optional = true } = {}) {
   if (value === undefined || value === null || value === '') {
@@ -16,7 +16,7 @@ export function normalizeImageUrl(value, { optional = true } = {}) {
     const base64 = trimmed.split(',')[1] || ''
     const approximateBytes = Math.ceil((base64.length * 3) / 4)
     if (approximateBytes > MAX_IMAGE_BYTES) {
-      throw new Error('Image must be 2 MB or smaller.')
+      throw new Error('Image must be 25 MB or smaller.')
     }
     return trimmed
   }

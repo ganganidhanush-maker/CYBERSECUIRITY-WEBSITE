@@ -146,4 +146,31 @@ describe('Onboarding Briefing & Team Priority Management System', () => {
     assert.equal(updatedLeaders[2].name, 'Event Management Lead')
     assert.equal(updatedLeaders[2].sortOrder, 3)
   })
+
+  it('parses all YouTube video URL variants correctly (watch, shorts, live, embed, youtu.be, raw ID)', async () => {
+    const { parseYouTubeVideoId } = await import('../src/lib/video.js')
+    assert.equal(parseYouTubeVideoId('https://www.youtube.com/watch?v=inWWhr5tnEA'), 'inWWhr5tnEA')
+    assert.equal(parseYouTubeVideoId('https://www.youtube.com/watch?feature=shared&v=dQw4w9WgXcQ'), 'dQw4w9WgXcQ')
+    assert.equal(parseYouTubeVideoId('https://youtu.be/inWWhr5tnEA?si=xyz123'), 'inWWhr5tnEA')
+    assert.equal(parseYouTubeVideoId('https://www.youtube.com/shorts/inWWhr5tnEA'), 'inWWhr5tnEA')
+    assert.equal(parseYouTubeVideoId('https://www.youtube.com/live/inWWhr5tnEA'), 'inWWhr5tnEA')
+    assert.equal(parseYouTubeVideoId('https://www.youtube.com/embed/inWWhr5tnEA'), 'inWWhr5tnEA')
+    assert.equal(parseYouTubeVideoId('https://www.youtube.com/v/inWWhr5tnEA'), 'inWWhr5tnEA')
+    assert.equal(parseYouTubeVideoId('inWWhr5tnEA'), 'inWWhr5tnEA')
+    assert.equal(parseYouTubeVideoId(''), null)
+    assert.equal(parseYouTubeVideoId(null), null)
+  })
+
+  it('verifies backend image normalizer accepts high-resolution images up to 25MB', async () => {
+    const { normalizeImageUrl } = await import('../server/utils/image-url.js')
+    
+    // Create a 5MB base64 dummy data URL
+    const fiveMbBase64 = 'data:image/jpeg;base64,' + 'A'.repeat(5 * 1024 * 1024)
+    const result = normalizeImageUrl(fiveMbBase64)
+    assert.equal(result.startsWith('data:image/jpeg;base64,'), true)
+
+    // Verify rejection for excessive > 25MB payload
+    const thirtyMbBase64 = 'data:image/jpeg;base64,' + 'A'.repeat(35 * 1024 * 1024)
+    assert.throws(() => normalizeImageUrl(thirtyMbBase64), /25 MB or smaller/)
+  })
 })

@@ -6,11 +6,11 @@ export function parseYouTubeVideoId(url) {
   if (!url || typeof url !== 'string') return null
   const cleaned = url.trim()
 
-  // Match youtube.com/watch?v=ID or &v=ID
+  // Match youtube.com/watch?v=ID or &v=ID or /watch?...&v=ID
   const watchMatch = cleaned.match(/[?&]v=([a-zA-Z0-9_-]{11})/)
   if (watchMatch) return watchMatch[1]
 
-  // Match youtu.be/ID
+  // Match youtu.be/ID (with optional query parameters)
   const shortMatch = cleaned.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/)
   if (shortMatch) return shortMatch[1]
 
@@ -21,6 +21,14 @@ export function parseYouTubeVideoId(url) {
   // Match youtube.com/embed/ID
   const embedMatch = cleaned.match(/youtube(?:-nocookie)?\.com\/embed\/([a-zA-Z0-9_-]{11})/)
   if (embedMatch) return embedMatch[1]
+
+  // Match youtube.com/live/ID
+  const liveMatch = cleaned.match(/youtube\.com\/live\/([a-zA-Z0-9_-]{11})/)
+  if (liveMatch) return liveMatch[1]
+
+  // Match youtube.com/v/ID
+  const vMatch = cleaned.match(/youtube\.com\/v\/([a-zA-Z0-9_-]{11})/)
+  if (vMatch) return vMatch[1]
 
   // Match raw 11-char ID
   if (/^[a-zA-Z0-9_-]{11}$/.test(cleaned)) return cleaned

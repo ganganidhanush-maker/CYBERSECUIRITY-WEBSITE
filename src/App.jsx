@@ -6044,27 +6044,52 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
               </div>
             </div>
 
-            {onboardingBriefingMode === 'VIDEO' && (
+            {/* YouTube Onboarding Video URL Input & Status */}
+            <div style={{ background: '#050a12', border: '1px solid var(--line)', borderRadius: '8px', padding: '14px', marginTop: '14px' }}>
               <div className="member-form-grid">
                 <label className="form-wide">
-                  YouTube Video URL (Watch, Shorts, youtu.be, or Embed)
+                  <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>YouTube Onboarding Video URL (Watch, Shorts, youtu.be, or Embed)</span>
+                    {parseYouTubeVideoId(introVideoUrl) ? (
+                      <span style={{ color: '#70ddb4', fontSize: '11px', fontWeight: 600 }}>
+                        ✓ Detected ID: <code>{parseYouTubeVideoId(introVideoUrl)}</code>
+                      </span>
+                    ) : introVideoUrl ? (
+                      <span style={{ color: '#f87171', fontSize: '11px', fontWeight: 600 }}>
+                        ⚠️ Invalid YouTube URL
+                      </span>
+                    ) : null}
+                  </span>
                   <input
                     value={introVideoUrl}
                     onChange={e => setIntroVideoUrl(e.target.value)}
-                    placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..."
+                    placeholder="https://www.youtube.com/watch?v=inWWhr5tnEA or https://youtu.be/..."
                     disabled={!user.isPrimaryAdmin}
+                    style={{ marginTop: '6px' }}
                   />
                 </label>
-                <div className="form-wide" style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap', marginTop: '6px' }}>
-                  <div style={{ padding: '8px 12px', borderRadius: '6px', background: '#050a12', border: '1px solid var(--line)', color: '#70ddb4', fontSize: '11px' }}>
-                    ⏱ 2-Minute Playback Requirement: <b>ACTIVE & COMPULSORY</b>
-                  </div>
-                  <div style={{ padding: '8px 12px', borderRadius: '6px', background: '#050a12', border: '1px solid var(--line)', color: '#85d7ff', fontSize: '11px' }}>
-                    ⚡ 15-Second Fallback: <b>Latest Photos → Leader Priority Order</b>
-                  </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginTop: '10px' }}>
+                {parseYouTubeVideoId(introVideoUrl) && (
+                  <a
+                    href={`https://www.youtube.com/watch?v=${parseYouTubeVideoId(introVideoUrl)}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="action-btn"
+                    style={{ background: '#182b3d', color: '#85d7ff', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+                  >
+                    ↗ Test on YouTube
+                  </a>
+                )}
+                <div style={{ padding: '6px 10px', borderRadius: '6px', background: '#09131f', border: '1px solid #52bbf533', color: '#70ddb4', fontSize: '11px' }}>
+                  ⏱ 2-Minute Playback Requirement: <b>ACTIVE & COMPULSORY</b>
+                </div>
+                <div style={{ padding: '6px 10px', borderRadius: '6px', background: '#09131f', border: '1px solid #52bbf533', color: '#85d7ff', fontSize: '11px' }}>
+                  ⚡ 15-Second Fallback: <b>Latest Photos → Leader Priority Order</b>
                 </div>
               </div>
-            )}
+            </div>
           </article>
 
           {/* Card 4: Club Social Media Channels */}

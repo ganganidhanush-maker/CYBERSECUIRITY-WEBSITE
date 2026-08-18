@@ -32,30 +32,113 @@ async function request(path, options = {}) {
   return payload
 }
 
-export function readImageFile(file, callback) {
-  const reader = new FileReader()
-  reader.onload = e => callback(e.target?.result)
-  reader.readAsDataURL(file)
+/**
+ * Compresses and scales high-resolution images client-side before upload.
+ * Reduces 5MB-25MB camera photos down to crisp ~300KB-800KB web images.
+ */
+export function compressImage(file, { maxDimension = 2048, quality = 0.88 } = {}) {
+  return new Promise((resolve) => {
+    if (!file) return resolve(null)
+    
+    // In SSR or non-browser environments or if not an image, fall back to FileReader
+    if (typeof window === 'undefined' || typeof document === 'undefined' || !file.type || !file.type.startsWith('image/')) {
+      const reader = new FileReader()
+      reader.onload = e => resolve(e.target?.result)
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(file)
+      return
+    }
+
+    // Small SVG or lightweight images under 250KB can be read directly
+    if (file.type === 'image/svg+xml' || (file.size < 250 * 1024 && !file.type.includes('tiff') && !file.type.includes('bmp'))) {
+      const reader = new FileReader()
+      reader.onload = e => resolve(e.target?.result)
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(file)
+      return
+    }
+
+    try {
+      const img = new Image()
+      const objectUrl = URL.createObjectURL(file)
+
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl)
+        let { width, height } = img
+
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width)
+            width = maxDimension
+          } else {
+            width = Math.round((width * maxDimension) / height)
+            height = maxDimension
+          }
+        }
+
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          const reader = new FileReader()
+          reader.onload = e => resolve(e.target?.result)
+          reader.readAsDataURL(file)
+          return
+        }
+
+        ctx.imageSmoothingEnabled = true
+        ctx.imageSmoothingQuality = 'high'
+        ctx.drawImage(img, 0, 0, width, height)
+
+        const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg'
+        const dataUrl = canvas.toDataURL(outputType, quality)
+        resolve(dataUrl)
+      }
+
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl)
+        const reader = new FileReader()
+        reader.onload = e => resolve(e.target?.result)
+        reader.onerror = () => resolve(null)
+        reader.readAsDataURL(file)
+      }
+
+      img.src = objectUrl
+    } catch {
+      const reader = new FileReader()
+      reader.onload = e => resolve(e.target?.result)
+      reader.onerror = () => resolve(null)
+      reader.readAsDataURL(file)
+    }
+  })
 }
 
-export function readMultipleImageFiles(fileList) {
+export function readImageFile(file, callback) {
+  if (!file) return
+  compressImage(file)
+    .then(dataUrl => {
+      if (dataUrl && callback) callback(dataUrl)
+    })
+    .catch(() => {
+      const reader = new FileReader()
+      reader.onload = e => callback && callback(e.target?.result)
+      reader.readAsDataURL(file)
+    })
+}
+
+export async function readMultipleImageFiles(fileList) {
   const files = Array.from(fileList || [])
   return Promise.all(
-    files.map(
-      file =>
-        new Promise((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = e =>
-            resolve({
-              name: file.name,
-              size: file.size,
-              type: file.type,
-              dataUrl: e.target?.result,
-            })
-          reader.onerror = reject
-          reader.readAsDataURL(file)
-        })
-    )
+    files.map(async file => {
+      const dataUrl = await compressImage(file)
+      return {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        dataUrl,
+      }
+    })
   )
 }
 
