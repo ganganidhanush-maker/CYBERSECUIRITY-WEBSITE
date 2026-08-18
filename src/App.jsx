@@ -6878,12 +6878,15 @@ function AuditLogView({ user, logout, onNavigate }) {
 
     if (searchQuery) {
       const q = searchQuery.toLowerCase()
+      const actorName = (entry.actor?.profile?.name || entry.actor?.name || entry.metadata?.name || '').toLowerCase()
+      const actorId = (entry.actor?.memberId || entry.metadata?.memberId || '').toLowerCase()
+      const actorRole = (entry.actor?.role || entry.metadata?.role || '').toLowerCase()
+      const targetName = (entry.target?.profile?.name || entry.target?.name || entry.metadata?.targetName || '').toLowerCase()
+      const targetId = (entry.target?.memberId || entry.metadata?.targetMemberId || '').toLowerCase()
       const matchAction = entry.action?.toLowerCase().includes(q)
-      const matchActor = (entry.actor?.profile?.name || entry.actor?.name || '').toLowerCase().includes(q)
-      const matchId = (entry.actor?.memberId || '').toLowerCase().includes(q)
       const matchIp = (entry.ipAddress || '').toLowerCase().includes(q)
       const matchMeta = JSON.stringify(entry.metadata || {}).toLowerCase().includes(q)
-      if (!matchAction && !matchActor && !matchId && !matchIp && !matchMeta) return false
+      if (!matchAction && !actorName.includes(q) && !actorId.includes(q) && !actorRole.includes(q) && !targetName.includes(q) && !targetId.includes(q) && !matchIp && !matchMeta) return false
     }
     return true
   })
@@ -6896,21 +6899,26 @@ function AuditLogView({ user, logout, onNavigate }) {
       'Actor Member ID',
       'Actor Role',
       'Action / Event',
-      'Target Resource ID',
+      'Target User ID / Resource',
       'IP Address',
       'Parameters / Metadata',
     ]
-    const rows = filteredLogs.map(l => [
-      l.id,
-      l.createdAt ? new Date(l.createdAt).toLocaleString() : null,
-      l.actor?.profile?.name || l.actor?.name,
-      l.actor?.memberId,
-      l.actor?.role,
-      l.action,
-      l.targetId,
-      l.ipAddress,
-      l.metadata ? JSON.stringify(l.metadata) : null,
-    ])
+    const rows = filteredLogs.map(l => {
+      const actorName = l.actor?.profile?.name || l.actor?.name || l.metadata?.name || (l.actor?.isPrimaryAdmin ? 'Primary President' : l.actorUserId ? 'Authorized Member' : 'System Administrator')
+      const actorId = l.actor?.memberId || l.metadata?.memberId || null
+      const actorRole = l.actor?.role || l.metadata?.role || null
+      return [
+        l.id,
+        l.createdAt ? new Date(l.createdAt).toLocaleString() : null,
+        actorName,
+        actorId,
+        actorRole,
+        l.action,
+        l.target?.memberId || l.targetUserId || l.targetId,
+        l.ipAddress,
+        l.metadata ? JSON.stringify(l.metadata) : null,
+      ]
+    })
     downloadCsv('security_audit_logs.csv', headers, rows)
   }
 
@@ -6977,7 +6985,7 @@ function AuditLogView({ user, logout, onNavigate }) {
         <div style={{ marginBottom: '16px' }}>
           <input
             style={{ width: '100%', height: '38px', padding: '0 14px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', fontSize: '11px' }}
-            placeholder="Search by Action, Member Name, Member ID, IP Address, or parameters..."
+            placeholder="Search by Action, Member Name, Member ID, Role, IP Address, or parameters..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
@@ -7001,6 +7009,10 @@ function AuditLogView({ user, logout, onNavigate }) {
                 {filteredLogs.map(entry => {
                   const cat = getAuditCategory(entry.action)
                   const badge = getCategoryBadge(cat)
+                  const actorName = entry.actor?.profile?.name || entry.actor?.name || entry.metadata?.name || (entry.actor?.isPrimaryAdmin ? 'Primary President' : entry.actorUserId ? 'Authorized Member' : 'System Action')
+                  const actorMemberId = entry.actor?.memberId || entry.metadata?.memberId || null
+                  const actorRole = entry.actor?.role || entry.metadata?.role || null
+
                   return (
                     <div className="audit-table-row" key={entry.id}>
                       <div>
@@ -7009,9 +7021,9 @@ function AuditLogView({ user, logout, onNavigate }) {
                         </span>
                       </div>
                       <div>
-                        <b>{entry.actor?.profile?.name || entry.actor?.name || 'System Administrator'}</b>
-                        <small style={{ color: '#85d7ff', display: 'block' }}>
-                          {entry.actor?.memberId ? `${entry.actor.memberId} (${getRoleLabel(entry.actor.role)})` : 'SYSTEM'}
+                        <b style={{ color: '#edf7ff' }}>{actorName}</b>
+                        <small style={{ color: '#85d7ff', display: 'block', fontWeight: 600 }}>
+                          {actorMemberId ? `${actorMemberId} (${getRoleLabel(actorRole)})` : 'SYSTEM ACTION'}
                         </small>
                       </div>
                       <div>
@@ -7078,72 +7090,89 @@ function AuditLogView({ user, logout, onNavigate }) {
         )}
 
         {/* Audit Details Modal */}
-        {selectedLog && (
-          <div className="photo-lightbox" onClick={() => setSelectedLog(null)}>
-            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: '#0d1522', padding: '28px', borderRadius: '14px', border: '1px solid #52bbf555', maxWidth: '640px', width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '14px', marginBottom: '14px' }}>
-                <div>
-                  <span className="badge badge-president" style={{ marginBottom: '6px' }}>
-                    {selectedLog.action}
-                  </span>
-                  <h3 style={{ margin: '4px 0 0', font: '700 18px Syne', color: '#edf7ff' }}>
-                    Audit Event Details
-                  </h3>
-                </div>
-                <button className="lightbox-close" onClick={() => setSelectedLog(null)} style={{ position: 'static' }}>✕</button>
-              </div>
+        {selectedLog && (() => {
+          const actorName = selectedLog.actor?.profile?.name || selectedLog.actor?.name || selectedLog.metadata?.name || (selectedLog.actor?.isPrimaryAdmin ? 'Primary President' : selectedLog.actorUserId ? 'Authorized Member' : 'System Administrator')
+          const actorMemberId = selectedLog.actor?.memberId || selectedLog.metadata?.memberId || null
+          const actorRole = selectedLog.actor?.role || selectedLog.metadata?.role || null
+          const targetName = selectedLog.target?.profile?.name || selectedLog.target?.name || selectedLog.metadata?.targetName || null
+          const targetMemberId = selectedLog.target?.memberId || selectedLog.metadata?.targetMemberId || null
+          const targetRole = selectedLog.target?.role || selectedLog.metadata?.targetRole || null
 
-              {/* Actor & Device Grid */}
-              <div className="audit-detail-grid">
-                <div className="audit-detail-field">
-                  <b>ACTOR NAME</b>
-                  <p>{selectedLog.actor?.profile?.name || selectedLog.actor?.name || 'System / Primary Administrator'}</p>
+          return (
+            <div className="photo-lightbox" onClick={() => setSelectedLog(null)}>
+              <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: '#0d1522', padding: '28px', borderRadius: '14px', border: '1px solid #52bbf555', maxWidth: '640px', width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '14px', marginBottom: '14px' }}>
+                  <div>
+                    <span className="badge badge-president" style={{ marginBottom: '6px' }}>
+                      {selectedLog.action}
+                    </span>
+                    <h3 style={{ margin: '4px 0 0', font: '700 18px Syne', color: '#edf7ff' }}>
+                      Audit Event Details
+                    </h3>
+                  </div>
+                  <button className="lightbox-close" onClick={() => setSelectedLog(null)} style={{ position: 'static' }}>✕</button>
                 </div>
-                <div className="audit-detail-field">
-                  <b>MEMBER ID & ROLE</b>
-                  <p style={{ color: '#85d7ff' }}>
-                    {selectedLog.actor?.memberId ? `${selectedLog.actor.memberId} (${getRoleLabel(selectedLog.actor.role)})` : 'SYSTEM ACTION'}
-                  </p>
-                </div>
-                <div className="audit-detail-field">
-                  <b>CLIENT IP ADDRESS</b>
-                  <p style={{ color: '#70ddb4', fontFamily: 'DM Mono' }}>{selectedLog.ipAddress || '127.0.0.1 (Internal)'}</p>
-                </div>
-                <div className="audit-detail-field">
-                  <b>TIMESTAMP</b>
-                  <p>{new Date(selectedLog.createdAt).toLocaleString()}</p>
-                </div>
-                <div className="audit-detail-field" style={{ gridColumn: '1 / -1' }}>
-                  <b>USER AGENT / DEVICE</b>
-                  <p style={{ fontSize: '11px', color: '#829bb0', wordBreak: 'break-all' }}>{selectedLog.userAgent || 'Mozilla/5.0 Web Client'}</p>
-                </div>
-              </div>
 
-              {/* Metadata Key-Value Breakdown */}
-              <b style={{ color: '#85d7ff', fontSize: '12px', display: 'block', margin: '14px 0 6px' }}>EVENT PARAMETERS & CHANGES:</b>
-              {selectedLog.metadata && Object.keys(selectedLog.metadata).length > 0 ? (
-                <table className="audit-meta-table">
-                  <tbody>
-                    {Object.entries(selectedLog.metadata).map(([k, v]) => (
-                      <tr key={k}>
-                        <td>{formatMetaKey(k)}</td>
-                        <td>{formatMetaValue(v)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <p style={{ color: '#688296', fontSize: '12px', margin: '8px 0' }}>No extra parameters recorded for this operation.</p>
-              )}
+                {/* Actor & Device Grid */}
+                <div className="audit-detail-grid">
+                  <div className="audit-detail-field">
+                    <b>ACTOR NAME</b>
+                    <p style={{ color: '#edf7ff', fontWeight: 600 }}>{actorName}</p>
+                  </div>
+                  <div className="audit-detail-field">
+                    <b>MEMBER ID & ROLE</b>
+                    <p style={{ color: '#85d7ff', fontWeight: 600 }}>
+                      {actorMemberId ? `${actorMemberId} (${getRoleLabel(actorRole)})` : 'SYSTEM ACTION'}
+                    </p>
+                  </div>
+                  {targetMemberId && (
+                    <div className="audit-detail-field" style={{ gridColumn: '1 / -1', background: '#070f1a', padding: '10px 14px', borderRadius: '6px', border: '1px solid #52bbf533' }}>
+                      <b style={{ color: '#ffb74d' }}>TARGET MEMBER ACTION APPLIED TO</b>
+                      <p style={{ margin: '4px 0 0', color: '#edf7ff', fontSize: '12px' }}>
+                        <b>{targetName || targetMemberId}</b> ({targetMemberId}) · <span style={{ color: '#85d7ff' }}>{getRoleLabel(targetRole)}</span>
+                      </p>
+                    </div>
+                  )}
+                  <div className="audit-detail-field">
+                    <b>CLIENT IP ADDRESS</b>
+                    <p style={{ color: '#70ddb4', fontFamily: 'DM Mono' }}>{selectedLog.ipAddress || '127.0.0.1 (Internal)'}</p>
+                  </div>
+                  <div className="audit-detail-field">
+                    <b>TIMESTAMP</b>
+                    <p>{new Date(selectedLog.createdAt).toLocaleString()}</p>
+                  </div>
+                  <div className="audit-detail-field" style={{ gridColumn: '1 / -1' }}>
+                    <b>USER AGENT / DEVICE</b>
+                    <p style={{ fontSize: '11px', color: '#829bb0', wordBreak: 'break-all' }}>{selectedLog.userAgent || 'Mozilla/5.0 Web Client'}</p>
+                  </div>
+                </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
-                <button type="button" className="primary" onClick={() => setSelectedLog(null)} style={{ minHeight: '36px' }}>
-                  CLOSE DETAILS
-                </button>
+                {/* Metadata Key-Value Breakdown */}
+                <b style={{ color: '#85d7ff', fontSize: '12px', display: 'block', margin: '14px 0 6px' }}>EVENT PARAMETERS & CHANGES:</b>
+                {selectedLog.metadata && Object.keys(selectedLog.metadata).length > 0 ? (
+                  <table className="audit-meta-table">
+                    <tbody>
+                      {Object.entries(selectedLog.metadata).map(([k, v]) => (
+                        <tr key={k}>
+                          <td>{formatMetaKey(k)}</td>
+                          <td>{formatMetaValue(v)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p style={{ color: '#688296', fontSize: '12px', margin: '8px 0' }}>No extra parameters recorded for this operation.</p>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+                  <button type="button" className="primary" onClick={() => setSelectedLog(null)} style={{ minHeight: '36px' }}>
+                    CLOSE DETAILS
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
       </section>
     </LivePortal>
   )

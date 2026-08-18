@@ -103,13 +103,18 @@ export async function login(request, response) {
       return response.status(200).json({ requiresTwoFactor: true, isMasterPin: true, csrfToken })
     }
     const csrfToken = await establishAuthenticatedSession(request, user)
-    await tryWriteAuditLog({ actorUserId: user.id, action: 'PRIMARY_PRESIDENT_LOGIN_SUCCESS', ...auditRequest(request) })
+    await tryWriteAuditLog({
+      actorUserId: user.id,
+      action: 'PRIMARY_PRESIDENT_LOGIN_SUCCESS',
+      metadata: { memberId: user.memberId, name: user.profile?.name || user.name, role: user.role, isPrimaryAdmin: true },
+      ...auditRequest(request),
+    })
     return response.status(200).json({ user: toSafeUser(user), csrfToken })
   }
 
   if (user.totpEnabled) {
     if (!user.totpSecretEncrypted) {
-      await tryWriteAuditLog({ actorUserId: user.id, action: 'LOGIN_BLOCKED', metadata: { reason: 'MFA_CONFIGURATION_INVALID' }, ...auditRequest(request) })
+      await tryWriteAuditLog({ actorUserId: user.id, action: 'LOGIN_BLOCKED', metadata: { reason: 'MFA_CONFIGURATION_INVALID', memberId: user.memberId }, ...auditRequest(request) })
       return response.status(401).json(invalidCredentials)
     }
     const csrfToken = await establishTwoFactorChallenge(request, user)
@@ -117,7 +122,12 @@ export async function login(request, response) {
   }
 
   const csrfToken = await establishAuthenticatedSession(request, user)
-  await tryWriteAuditLog({ actorUserId: user.id, action: user.role === 'PRESIDENT' ? 'PRESIDENT_LOGIN_SUCCESS' : 'LOGIN_SUCCESS', ...auditRequest(request) })
+  await tryWriteAuditLog({
+    actorUserId: user.id,
+    action: user.role === 'PRESIDENT' ? 'PRESIDENT_LOGIN_SUCCESS' : 'LOGIN_SUCCESS',
+    metadata: { memberId: user.memberId, name: user.profile?.name || user.name, role: user.role },
+    ...auditRequest(request),
+  })
   return response.status(200).json({ user: toSafeUser(user), csrfToken })
 }
 
@@ -157,7 +167,12 @@ export async function verifyTwoFactorLogin(request, response) {
   }
 
   if (!validCode) {
-    await tryWriteAuditLog({ actorUserId: user.id, action: 'TWO_FACTOR_LOGIN_FAILED', ...auditRequest(request) })
+    await tryWriteAuditLog({
+      actorUserId: user.id,
+      action: 'TWO_FACTOR_LOGIN_FAILED',
+      metadata: { memberId: user.memberId, name: user.profile?.name || user.name, role: user.role },
+      ...auditRequest(request),
+    })
     return response.status(401).json({
       message: user.isPrimaryAdmin && user.masterSecurityPinHash
         ? 'Invalid 6-digit Master Security PIN.'
@@ -166,7 +181,12 @@ export async function verifyTwoFactorLogin(request, response) {
   }
 
   const csrfToken = await establishAuthenticatedSession(request, user)
-  await tryWriteAuditLog({ actorUserId: user.id, action: user.isPrimaryAdmin ? 'PRIMARY_PRESIDENT_LOGIN_SUCCESS' : 'TWO_FACTOR_LOGIN_SUCCESS', ...auditRequest(request) })
+  await tryWriteAuditLog({
+    actorUserId: user.id,
+    action: user.isPrimaryAdmin ? 'PRIMARY_PRESIDENT_LOGIN_SUCCESS' : 'TWO_FACTOR_LOGIN_SUCCESS',
+    metadata: { memberId: user.memberId, name: user.profile?.name || user.name, role: user.role, isPrimaryAdmin: user.isPrimaryAdmin },
+    ...auditRequest(request),
+  })
   return response.status(200).json({ user: toSafeUser(user), csrfToken })
 }
 

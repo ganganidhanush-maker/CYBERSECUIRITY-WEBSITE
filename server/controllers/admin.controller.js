@@ -855,7 +855,46 @@ export async function verifyPayment(request, response) {
 }
 
 export async function listAuditLogs(request, response) {
-  const auditLogs = await prisma.auditLog.findMany({ take: 100, orderBy: { createdAt: 'desc' }, select: { id: true, action: true, ipAddress: true, createdAt: true, actorUserId: true, targetUserId: true, metadata: true } })
+  const auditLogs = await prisma.auditLog.findMany({
+    take: 200,
+    orderBy: { createdAt: 'desc' },
+    include: {
+      actor: {
+        select: {
+          id: true,
+          memberId: true,
+          name: true,
+          role: true,
+          isPrimaryAdmin: true,
+          profile: {
+            select: {
+              name: true,
+              rollNumber: true,
+              department: true,
+              year: true,
+            },
+          },
+        },
+      },
+      target: {
+        select: {
+          id: true,
+          memberId: true,
+          name: true,
+          role: true,
+          isPrimaryAdmin: true,
+          profile: {
+            select: {
+              name: true,
+              rollNumber: true,
+              department: true,
+              year: true,
+            },
+          },
+        },
+      },
+    },
+  })
   return response.status(200).json({ auditLogs })
 }
 
