@@ -863,7 +863,6 @@ export async function listAuditLogs(request, response) {
         select: {
           id: true,
           memberId: true,
-          name: true,
           role: true,
           isPrimaryAdmin: true,
           profile: {
@@ -880,7 +879,6 @@ export async function listAuditLogs(request, response) {
         select: {
           id: true,
           memberId: true,
-          name: true,
           role: true,
           isPrimaryAdmin: true,
           profile: {

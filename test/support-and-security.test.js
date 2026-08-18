@@ -69,5 +69,58 @@ describe('Helpdesk Role-Restricted Answering & President Dual PIN', () => {
     assert.equal(canAccessCouncilChat({ role: 'TREASURER' }), true)
     assert.equal(canAccessCouncilChat({ role: 'STUDENT' }), false)
   })
+
+  it('correctly resolves audit actor profile name, member ID, and role from Prisma relation or metadata', () => {
+    function resolveActor(entry) {
+      const actorName = entry.actor?.profile?.name || entry.metadata?.name || entry.metadata?.actorName || (entry.actor?.isPrimaryAdmin ? 'Primary President' : entry.actorUserId ? 'Club Member' : 'System Administrator')
+      const actorMemberId = entry.actor?.memberId || entry.metadata?.memberId || entry.metadata?.actorMemberId || (entry.actorUserId ? 'MEMBER' : 'SYSTEM')
+      const actorRole = entry.actor?.role || entry.metadata?.role || entry.metadata?.actorRole || (entry.actorUserId ? 'STUDENT' : 'SYSTEM')
+      return { actorName, actorMemberId, actorRole }
+    }
+
+    // Case 1: Full Prisma relation with Profile
+    const logWithRelation = {
+      id: 'log-1',
+      actorUserId: 'u1',
+      actor: {
+        id: 'u1',
+        memberId: '23MR01A0501',
+        role: 'STUDENT',
+        isPrimaryAdmin: false,
+        profile: { name: 'Alice Smith', rollNumber: '23MR01A0501', department: 'CSE', year: 3 },
+      },
+    }
+    assert.deepEqual(resolveActor(logWithRelation), {
+      actorName: 'Alice Smith',
+      actorMemberId: '23MR01A0501',
+      actorRole: 'STUDENT',
+    })
+
+    // Case 2: Metadata fallback
+    const logWithMeta = {
+      id: 'log-2',
+      actorUserId: 'u2',
+      actor: null,
+      metadata: { memberId: 'PRES001', name: 'Dhanush Gangani', role: 'PRESIDENT' },
+    }
+    assert.deepEqual(resolveActor(logWithMeta), {
+      actorName: 'Dhanush Gangani',
+      actorMemberId: 'PRES001',
+      actorRole: 'PRESIDENT',
+    })
+
+    // Case 3: System action
+    const systemLog = {
+      id: 'log-3',
+      actorUserId: null,
+      actor: null,
+      metadata: null,
+    }
+    assert.deepEqual(resolveActor(systemLog), {
+      actorName: 'System Administrator',
+      actorMemberId: 'SYSTEM',
+      actorRole: 'SYSTEM',
+    })
+  })
 })
 
