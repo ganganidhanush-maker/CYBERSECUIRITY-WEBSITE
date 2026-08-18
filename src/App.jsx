@@ -4015,6 +4015,72 @@ function EventManagement({ user, logout, onNavigate }) {
     }
   }
 
+  function handleDownloadEventsList() {
+    const headers = [
+      'Event ID',
+      'Event Title',
+      'Category',
+      'Status',
+      'Date & Time',
+      'Venue / Lab',
+      'Capacity',
+      'Registered Count',
+      'Coordinator Name',
+      'Base Price (₹)',
+      'Short Description',
+    ]
+    const rows = events.map(ev => [
+      ev.id,
+      ev.title,
+      ev.eventType,
+      ev.status,
+      ev.dateTime ? new Date(ev.dateTime).toLocaleString() : null,
+      ev.venue || ev.location,
+      ev.capacity,
+      ev.registrationCount ?? ev._count?.registrations ?? 0,
+      ev.coordinatorName,
+      ev.paymentAmount || ev.price || 0,
+      ev.shortDescription,
+    ])
+    downloadCsv('club_events_catalog.csv', headers, rows)
+  }
+
+  function handleDownloadEventRegistrations(ev, regs) {
+    const headers = [
+      'Registration ID',
+      'Event Title',
+      'Member ID',
+      'Full Name',
+      'College Roll Number',
+      'Department / Branch',
+      'Academic Year',
+      'Email',
+      'Phone',
+      'Selected Activities',
+      'Amount (₹)',
+      'Payment Status',
+      'Payment UTR / Ref',
+      'Registration Date',
+    ]
+    const rows = (regs || []).map(r => [
+      r.id,
+      ev?.title,
+      r.user?.memberId,
+      r.user?.profile?.name || r.user?.name,
+      r.user?.profile?.rollNumber || r.formData?.rollNumber,
+      r.branch || r.user?.profile?.department,
+      r.year || r.user?.profile?.year,
+      r.user?.profile?.email || r.user?.email,
+      r.user?.profile?.phone || r.user?.phone,
+      Array.isArray(r.selectedActivities) ? r.selectedActivities.map(a => a.name).join('; ') : null,
+      Number(r.totalAmount) || 0,
+      r.paymentStatus,
+      r.paymentReference,
+      r.registeredAt ? new Date(r.registeredAt).toLocaleString() : null,
+    ])
+    downloadCsv(`event_${ev.id}_registrations.csv`, headers, rows)
+  }
+
   return (
     <LivePortal user={user} logout={logout} activeTab="admin-events" onNavigate={onNavigate} title="EVENT STUDIO & ANALYTICS">
       <section className="event-management">
