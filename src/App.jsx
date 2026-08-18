@@ -2737,6 +2737,28 @@ function StudentMembership({ user, logout, onNavigate }) {
 // ----------------------------------------------------
 // Event Management & Studio
 // ----------------------------------------------------
+const initialEventForm = {
+  title: '',
+  eventType: 'Workshop',
+  status: 'UPCOMING',
+  dateTime: '',
+  venue: '',
+  location: '',
+  shortDescription: '',
+  description: '',
+  agenda: '',
+  rules: '',
+  capacity: '',
+  coordinatorName: '',
+  coordinatorContact: '',
+  organizingTeam: '',
+  isPaid: false,
+  paymentAmount: '',
+  paymentUpiId: '',
+  paymentInstructions: '',
+  hasMultipleActivities: false,
+}
+
 function EventManagement({ user, logout, onNavigate }) {
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
@@ -2745,8 +2767,7 @@ function EventManagement({ user, logout, onNavigate }) {
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState('basic')
 
-  const [isPaid, setIsPaid] = useState(false)
-  const [hasMultipleActivities, setHasMultipleActivities] = useState(false)
+  const [formData, setFormData] = useState(initialEventForm)
   const [activities, setActivities] = useState([])
   const [formFields, setFormFields] = useState([])
   const [posterPreview, setPosterPreview] = useState('')
@@ -2760,11 +2781,15 @@ function EventManagement({ user, logout, onNavigate }) {
   useEffect(() => {
     let mounted = true
     adminApi.listEvents()
-      .then(({ events: list }) => { if (mounted) setEvents(list) })
+      .then(({ events: list }) => { if (mounted) setEvents(list || []) })
       .catch(err => { if (mounted) setError(err.message) })
       .finally(() => { if (mounted) setLoading(false) })
     return () => { mounted = false }
   }, [])
+
+  function updateFormField(field, value) {
+    setFormData(prev => ({ ...prev, [field]: value }))
+  }
 
   function addActivity() {
     setActivities(c => [...c, { name: '', description: '', price: 0, capacity: '' }])
@@ -2786,18 +2811,73 @@ function EventManagement({ user, logout, onNavigate }) {
     setFormFields(c => c.filter((_, i) => i !== index))
   }
 
+  function startEditEvent(ev) {
+    setEditingEventId(ev.id)
+    setFormData({
+      title: ev.title || '',
+      eventType: ev.eventType || 'Workshop',
+      status: ev.status || 'UPCOMING',
+      dateTime: ev.dateTime ? new Date(ev.dateTime).toISOString().slice(0, 16) : '',
+      venue: ev.venue || '',
+      location: ev.location || '',
+      shortDescription: ev.shortDescription || '',
+      description: ev.description || '',
+      agenda: ev.agenda || '',
+      rules: ev.rules || '',
+      capacity: ev.capacity != null ? String(ev.capacity) : '',
+      coordinatorName: ev.coordinatorName || '',
+      coordinatorContact: ev.coordinatorContact || '',
+      organizingTeam: ev.organizingTeam || '',
+      isPaid: Boolean(ev.requiresPayment),
+      paymentAmount: ev.paymentAmount != null ? String(ev.paymentAmount) : '',
+      paymentUpiId: ev.paymentUpiId || '',
+      paymentInstructions: ev.paymentInstructions || '',
+      hasMultipleActivities: Boolean(ev.allowMultipleActivities),
+    })
+    setPosterPreview(ev.photoUrl || '')
+    setQrPreview(ev.paymentQrUrl || '')
+    setActivities(ev.activities ? ev.activities.map(a => ({ name: a.name || '', description: a.description || '', price: a.price || 0, capacity: a.capacity != null ? String(a.capacity) : '' })) : [])
+    setFormFields(ev.formFields || [])
+    setActiveTab('basic')
+    setMessage('')
+    setError('')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function cancelEdit() {
+    setEditingEventId(null)
+    setFormData(initialEventForm)
+    setPosterPreview('')
+    setQrPreview('')
+    setActivities([])
+    setFormFields([])
+    setActiveTab('basic')
+    setMessage('')
+    setError('')
+  }
+
   async function handleEventSubmit(e) {
     e.preventDefault()
-    const form = new FormData(e.currentTarget)
     setMessage('')
     setError('')
 
-    const title = String(form.get('title') || '').trim()
-    const eventType = String(form.get('eventType') || '').trim()
-    const dateTime = String(form.get('dateTime') || '').trim()
+    const title = String(formData.title || '').trim()
+    const eventType = String(formData.eventType || '').trim()
+    const dateTime = String(formData.dateTime || '').trim()
 
-    if (!title || !eventType || !dateTime) {
-      setError('Title, category, and date are required.')
+    if (!title) {
+      setActiveTab('basic')
+      setError('Event Title is required (under Basic Info).')
+      return
+    }
+    if (!eventType) {
+      setActiveTab('basic')
+      setError('Event Category / Type is required (under Basic Info).')
+      return
+    }
+    if (!dateTime) {
+      setActiveTab('basic')
+      setError('Event Date & Time is required (under Basic Info).')
       return
     }
 
@@ -2805,27 +2885,27 @@ function EventManagement({ user, logout, onNavigate }) {
       title,
       eventType,
       dateTime,
-      shortDescription: String(form.get('shortDescription') || '').trim() || null,
-      description: String(form.get('description') || '').trim() || null,
-      startTime: String(form.get('startTime') || '').trim() || null,
-      endTime: String(form.get('endTime') || '').trim() || null,
-      venue: String(form.get('venue') || '').trim() || null,
-      location: String(form.get('location') || '').trim() || null,
-      capacity: form.get('capacity') ? Number(form.get('capacity')) : null,
+      shortDescription: String(formData.shortDescription || '').trim() || null,
+      description: String(formData.description || '').trim() || null,
+      venue: String(formData.venue || '').trim() || null,
+      location: String(formData.location || '').trim() || null,
+      capacity: formData.capacity ? Number(formData.capacity) : null,
       photoUrl: posterPreview || null,
-      status: String(form.get('status') || 'UPCOMING'),
-      coordinatorName: String(form.get('coordinatorName') || user.name).trim() || null,
-      coordinatorContact: String(form.get('coordinatorContact') || user.memberId).trim() || null,
-      organizingTeam: String(form.get('organizingTeam') || '').trim() || null,
-      rules: String(form.get('rules') || '').trim() || null,
-      agenda: String(form.get('agenda') || '').trim() || null,
-      requiresPayment: isPaid,
-      paymentAmount: isPaid && form.get('paymentAmount') ? Number(form.get('paymentAmount')) : null,
-      paymentQrUrl: isPaid ? qrPreview || null : null,
-      paymentUpiId: isPaid ? String(form.get('paymentUpiId') || '').trim() || null : null,
-      paymentInstructions: isPaid ? String(form.get('paymentInstructions') || '').trim() || null : null,
-      allowMultipleActivities: hasMultipleActivities,
-      activities: hasMultipleActivities ? activities.map(a => ({ ...a, price: Number(a.price || 0), capacity: a.capacity ? Number(a.capacity) : null })) : [],
+      status: String(formData.status || 'UPCOMING'),
+      coordinatorName: String(formData.coordinatorName || user.name).trim() || null,
+      coordinatorContact: String(formData.coordinatorContact || user.memberId).trim() || null,
+      organizingTeam: String(formData.organizingTeam || '').trim() || null,
+      rules: String(formData.rules || '').trim() || null,
+      agenda: String(formData.agenda || '').trim() || null,
+      requiresPayment: Boolean(formData.isPaid),
+      paymentAmount: formData.isPaid && formData.paymentAmount ? Number(formData.paymentAmount) : null,
+      paymentQrUrl: formData.isPaid ? qrPreview || null : null,
+      paymentUpiId: formData.isPaid ? String(formData.paymentUpiId || '').trim() || null : null,
+      paymentInstructions: formData.isPaid ? String(formData.paymentInstructions || '').trim() || null : null,
+      allowMultipleActivities: Boolean(formData.hasMultipleActivities),
+      activities: formData.hasMultipleActivities
+        ? activities.map(a => ({ name: a.name, description: a.description || null, price: Number(a.price || 0), capacity: a.capacity ? Number(a.capacity) : null }))
+        : [],
       formFields,
     }
 
@@ -2834,20 +2914,19 @@ function EventManagement({ user, logout, onNavigate }) {
       if (editingEventId) {
         const { event: updated } = await adminApi.updateEvent(editingEventId, payload)
         setEvents(c => c.map(ev => (ev.id === editingEventId ? updated : ev)))
-        setMessage(`Event "${updated.title}" updated successfully.`)
-        setEditingEventId(null)
+        setMessage(`✓ Event "${updated.title}" updated successfully.`)
+        cancelEdit()
       } else {
         const { event: created } = await adminApi.createEvent(payload)
         setEvents(c => [created, ...c])
-        setMessage(`Event "${created.title}" published! Created by ${user.name} (${user.memberId}).`)
+        setMessage(`✓ Event "${created.title}" published! Created by ${user.name} (${user.memberId}).`)
+        setFormData(initialEventForm)
+        setPosterPreview('')
+        setQrPreview('')
+        setActivities([])
+        setFormFields([])
+        setActiveTab('basic')
       }
-      e.currentTarget.reset()
-      setPosterPreview('')
-      setQrPreview('')
-      setActivities([])
-      setFormFields([])
-      setIsPaid(false)
-      setHasMultipleActivities(false)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -2860,6 +2939,7 @@ function EventManagement({ user, logout, onNavigate }) {
     try {
       await adminApi.deleteEvent(id)
       setEvents(c => c.filter(e => e.id !== id))
+      if (editingEventId === id) cancelEdit()
       setMessage('Event deleted.')
     } catch (err) {
       setError(err.message)
@@ -2917,15 +2997,27 @@ function EventManagement({ user, logout, onNavigate }) {
             </div>
 
             <form onSubmit={handleEventSubmit}>
+              {/* Tab 1: Basic Info */}
               {activeTab === 'basic' && (
                 <div className="member-form-grid">
                   <label className="form-wide">
                     Event Title *
-                    <input name="title" required placeholder="e.g. Offensive Cyber Operations Workshop 2026" />
+                    <input
+                      name="title"
+                      required
+                      placeholder="e.g. Offensive Cyber Operations Workshop 2026"
+                      value={formData.title}
+                      onChange={e => updateFormField('title', e.target.value)}
+                    />
                   </label>
                   <label>
                     Category / Type *
-                    <select className="member-select" name="eventType" defaultValue="Workshop">
+                    <select
+                      className="member-select"
+                      name="eventType"
+                      value={formData.eventType}
+                      onChange={e => updateFormField('eventType', e.target.value)}
+                    >
                       <option value="Workshop">Hands-on Workshop</option>
                       <option value="CTF">CTF Competition</option>
                       <option value="Seminar">Guest Seminar</option>
@@ -2935,7 +3027,12 @@ function EventManagement({ user, logout, onNavigate }) {
                   </label>
                   <label>
                     Status
-                    <select className="member-select" name="status" defaultValue="UPCOMING">
+                    <select
+                      className="member-select"
+                      name="status"
+                      value={formData.status}
+                      onChange={e => updateFormField('status', e.target.value)}
+                    >
                       <option value="UPCOMING">Upcoming</option>
                       <option value="OPEN">Open for Registration</option>
                       <option value="LIVE">Live Now</option>
@@ -2944,15 +3041,41 @@ function EventManagement({ user, logout, onNavigate }) {
                   </label>
                   <label>
                     Date & Time *
-                    <input name="dateTime" type="datetime-local" required />
+                    <input
+                      name="dateTime"
+                      type="datetime-local"
+                      required
+                      value={formData.dateTime}
+                      onChange={e => updateFormField('dateTime', e.target.value)}
+                    />
                   </label>
                   <label>
                     Venue / Lab
-                    <input name="venue" placeholder="e.g. Cyber Defense Lab 304" />
+                    <input
+                      name="venue"
+                      placeholder="e.g. Cyber Defense Lab 304"
+                      value={formData.venue}
+                      onChange={e => updateFormField('venue', e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Max Capacity (Optional)
+                    <input
+                      name="capacity"
+                      type="number"
+                      placeholder="e.g. 100 (leave blank for unlimited)"
+                      value={formData.capacity}
+                      onChange={e => updateFormField('capacity', e.target.value)}
+                    />
                   </label>
                   <label className="form-wide">
                     Short Synopsis
-                    <input name="shortDescription" placeholder="One-line summary for event catalog" />
+                    <input
+                      name="shortDescription"
+                      placeholder="One-line summary for event catalog"
+                      value={formData.shortDescription}
+                      onChange={e => updateFormField('shortDescription', e.target.value)}
+                    />
                   </label>
                   <label className="form-wide">
                     Event Poster / Banner
@@ -2964,42 +3087,112 @@ function EventManagement({ user, logout, onNavigate }) {
                       <button type="button" className="preview-remove" onClick={() => setPosterPreview('')}>✕</button>
                     </div>
                   )}
+
+                  <div className="form-wide" style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                    <button type="button" className="action-btn save-btn" onClick={() => setActiveTab('details')}>
+                      Next: Agenda & Rules →
+                    </button>
+                  </div>
                 </div>
               )}
 
+              {/* Tab 2: Agenda & Rules */}
               {activeTab === 'details' && (
                 <div className="member-form-grid">
                   <label className="form-wide">
                     Full Description
-                    <textarea name="description" placeholder="Comprehensive event overview..." style={{ width: '100%', height: '80px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', padding: '10px' }} />
+                    <textarea
+                      name="description"
+                      placeholder="Comprehensive event overview..."
+                      value={formData.description}
+                      onChange={e => updateFormField('description', e.target.value)}
+                      style={{ width: '100%', height: '80px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', padding: '10px' }}
+                    />
                   </label>
                   <label className="form-wide">
                     Agenda & Schedule
-                    <textarea name="agenda" placeholder="10:00 AM - Keynote&#10;11:30 AM - Lab 1" style={{ width: '100%', height: '80px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', padding: '10px' }} />
+                    <textarea
+                      name="agenda"
+                      placeholder="10:00 AM - Keynote&#10;11:30 AM - Lab 1"
+                      value={formData.agenda}
+                      onChange={e => updateFormField('agenda', e.target.value)}
+                      style={{ width: '100%', height: '80px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', padding: '10px' }}
+                    />
                   </label>
                   <label className="form-wide">
                     Rules & Code of Ethics
-                    <textarea name="rules" placeholder="All testing must remain strictly within assigned subnets." style={{ width: '100%', height: '80px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', padding: '10px' }} />
+                    <textarea
+                      name="rules"
+                      placeholder="All testing must remain strictly within assigned subnets."
+                      value={formData.rules}
+                      onChange={e => updateFormField('rules', e.target.value)}
+                      style={{ width: '100%', height: '80px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', padding: '10px' }}
+                    />
                   </label>
+                  <label className="form-wide">
+                    Specific Room / Location Details
+                    <input
+                      name="location"
+                      placeholder="e.g. Block C, Floor 3, Terminal 12-40"
+                      value={formData.location}
+                      onChange={e => updateFormField('location', e.target.value)}
+                    />
+                  </label>
+
+                  <div className="form-wide" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
+                    <button type="button" className="action-btn cancel-btn" onClick={() => setActiveTab('basic')}>
+                      ← Back to Basic Info
+                    </button>
+                    <button type="button" className="action-btn save-btn" onClick={() => setActiveTab('pricing')}>
+                      Next: Pricing & Tracks →
+                    </button>
+                  </div>
                 </div>
               )}
 
+              {/* Tab 3: Pricing & Tracks */}
               {activeTab === 'pricing' && (
                 <div className="member-form-grid">
                   <label className="form-wide" style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                    <input type="checkbox" checked={isPaid} onChange={e => setIsPaid(e.target.checked)} style={{ width: 'auto', height: 'auto' }} />
+                    <input
+                      type="checkbox"
+                      checked={formData.isPaid}
+                      onChange={e => updateFormField('isPaid', e.target.checked)}
+                      style={{ width: 'auto', height: 'auto' }}
+                    />
                     <b style={{ color: '#edf7ff', fontSize: '13px' }}>Requires Registration Payment</b>
                   </label>
 
-                  {isPaid && (
+                  {formData.isPaid && (
                     <>
                       <label>
                         Base Entry Fee (₹)
-                        <input name="paymentAmount" type="number" step="0.01" placeholder="e.g. 150.00" />
+                        <input
+                          name="paymentAmount"
+                          type="number"
+                          step="0.01"
+                          placeholder="e.g. 150.00"
+                          value={formData.paymentAmount}
+                          onChange={e => updateFormField('paymentAmount', e.target.value)}
+                        />
                       </label>
                       <label>
                         UPI ID for Event Payment
-                        <input name="paymentUpiId" placeholder="club@okaxis" />
+                        <input
+                          name="paymentUpiId"
+                          placeholder="club@okaxis"
+                          value={formData.paymentUpiId}
+                          onChange={e => updateFormField('paymentUpiId', e.target.value)}
+                        />
+                      </label>
+                      <label className="form-wide">
+                        Payment Instructions / Notes
+                        <input
+                          name="paymentInstructions"
+                          placeholder="e.g. Include your Member ID in transaction remarks"
+                          value={formData.paymentInstructions}
+                          onChange={e => updateFormField('paymentInstructions', e.target.value)}
+                        />
                       </label>
                       <label className="form-wide">
                         Payment QR Code
@@ -3015,11 +3208,16 @@ function EventManagement({ user, logout, onNavigate }) {
                   )}
 
                   <label className="form-wide" style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', marginTop: '12px' }}>
-                    <input type="checkbox" checked={hasMultipleActivities} onChange={e => setHasMultipleActivities(e.target.checked)} style={{ width: 'auto', height: 'auto' }} />
+                    <input
+                      type="checkbox"
+                      checked={formData.hasMultipleActivities}
+                      onChange={e => updateFormField('hasMultipleActivities', e.target.checked)}
+                      style={{ width: 'auto', height: 'auto' }}
+                    />
                     <b style={{ color: '#edf7ff', fontSize: '13px' }}>Offer Multiple Sub-Activities / Tracks</b>
                   </label>
 
-                  {hasMultipleActivities && (
+                  {formData.hasMultipleActivities && (
                     <div className="form-wide" style={{ marginTop: '10px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                         <b style={{ color: '#85d7ff', fontSize: '12px' }}>Track / Activity List</b>
@@ -3035,9 +3233,19 @@ function EventManagement({ user, logout, onNavigate }) {
                       ))}
                     </div>
                   )}
+
+                  <div className="form-wide" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
+                    <button type="button" className="action-btn cancel-btn" onClick={() => setActiveTab('details')}>
+                      ← Back to Agenda & Rules
+                    </button>
+                    <button type="button" className="action-btn save-btn" onClick={() => setActiveTab('fields')}>
+                      Next: Registration Fields →
+                    </button>
+                  </div>
                 </div>
               )}
 
+              {/* Tab 4: Registration Fields */}
               {activeTab === 'fields' && (
                 <div className="member-form-grid">
                   <div className="form-wide">
@@ -3045,31 +3253,41 @@ function EventManagement({ user, logout, onNavigate }) {
                       <b style={{ color: '#85d7ff', fontSize: '12px' }}>Custom Registration Questions</b>
                       <button type="button" className="action-btn save-btn" onClick={addCustomField}>＋ Add Question</button>
                     </div>
-                    {formFields.map((ff, i) => (
-                      <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto auto', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
-                        <input placeholder="Question prompt" value={ff.fieldName} onChange={e => updateCustomField(i, 'fieldName', e.target.value)} />
-                        <select value={ff.fieldType} onChange={e => updateCustomField(i, 'fieldType', e.target.value)} className="member-select" style={{ marginTop: 0 }}>
-                          <option value="text">Short Text</option>
-                          <option value="textarea">Paragraph</option>
-                          <option value="select">Dropdown</option>
-                        </select>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#829bb0' }}>
-                          <input type="checkbox" checked={ff.isRequired} onChange={e => updateCustomField(i, 'isRequired', e.target.checked)} />
-                          Req
-                        </label>
-                        <button type="button" className="action-btn delete-btn" onClick={() => removeCustomField(i)}>✕</button>
-                      </div>
-                    ))}
+                    {formFields.length === 0 ? (
+                      <p style={{ color: '#7e95a7', fontSize: '12px', margin: '8px 0' }}>No custom questions added. Default member fields (Name, Member ID, Email) will be used.</p>
+                    ) : (
+                      formFields.map((ff, i) => (
+                        <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto auto', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                          <input placeholder="Question prompt" value={ff.fieldName} onChange={e => updateCustomField(i, 'fieldName', e.target.value)} />
+                          <select value={ff.fieldType} onChange={e => updateCustomField(i, 'fieldType', e.target.value)} className="member-select" style={{ marginTop: 0 }}>
+                            <option value="text">Short Text</option>
+                            <option value="textarea">Paragraph</option>
+                            <option value="select">Dropdown</option>
+                          </select>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#829bb0' }}>
+                            <input type="checkbox" checked={ff.isRequired} onChange={e => updateCustomField(i, 'isRequired', e.target.checked)} />
+                            Req
+                          </label>
+                          <button type="button" className="action-btn delete-btn" onClick={() => removeCustomField(i)}>✕</button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="form-wide" style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '10px' }}>
+                    <button type="button" className="action-btn cancel-btn" onClick={() => setActiveTab('pricing')}>
+                      ← Back to Pricing & Tracks
+                    </button>
                   </div>
                 </div>
               )}
 
-              <div className="event-actions" style={{ marginTop: '18px' }}>
-                <button className="primary" disabled={submitting}>
-                  {submitting ? 'SAVING EVENT…' : editingEventId ? 'UPDATE EVENT' : '＋ &nbsp; PUBLISH EVENT'}
+              <div className="event-actions" style={{ marginTop: '22px', display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <button type="submit" className="primary member-submit" disabled={submitting}>
+                  {submitting ? 'SAVING EVENT…' : editingEventId ? '✓ &nbsp; UPDATE EVENT' : '＋ &nbsp; PUBLISH EVENT'}
                 </button>
                 {editingEventId && (
-                  <button type="button" className="action-btn cancel-btn" onClick={() => setEditingEventId(null)}>
+                  <button type="button" className="action-btn cancel-btn" onClick={cancelEdit}>
                     Cancel Editing
                   </button>
                 )}
@@ -3118,6 +3336,7 @@ function EventManagement({ user, logout, onNavigate }) {
                         <small> / {ev.capacity || '∞'}</small>
                       </div>
                       <div className="action-buttons">
+                        <button className="action-btn" onClick={() => startEditEvent(ev)} style={{ background: '#193854', color: '#85d7ff', border: '1px solid #52bbf544' }}>Edit</button>
                         <button className="action-btn save-btn" onClick={() => openAnalytics(ev)}>Passes</button>
                         <button className="action-btn delete-btn" onClick={() => removeEvent(ev.id)}>Delete</button>
                       </div>
@@ -3507,6 +3726,144 @@ function PaymentManagement({ user, logout, onNavigate }) {
 }
 
 // ----------------------------------------------------
+// Interactive Photo Lightbox with Prev/Next Navigation
+// ----------------------------------------------------
+function GalleryLightbox({ photos = [], activePhoto, onClose, onSelectPhoto, onDeletePhoto, albumName }) {
+  const [currentIndex, setCurrentIndex] = useState(() => {
+    const idx = photos.findIndex(p => p.id === activePhoto?.id)
+    return idx >= 0 ? idx : 0
+  })
+
+  useEffect(() => {
+    if (activePhoto) {
+      const idx = photos.findIndex(p => p.id === activePhoto.id)
+      if (idx >= 0) setCurrentIndex(idx)
+    }
+  }, [activePhoto, photos])
+
+  const currentPhoto = photos[currentIndex] || activePhoto
+  const totalCount = photos.length || (currentPhoto ? 1 : 0)
+
+  const hasPrev = currentIndex > 0
+  const hasNext = currentIndex < photos.length - 1
+
+  function handlePrev(e) {
+    if (e) e.stopPropagation()
+    if (hasPrev) {
+      const nextIdx = currentIndex - 1
+      setCurrentIndex(nextIdx)
+      if (onSelectPhoto && photos[nextIdx]) onSelectPhoto(photos[nextIdx])
+    }
+  }
+
+  function handleNext(e) {
+    if (e) e.stopPropagation()
+    if (hasNext) {
+      const nextIdx = currentIndex + 1
+      setCurrentIndex(nextIdx)
+      if (onSelectPhoto && photos[nextIdx]) onSelectPhoto(photos[nextIdx])
+    }
+  }
+
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'ArrowLeft') handlePrev()
+      else if (e.key === 'ArrowRight') handleNext()
+      else if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [currentIndex, photos, hasPrev, hasNext])
+
+  if (!currentPhoto) return null
+
+  return (
+    <div className="photo-lightbox" onClick={onClose}>
+      <div className="photo-lightbox-content" onClick={e => e.stopPropagation()}>
+        {/* Header Bar */}
+        <div className="lightbox-header-bar">
+          <span className="lightbox-counter-badge">
+            📸 PHOTO {totalCount > 0 ? currentIndex + 1 : 1} OF {totalCount}
+          </span>
+          <button className="lightbox-close" onClick={onClose} title="Close (Esc)">✕</button>
+        </div>
+
+        {/* Main Photo Area with Left/Right Navigation Buttons */}
+        <div className="photo-lightbox-main">
+          {photos.length > 1 && (
+            <button
+              type="button"
+              className="lightbox-nav-btn prev"
+              onClick={handlePrev}
+              disabled={!hasPrev}
+              title="Previous Photo (← Left Arrow)"
+            >
+              ‹
+            </button>
+          )}
+
+          <img src={currentPhoto.imageUrl} alt={currentPhoto.caption || albumName || 'Gallery Photo'} />
+
+          {photos.length > 1 && (
+            <button
+              type="button"
+              className="lightbox-nav-btn next"
+              onClick={handleNext}
+              disabled={!hasNext}
+              title="Next Photo (→ Right Arrow)"
+            >
+              ›
+            </button>
+          )}
+        </div>
+
+        {/* Caption, Date & Admin Actions */}
+        <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', padding: '0 6px' }}>
+          <div>
+            <p style={{ color: '#edf7ff', margin: 0, fontSize: '13px', fontWeight: 600 }}>
+              {currentPhoto.caption || albumName || 'Club Gallery Photo'}
+            </p>
+            <small style={{ color: '#85d7ff', fontSize: '10px' }}>
+              {currentPhoto.createdAt ? new Date(currentPhoto.createdAt).toLocaleDateString() : ''}
+            </small>
+          </div>
+
+          {onDeletePhoto && (
+            <button
+              type="button"
+              className="action-btn delete-btn"
+              onClick={e => onDeletePhoto(currentPhoto.id, e)}
+              style={{ padding: '5px 12px', fontSize: '11px' }}
+            >
+              🗑 Delete Photo
+            </button>
+          )}
+        </div>
+
+        {/* Miniature Thumbnails Strip */}
+        {photos.length > 1 && (
+          <div className="lightbox-thumbnail-strip">
+            {photos.map((p, idx) => (
+              <div
+                key={p.id}
+                className={`lightbox-thumb ${idx === currentIndex ? 'active' : ''}`}
+                onClick={() => {
+                  setCurrentIndex(idx)
+                  if (onSelectPhoto) onSelectPhoto(p)
+                }}
+                title={p.caption || `Photo ${idx + 1}`}
+              >
+                <img src={p.imageUrl} alt={`Thumbnail ${idx + 1}`} />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ----------------------------------------------------
 // Gallery Studio (Admin)
 // ----------------------------------------------------
 function GalleryManagement({ user, logout, onNavigate }) {
@@ -3891,22 +4248,16 @@ function GalleryManagement({ user, logout, onNavigate }) {
           </div>
         )}
 
-        {/* Lightbox Modal */}
+        {/* Lightbox Modal with Full Navigation */}
         {activeLightbox && (
-          <div className="photo-lightbox" onClick={() => setActiveLightbox(null)}>
-            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()}>
-              <button className="lightbox-close" onClick={() => setActiveLightbox(null)}>✕</button>
-              <img src={activeLightbox.imageUrl} alt="Lightbox preview" />
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '10px' }}>
-                {activeLightbox.caption ? <p style={{ color: '#fff', margin: 0 }}>{activeLightbox.caption}</p> : <span />}
-                {selectedAlbum && (
-                  <button type="button" className="action-btn delete-btn" onClick={e => removePhoto(selectedAlbum.id, activeLightbox.id, e)}>
-                    🗑 Delete Photo
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
+          <GalleryLightbox
+            photos={selectedAlbum?.photos || []}
+            activePhoto={activeLightbox}
+            albumName={selectedAlbum?.name}
+            onClose={() => setActiveLightbox(null)}
+            onSelectPhoto={p => setActiveLightbox(p)}
+            onDeletePhoto={selectedAlbum ? (photoId, e) => removePhoto(selectedAlbum.id, photoId, e) : null}
+          />
         )}
       </section>
     </LivePortal>
@@ -4639,22 +4990,15 @@ function StudentGallery({ user, logout, onNavigate }) {
           </div>
         )}
 
-        {/* Read-Only Photo Lightbox Modal */}
+        {/* Read-Only Photo Lightbox Modal with Full Navigation */}
         {activeLightbox && (
-          <div className="photo-lightbox" onClick={() => setActiveLightbox(null)}>
-            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()}>
-              <button className="lightbox-close" onClick={() => setActiveLightbox(null)}>✕</button>
-              <img src={activeLightbox.imageUrl} alt={activeLightbox.caption || 'Event photo'} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', padding: '0 4px' }}>
-                <p style={{ color: '#edf7ff', margin: 0, fontSize: '13px', fontWeight: 500 }}>
-                  {activeLightbox.caption || selectedAlbum?.name || 'Club Gallery Photo'}
-                </p>
-                <small style={{ color: '#85d7ff', fontSize: '11px' }}>
-                  {activeLightbox.createdAt ? new Date(activeLightbox.createdAt).toLocaleDateString() : ''}
-                </small>
-              </div>
-            </div>
-          </div>
+          <GalleryLightbox
+            photos={selectedAlbum?.photos || []}
+            activePhoto={activeLightbox}
+            albumName={selectedAlbum?.name}
+            onClose={() => setActiveLightbox(null)}
+            onSelectPhoto={p => setActiveLightbox(p)}
+          />
         )}
       </section>
     </LivePortal>

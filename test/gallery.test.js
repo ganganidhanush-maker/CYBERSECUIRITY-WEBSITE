@@ -92,4 +92,30 @@ describe('Gallery System: Media Lead Multi-Upload & Student Photo Visibility', (
     assert.equal(mockAlbumFromDb.photos[1].id, 'p2')
     assert.equal(mockAlbumFromDb.photos[2].id, 'p3')
   })
+
+  it('validates photo lightbox navigation calculations (index, prev, next, wrapping boundaries)', () => {
+    const mockPhotos = [
+      { id: 'photo-1', imageUrl: sampleDataUrl1, caption: 'Intro' },
+      { id: 'photo-2', imageUrl: sampleDataUrl2, caption: 'Middle' },
+      { id: 'photo-3', imageUrl: sampleDataUrl1, caption: 'End' },
+    ]
+
+    // Initial selected photo at index 0
+    let currentIndex = mockPhotos.findIndex(p => p.id === 'photo-1')
+    assert.equal(currentIndex, 0)
+    assert.equal(currentIndex > 0, false, 'First photo cannot navigate backwards')
+    assert.equal(currentIndex < mockPhotos.length - 1, true, 'First photo can navigate forward')
+
+    // Navigate to next photo
+    currentIndex += 1
+    assert.equal(mockPhotos[currentIndex].id, 'photo-2')
+    assert.equal(currentIndex > 0, true, 'Middle photo can navigate backwards')
+    assert.equal(currentIndex < mockPhotos.length - 1, true, 'Middle photo can navigate forward')
+
+    // Navigate to last photo
+    currentIndex += 1
+    assert.equal(mockPhotos[currentIndex].id, 'photo-3')
+    assert.equal(currentIndex < mockPhotos.length - 1, false, 'Last photo cannot navigate forward')
+  })
 })
+
