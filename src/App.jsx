@@ -84,36 +84,91 @@ function toPortalUser(user) {
 // Intro Video Experience (YouTube API Sync & Fallback Briefing)
 // ----------------------------------------------------
 function IntroVideoExperience({ onComplete }) {
+  const [briefingMode, setBriefingMode] = useState('VIDEO') // 'VIDEO' | 'SLIDESHOW'
   const [videoUrl, setVideoUrl] = useState('')
-  const [requireTwoMinutes, setRequireTwoMinutes] = useState(false)
+  const [requireTwoMinutes, setRequireTwoMinutes] = useState(true)
   const [secondsWatched, setSecondsWatched] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
   const [useFallback, setUseFallback] = useState(false)
+  const [fallbackReason, setFallbackReason] = useState('')
   const [playerReady, setPlayerReady] = useState(false)
   const [canProceed, setCanProceed] = useState(false)
-  const [fallbackSlide, setFallbackSlide] = useState(0)
-  const playerRef = useRef(null)
+  const [galleryPhotos, setGalleryPhotos] = useState([])
+  const [leaders, setLeaders] = useState([])
+  const [activeSlideIndex, setActiveSlideIndex] = useState(0)
+  const [slideshowProgress, setSlideshowProgress] = useState(0)
 
+  const playerRef = useRef(null)
+  const hasStartedPlayingRef = useRef(false)
+
+  // 1. Fetch Club Settings, Gallery Photos (Latest first), and Leader Profiles (Priority order)
   useEffect(() => {
     let mounted = true
     memberApi.getPublicClubSettings()
       .then(({ settings }) => {
         if (!mounted) return
+        const mode = settings?.onboardingBriefingMode || settings?.introBriefingMode || 'VIDEO'
+        setBriefingMode(mode)
         if (settings?.introVideoUrl) {
           setVideoUrl(settings.introVideoUrl)
         }
-        setRequireTwoMinutes(settings?.introVideoRequireTwoMinutes === true || settings?.introVideoRequireTwoMinutes === 'true')
+        if (settings?.introVideoRequireTwoMinutes !== undefined) {
+          setRequireTwoMinutes(settings.introVideoRequireTwoMinutes === true || settings.introVideoRequireTwoMinutes === 'true')
+        }
+        if (mode === 'SLIDESHOW') {
+          setUseFallback(true)
+        }
       })
       .catch(() => {})
+
+    // Fetch existing gallery photos for slideshow fallback
+    memberApi.listGalleryAlbums()
+      .then(({ albums }) => {
+        if (!mounted) return
+        const allPhotos = (albums || []).flatMap(a =>
+          (a.photos || []).map(p => ({
+            id: p.id,
+            imageUrl: p.imageUrl,
+            caption: p.caption || a.name,
+            albumName: a.name,
+            createdAt: p.createdAt,
+          }))
+        )
+        // Sort newest first to oldest
+        allPhotos.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+        setGalleryPhotos(allPhotos)
+      })
+      .catch(() => {})
+
+    // Fetch leadership profiles for secondary fallback
+    memberApi.listClubTeam()
+      .then(({ team }) => {
+        if (!mounted) return
+        const activeLeaders = (team || []).filter(l => l.isActive !== false)
+        activeLeaders.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+        setLeaders(activeLeaders)
+      })
+      .catch(() => {})
+
     return () => { mounted = false }
   }, [])
 
   const requiredDuration = requireTwoMinutes ? 120 : 5
   const youtubeId = parseYouTubeVideoId(videoUrl)
+  const isVideoBriefing = briefingMode === 'VIDEO' && !useFallback
 
+  // 2. 15-Second Watchdog Timer & YouTube Player Initialization
   useEffect(() => {
-    if (!youtubeId || useFallback) return
+    if (!isVideoBriefing || !youtubeId) return
     let mounted = true
+
+    // 15-Second Loading Watchdog: If video does not start playing within 15 seconds, switch to fallback
+    const watchdogTimer = setTimeout(() => {
+      if (mounted && !hasStartedPlayingRef.current) {
+        setUseFallback(true)
+        setFallbackReason('Video loading timed out after 15 seconds. Displaying club gallery slideshow.')
+      }
+    }, 15000)
 
     function initPlayer() {
       if (!window.YT || !window.YT.Player) return
@@ -133,9 +188,13 @@ function IntroVideoExperience({ onComplete }) {
               if (mounted) setPlayerReady(true)
             },
             onStateChange: event => {
+              // 1 = PLAYING
               if (event.data === 1) {
+                hasStartedPlayingRef.current = true
+                clearTimeout(watchdogTimer)
                 if (mounted) setIsPlaying(true)
               } else {
+                // 2 = PAUSED, 0 = ENDED, 3 = BUFFERING
                 if (mounted) setIsPlaying(false)
                 if (event.data === 0) {
                   if (mounted) setCanProceed(true)
@@ -144,16 +203,18 @@ function IntroVideoExperience({ onComplete }) {
             },
             onError: () => {
               if (mounted) {
+                clearTimeout(watchdogTimer)
                 setUseFallback(true)
-                setIsPlaying(true)
+                setFallbackReason('YouTube player encountered an error. Switched to fallback slideshow.')
               }
             },
           },
         })
       } catch {
         if (mounted) {
+          clearTimeout(watchdogTimer)
           setUseFallback(true)
-          setIsPlaying(true)
+          setFallbackReason('YouTube embed could not be initialized. Switched to fallback slideshow.')
         }
       }
     }
@@ -167,20 +228,14 @@ function IntroVideoExperience({ onComplete }) {
       initPlayer()
     }
 
-    const readyTimeout = setTimeout(() => {
-      if (mounted && !playerReady && !useFallback) {
-        setUseFallback(true)
-        setIsPlaying(true)
-      }
-    }, 7000)
-
     return () => {
       mounted = false
-      clearTimeout(readyTimeout)
+      clearTimeout(watchdogTimer)
       try { playerRef.current?.destroy?.() } catch {}
     }
-  }, [youtubeId, useFallback])
+  }, [isVideoBriefing, youtubeId])
 
+  // 3. Strict Playback Watch Timer (Only counts while video is actively playing)
   useEffect(() => {
     if (!isPlaying) return
     const interval = setInterval(() => {
@@ -195,13 +250,35 @@ function IntroVideoExperience({ onComplete }) {
     return () => clearInterval(interval)
   }, [isPlaying, requiredDuration])
 
+  // 4. Slideshow Auto-Cycle & Progress (For Alternative Slideshow or 15s Fallback)
+  const totalSlides = galleryPhotos.length > 0 ? galleryPhotos.length : leaders.length
   useEffect(() => {
-    if (!useFallback || !isPlaying) return
+    if (!useFallback && briefingMode !== 'SLIDESHOW') return
+    if (totalSlides === 0) {
+      // If neither photos nor leaders exist, unlock after 5s
+      const delay = setTimeout(() => setCanProceed(true), 5000)
+      return () => clearTimeout(delay)
+    }
+
     const slideTimer = setInterval(() => {
-      setFallbackSlide(s => (s + 1) % 4)
-    }, 5000)
-    return () => clearInterval(slideTimer)
-  }, [useFallback, isPlaying])
+      setActiveSlideIndex(prev => (prev + 1) % totalSlides)
+    }, 4000)
+
+    const progressTimer = setInterval(() => {
+      setSlideshowProgress(prev => {
+        const next = prev + 1
+        if (next >= 5) {
+          setCanProceed(true)
+        }
+        return next
+      })
+    }, 1000)
+
+    return () => {
+      clearInterval(slideTimer)
+      clearInterval(progressTimer)
+    }
+  }, [useFallback, briefingMode, totalSlides])
 
   async function handleFinish() {
     try {
@@ -210,55 +287,144 @@ function IntroVideoExperience({ onComplete }) {
     onComplete()
   }
 
-  const slides = [
-    { title: 'Cyber Security Club Core Mission', text: 'Empowering students with hands-on ethical hacking labs, defense simulations, and practical cyber intelligence.' },
-    { title: 'Club Ethics & Code of Conduct', text: 'All tools, frameworks, and lab environments must be used responsibly and strictly within authorized academic sandboxes.' },
-    { title: 'Event Passes & QR Attendance', text: 'Registered members receive cryptographic QR event passes for attendance, activity slots, and certificate issuance.' },
-    { title: 'Community Support & Team', text: 'Reach out to our Tech Support team and leadership council anytime for queries, workshops, or club activities.' },
-  ]
+  const currentPhoto = galleryPhotos.length > 0 ? galleryPhotos[activeSlideIndex % galleryPhotos.length] : null
+  const currentLeader = !currentPhoto && leaders.length > 0 ? leaders[activeSlideIndex % leaders.length] : null
 
   return (
     <div className="intro-video-overlay">
       <div className="intro-video-container">
         <div className="intro-video-header">
-          <b>CYBER SECURITY CLUB · MANDATORY COMMUNITY BRIEFING</b>
+          <div>
+            <b>CYBER SECURITY CLUB · ONBOARDING BRIEFING</b>
+            <small style={{ display: 'block', color: '#7e9db8', fontSize: '10px', marginTop: '2px' }}>
+              {briefingMode === 'SLIDESHOW'
+                ? 'ALTERNATIVE SLIDESHOW BRIEFING'
+                : useFallback
+                ? 'FALLBACK BRIEFING SLIDESHOW'
+                : 'MANDATORY 2-MINUTE VIDEO BRIEFING'}
+            </small>
+          </div>
           <span>
             {canProceed
               ? '✓ BRIEFING REQUIREMENT MET'
-              : `WATCHED: ${Math.floor(secondsWatched / 60)}:${String(secondsWatched % 60).padStart(2, '0')} / ${Math.floor(requiredDuration / 60)}:${String(requiredDuration % 60).padStart(2, '0')}`}
+              : isVideoBriefing
+              ? `PLAYBACK: ${Math.floor(secondsWatched / 60)}:${String(secondsWatched % 60).padStart(2, '0')} / ${Math.floor(requiredDuration / 60)}:${String(requiredDuration % 60).padStart(2, '0')}${!isPlaying ? ' (PAUSED)' : ''}`
+              : `BRIEFING ACTIVE (${Math.max(0, 5 - slideshowProgress)}s)`}
           </span>
         </div>
 
         <div style={{ position: 'relative', background: '#000', aspectRatio: '16/9', overflow: 'hidden' }}>
-          {!useFallback && youtubeId ? (
+          {isVideoBriefing && youtubeId ? (
             <div id="youtube-player-container" style={{ width: '100%', height: '100%' }} />
           ) : (
-            <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '28px', textAlign: 'center', background: 'radial-gradient(circle at center, #132a42 0%, #070d16 80%)' }}>
-              <Crest small />
-              <div style={{ marginTop: '16px', maxWidth: '600px' }}>
-                <span className="badge badge-president" style={{ marginBottom: '10px' }}>OFFICIAL CLUB BRIEFING</span>
-                <h2 style={{ font: '700 24px Syne', color: '#edf7ff', margin: '8px 0 10px' }}>
-                  {slides[fallbackSlide].title}
-                </h2>
-                <p style={{ color: '#9bb7cc', fontSize: '13px', lineHeight: '1.6', margin: '0 0 20px' }}>
-                  {slides[fallbackSlide].text}
-                </p>
-                {useFallback && (
-                  <div style={{ padding: '8px 12px', borderRadius: '6px', background: '#1c2c3d', border: '1px solid #52bbf544', color: '#85d7ff', font: '500 11px "DM Mono", monospace' }}>
-                    ℹ The selected video could not be loaded. A default club briefing is being played instead.{requireTwoMinutes ? ' The 2-minute viewing requirement still applies.' : ''}
+            /* Dynamic Slideshow: Priority 1 (Latest Gallery Photos) -> Priority 2 (Leader Profiles in Priority Order) */
+            <div className="briefing-slideshow-container">
+              {currentPhoto ? (
+                <>
+                  <img
+                    className="briefing-slide-image"
+                    src={currentPhoto.imageUrl}
+                    alt={currentPhoto.caption}
+                  />
+                  <div className="briefing-slide-overlay">
+                    <div>
+                      <span className="badge badge-president" style={{ marginBottom: '6px', display: 'inline-block' }}>
+                        ALBUM: {currentPhoto.albumName}
+                      </span>
+                      <h3 style={{ color: '#edf7ff', font: '700 18px Syne', margin: '4px 0' }}>
+                        {currentPhoto.caption}
+                      </h3>
+                      <small style={{ color: '#85d7ff', font: '500 10px "DM Mono", monospace' }}>
+                        PHOTO {activeSlideIndex + 1} OF {galleryPhotos.length} · LATEST FIRST
+                      </small>
+                    </div>
                   </div>
-                )}
-              </div>
+                </>
+              ) : currentLeader ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '30px', maxWidth: '540px' }}>
+                  {currentLeader.photoUrl ? (
+                    <img
+                      src={currentLeader.photoUrl}
+                      alt={currentLeader.name}
+                      style={{ width: '110px', height: '110px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #52bbf5', marginBottom: '16px' }}
+                    />
+                  ) : (
+                    <div style={{ width: '110px', height: '110px', borderRadius: '50%', background: '#13283e', display: 'grid', placeItems: 'center', color: '#85d7ff', font: '700 36px Syne', border: '3px solid #52bbf5', marginBottom: '16px' }}>
+                      {currentLeader.name.slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                  <span className="badge badge-president" style={{ marginBottom: '8px' }}>
+                    PRIORITY #{activeSlideIndex + 1} · {currentLeader.roleTitle}
+                  </span>
+                  <h2 style={{ color: '#edf7ff', font: '700 22px Syne', margin: '4px 0' }}>
+                    {currentLeader.name}
+                  </h2>
+                  <p style={{ color: '#9bb7cc', fontSize: '13px', lineHeight: '1.6', margin: '10px 0 16px' }}>
+                    {currentLeader.bio || 'Core Leadership Council Member driving cybersecurity research and hands-on student workshops.'}
+                  </p>
+                  <small style={{ color: '#85d7ff', font: '500 10px "DM Mono", monospace' }}>
+                    LEADER PROFILE {activeSlideIndex + 1} OF {leaders.length}
+                  </small>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '28px', textAlign: 'center' }}>
+                  <Crest small />
+                  <h3 style={{ font: '700 22px Syne', color: '#edf7ff', margin: '16px 0 8px' }}>
+                    Cyber Security Club MRDU
+                  </h3>
+                  <p style={{ color: '#9bb7cc', fontSize: '13px', maxWidth: '500px' }}>
+                    Welcome to the official Cyber Security Club portal. Prepare for hands-on CTFs, security labs, and workshops.
+                  </p>
+                </div>
+              )}
+
+              {/* Navigation controls for slideshow */}
+              {totalSlides > 1 && (
+                <>
+                  <button
+                    type="button"
+                    className="briefing-nav-btn briefing-nav-prev"
+                    onClick={() => setActiveSlideIndex(prev => (prev - 1 + totalSlides) % totalSlides)}
+                    title="Previous Slide"
+                  >
+                    ◀
+                  </button>
+                  <button
+                    type="button"
+                    className="briefing-nav-btn briefing-nav-next"
+                    onClick={() => setActiveSlideIndex(prev => (prev + 1) % totalSlides)}
+                    title="Next Slide"
+                  >
+                    ▶
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
 
+        {/* Fallback Notice Banner */}
+        {useFallback && fallbackReason && (
+          <div style={{ padding: '8px 16px', background: '#122538', borderBottom: '1px solid #52bbf533', color: '#85d7ff', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>ℹ</span>
+            <span>{fallbackReason}</span>
+          </div>
+        )}
+
         <div style={{ padding: '16px 20px', background: '#050a11', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div style={{ color: '#829bb0', fontSize: '11px', font: '500 10px "DM Mono", monospace' }}>
             {!canProceed ? (
-              <span>🔒 5-second mandatory delay active ({Math.max(0, requiredDuration - secondsWatched)}s remaining)</span>
+              isVideoBriefing ? (
+                <span style={{ color: isPlaying ? '#70ddb4' : '#fca5a5' }}>
+                  {isPlaying
+                    ? `▶ Video playing — ${Math.max(0, requiredDuration - secondsWatched)}s remaining`
+                    : `⏸ Video paused — playback timer is paused`}
+                </span>
+              ) : (
+                <span>🔒 Briefing delay active ({Math.max(0, 5 - slideshowProgress)}s remaining)</span>
+              )
             ) : (
-              <span style={{ color: '#70ddb4' }}>✓ You have completed the mandatory briefing requirement.</span>
+              <span style={{ color: '#70ddb4' }}>✓ Onboarding briefing requirement satisfied.</span>
             )}
           </div>
           <button
@@ -266,7 +432,7 @@ function IntroVideoExperience({ onComplete }) {
             type="button"
             disabled={!canProceed}
             onClick={handleFinish}
-            style={{ padding: '0 20px', minHeight: '40px' }}
+            style={{ padding: '0 24px', minHeight: '40px', fontSize: '11px' }}
           >
             CONTINUE TO PORTAL →
           </button>
@@ -5012,14 +5178,23 @@ function TeamManagement({ user, logout, onNavigate }) {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [photoPreview, setPhotoPreview] = useState('')
+  const [editingMember, setEditingMember] = useState(null)
+  const [editPhotoPreview, setEditPhotoPreview] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+
+  function loadTeam() {
+    setLoading(true)
+    adminApi.listClubTeam()
+      .then(({ team: list }) => {
+        const sorted = (list || []).slice().sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+        setTeam(sorted)
+      })
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false))
+  }
 
   useEffect(() => {
-    let mounted = true
-    adminApi.listClubTeam()
-      .then(({ team: list }) => { if (mounted) setTeam(list || []) })
-      .catch(err => { if (mounted) setError(err.message) })
-      .finally(() => { if (mounted) setLoading(false) })
-    return () => { mounted = false }
+    loadTeam()
   }, [])
 
   async function createMember(e) {
@@ -5037,13 +5212,63 @@ function TeamManagement({ user, logout, onNavigate }) {
         instagramUrl: String(form.get('instagramUrl') || '').trim() || null,
         linkedinUrl: String(form.get('linkedinUrl') || '').trim() || null,
         githubUrl: String(form.get('githubUrl') || '').trim() || null,
+        sortOrder: team.length + 1,
       })
       setTeam(c => [...c, member])
       e.currentTarget.reset()
       setPhotoPreview('')
-      setMessage(`Added ${member.name} to leadership showcase.`)
+      setMessage(`Added ${member.name} to leadership council.`)
     } catch (err) {
       setError(err.message)
+    }
+  }
+
+  async function handleUpdateMember(e) {
+    e.preventDefault()
+    if (!editingMember) return
+    const form = new FormData(e.currentTarget)
+    setMessage('')
+    setError('')
+    setSubmitting(true)
+    try {
+      const payload = {
+        name: String(form.get('name') || '').trim(),
+        roleTitle: String(form.get('roleTitle') || '').trim(),
+        collegeEmail: String(form.get('collegeEmail') || '').trim() || null,
+        bio: String(form.get('bio') || '').trim() || null,
+        photoUrl: editPhotoPreview || editingMember.photoUrl || null,
+        instagramUrl: String(form.get('instagramUrl') || '').trim() || null,
+        linkedinUrl: String(form.get('linkedinUrl') || '').trim() || null,
+        githubUrl: String(form.get('githubUrl') || '').trim() || null,
+      }
+      const { member: updated } = await adminApi.updateClubTeamMember(editingMember.id, payload)
+      setTeam(c => c.map(m => (m.id === editingMember.id ? updated : m)))
+      setEditingMember(null)
+      setEditPhotoPreview('')
+      setMessage(`Profile updated for ${updated.name}. Changes reflected across the website.`)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function moveMember(index, direction) {
+    const targetIndex = index + direction
+    if (targetIndex < 0 || targetIndex >= team.length) return
+    const updated = [...team]
+    const [moved] = updated.splice(index, 1)
+    updated.splice(targetIndex, 0, moved)
+    setTeam(updated)
+    setMessage('')
+    setError('')
+
+    try {
+      await adminApi.reorderClubTeam(updated.map(m => m.id))
+      setMessage(`Priority order updated: ${moved.name} is now #${targetIndex + 1}.`)
+    } catch (err) {
+      setError(err.message || 'Failed to save priority order.')
+      loadTeam()
     }
   }
 
@@ -5066,9 +5291,9 @@ function TeamManagement({ user, logout, onNavigate }) {
             <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
               ← COMMAND CENTER
             </button>
-            <p className="eyebrow">COUNCIL SHOWCASE</p>
+            <p className="eyebrow">COUNCIL SHOWCASE & PRIORITY</p>
             <h1>Team & Leadership Showcase</h1>
-            <p>Manage public club council member profiles and social portfolios.</p>
+            <p>Manage public club council member profiles, edit leader info, and configure display priority order.</p>
           </div>
         </div>
 
@@ -5110,6 +5335,14 @@ function TeamManagement({ user, logout, onNavigate }) {
                   <input name="githubUrl" placeholder="https://github.com/..." />
                 </label>
               </div>
+
+              {photoPreview && (
+                <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <img src={photoPreview} alt="Preview" style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #52bbf5' }} />
+                  <button type="button" className="action-btn delete-btn" onClick={() => setPhotoPreview('')}>Remove Photo</button>
+                </div>
+              )}
+
               <button className="primary member-submit" style={{ marginTop: '14px' }}>
                 ＋ &nbsp; ADD LEADER PROFILE
               </button>
@@ -5119,10 +5352,13 @@ function TeamManagement({ user, logout, onNavigate }) {
           <article className="member-list-card">
             <div className="card-heading">
               <div>
-                <p className="eyebrow">COUNCIL ROSTER</p>
+                <p className="eyebrow">COUNCIL ROSTER & DISPLAY PRIORITY</p>
                 <h2>Active Leaders ({team.length})</h2>
               </div>
             </div>
+            <p style={{ color: '#7e95a7', fontSize: '11px', margin: '4px 0 14px' }}>
+              Use <b>▲ Up</b> and <b>▼ Down</b> to control display priority on the website and the onboarding fallback slideshow.
+            </p>
 
             {loading ? (
               <p className="directory-state">Loading team...</p>
@@ -5130,8 +5366,33 @@ function TeamManagement({ user, logout, onNavigate }) {
               <p className="directory-state">No leadership profiles added yet.</p>
             ) : (
               <div className="team-grid" style={{ marginTop: '16px' }}>
-                {team.map(l => (
+                {team.map((l, idx) => (
                   <div className="leader-card" key={l.id}>
+                    {/* Header with Priority Order Badge and Reorder Buttons */}
+                    <div className="leader-card-header">
+                      <span className="leader-order-badge">#{idx + 1} PRIORITY</span>
+                      <div className="leader-order-controls">
+                        <button
+                          type="button"
+                          className="order-btn"
+                          disabled={idx === 0}
+                          onClick={() => moveMember(idx, -1)}
+                          title="Move Up in Priority"
+                        >
+                          ▲ Up
+                        </button>
+                        <button
+                          type="button"
+                          className="order-btn"
+                          disabled={idx === team.length - 1}
+                          onClick={() => moveMember(idx, 1)}
+                          title="Move Down in Priority"
+                        >
+                          ▼ Down
+                        </button>
+                      </div>
+                    </div>
+
                     {l.photoUrl ? (
                       <img className="leader-photo" src={l.photoUrl} alt={l.name} />
                     ) : (
@@ -5139,14 +5400,98 @@ function TeamManagement({ user, logout, onNavigate }) {
                     )}
                     <b style={{ color: '#edf7ff', fontSize: '15px' }}>{l.name}</b>
                     <small style={{ color: '#85d7ff', font: '600 10px "DM Mono", monospace', margin: '4px 0' }}>{l.roleTitle}</small>
-                    <p style={{ color: '#7e95a7', fontSize: '11px', margin: '6px 0 12px' }}>{l.bio}</p>
-                    <button className="action-btn delete-btn" onClick={() => removeMember(l.id)}>Remove</button>
+                    <p style={{ color: '#7e95a7', fontSize: '11px', margin: '6px 0 12px' }}>{l.bio || 'No bio provided.'}</p>
+
+                    <div className="leader-card-actions">
+                      <button
+                        type="button"
+                        className="action-btn edit-btn"
+                        onClick={() => {
+                          setEditingMember(l)
+                          setEditPhotoPreview(l.photoUrl || '')
+                        }}
+                      >
+                        ✏️ Edit Profile
+                      </button>
+                      <button
+                        type="button"
+                        className="action-btn delete-btn"
+                        onClick={() => removeMember(l.id)}
+                      >
+                        🗑 Remove
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
             )}
           </article>
         </div>
+
+        {/* Edit Leader Profile Modal */}
+        {editingMember && (
+          <div className="photo-lightbox" onClick={() => setEditingMember(null)}>
+            <div className="guest-modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '580px' }}>
+              <button className="lightbox-close" onClick={() => setEditingMember(null)}>✕</button>
+              <p className="eyebrow" style={{ color: '#52bbf5' }}>UPDATE COUNCIL PROFILE</p>
+              <h3 style={{ color: '#edf7ff', font: '700 20px Syne', margin: '4px 0 8px' }}>
+                Edit Leader Profile: {editingMember.name}
+              </h3>
+              <p style={{ color: '#7e95a7', fontSize: '11px', margin: '0 0 16px' }}>
+                Changes will immediately update across the website and in the onboarding briefing slideshow.
+              </p>
+
+              <form onSubmit={handleUpdateMember}>
+                <div className="member-form-grid">
+                  <label>
+                    Full Name *
+                    <input name="name" required defaultValue={editingMember.name} />
+                  </label>
+                  <label>
+                    Council Role Title *
+                    <input name="roleTitle" required defaultValue={editingMember.roleTitle} />
+                  </label>
+                  <label>
+                    Official Email
+                    <input name="collegeEmail" type="email" defaultValue={editingMember.collegeEmail || ''} />
+                  </label>
+                  <label>
+                    Update Photo
+                    <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) readImageFile(f, setEditPhotoPreview) }} />
+                  </label>
+                  <label className="form-wide">
+                    Short Bio
+                    <input name="bio" defaultValue={editingMember.bio || ''} placeholder="Specialization & achievements..." />
+                  </label>
+                  <label>
+                    LinkedIn URL
+                    <input name="linkedinUrl" defaultValue={editingMember.linkedinUrl || ''} placeholder="https://linkedin.com/in/..." />
+                  </label>
+                  <label>
+                    GitHub URL
+                    <input name="githubUrl" defaultValue={editingMember.githubUrl || ''} placeholder="https://github.com/..." />
+                  </label>
+                </div>
+
+                {editPhotoPreview && (
+                  <div style={{ margin: '12px 0', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <img src={editPhotoPreview} alt="Preview" style={{ width: '48px', height: '48px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #52bbf5' }} />
+                    <button type="button" className="action-btn delete-btn" onClick={() => setEditPhotoPreview('')}>Remove Photo</button>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                  <button type="button" className="action-btn cancel-btn" style={{ flex: 1 }} onClick={() => setEditingMember(null)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="primary" style={{ flex: 2, minHeight: '40px', fontSize: '11px' }} disabled={submitting}>
+                    {submitting ? 'SAVING CHANGES…' : '✓ SAVE PROFILE CHANGES'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </section>
     </LivePortal>
   )
@@ -5163,8 +5508,9 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
   const [subscriptionUpiId, setSubscriptionUpiId] = useState('')
   const [qrPreview, setQrPreview] = useState('')
   const [introVideoEnabled, setIntroVideoEnabled] = useState(true)
+  const [onboardingBriefingMode, setOnboardingBriefingMode] = useState('VIDEO') // 'VIDEO' | 'SLIDESHOW'
   const [introVideoUrl, setIntroVideoUrl] = useState('')
-  const [introVideoRequireTwoMinutes, setIntroVideoRequireTwoMinutes] = useState(false)
+  const [introVideoRequireTwoMinutes, setIntroVideoRequireTwoMinutes] = useState(true)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -5181,8 +5527,9 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
         setSubscriptionUpiId(dict.subscriptionUpiId || '')
         setQrPreview(dict.subscriptionQrUrl || '')
         setIntroVideoEnabled(dict.introVideoEnabled !== false && dict.introVideoEnabled !== 'false')
+        setOnboardingBriefingMode(dict.onboardingBriefingMode || dict.introBriefingMode || 'VIDEO')
         setIntroVideoUrl(dict.introVideoUrl || '')
-        setIntroVideoRequireTwoMinutes(dict.introVideoRequireTwoMinutes === true || dict.introVideoRequireTwoMinutes === 'true')
+        setIntroVideoRequireTwoMinutes(dict.introVideoRequireTwoMinutes !== false && dict.introVideoRequireTwoMinutes !== 'false')
       })
       .catch(err => { if (mounted) setError(err.message) })
     return () => { mounted = false }
@@ -5201,6 +5548,8 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
       subscriptionUpiId: subscriptionUpiId || null,
       subscriptionQrUrl: qrPreview || null,
       introVideoEnabled,
+      onboardingBriefingMode,
+      introBriefingMode: onboardingBriefingMode,
       introVideoUrl: introVideoUrl || null,
       introVideoRequireTwoMinutes,
       instagramUrl: String(form.get('instagramUrl') || '').trim() || null,
@@ -5233,7 +5582,7 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
             </button>
             <p className="eyebrow">CENTRAL CONFIGURATION</p>
             <h1>Global Controls & Club Media</h1>
-            <p>Manage site availability, student subscriptions, mandatory intro briefing, and social channels.</p>
+            <p>Manage site availability, student subscriptions, onboarding briefing mode, and social channels.</p>
           </div>
           {user.isPrimaryAdmin && (
             <span className="president-lock">👑 PRIMARY PRESIDENT CONTROLS</span>
@@ -5350,12 +5699,12 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
             )}
           </article>
 
-          {/* Card 3: Mandatory Intro Video Controls */}
+          {/* Card 3: Onboarding Briefing Mode Controls */}
           <article className="settings-section-card">
             <div className="settings-card-header">
               <div>
                 <p className="eyebrow" style={{ color: '#85d7ff' }}>ONBOARDING BRIEFING</p>
-                <h3>Mandatory Intro Video Controls</h3>
+                <h3>Onboarding Briefing Controls</h3>
               </div>
               <div className="toggle-switch-container">
                 <button
@@ -5377,32 +5726,77 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
               </div>
             </div>
 
-            <div className="member-form-grid">
-              <label className="form-wide">
-                YouTube Video URL (Watch, Shorts, youtu.be, or Embed)
-                <input
-                  value={introVideoUrl}
-                  onChange={e => setIntroVideoUrl(e.target.value)}
-                  placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..."
-                  disabled={!user.isPrimaryAdmin}
-                />
+            {/* Mode Switcher: 2-Minute Video vs Alternative Slideshow */}
+            <div style={{ background: '#070e17', border: '1px solid var(--line)', borderRadius: '10px', padding: '16px', margin: '14px 0' }}>
+              <label style={{ color: '#85d7ff', font: '700 11px "DM Mono", monospace', display: 'block', marginBottom: '10px' }}>
+                SELECT ONBOARDING BRIEFING MODE (PRIMARY ADMIN)
               </label>
-              <div className="form-wide" style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap', marginTop: '6px' }}>
-                <div style={{ padding: '8px 12px', borderRadius: '6px', background: '#050a12', border: '1px solid var(--line)', color: '#70ddb4', fontSize: '11px' }}>
-                  🔒 5-Second Delay: <b>REQUIRED</b>
-                </div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '12px', color: '#edf7ff' }}>
-                  <input
-                    type="checkbox"
-                    checked={introVideoRequireTwoMinutes}
-                    onChange={e => setIntroVideoRequireTwoMinutes(e.target.checked)}
-                    disabled={!user.isPrimaryAdmin}
-                    style={{ width: 'auto', height: 'auto' }}
-                  />
-                  <b>Require 2-Minute Active Viewing Before Continuing</b>
-                </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <button
+                  type="button"
+                  onClick={() => setOnboardingBriefingMode('VIDEO')}
+                  disabled={!user.isPrimaryAdmin}
+                  style={{
+                    background: onboardingBriefingMode === 'VIDEO' ? '#14304c' : '#050a12',
+                    border: onboardingBriefingMode === 'VIDEO' ? '1px solid #52bbf5' : '1px solid var(--line)',
+                    borderRadius: '8px',
+                    padding: '12px 14px',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <b style={{ color: onboardingBriefingMode === 'VIDEO' ? '#85d7ff' : '#c3d8e8', display: 'block', fontSize: '13px' }}>
+                    🎬 A. 2-Minute Video Briefing
+                  </b>
+                  <small style={{ color: '#7e95a7', fontSize: '11px', display: 'block', marginTop: '4px', lineHeight: '1.4' }}>
+                    Compulsory 2-minute YouTube video playback. Active playback is synchronized to timer. 15s loading watchdog automatically triggers dynamic slideshow fallback.
+                  </small>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setOnboardingBriefingMode('SLIDESHOW')}
+                  disabled={!user.isPrimaryAdmin}
+                  style={{
+                    background: onboardingBriefingMode === 'SLIDESHOW' ? '#14304c' : '#050a12',
+                    border: onboardingBriefingMode === 'SLIDESHOW' ? '1px solid #52bbf5' : '1px solid var(--line)',
+                    borderRadius: '8px',
+                    padding: '12px 14px',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <b style={{ color: onboardingBriefingMode === 'SLIDESHOW' ? '#85d7ff' : '#c3d8e8', display: 'block', fontSize: '13px' }}>
+                    🖼️ B. Alternative Slideshow Briefing
+                  </b>
+                  <small style={{ color: '#7e95a7', fontSize: '11px', display: 'block', marginTop: '4px', lineHeight: '1.4' }}>
+                    Directly starts the dynamic slideshow without loading YouTube. Cycles through Latest Gallery Photos → Leader Profiles in Priority Order.
+                  </small>
+                </button>
               </div>
             </div>
+
+            {onboardingBriefingMode === 'VIDEO' && (
+              <div className="member-form-grid">
+                <label className="form-wide">
+                  YouTube Video URL (Watch, Shorts, youtu.be, or Embed)
+                  <input
+                    value={introVideoUrl}
+                    onChange={e => setIntroVideoUrl(e.target.value)}
+                    placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..."
+                    disabled={!user.isPrimaryAdmin}
+                  />
+                </label>
+                <div className="form-wide" style={{ display: 'flex', gap: '20px', alignItems: 'center', flexWrap: 'wrap', marginTop: '6px' }}>
+                  <div style={{ padding: '8px 12px', borderRadius: '6px', background: '#050a12', border: '1px solid var(--line)', color: '#70ddb4', fontSize: '11px' }}>
+                    ⏱ 2-Minute Playback Requirement: <b>ACTIVE & COMPULSORY</b>
+                  </div>
+                  <div style={{ padding: '8px 12px', borderRadius: '6px', background: '#050a12', border: '1px solid var(--line)', color: '#85d7ff', fontSize: '11px' }}>
+                    ⚡ 15-Second Fallback: <b>Latest Photos → Leader Priority Order</b>
+                  </div>
+                </div>
+              </div>
+            )}
           </article>
 
           {/* Card 4: Club Social Media Channels */}

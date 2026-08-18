@@ -197,6 +197,8 @@ export const clubSettingsSchema = z.object({
   introVideoEnabled: z.boolean().optional(),
   introVideoUrl: optionalText(5000),
   introVideoRequireTwoMinutes: z.boolean().optional(),
+  onboardingBriefingMode: z.enum(['VIDEO', 'SLIDESHOW']).optional(),
+  introBriefingMode: z.enum(['VIDEO', 'SLIDESHOW']).optional(),
   clubName: optionalText(120),
   contactEmail: optionalEmail(),
   contactPhone: optionalText(32),

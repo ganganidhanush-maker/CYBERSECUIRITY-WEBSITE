@@ -970,6 +970,35 @@ export async function deleteClubTeamMember(request, response) {
   return response.status(204).end()
 }
 
+export async function reorderClubTeam(request, response) {
+  const { orderedIds } = request.body
+  if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+    return response.status(400).json({ message: 'Invalid orderedIds array.' })
+  }
+
+  await prisma.$transaction(
+    orderedIds.map((id, index) =>
+      prisma.clubTeamMember.update({
+        where: { id },
+        data: { sortOrder: index + 1 },
+      })
+    )
+  )
+
+  const updatedTeam = await prisma.clubTeamMember.findMany({
+    orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+  })
+
+  await tryWriteAuditLog({
+    actorUserId: request.user.id,
+    action: 'CLUB_TEAM_REORDERED',
+    metadata: { count: orderedIds.length },
+    ...auditRequest(request),
+  })
+
+  return response.status(200).json({ team: updatedTeam })
+}
+
 export async function getClubSettings(request, response) {
   const settings = await prisma.clubSetting.findMany()
   const dictionary = {}
@@ -993,6 +1022,8 @@ export async function updateClubSettings(request, response) {
     'introVideoEnabled',
     'introVideoUrl',
     'introVideoRequireTwoMinutes',
+    'onboardingBriefingMode',
+    'introBriefingMode',
   ]
 
   const hasGlobalKey = Object.keys(parsed.data).some(k => globalPresidentKeys.includes(k) && parsed.data[k] !== undefined)

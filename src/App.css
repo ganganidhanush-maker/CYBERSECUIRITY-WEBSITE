@@ -2094,4 +2094,121 @@ body {
   font: 600 10px 'DM Mono', monospace;
 }
 
+/* Leader Priority & Actions */
+.leader-card-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.leader-order-badge {
+  background: #0e2438;
+  color: #85d7ff;
+  border: 1px solid #52bbf544;
+  font: 700 10px 'DM Mono', monospace;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.leader-order-controls {
+  display: flex;
+  gap: 4px;
+}
+
+.order-btn {
+  background: #0c1825;
+  border: 1px solid var(--line);
+  color: #829bb0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 10px;
+  transition: .15s;
+}
+
+.order-btn:hover:not(:disabled) {
+  background: #183552;
+  color: #fff;
+  border-color: #52bbf5;
+}
+
+.order-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.leader-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  width: 100%;
+}
+
+.leader-card-actions button {
+  flex: 1;
+}
+
+/* Briefing Slideshow */
+.briefing-slideshow-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: #03070d;
+  overflow: hidden;
+}
+
+.briefing-slide-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  max-height: 480px;
+  transition: opacity 0.4s ease;
+}
+
+.briefing-slide-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(0deg, rgba(3, 7, 13, 0.95) 0%, rgba(3, 7, 13, 0.6) 60%, transparent 100%);
+  padding: 24px 30px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px;
+}
+
+.briefing-nav-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(12, 24, 38, 0.8);
+  border: 1px solid #52bbf555;
+  color: #85d7ff;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-size: 16px;
+  z-index: 10;
+  transition: .15s;
+}
+
+.briefing-nav-btn:hover {
+  background: #193854;
+  color: #fff;
+  border-color: #52bbf5;
+}
+
+.briefing-nav-prev { left: 16px; }
+.briefing-nav-next { right: 16px; }
+
 

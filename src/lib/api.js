@@ -112,6 +112,7 @@ export const adminApi = {
   listClubTeam: () => request('/admin/team'),
   createClubTeamMember: member => request('/admin/team', { method: 'POST', body: JSON.stringify(member) }),
   updateClubTeamMember: (memberId, member) => request(`/admin/team/${memberId}`, { method: 'PUT', body: JSON.stringify(member) }),
+  reorderClubTeam: orderedIds => request('/admin/team/reorder', { method: 'PUT', body: JSON.stringify({ orderedIds }) }),
   deleteClubTeamMember: memberId => request(`/admin/team/${memberId}`, { method: 'DELETE' }),
 
   // Settings & Socials
