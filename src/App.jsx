@@ -6820,6 +6820,87 @@ function formatMetaValue(val) {
   return String(val)
 }
 
+function formatAuditSummary(entry) {
+  if (!entry) return 'Action recorded.'
+  const meta = entry.metadata || {}
+  const targetUser = entry.target?.profile?.name || entry.target?.name || meta.targetName || meta.name || entry.target?.memberId || meta.targetMemberId || meta.memberId
+
+  switch (entry.action) {
+    case 'PRIMARY_PRESIDENT_LOGIN_SUCCESS':
+      return 'Primary President logged in with full administrative privileges'
+    case 'PRESIDENT_LOGIN_SUCCESS':
+      return 'President logged in successfully'
+    case 'LOGIN_SUCCESS':
+      return 'Member logged in successfully'
+    case 'TWO_FACTOR_LOGIN_SUCCESS':
+      return 'Two-factor authentication verified successfully'
+    case 'TWO_FACTOR_LOGIN_FAILED':
+      return 'Failed 2FA verification attempt'
+    case 'LOGOUT':
+      return 'Logged out of active session'
+    case 'LOGOUT_ALL_DEVICES':
+      return 'Terminated all active user sessions'
+    case 'LOGIN_BLOCKED':
+      return `Login blocked (${meta.reason || 'Security policy'})`
+    case 'ACCOUNT_LOCKED':
+      return `Account temporarily locked due to failed attempts (${meta.lockMinutes || 15}m)`
+    case 'ACCOUNT_CREATED':
+      return `Created new account for ${meta.name || targetUser || 'member'}`
+    case 'GUEST_REGISTERED':
+      return `New guest student registered (${meta.memberId || targetUser || ''})`
+    case 'BULK_STUDENTS_CREATED':
+      return `Bulk provisioned ${meta.count || ''} student accounts`
+    case 'ACCOUNT_STATUS_CHANGED':
+      return `Status changed from ${meta.from || 'PREV'} to ${meta.to || 'NEW'} for ${targetUser || 'user'}`
+    case 'ACCOUNT_PERMISSIONS_CHANGED':
+      return `Updated system permissions for ${targetUser || 'user'}`
+    case 'ACCOUNT_UPDATED':
+      return `Profile updated for ${targetUser || 'user'}`
+    case 'EVENT_CREATED':
+      return `Created new event: "${meta.title || meta.eventId || 'Event'}"`
+    case 'EVENT_UPDATED':
+      return `Updated event details: "${meta.title || meta.eventId || 'Event'}"`
+    case 'EVENT_DELETED':
+      return `Deleted event: "${meta.title || meta.eventId || 'Event'}"`
+    case 'EVENT_REGISTERED':
+      return `Registered for event "${meta.eventTitle || meta.eventId || ''}"`
+    case 'EVENT_PAYMENT_VERIFIED':
+      return `Payment verified (${meta.paymentStatus || 'VERIFIED'}) for pass ${meta.registrationId || ''}`
+    case 'GALLERY_ALBUM_CREATED':
+      return `Created photo album: "${meta.name || meta.albumId || 'Album'}"`
+    case 'GALLERY_PHOTO_ADDED':
+    case 'GALLERY_PHOTOS_ADDED':
+      return `Uploaded photo(s) to album ${meta.albumId || ''}`
+    case 'GALLERY_ALBUM_DELETED':
+      return `Deleted photo album "${meta.name || ''}"`
+    case 'CLUB_SETTINGS_UPDATED':
+      return `Modified global club configurations (${Array.isArray(meta.keys) ? meta.keys.join(', ') : 'settings'})`
+    case 'CLUB_TEAM_MEMBER_ADDED':
+      return `Added leadership profile: ${meta.name || ''}`
+    case 'CLUB_TEAM_MEMBER_REMOVED':
+      return `Removed leadership profile: ${meta.name || ''}`
+    case 'CLUB_TEAM_MEMBER_UPDATED':
+      return `Updated leadership profile: ${meta.name || ''}`
+    case 'SUBSCRIPTION_VERIFIED':
+      return `Approved student membership subscription for ${targetUser || 'student'}`
+    case 'SUBSCRIPTION_REJECTED':
+      return `Rejected student membership subscription (${meta.reason || 'Verification failed'})`
+    case 'COMPLAINT_STATUS_UPDATED':
+      return `Updated doubt inquiry status to ${meta.status || ''}`
+    case 'AUDIT_LOGS_PURGED':
+      return 'Purged security compliance records with Master PIN authorization'
+    default:
+      if (meta && Object.keys(meta).length > 0) {
+        const filtered = Object.entries(meta)
+          .filter(([k]) => !['memberId', 'name', 'role', 'isPrimaryAdmin'].includes(k))
+          .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
+          .join(', ')
+        if (filtered) return filtered
+      }
+      return entry.action.replaceAll('_', ' ')
+  }
+}
+
 function AuditLogView({ user, logout, onNavigate }) {
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
@@ -6883,10 +6964,10 @@ function AuditLogView({ user, logout, onNavigate }) {
       const actorRole = (entry.actor?.role || entry.metadata?.role || '').toLowerCase()
       const targetName = (entry.target?.profile?.name || entry.target?.name || entry.metadata?.targetName || '').toLowerCase()
       const targetId = (entry.target?.memberId || entry.metadata?.targetMemberId || '').toLowerCase()
+      const summary = formatAuditSummary(entry).toLowerCase()
       const matchAction = entry.action?.toLowerCase().includes(q)
-      const matchIp = (entry.ipAddress || '').toLowerCase().includes(q)
       const matchMeta = JSON.stringify(entry.metadata || {}).toLowerCase().includes(q)
-      if (!matchAction && !actorName.includes(q) && !actorId.includes(q) && !actorRole.includes(q) && !targetName.includes(q) && !targetId.includes(q) && !matchIp && !matchMeta) return false
+      if (!matchAction && !actorName.includes(q) && !actorId.includes(q) && !actorRole.includes(q) && !targetName.includes(q) && !targetId.includes(q) && !summary.includes(q) && !matchMeta) return false
     }
     return true
   })
@@ -6894,28 +6975,29 @@ function AuditLogView({ user, logout, onNavigate }) {
   function handleDownloadAuditLogsCsv() {
     const headers = [
       'Log ID',
-      'Timestamp',
-      'Actor Name',
-      'Actor Member ID',
-      'Actor Role',
-      'Action / Event',
-      'Target User ID / Resource',
-      'IP Address',
-      'Parameters / Metadata',
+      'Date & Time',
+      'Member ID',
+      'Profile Name',
+      'Role',
+      'Action / What They Did',
+      'Changes / Activity Summary',
+      'Target Member ID',
+      'Parameters / Details',
     ]
     const rows = filteredLogs.map(l => {
-      const actorName = l.actor?.profile?.name || l.actor?.name || l.metadata?.name || (l.actor?.isPrimaryAdmin ? 'Primary President' : l.actorUserId ? 'Authorized Member' : 'System Administrator')
+      const actorName = l.actor?.profile?.name || l.actor?.name || l.metadata?.name || (l.actor?.isPrimaryAdmin ? 'Primary President' : l.actorUserId ? 'Authorized Member' : 'System Action')
       const actorId = l.actor?.memberId || l.metadata?.memberId || null
       const actorRole = l.actor?.role || l.metadata?.role || null
+      const summary = formatAuditSummary(l)
       return [
         l.id,
         l.createdAt ? new Date(l.createdAt).toLocaleString() : null,
-        actorName,
         actorId,
+        actorName,
         actorRole,
         l.action,
+        summary,
         l.target?.memberId || l.targetUserId || l.targetId,
-        l.ipAddress,
         l.metadata ? JSON.stringify(l.metadata) : null,
       ]
     })
@@ -6930,9 +7012,9 @@ function AuditLogView({ user, logout, onNavigate }) {
             <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
               ← COMMAND CENTER
             </button>
-            <p className="eyebrow">COMPLIANCE & TRACEABILITY</p>
+            <p className="eyebrow">COMPLIANCE & ACTIVITY TRACEABILITY</p>
             <h1>Security Audit Log</h1>
-            <p>Protected immutable logs of administrative activities, logins, and configurations.</p>
+            <p>Protected immutable logs of member activities, administrative actions, and configuration changes.</p>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             <button
@@ -6985,7 +7067,7 @@ function AuditLogView({ user, logout, onNavigate }) {
         <div style={{ marginBottom: '16px' }}>
           <input
             style={{ width: '100%', height: '38px', padding: '0 14px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', fontSize: '11px' }}
-            placeholder="Search by Action, Member Name, Member ID, Role, IP Address, or parameters..."
+            placeholder="Search by Action, Member Name, Member ID, Role, Changes, or parameters..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
@@ -7001,9 +7083,9 @@ function AuditLogView({ user, logout, onNavigate }) {
               <div className="members-table">
                 <div className="audit-table-header">
                   <span>ACTION EVENT</span>
-                  <span>ACTOR</span>
-                  <span>IP & DEVICE</span>
-                  <span>TIMESTAMP</span>
+                  <span>MEMBER & PROFILE</span>
+                  <span>CHANGES & ACTIVITY</span>
+                  <span>TIMING</span>
                   <span>DETAILS</span>
                 </div>
                 {filteredLogs.map(entry => {
@@ -7012,6 +7094,7 @@ function AuditLogView({ user, logout, onNavigate }) {
                   const actorName = entry.actor?.profile?.name || entry.actor?.name || entry.metadata?.name || (entry.actor?.isPrimaryAdmin ? 'Primary President' : entry.actorUserId ? 'Authorized Member' : 'System Action')
                   const actorMemberId = entry.actor?.memberId || entry.metadata?.memberId || null
                   const actorRole = entry.actor?.role || entry.metadata?.role || null
+                  const summary = formatAuditSummary(entry)
 
                   return (
                     <div className="audit-table-row" key={entry.id}>
@@ -7021,19 +7104,19 @@ function AuditLogView({ user, logout, onNavigate }) {
                         </span>
                       </div>
                       <div>
-                        <b style={{ color: '#edf7ff' }}>{actorName}</b>
+                        <b style={{ color: '#edf7ff', display: 'block' }}>{actorName}</b>
                         <small style={{ color: '#85d7ff', display: 'block', fontWeight: 600 }}>
                           {actorMemberId ? `${actorMemberId} (${getRoleLabel(actorRole)})` : 'SYSTEM ACTION'}
                         </small>
                       </div>
                       <div>
-                        <code style={{ color: '#85d7ff', fontSize: '11px', background: '#050a12', padding: '3px 6px', borderRadius: '4px' }}>
-                          {entry.ipAddress || '127.0.0.1 (Internal)'}
-                        </code>
+                        <span style={{ color: '#c5d8e8', fontSize: '11px', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }} title={summary}>
+                          {summary}
+                        </span>
                       </div>
                       <div>
-                        <small>{new Date(entry.createdAt).toLocaleDateString()}</small>
-                        <small style={{ color: '#688296', display: 'block' }}>{new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+                        <small style={{ color: '#edf7ff', display: 'block' }}>{new Date(entry.createdAt).toLocaleDateString()}</small>
+                        <small style={{ color: '#85d7ff', display: 'block', fontWeight: 600 }}>{new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
                       </div>
                       <div>
                         <button
@@ -7097,6 +7180,7 @@ function AuditLogView({ user, logout, onNavigate }) {
           const targetName = selectedLog.target?.profile?.name || selectedLog.target?.name || selectedLog.metadata?.targetName || null
           const targetMemberId = selectedLog.target?.memberId || selectedLog.metadata?.targetMemberId || null
           const targetRole = selectedLog.target?.role || selectedLog.metadata?.targetRole || null
+          const summary = formatAuditSummary(selectedLog)
 
           return (
             <div className="photo-lightbox" onClick={() => setSelectedLog(null)}>
@@ -7113,42 +7197,44 @@ function AuditLogView({ user, logout, onNavigate }) {
                   <button className="lightbox-close" onClick={() => setSelectedLog(null)} style={{ position: 'static' }}>✕</button>
                 </div>
 
-                {/* Actor & Device Grid */}
+                {/* Member, Action & Timing Grid */}
                 <div className="audit-detail-grid">
                   <div className="audit-detail-field">
-                    <b>ACTOR NAME</b>
-                    <p style={{ color: '#edf7ff', fontWeight: 600 }}>{actorName}</p>
+                    <b>MEMBER PROFILE NAME</b>
+                    <p style={{ color: '#edf7ff', fontWeight: 600, fontSize: '13px' }}>{actorName}</p>
                   </div>
                   <div className="audit-detail-field">
                     <b>MEMBER ID & ROLE</b>
-                    <p style={{ color: '#85d7ff', fontWeight: 600 }}>
+                    <p style={{ color: '#85d7ff', fontWeight: 600, fontSize: '13px' }}>
                       {actorMemberId ? `${actorMemberId} (${getRoleLabel(actorRole)})` : 'SYSTEM ACTION'}
                     </p>
                   </div>
+                  <div className="audit-detail-field">
+                    <b>ACTION EVENT</b>
+                    <p style={{ color: '#ffb74d', fontWeight: 600 }}>{selectedLog.action.replaceAll('_', ' ')}</p>
+                  </div>
+                  <div className="audit-detail-field">
+                    <b>DATE & EXACT TIMING</b>
+                    <p style={{ color: '#70ddb4', fontFamily: 'DM Mono', fontSize: '12px' }}>{new Date(selectedLog.createdAt).toLocaleString()}</p>
+                  </div>
+                  <div className="audit-detail-field" style={{ gridColumn: '1 / -1', background: '#070f1a', padding: '10px 14px', borderRadius: '6px', border: '1px solid #52bbf533' }}>
+                    <b style={{ color: '#85d7ff' }}>CHANGES / ACTIVITY SUMMARY</b>
+                    <p style={{ margin: '4px 0 0', color: '#edf7ff', fontSize: '12px', lineHeight: 1.5 }}>
+                      {summary}
+                    </p>
+                  </div>
                   {targetMemberId && (
-                    <div className="audit-detail-field" style={{ gridColumn: '1 / -1', background: '#070f1a', padding: '10px 14px', borderRadius: '6px', border: '1px solid #52bbf533' }}>
+                    <div className="audit-detail-field" style={{ gridColumn: '1 / -1', background: '#070f1a', padding: '10px 14px', borderRadius: '6px', border: '1px solid #ffb74d44' }}>
                       <b style={{ color: '#ffb74d' }}>TARGET MEMBER ACTION APPLIED TO</b>
                       <p style={{ margin: '4px 0 0', color: '#edf7ff', fontSize: '12px' }}>
                         <b>{targetName || targetMemberId}</b> ({targetMemberId}) · <span style={{ color: '#85d7ff' }}>{getRoleLabel(targetRole)}</span>
                       </p>
                     </div>
                   )}
-                  <div className="audit-detail-field">
-                    <b>CLIENT IP ADDRESS</b>
-                    <p style={{ color: '#70ddb4', fontFamily: 'DM Mono' }}>{selectedLog.ipAddress || '127.0.0.1 (Internal)'}</p>
-                  </div>
-                  <div className="audit-detail-field">
-                    <b>TIMESTAMP</b>
-                    <p>{new Date(selectedLog.createdAt).toLocaleString()}</p>
-                  </div>
-                  <div className="audit-detail-field" style={{ gridColumn: '1 / -1' }}>
-                    <b>USER AGENT / DEVICE</b>
-                    <p style={{ fontSize: '11px', color: '#829bb0', wordBreak: 'break-all' }}>{selectedLog.userAgent || 'Mozilla/5.0 Web Client'}</p>
-                  </div>
                 </div>
 
                 {/* Metadata Key-Value Breakdown */}
-                <b style={{ color: '#85d7ff', fontSize: '12px', display: 'block', margin: '14px 0 6px' }}>EVENT PARAMETERS & CHANGES:</b>
+                <b style={{ color: '#85d7ff', fontSize: '12px', display: 'block', margin: '14px 0 6px' }}>FULL PARAMETERS & RECORDED DATA:</b>
                 {selectedLog.metadata && Object.keys(selectedLog.metadata).length > 0 ? (
                   <table className="audit-meta-table">
                     <tbody>

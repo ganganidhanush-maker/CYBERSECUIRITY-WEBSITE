@@ -592,7 +592,7 @@ body {
 
 .audit-table-header {
   display: grid;
-  grid-template-columns: 1.4fr 1.2fr 1.2fr 1fr auto;
+  grid-template-columns: 1.1fr 1.3fr 2fr 1fr auto;
   gap: 12px;
   padding: 10px 14px;
   background: #09111b;
@@ -606,7 +606,7 @@ body {
 
 .audit-table-row {
   display: grid;
-  grid-template-columns: 1.4fr 1.2fr 1.2fr 1fr auto;
+  grid-template-columns: 1.1fr 1.3fr 2fr 1fr auto;
   gap: 12px;
   align-items: center;
   padding: 12px 14px;
