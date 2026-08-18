@@ -7067,7 +7067,7 @@ function AuditLogView({ user, logout, onNavigate }) {
         <div style={{ marginBottom: '16px' }}>
           <input
             style={{ width: '100%', height: '38px', padding: '0 14px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', fontSize: '11px' }}
-            placeholder="Search by Action, Member Name, Member ID, Role, Changes, or parameters..."
+            placeholder="Search by Member ID, Name, Role, Action, or Changes..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
           />
@@ -7082,41 +7082,55 @@ function AuditLogView({ user, logout, onNavigate }) {
             <div className="table-scroll-container">
               <div className="members-table">
                 <div className="audit-table-header">
-                  <span>ACTION EVENT</span>
-                  <span>MEMBER & PROFILE</span>
-                  <span>CHANGES & ACTIVITY</span>
-                  <span>TIMING</span>
+                  <span>MEMBER ID</span>
+                  <span>PROFILE NAME</span>
+                  <span>ROLE</span>
+                  <span>WHAT THEY DID / ACTION</span>
+                  <span>DATE & TIMING</span>
                   <span>DETAILS</span>
                 </div>
                 {filteredLogs.map(entry => {
                   const cat = getAuditCategory(entry.action)
                   const badge = getCategoryBadge(cat)
-                  const actorName = entry.actor?.profile?.name || entry.actor?.name || entry.metadata?.name || (entry.actor?.isPrimaryAdmin ? 'Primary President' : entry.actorUserId ? 'Authorized Member' : 'System Action')
-                  const actorMemberId = entry.actor?.memberId || entry.metadata?.memberId || null
-                  const actorRole = entry.actor?.role || entry.metadata?.role || null
+                  const actorName = entry.actor?.profile?.name || entry.actor?.name || entry.metadata?.name || entry.metadata?.actorName || (entry.actor?.isPrimaryAdmin ? 'Primary President' : entry.actorUserId ? 'Club Member' : 'System Administrator')
+                  const actorMemberId = entry.actor?.memberId || entry.metadata?.memberId || entry.metadata?.actorMemberId || (entry.actorUserId ? 'MEMBER' : 'SYSTEM')
+                  const actorRole = entry.actor?.role || entry.metadata?.role || entry.metadata?.actorRole || (entry.actorUserId ? 'STUDENT' : 'SYSTEM')
                   const summary = formatAuditSummary(entry)
 
                   return (
                     <div className="audit-table-row" key={entry.id}>
                       <div>
-                        <span className="badge" style={{ background: badge.bg, color: badge.color, border: `1px solid ${badge.color}44`, fontSize: '9px' }}>
-                          {entry.action.replaceAll('_', ' ')}
+                        <span style={{ color: '#85d7ff', fontWeight: 700, fontFamily: 'DM Mono', fontSize: '12px' }}>
+                          {actorMemberId}
                         </span>
                       </div>
                       <div>
-                        <b style={{ color: '#edf7ff', display: 'block' }}>{actorName}</b>
-                        <small style={{ color: '#85d7ff', display: 'block', fontWeight: 600 }}>
-                          {actorMemberId ? `${actorMemberId} (${getRoleLabel(actorRole)})` : 'SYSTEM ACTION'}
+                        <b style={{ color: '#edf7ff', fontSize: '13px', display: 'block' }}>
+                          {actorName}
+                        </b>
+                      </div>
+                      <div>
+                        <span className="badge" style={{ background: badge.bg, color: badge.color, border: `1px solid ${badge.color}44`, fontSize: '10px' }}>
+                          {getRoleLabel(actorRole)}
+                        </span>
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <b style={{ color: badge.color, fontSize: '11px', letterSpacing: '0.04em' }}>
+                            {entry.action.replaceAll('_', ' ')}
+                          </b>
+                          <span style={{ color: '#c5d8e8', fontSize: '11px', lineHeight: 1.4 }}>
+                            {summary}
+                          </span>
+                        </div>
+                      </div>
+                      <div>
+                        <small style={{ color: '#edf7ff', display: 'block', fontSize: '11px' }}>
+                          {new Date(entry.createdAt).toLocaleDateString()}
                         </small>
-                      </div>
-                      <div>
-                        <span style={{ color: '#c5d8e8', fontSize: '11px', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }} title={summary}>
-                          {summary}
-                        </span>
-                      </div>
-                      <div>
-                        <small style={{ color: '#edf7ff', display: 'block' }}>{new Date(entry.createdAt).toLocaleDateString()}</small>
-                        <small style={{ color: '#85d7ff', display: 'block', fontWeight: 600 }}>{new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+                        <small style={{ color: '#85d7ff', display: 'block', fontWeight: 600, fontSize: '11px', fontFamily: 'DM Mono' }}>
+                          {new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </small>
                       </div>
                       <div>
                         <button
