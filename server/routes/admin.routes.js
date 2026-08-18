@@ -18,6 +18,7 @@ import {
   disableMemberTwoFactor,
   editMember,
   exportEventRegistrationsCsv,
+  exportMembersCsv,
   getClubSettings,
   getEventDetailsWithStats,
   listAdminSupportTickets,
@@ -64,6 +65,7 @@ adminRouter.use(authenticatedRateLimiter)
 
 // Member & Account Management
 adminRouter.get('/members', requirePermission('ACCOUNT_MANAGEMENT'), asyncHandler(listMembers))
+adminRouter.get('/members/export-csv', requirePermission('ACCOUNT_MANAGEMENT'), asyncHandler(exportMembersCsv))
 adminRouter.post('/members', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, asyncHandler(createMember))
 adminRouter.post('/members/bulk', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, asyncHandler(bulkCreateMembers))
 adminRouter.put('/members/:id', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, validateUserIdParam, asyncHandler(editMember))

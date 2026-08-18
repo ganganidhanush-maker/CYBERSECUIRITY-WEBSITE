@@ -712,8 +712,18 @@ export async function exportEventRegistrationsCsv(request, response) {
   })
   const userMap = new Map(users.map(u => [u.id, u]))
 
+  function fmt(val) {
+    if (val === null || val === undefined) return '---'
+    const s = String(val).trim()
+    if (s === '' || s === 'null' || s === 'undefined') return '---'
+    if (s.includes(',') || s.includes('\n') || s.includes('\r') || s.includes('"')) {
+      return `"${s.replaceAll('"', '""')}"`
+    }
+    return s
+  }
+
   const rows = [
-    ['Registration ID', 'Member ID', 'Full Name', 'Roll Number', 'Email', 'Phone', 'Branch', 'Year', 'Activities', 'Amount', 'Payment Status', 'Payment UTR', 'Registration Date'],
+    ['Registration ID', 'Member ID', 'Full Name', 'Roll Number', 'Email', 'Phone', 'Branch', 'Year', 'Activities', 'Amount (₹)', 'Payment Status', 'Payment UTR', 'Registration Date'].map(fmt),
   ]
 
   event.registrations.forEach(reg => {
@@ -721,24 +731,66 @@ export async function exportEventRegistrationsCsv(request, response) {
     const activitiesStr = Array.isArray(reg.selectedActivities) ? reg.selectedActivities.map(a => a.name).join('; ') : ''
     rows.push([
       reg.id,
-      u?.memberId || '',
-      u?.profile?.name || '',
-      u?.profile?.rollNumber || reg.formData?.rollNumber || '',
-      u?.profile?.email || '',
-      u?.profile?.phone || '',
-      reg.branch || u?.profile?.department || '',
-      reg.year || u?.profile?.year || '',
-      `"${activitiesStr.replaceAll('"', '""')}"`,
+      u?.memberId,
+      u?.profile?.name,
+      u?.profile?.rollNumber || reg.formData?.rollNumber,
+      u?.profile?.email,
+      u?.profile?.phone,
+      reg.branch || u?.profile?.department,
+      reg.year || u?.profile?.year,
+      activitiesStr,
       Number(reg.totalAmount) || 0,
       reg.paymentStatus,
-      reg.paymentReference || '',
+      reg.paymentReference,
       new Date(reg.registeredAt).toLocaleString(),
-    ])
+    ].map(fmt))
   })
 
-  const csvContent = rows.map(r => r.join(',')).join('\n')
-  response.setHeader('Content-Type', 'text/csv')
+  const csvContent = '\uFEFF' + rows.map(r => r.join(',')).join('\r\n')
+  response.setHeader('Content-Type', 'text/csv; charset=utf-8')
   response.setHeader('Content-Disposition', `attachment; filename="event_${event.id}_registrations.csv"`)
+  return response.status(200).send(csvContent)
+}
+
+export async function exportMembersCsv(request, response) {
+  const members = await prisma.user.findMany({
+    include: { profile: true },
+    orderBy: [{ role: 'asc' }, { memberId: 'asc' }],
+  })
+
+  function fmt(val) {
+    if (val === null || val === undefined) return '---'
+    const s = String(val).trim()
+    if (s === '' || s === 'null' || s === 'undefined') return '---'
+    if (s.includes(',') || s.includes('\n') || s.includes('\r') || s.includes('"')) {
+      return `"${s.replaceAll('"', '""')}"`
+    }
+    return s
+  }
+
+  const rows = [
+    ['Member ID', 'Full Name', 'Role', 'Roll Number', 'Department / Branch', 'Academic Year', 'Email', 'Phone', 'Account Status', 'Two Factor Enabled', 'Joined Date'].map(fmt),
+  ]
+
+  members.forEach(m => {
+    rows.push([
+      m.memberId,
+      m.profile?.name || m.name,
+      m.role,
+      m.profile?.rollNumber,
+      m.profile?.department,
+      m.profile?.year,
+      m.profile?.email || m.email,
+      m.profile?.phone || m.phone,
+      m.accountStatus,
+      m.twoFactorEnabled ? 'Enabled' : 'Disabled',
+      m.createdAt ? new Date(m.createdAt).toLocaleDateString() : '---',
+    ].map(fmt))
+  })
+
+  const csvContent = '\uFEFF' + rows.map(r => r.join(',')).join('\r\n')
+  response.setHeader('Content-Type', 'text/csv; charset=utf-8')
+  response.setHeader('Content-Disposition', 'attachment; filename="club_members_roster.csv"')
   return response.status(200).send(csvContent)
 }
 

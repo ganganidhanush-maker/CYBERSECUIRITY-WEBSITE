@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import clubLogo from './assets/branding/cyber-security-club-logo.jpeg'
 import { adminApi, authApi, memberApi, readImageFile, readMultipleImageFiles } from './lib/api'
 import { downloadIdPass } from './lib/id-pass'
+import { downloadCsv } from './lib/export-csv'
 import { getYouTubeEmbedUrl, parseYouTubeVideoId } from './lib/video'
 import './App.css'
 
@@ -1981,7 +1982,6 @@ function MemberManagement({ user, logout, onNavigate }) {
       setResetError(err.message)
     }
   }
-
   async function handleTransferLeadership(e) {
     e.preventDefault()
     setTransferError('')
@@ -2005,6 +2005,36 @@ function MemberManagement({ user, logout, onNavigate }) {
       m.role?.toLowerCase().includes(q)
     )
   })
+
+  function handleDownloadMembersCsv() {
+    const headers = [
+      'Member ID',
+      'Full Name',
+      'Role',
+      'Roll Number',
+      'Department / Branch',
+      'Academic Year',
+      'Official Email',
+      'Phone Number',
+      'Account Status',
+      'Two-Factor Enabled',
+      'Joined Date',
+    ]
+    const rows = filteredMembers.map(m => [
+      m.memberId,
+      m.name,
+      getRoleLabel(m.role),
+      m.rollNumber || m.profile?.rollNumber,
+      m.department || m.profile?.department,
+      m.year || m.profile?.year,
+      m.email || m.profile?.email,
+      m.phone || m.profile?.phone,
+      m.accountStatus,
+      m.twoFactorEnabled ? 'Enabled' : 'Disabled',
+      m.createdAt ? new Date(m.createdAt).toLocaleDateString() : null,
+    ])
+    downloadCsv('club_members_roster.csv', headers, rows)
+  }
 
   return (
     <LivePortal user={user} logout={logout} activeTab="admin-members" onNavigate={onNavigate} title="MEMBER & ROLE DIRECTORY">
@@ -2308,11 +2338,21 @@ function MemberManagement({ user, logout, onNavigate }) {
 
           {/* Member List Directory Card */}
           <article className="member-list-card">
-            <div className="card-heading">
+            <div className="card-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
               <div>
                 <p className="eyebrow">ROSTER DIRECTORY</p>
                 <h2>Active Accounts ({members.length})</h2>
               </div>
+              <button
+                type="button"
+                className="outline"
+                onClick={handleDownloadMembersCsv}
+                disabled={filteredMembers.length === 0}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+                title="Download filtered members list as CSV"
+              >
+                📥 DOWNLOAD MEMBERS CSV
+              </button>
             </div>
 
             <div style={{ marginTop: '14px' }}>
@@ -2821,6 +2861,32 @@ function SupportDeskView({ user, logout, onNavigate }) {
     ? selectedTicket?.userId === user.id
     : isPresident || user.role === selectedTicket?.taggedRole
 
+  function handleDownloadSupportCsv() {
+    const headers = [
+      'Ticket ID',
+      'Created Date',
+      'Student Name',
+      'Member ID',
+      'Tagged Role',
+      'Subject / Topic',
+      'Status',
+      'Initial Message',
+      'Replies Count',
+    ]
+    const rows = tickets.map(t => [
+      t.id,
+      t.createdAt ? new Date(t.createdAt).toLocaleString() : null,
+      t.user?.profile?.name || t.user?.name,
+      t.user?.memberId,
+      getRoleLabel(t.taggedRole),
+      t.subject,
+      t.status,
+      t.message,
+      t.replies?.length || 0,
+    ])
+    downloadCsv('support_inquiries_report.csv', headers, rows)
+  }
+
   return (
     <LivePortal user={user} logout={logout} activeTab={isStudent ? 'student-support' : 'admin-support'} onNavigate={onNavigate} title="HELPDESK & DOUBTS">
       <section className="member-management">
@@ -2833,11 +2899,23 @@ function SupportDeskView({ user, logout, onNavigate }) {
             <h1>Student Helpdesk & Query Desk</h1>
             <p>Direct question & answer channel between student members and specialized club council leads.</p>
           </div>
-          {isStudent && (
-            <button className="primary" type="button" onClick={() => setShowCreateModal(true)}>
-              ＋ &nbsp; ASK A DOUBT / QUERY
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              type="button"
+              className="outline"
+              onClick={handleDownloadSupportCsv}
+              disabled={tickets.length === 0}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+              title="Download support inquiries as CSV"
+            >
+              📥 DOWNLOAD QUERIES CSV
             </button>
-          )}
+            {isStudent && (
+              <button className="primary" type="button" onClick={() => setShowCreateModal(true)}>
+                ＋ &nbsp; ASK A DOUBT / QUERY
+              </button>
+            )}
+          </div>
         </div>
 
         {message && <p className="member-form-success">{message}</p>}
@@ -2846,7 +2924,7 @@ function SupportDeskView({ user, logout, onNavigate }) {
         <div className="member-management-grid">
           {/* Tickets List */}
           <article className="member-list-card">
-            <div className="card-heading">
+            <div className="card-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
               <div>
                 <p className="eyebrow">INQUIRY QUEUE</p>
                 <h2>{isStudent ? 'My Support Queries' : isPresident ? 'All Student Inquiries' : `@${user.role} Inquiries`} ({tickets.length})</h2>
@@ -3150,6 +3228,44 @@ function SubscriptionManagement({ user, logout, onNavigate }) {
     return true
   })
 
+  function handleDownloadSubscriptionsCsv() {
+    const headers = [
+      'Subscription ID',
+      'Member ID',
+      'Student Name',
+      'Roll Number',
+      'Department / Branch',
+      'Academic Year',
+      'Official Email',
+      'Phone Number',
+      'Amount (₹)',
+      'Status',
+      'Transaction UTR / Ref',
+      'Submission Date',
+      'Verification Date',
+      'Expiry Date',
+      'Rejection Reason',
+    ]
+    const rows = filtered.map(s => [
+      s.id,
+      s.memberId,
+      s.name,
+      s.rollNumber || s.memberId,
+      s.department,
+      s.year,
+      s.email,
+      s.phone,
+      Number(s.amount || 0),
+      s.status,
+      s.transactionRef,
+      s.submittedAt ? new Date(s.submittedAt).toLocaleString() : null,
+      s.verifiedAt ? new Date(s.verifiedAt).toLocaleString() : null,
+      s.expiresAt ? new Date(s.expiresAt).toLocaleDateString() : null,
+      s.rejectionReason,
+    ])
+    downloadCsv('student_subscriptions_export.csv', headers, rows)
+  }
+
   return (
     <LivePortal user={user} logout={logout} activeTab="admin-subscriptions" onNavigate={onNavigate} title="STUDENT SUBSCRIPTIONS">
       <section className="member-management">
@@ -3162,9 +3278,21 @@ function SubscriptionManagement({ user, logout, onNavigate }) {
             <h1>Subscription Management</h1>
             <p>Review, verify, and track monthly student membership payments.</p>
           </div>
-          <button className="outline" type="button" onClick={() => onNavigate('admin-settings')}>
-            ⚙ SUBSCRIPTION SETTINGS
-          </button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              type="button"
+              className="outline"
+              onClick={handleDownloadSubscriptionsCsv}
+              disabled={filtered.length === 0}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+              title="Download subscriptions list as CSV"
+            >
+              📥 DOWNLOAD SUBSCRIPTIONS CSV
+            </button>
+            <button className="outline" type="button" onClick={() => onNavigate('admin-settings')}>
+              ⚙ SUBSCRIPTION SETTINGS
+            </button>
+          </div>
         </div>
 
         {message && <p className="member-form-success">{message}</p>}
@@ -3899,9 +4027,21 @@ function EventManagement({ user, logout, onNavigate }) {
             <h1>Club Events & Master Studio</h1>
             <p>Publish workshops, CTF competitions, seminars, and custom-tiered activity events.</p>
           </div>
-          <div className="event-hero-stats">
-            <span><b>{events.length}</b><small>Total Events</small></span>
-            <span><b>{events.filter(e => e.status === 'UPCOMING').length}</b><small>Upcoming</small></span>
+          <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="outline"
+              onClick={handleDownloadEventsList}
+              disabled={events.length === 0}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+              title="Download events catalog as CSV"
+            >
+              📥 DOWNLOAD EVENTS CSV
+            </button>
+            <div className="event-hero-stats">
+              <span><b>{events.length}</b><small>Total Events</small></span>
+              <span><b>{events.filter(e => e.status === 'UPCOMING').length}</b><small>Upcoming</small></span>
+            </div>
           </div>
         </div>
 
@@ -4028,156 +4168,93 @@ function EventManagement({ user, logout, onNavigate }) {
               {activeTab === 'details' && (
                 <div className="member-form-grid">
                   <label className="form-wide">
-                    Full Description
+                    Full Description & Objectives
                     <textarea
                       name="description"
-                      placeholder="Comprehensive event overview..."
+                      rows={4}
+                      placeholder="Detailed event scope and outcomes..."
                       value={formData.description}
                       onChange={e => updateFormField('description', e.target.value)}
-                      style={{ width: '100%', height: '80px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', padding: '10px' }}
+                      style={{ width: '100%', padding: '10px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', fontSize: '11px' }}
                     />
                   </label>
                   <label className="form-wide">
-                    Agenda & Schedule
-                    <textarea
-                      name="agenda"
-                      placeholder="10:00 AM - Keynote&#10;11:30 AM - Lab 1"
-                      value={formData.agenda}
-                      onChange={e => updateFormField('agenda', e.target.value)}
-                      style={{ width: '100%', height: '80px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', padding: '10px' }}
-                    />
-                  </label>
-                  <label className="form-wide">
-                    Rules & Code of Ethics
+                    Prerequisites & Rules
                     <textarea
                       name="rules"
-                      placeholder="All testing must remain strictly within assigned subnets."
+                      rows={3}
+                      placeholder="Requirements (e.g. Kali Linux VM installed, laptop required)..."
                       value={formData.rules}
                       onChange={e => updateFormField('rules', e.target.value)}
-                      style={{ width: '100%', height: '80px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', padding: '10px' }}
+                      style={{ width: '100%', padding: '10px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', fontSize: '11px' }}
                     />
                   </label>
-                  <label className="form-wide">
-                    Specific Room / Location Details
-                    <input
-                      name="location"
-                      placeholder="e.g. Block C, Floor 3, Terminal 12-40"
-                      value={formData.location}
-                      onChange={e => updateFormField('location', e.target.value)}
-                    />
-                  </label>
-
                   <div className="form-wide" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
-                    <button type="button" className="action-btn cancel-btn" onClick={() => setActiveTab('basic')}>
-                      ← Back to Basic Info
-                    </button>
-                    <button type="button" className="action-btn save-btn" onClick={() => setActiveTab('pricing')}>
-                      Next: Pricing & Tracks →
-                    </button>
+                    <button type="button" className="action-btn cancel-btn" onClick={() => setActiveTab('basic')}>← Back</button>
+                    <button type="button" className="action-btn save-btn" onClick={() => setActiveTab('pricing')}>Next: Pricing & Tracks →</button>
                   </div>
                 </div>
               )}
 
-              {/* Tab 3: Pricing & Tracks */}
+              {/* Tab 3: Pricing & Multi-Track Activities */}
               {activeTab === 'pricing' && (
-                <div className="member-form-grid">
-                  <label className="form-wide" style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                    <input
-                      type="checkbox"
-                      checked={formData.isPaid}
-                      onChange={e => updateFormField('isPaid', e.target.checked)}
-                      style={{ width: 'auto', height: 'auto' }}
-                    />
-                    <b style={{ color: '#edf7ff', fontSize: '13px' }}>Requires Registration Payment</b>
-                  </label>
+                <div>
+                  <div className="member-form-grid" style={{ marginBottom: '14px' }}>
+                    <label>
+                      Base Entry Fee (₹)
+                      <input
+                        type="number"
+                        placeholder="0 for free"
+                        value={formData.paymentAmount}
+                        onChange={e => updateFormField('paymentAmount', e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      UPI ID for Event Payments
+                      <input
+                        placeholder="club@okaxis"
+                        value={formData.paymentUpiId}
+                        onChange={e => updateFormField('paymentUpiId', e.target.value)}
+                      />
+                    </label>
+                    <label className="form-wide">
+                      Payment QR Code Image
+                      <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) readImageFile(f, setQrPreview) }} />
+                    </label>
+                  </div>
 
-                  {formData.isPaid && (
-                    <>
-                      <label>
-                        Base Entry Fee (₹)
-                        <input
-                          name="paymentAmount"
-                          type="number"
-                          step="0.01"
-                          placeholder="e.g. 150.00"
-                          value={formData.paymentAmount}
-                          onChange={e => updateFormField('paymentAmount', e.target.value)}
-                        />
-                      </label>
-                      <label>
-                        UPI ID for Event Payment
-                        <input
-                          name="paymentUpiId"
-                          placeholder="club@okaxis"
-                          value={formData.paymentUpiId}
-                          onChange={e => updateFormField('paymentUpiId', e.target.value)}
-                        />
-                      </label>
-                      <label className="form-wide">
-                        Payment Instructions / Notes
-                        <input
-                          name="paymentInstructions"
-                          placeholder="e.g. Include your Member ID in transaction remarks"
-                          value={formData.paymentInstructions}
-                          onChange={e => updateFormField('paymentInstructions', e.target.value)}
-                        />
-                      </label>
-                      <label className="form-wide">
-                        Payment QR Code
-                        <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) readImageFile(f, setQrPreview) }} />
-                      </label>
-                      {qrPreview && (
-                        <div className="event-upload-preview form-wide">
-                          <img src={qrPreview} alt="QR preview" />
-                          <button type="button" className="preview-remove" onClick={() => setQrPreview('')}>✕</button>
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  <label className="form-wide" style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', marginTop: '12px' }}>
-                    <input
-                      type="checkbox"
-                      checked={formData.hasMultipleActivities}
-                      onChange={e => updateFormField('hasMultipleActivities', e.target.checked)}
-                      style={{ width: 'auto', height: 'auto' }}
-                    />
-                    <b style={{ color: '#edf7ff', fontSize: '13px' }}>Offer Multiple Sub-Activities / Tracks</b>
-                  </label>
-
-                  {formData.hasMultipleActivities && (
-                    <div className="form-wide" style={{ marginTop: '10px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                        <b style={{ color: '#85d7ff', fontSize: '12px' }}>Track / Activity List</b>
-                        <button type="button" className="action-btn save-btn" onClick={addActivity}>＋ Add Track</button>
-                      </div>
-                      {activities.map((act, i) => (
-                        <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '8px', marginBottom: '8px' }}>
-                          <input placeholder="Track name" value={act.name} onChange={e => updateActivity(i, 'name', e.target.value)} />
-                          <input type="number" placeholder="Price (₹)" value={act.price} onChange={e => updateActivity(i, 'price', e.target.value)} />
-                          <input type="number" placeholder="Capacity" value={act.capacity} onChange={e => updateActivity(i, 'capacity', e.target.value)} />
-                          <button type="button" className="action-btn delete-btn" onClick={() => removeActivity(i)}>✕</button>
-                        </div>
-                      ))}
+                  {/* Multi-Track Custom Activities List */}
+                  <div style={{ background: '#050a12', border: '1px solid var(--line)', borderRadius: '8px', padding: '14px', marginBottom: '14px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <b style={{ color: '#85d7ff', fontSize: '12px' }}>Event Activities & Add-on Tracks</b>
+                      <button type="button" className="action-btn save-btn" onClick={addActivity}>＋ Add Activity Track</button>
                     </div>
-                  )}
+                    {activities.length === 0 ? (
+                      <p style={{ color: '#7e95a7', fontSize: '12px', margin: '8px 0' }}>No separate sub-activities added. Event will use standard single registration.</p>
+                    ) : (
+                      activities.map((act, idx) => (
+                        <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
+                          <input placeholder="Activity Name (e.g. Hardware Hacking Track)" value={act.name} onChange={e => updateActivity(idx, 'name', e.target.value)} />
+                          <input type="number" placeholder="Additional ₹" value={act.price} onChange={e => updateActivity(idx, 'price', e.target.value)} />
+                          <input type="number" placeholder="Cap" value={act.capacity} onChange={e => updateActivity(idx, 'capacity', e.target.value)} />
+                          <button type="button" className="action-btn delete-btn" onClick={() => removeActivity(idx)}>✕</button>
+                        </div>
+                      ))
+                    )}
+                  </div>
 
                   <div className="form-wide" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
-                    <button type="button" className="action-btn cancel-btn" onClick={() => setActiveTab('details')}>
-                      ← Back to Agenda & Rules
-                    </button>
-                    <button type="button" className="action-btn save-btn" onClick={() => setActiveTab('fields')}>
-                      Next: Registration Fields →
-                    </button>
+                    <button type="button" className="action-btn cancel-btn" onClick={() => setActiveTab('details')}>← Back</button>
+                    <button type="button" className="action-btn save-btn" onClick={() => setActiveTab('fields')}>Next: Registration Fields →</button>
                   </div>
                 </div>
               )}
 
-              {/* Tab 4: Registration Fields */}
+              {/* Tab 4: Dynamic Custom Registration Form Builder */}
               {activeTab === 'fields' && (
-                <div className="member-form-grid">
-                  <div className="form-wide">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <div>
+                  <div style={{ background: '#050a12', border: '1px solid var(--line)', borderRadius: '8px', padding: '14px', marginBottom: '14px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                       <b style={{ color: '#85d7ff', fontSize: '12px' }}>Custom Registration Questions</b>
                       <button type="button" className="action-btn save-btn" onClick={addCustomField}>＋ Add Question</button>
                     </div>
@@ -4225,11 +4302,21 @@ function EventManagement({ user, logout, onNavigate }) {
 
           {/* Events Directory Card */}
           <article className="member-list-card">
-            <div className="card-heading">
+            <div className="card-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
               <div>
                 <p className="eyebrow">EVENT CATALOG</p>
                 <h2>Published Events ({events.length})</h2>
               </div>
+              <button
+                type="button"
+                className="outline"
+                onClick={handleDownloadEventsList}
+                disabled={events.length === 0}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+                title="Download events catalog as CSV"
+              >
+                📥 DOWNLOAD EVENTS CSV
+              </button>
             </div>
 
             {loading ? (
@@ -4280,12 +4367,24 @@ function EventManagement({ user, logout, onNavigate }) {
         {analyticsModalEvent && (
           <div className="photo-lightbox" onClick={() => setAnalyticsModalEvent(null)}>
             <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: '#0d1522', padding: '28px', borderRadius: '12px', border: '1px solid var(--line)', maxWidth: '720px', maxHeight: '85vh', overflowY: 'auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
                 <div>
                   <b style={{ color: '#85d7ff', fontSize: '16px' }}>{analyticsModalEvent.title}</b>
                   <small style={{ display: 'block', color: '#7e95a7' }}>Registration & Attendee Roster</small>
                 </div>
-                <button className="lightbox-close" onClick={() => setAnalyticsModalEvent(null)} style={{ position: 'static' }}>✕</button>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    className="outline"
+                    onClick={() => handleDownloadEventRegistrations(analyticsModalEvent, analyticsData?.registrations)}
+                    disabled={!analyticsData?.registrations || analyticsData.registrations.length === 0}
+                    style={{ fontSize: '11px', padding: '5px 10px' }}
+                    title="Download event registrations roster as CSV"
+                  >
+                    📥 DOWNLOAD ROSTER CSV
+                  </button>
+                  <button className="lightbox-close" onClick={() => setAnalyticsModalEvent(null)} style={{ position: 'static' }}>✕</button>
+                </div>
               </div>
 
               {loadingAnalytics ? (
@@ -4583,6 +4682,30 @@ function PaymentManagement({ user, logout, onNavigate }) {
     }
   }
 
+  function handleDownloadPaymentsCsv() {
+    const headers = [
+      'Registration ID',
+      'Student Name',
+      'Member ID',
+      'Event Title',
+      'Amount (₹)',
+      'Payment Status',
+      'Payment Reference / UTR',
+      'Registration Date',
+    ]
+    const rows = payments.map(p => [
+      p.id,
+      p.user?.profile?.name || p.user?.name,
+      p.user?.memberId,
+      p.event?.title,
+      Number(p.totalAmount || 0),
+      p.paymentStatus,
+      p.paymentReference,
+      p.registeredAt ? new Date(p.registeredAt).toLocaleString() : null,
+    ])
+    downloadCsv('event_payments_report.csv', headers, rows)
+  }
+
   return (
     <LivePortal user={user} logout={logout} activeTab="admin-payments" onNavigate={onNavigate} title="EVENT PAYMENTS">
       <section className="member-management">
@@ -4595,9 +4718,21 @@ function PaymentManagement({ user, logout, onNavigate }) {
             <h1>Event Registration Payments</h1>
             <p>Verify bank reference proofs and manage attendee payment states.</p>
           </div>
-          <button className="outline" type="button" onClick={() => onNavigate('admin-subscriptions')}>
-            💎 VIEW STUDENT MEMBERSHIP SUBSCRIPTIONS →
-          </button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              type="button"
+              className="outline"
+              onClick={handleDownloadPaymentsCsv}
+              disabled={payments.length === 0}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+              title="Download event payments as CSV"
+            >
+              📥 DOWNLOAD PAYMENTS CSV
+            </button>
+            <button className="outline" type="button" onClick={() => onNavigate('admin-subscriptions')}>
+              💎 VIEW STUDENT MEMBERSHIP SUBSCRIPTIONS →
+            </button>
+          </div>
         </div>
 
         {message && <p className="member-form-success">{message}</p>}
@@ -5306,6 +5441,30 @@ function TeamManagement({ user, logout, onNavigate }) {
     }
   }
 
+  function handleDownloadLeadersCsv() {
+    const headers = [
+      'Priority #',
+      'Full Name',
+      'Council Role Title',
+      'Official Email',
+      'Short Bio',
+      'LinkedIn URL',
+      'GitHub URL',
+      'Instagram URL',
+    ]
+    const rows = team.map((l, idx) => [
+      idx + 1,
+      l.name,
+      l.roleTitle,
+      l.collegeEmail,
+      l.bio,
+      l.linkedinUrl,
+      l.githubUrl,
+      l.instagramUrl,
+    ])
+    downloadCsv('club_leadership_directory.csv', headers, rows)
+  }
+
   return (
     <LivePortal user={user} logout={logout} activeTab="admin-team" onNavigate={onNavigate} title="TEAM LEADERSHIP">
       <section className="member-management">
@@ -5318,6 +5477,16 @@ function TeamManagement({ user, logout, onNavigate }) {
             <h1>Team & Leadership Showcase</h1>
             <p>Manage public club council member profiles, edit leader info, and configure display priority order.</p>
           </div>
+          <button
+            type="button"
+            className="outline"
+            onClick={handleDownloadLeadersCsv}
+            disabled={team.length === 0}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+            title="Download leadership directory as CSV"
+          >
+            📥 DOWNLOAD LEADERS CSV
+          </button>
         </div>
 
         {message && <p className="member-form-success">{message}</p>}
@@ -5373,11 +5542,21 @@ function TeamManagement({ user, logout, onNavigate }) {
           </article>
 
           <article className="member-list-card">
-            <div className="card-heading">
+            <div className="card-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
               <div>
                 <p className="eyebrow">COUNCIL ROSTER & DISPLAY PRIORITY</p>
                 <h2>Active Leaders ({team.length})</h2>
               </div>
+              <button
+                type="button"
+                className="outline"
+                onClick={handleDownloadLeadersCsv}
+                disabled={team.length === 0}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+                title="Download leadership directory as CSV"
+              >
+                📥 DOWNLOAD LEADERS CSV
+              </button>
             </div>
             <p style={{ color: '#7e95a7', fontSize: '11px', margin: '4px 0 14px' }}>
               Use <b>▲ Up</b> and <b>▼ Down</b> to control display priority on the website and the onboarding fallback slideshow.
@@ -5962,6 +6141,30 @@ function StudentRegistrations({ user, logout, onNavigate }) {
     return () => { mounted = false }
   }, [])
 
+  function handleDownloadMyPassesCsv() {
+    const headers = [
+      'Registration ID',
+      'Event Title',
+      'Category',
+      'Event Date & Time',
+      'Venue',
+      'Amount Paid (₹)',
+      'Payment Status',
+      'Registration Date',
+    ]
+    const rows = registrations.map(r => [
+      r.id,
+      r.event?.title,
+      r.event?.eventType,
+      r.event?.dateTime ? new Date(r.event.dateTime).toLocaleString() : null,
+      r.event?.venue || r.event?.location,
+      Number(r.totalAmount || 0),
+      r.paymentStatus,
+      r.registeredAt ? new Date(r.registeredAt).toLocaleString() : null,
+    ])
+    downloadCsv('my_event_passes.csv', headers, rows)
+  }
+
   return (
     <LivePortal user={user} logout={logout} activeTab="student-registrations" onNavigate={onNavigate} title="MY EVENT PASSES">
       <section className="gallery-section">
@@ -5974,6 +6177,16 @@ function StudentRegistrations({ user, logout, onNavigate }) {
             <h1>My Event Passes & QR</h1>
             <p>Your confirmed attendance records and entry passes for all club sessions.</p>
           </div>
+          <button
+            type="button"
+            className="outline"
+            onClick={handleDownloadMyPassesCsv}
+            disabled={registrations.length === 0}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+            title="Download your confirmed event passes as CSV"
+          >
+            📥 DOWNLOAD PASSES CSV
+          </button>
         </div>
 
         {loading ? (
@@ -6176,6 +6389,30 @@ function OurTeamShowcase({ user, logout, onNavigate }) {
     return () => { mounted = false }
   }, [])
 
+  function handleDownloadLeadersCsv() {
+    const headers = [
+      'Priority #',
+      'Full Name',
+      'Council Role Title',
+      'Official Email',
+      'Short Bio',
+      'LinkedIn URL',
+      'GitHub URL',
+      'Instagram URL',
+    ]
+    const rows = team.map((l, idx) => [
+      idx + 1,
+      l.name,
+      l.roleTitle,
+      l.collegeEmail,
+      l.bio,
+      l.linkedinUrl,
+      l.githubUrl,
+      l.instagramUrl,
+    ])
+    downloadCsv('club_leadership_directory.csv', headers, rows)
+  }
+
   return (
     <LivePortal user={user} logout={logout} activeTab="student-team" onNavigate={onNavigate} title="CLUB LEADERSHIP">
       <section className="member-management">
@@ -6188,6 +6425,16 @@ function OurTeamShowcase({ user, logout, onNavigate }) {
             <h1>Meet Our Leadership</h1>
             <p>The student coordinators and executive leads driving Cyber Security Club MRDU.</p>
           </div>
+          <button
+            type="button"
+            className="outline"
+            onClick={handleDownloadLeadersCsv}
+            disabled={team.length === 0}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+            title="Download leadership directory as CSV"
+          >
+            📥 DOWNLOAD LEADERS CSV
+          </button>
         </div>
 
         {loading ? (
@@ -6550,6 +6797,32 @@ function AuditLogView({ user, logout, onNavigate }) {
     return true
   })
 
+  function handleDownloadAuditLogsCsv() {
+    const headers = [
+      'Log ID',
+      'Timestamp',
+      'Actor Name',
+      'Actor Member ID',
+      'Actor Role',
+      'Action / Event',
+      'Target Resource ID',
+      'IP Address',
+      'Parameters / Metadata',
+    ]
+    const rows = filteredLogs.map(l => [
+      l.id,
+      l.createdAt ? new Date(l.createdAt).toLocaleString() : null,
+      l.actor?.profile?.name || l.actor?.name,
+      l.actor?.memberId,
+      l.actor?.role,
+      l.action,
+      l.targetId,
+      l.ipAddress,
+      l.metadata ? JSON.stringify(l.metadata) : null,
+    ])
+    downloadCsv('security_audit_logs.csv', headers, rows)
+  }
+
   return (
     <LivePortal user={user} logout={logout} activeTab="admin-audit" onNavigate={onNavigate} title="SECURITY AUDIT LOG">
       <section className="member-management">
@@ -6562,7 +6835,17 @@ function AuditLogView({ user, logout, onNavigate }) {
             <h1>Security Audit Log</h1>
             <p>Protected immutable logs of administrative activities, logins, and configurations.</p>
           </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="outline"
+              onClick={handleDownloadAuditLogsCsv}
+              disabled={filteredLogs.length === 0}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+              title="Download filtered audit logs as CSV"
+            >
+              📥 DOWNLOAD AUDIT CSV
+            </button>
             {user.isPrimaryAdmin && (
               <button
                 type="button"
