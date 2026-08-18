@@ -85,20 +85,19 @@ function toPortalUser(user) {
 // ----------------------------------------------------
 function IntroVideoExperience({ onComplete }) {
   const [briefingMode, setBriefingMode] = useState('VIDEO') // 'VIDEO' | 'SLIDESHOW'
-  const [videoUrl, setVideoUrl] = useState('')
+  const [videoUrl, setVideoUrl] = useState('https://www.youtube.com/watch?v=inWWhr5tnEA')
   const [requireTwoMinutes, setRequireTwoMinutes] = useState(true)
   const [secondsWatched, setSecondsWatched] = useState(0)
   const [isPlaying, setIsPlaying] = useState(false)
   const [useFallback, setUseFallback] = useState(false)
   const [fallbackReason, setFallbackReason] = useState('')
-  const [playerReady, setPlayerReady] = useState(false)
   const [canProceed, setCanProceed] = useState(false)
   const [galleryPhotos, setGalleryPhotos] = useState([])
   const [leaders, setLeaders] = useState([])
   const [activeSlideIndex, setActiveSlideIndex] = useState(0)
   const [slideshowProgress, setSlideshowProgress] = useState(0)
 
-  const playerRef = useRef(null)
+  const iframeRef = useRef(null)
   const hasStartedPlayingRef = useRef(false)
 
   // 1. Fetch Club Settings, Gallery Photos (Latest first), and Leader Profiles (Priority order)
@@ -121,7 +120,7 @@ function IntroVideoExperience({ onComplete }) {
       })
       .catch(() => {})
 
-    // Fetch existing gallery photos for slideshow fallback
+    // Fetch existing gallery photos for slideshow
     memberApi.listGalleryAlbums()
       .then(({ albums }) => {
         if (!mounted) return
@@ -154,86 +153,64 @@ function IntroVideoExperience({ onComplete }) {
   }, [])
 
   const requiredDuration = requireTwoMinutes ? 120 : 5
-  const youtubeId = parseYouTubeVideoId(videoUrl)
+  const youtubeId = parseYouTubeVideoId(videoUrl) || 'inWWhr5tnEA'
   const isVideoBriefing = briefingMode === 'VIDEO' && !useFallback
 
-  // 2. 15-Second Watchdog Timer & YouTube Player Initialization
+  // 2. YouTube Playback Listener via postMessage API & 15-Second Watchdog Timer
   useEffect(() => {
-    if (!isVideoBriefing || !youtubeId) return
-    let mounted = true
+    if (!isVideoBriefing) return
+
+    function handleMessage(event) {
+      if (!event.data) return
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
+        let playerState = undefined
+
+        if (data.event === 'onStateChange' && data.data !== undefined) {
+          playerState = data.data
+        } else if (data.info && data.info.playerState !== undefined) {
+          playerState = data.info.playerState
+        }
+
+        if (playerState === 1) { // PLAYING
+          hasStartedPlayingRef.current = true
+          setIsPlaying(true)
+        } else if (playerState === 2) { // PAUSED
+          setIsPlaying(false)
+        } else if (playerState === 0) { // ENDED
+          setIsPlaying(false)
+          setCanProceed(true)
+        } else if (playerState === 3 || playerState === -1) { // BUFFERING or UNSTARTED
+          setIsPlaying(false)
+        }
+      } catch {}
+    }
+
+    window.addEventListener('message', handleMessage)
+
+    // Handshake to request postMessage notifications from YouTube iframe
+    const handshakeInterval = setInterval(() => {
+      try {
+        if (iframeRef.current?.contentWindow) {
+          iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'listening' }), '*')
+        }
+      } catch {}
+    }, 800)
 
     // 15-Second Loading Watchdog: If video does not start playing within 15 seconds, switch to fallback
     const watchdogTimer = setTimeout(() => {
-      if (mounted && !hasStartedPlayingRef.current) {
+      if (!hasStartedPlayingRef.current) {
         setUseFallback(true)
-        setFallbackReason('Video loading timed out after 15 seconds. Displaying club gallery slideshow.')
+        setFallbackReason('YouTube video took longer than 15 seconds to start. Automatically switched to club gallery slideshow.')
       }
     }, 15000)
 
-    function initPlayer() {
-      if (!window.YT || !window.YT.Player) return
-      try {
-        playerRef.current = new window.YT.Player('youtube-player-container', {
-          videoId: youtubeId,
-          playerVars: {
-            autoplay: 1,
-            controls: 1,
-            rel: 0,
-            modestbranding: 1,
-            playsinline: 1,
-            origin: window.location.origin,
-          },
-          events: {
-            onReady: () => {
-              if (mounted) setPlayerReady(true)
-            },
-            onStateChange: event => {
-              // 1 = PLAYING
-              if (event.data === 1) {
-                hasStartedPlayingRef.current = true
-                clearTimeout(watchdogTimer)
-                if (mounted) setIsPlaying(true)
-              } else {
-                // 2 = PAUSED, 0 = ENDED, 3 = BUFFERING
-                if (mounted) setIsPlaying(false)
-                if (event.data === 0) {
-                  if (mounted) setCanProceed(true)
-                }
-              }
-            },
-            onError: () => {
-              if (mounted) {
-                clearTimeout(watchdogTimer)
-                setUseFallback(true)
-                setFallbackReason('YouTube player encountered an error. Switched to fallback slideshow.')
-              }
-            },
-          },
-        })
-      } catch {
-        if (mounted) {
-          clearTimeout(watchdogTimer)
-          setUseFallback(true)
-          setFallbackReason('YouTube embed could not be initialized. Switched to fallback slideshow.')
-        }
-      }
-    }
-
-    if (!window.YT) {
-      const tag = document.createElement('script')
-      tag.src = 'https://www.youtube.com/iframe_api'
-      window.onYouTubeIframeAPIReady = () => initPlayer()
-      document.body.appendChild(tag)
-    } else {
-      initPlayer()
-    }
-
     return () => {
-      mounted = false
+      window.removeEventListener('message', handleMessage)
+      clearInterval(handshakeInterval)
       clearTimeout(watchdogTimer)
-      try { playerRef.current?.destroy?.() } catch {}
     }
-  }, [isVideoBriefing, youtubeId])
+  }, [isVideoBriefing])
 
   // 3. Strict Playback Watch Timer (Only counts while video is actively playing)
   useEffect(() => {
@@ -254,8 +231,8 @@ function IntroVideoExperience({ onComplete }) {
   const totalSlides = galleryPhotos.length > 0 ? galleryPhotos.length : leaders.length
   useEffect(() => {
     if (!useFallback && briefingMode !== 'SLIDESHOW') return
+
     if (totalSlides === 0) {
-      // If neither photos nor leaders exist, unlock after 5s
       const delay = setTimeout(() => setCanProceed(true), 5000)
       return () => clearTimeout(delay)
     }
@@ -304,18 +281,64 @@ function IntroVideoExperience({ onComplete }) {
                 : 'MANDATORY 2-MINUTE VIDEO BRIEFING'}
             </small>
           </div>
-          <span>
-            {canProceed
-              ? '✓ BRIEFING REQUIREMENT MET'
-              : isVideoBriefing
-              ? `PLAYBACK: ${Math.floor(secondsWatched / 60)}:${String(secondsWatched % 60).padStart(2, '0')} / ${Math.floor(requiredDuration / 60)}:${String(requiredDuration % 60).padStart(2, '0')}${!isPlaying ? ' (PAUSED)' : ''}`
-              : `BRIEFING ACTIVE (${Math.max(0, 5 - slideshowProgress)}s)`}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* Quick Testing Switcher for Video / Slideshow */}
+            <div style={{ display: 'flex', gap: '4px', background: '#0a1626', padding: '2px', borderRadius: '6px', border: '1px solid var(--line)' }}>
+              <button
+                type="button"
+                className={`tab-btn ${!useFallback && briefingMode === 'VIDEO' ? 'active' : ''}`}
+                onClick={() => { setUseFallback(false); setBriefingMode('VIDEO'); }}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '10px',
+                  borderRadius: '4px',
+                  background: !useFallback && briefingMode === 'VIDEO' ? '#14304c' : 'transparent',
+                  color: !useFallback && briefingMode === 'VIDEO' ? '#85d7ff' : '#688296',
+                  border: 0,
+                  cursor: 'pointer',
+                }}
+              >
+                🎬 Video
+              </button>
+              <button
+                type="button"
+                className={`tab-btn ${useFallback || briefingMode === 'SLIDESHOW' ? 'active' : ''}`}
+                onClick={() => { setUseFallback(true); setBriefingMode('SLIDESHOW'); }}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '10px',
+                  borderRadius: '4px',
+                  background: useFallback || briefingMode === 'SLIDESHOW' ? '#14304c' : 'transparent',
+                  color: useFallback || briefingMode === 'SLIDESHOW' ? '#85d7ff' : '#688296',
+                  border: 0,
+                  cursor: 'pointer',
+                }}
+              >
+                🖼️ Slideshow
+              </button>
+            </div>
+
+            <span>
+              {canProceed
+                ? '✓ BRIEFING REQUIREMENT MET'
+                : isVideoBriefing
+                ? `PLAYBACK: ${Math.floor(secondsWatched / 60)}:${String(secondsWatched % 60).padStart(2, '0')} / ${Math.floor(requiredDuration / 60)}:${String(requiredDuration % 60).padStart(2, '0')}${!isPlaying ? ' (PAUSED)' : ''}`
+                : `BRIEFING ACTIVE (${Math.max(0, 5 - slideshowProgress)}s)`}
+            </span>
+          </div>
         </div>
 
-        <div style={{ position: 'relative', background: '#000', aspectRatio: '16/9', overflow: 'hidden' }}>
+        <div style={{ position: 'relative', width: '100%', minHeight: '400px', aspectRatio: '16/9', background: '#000', overflow: 'hidden' }}>
           {isVideoBriefing && youtubeId ? (
-            <div id="youtube-player-container" style={{ width: '100%', height: '100%' }} />
+            <iframe
+              id="youtube-player-iframe"
+              ref={iframeRef}
+              src={`https://www.youtube.com/embed/${youtubeId}?enablejsapi=1&autoplay=1&controls=1&rel=0&modestbranding=1&origin=${encodeURIComponent(window.location.origin)}`}
+              title="Cyber Security Club Onboarding Briefing"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+              style={{ width: '100%', height: '100%', border: 0, position: 'absolute', top: 0, left: 0 }}
+            />
           ) : (
             /* Dynamic Slideshow: Priority 1 (Latest Gallery Photos) -> Priority 2 (Leader Profiles in Priority Order) */
             <div className="briefing-slideshow-container">
