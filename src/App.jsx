@@ -1753,6 +1753,9 @@ function MemberManagement({ user, logout, onNavigate }) {
   const [resetModalUser, setResetModalUser] = useState(null)
   const [newPasswordInput, setNewPasswordInput] = useState('')
   const [resetError, setResetError] = useState('')
+  const [showResetPassword, setShowResetPassword] = useState(false)
+  const [resetSubmitting, setResetSubmitting] = useState(false)
+  const [resetCopied, setResetCopied] = useState(false)
 
   const hasLength = passwordInput.length >= 12
   const hasLower = /[a-z]/.test(passwordInput)
@@ -1973,14 +1976,40 @@ function MemberManagement({ user, logout, onNavigate }) {
   async function handleAdminResetPassword(e) {
     e.preventDefault()
     setResetError('')
+    setResetSubmitting(true)
     try {
       const res = await adminApi.adminResetPassword(resetModalUser.id, newPasswordInput)
-      setMessage(res.message)
+      setMessage(res.message || `Password reset successfully for ${resetModalUser.memberId}.`)
       setResetModalUser(null)
       setNewPasswordInput('')
+      setShowResetPassword(false)
     } catch (err) {
-      setResetError(err.message)
+      setResetError(err.message || 'Failed to reset password.')
+    } finally {
+      setResetSubmitting(false)
     }
+  }
+
+  function handleGenerateAdminPassword() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*'
+    let pwd = ''
+    pwd += 'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.floor(Math.random() * 24)]
+    pwd += 'abcdefghijkmnopqrstuvwxyz'[Math.floor(Math.random() * 24)]
+    pwd += '23456789'[Math.floor(Math.random() * 8)]
+    pwd += '!@#$%&*'[Math.floor(Math.random() * 7)]
+    for (let i = 0; i < 10; i++) {
+      pwd += chars[Math.floor(Math.random() * chars.length)]
+    }
+    const generated = pwd.split('').sort(() => 0.5 - Math.random()).join('')
+    setNewPasswordInput(generated)
+    setShowResetPassword(true)
+  }
+
+  function handleCopyResetPassword() {
+    if (!newPasswordInput) return
+    navigator.clipboard?.writeText(newPasswordInput)
+    setResetCopied(true)
+    setTimeout(() => setResetCopied(false), 2000)
   }
   async function handleTransferLeadership(e) {
     e.preventDefault()
@@ -2471,26 +2500,70 @@ function MemberManagement({ user, logout, onNavigate }) {
 
         {/* Reset Password Modal */}
         {resetModalUser && (
-          <div className="photo-lightbox" onClick={() => setResetModalUser(null)}>
-            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: '#0d1522', padding: '28px', borderRadius: '12px', border: '1px solid var(--line)', maxWidth: '420px' }}>
-              <h3 style={{ margin: '0 0 8px', font: '700 18px Syne', color: '#fff' }}>Reset Password</h3>
+          <div className="photo-lightbox" onClick={() => { if (!resetSubmitting) setResetModalUser(null) }}>
+            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: '#0d1522', padding: '28px', borderRadius: '12px', border: '1px solid var(--line)', maxWidth: '440px', width: '100%' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <h3 style={{ margin: 0, font: '700 18px Syne', color: '#fff' }}>Reset Member Password</h3>
+                <button type="button" className="lightbox-close" onClick={() => setResetModalUser(null)} style={{ position: 'static' }}>✕</button>
+              </div>
               <p style={{ color: '#829bb0', fontSize: '12px', margin: '0 0 16px' }}>
-                Resetting password for: <b style={{ color: '#85d7ff' }}>{resetModalUser.name} ({resetModalUser.memberId})</b>
+                Resetting password for: <b style={{ color: '#85d7ff' }}>{resetModalUser.name}</b> (<span style={{ color: '#70ddb4', fontFamily: 'DM Mono' }}>{resetModalUser.memberId}</span>)
               </p>
+
               <form onSubmit={handleAdminResetPassword}>
-                <input
-                  type="password"
-                  required
-                  minLength={12}
-                  placeholder="New password (12+ chars)"
-                  value={newPasswordInput}
-                  onChange={e => setNewPasswordInput(e.target.value)}
-                  style={{ width: '100%', height: '40px', padding: '0 12px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', marginBottom: '12px' }}
-                />
-                {resetError && <p className="member-form-error">{resetError}</p>}
+                <label style={{ display: 'block', fontSize: '11px', color: '#b4c7d5', marginBottom: '6px' }}>
+                  New Password (12+ characters, uppercase, lowercase, number, symbol) *
+                </label>
+                <div style={{ position: 'relative', marginBottom: '12px' }}>
+                  <input
+                    type={showResetPassword ? 'text' : 'password'}
+                    required
+                    minLength={8}
+                    placeholder="Enter or generate new password"
+                    value={newPasswordInput}
+                    onChange={e => setNewPasswordInput(e.target.value)}
+                    style={{ width: '100%', height: '42px', padding: '0 40px 0 12px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', fontSize: '13px', fontFamily: showResetPassword ? 'DM Mono, monospace' : 'inherit' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowResetPassword(!showResetPassword)}
+                    style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#85d7ff', cursor: 'pointer', fontSize: '14px', padding: '4px' }}
+                    title={showResetPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showResetPassword ? '🙈' : '👁️'}
+                  </button>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="outline"
+                    onClick={handleGenerateAdminPassword}
+                    style={{ fontSize: '11px', padding: '5px 10px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    🎲 Generate Strong Password
+                  </button>
+                  {newPasswordInput && (
+                    <button
+                      type="button"
+                      className="outline"
+                      onClick={handleCopyResetPassword}
+                      style={{ fontSize: '11px', padding: '5px 10px', color: resetCopied ? '#70ddb4' : '#85d7ff', borderColor: resetCopied ? '#70ddb4' : 'var(--line)' }}
+                    >
+                      {resetCopied ? '✓ Copied!' : '📋 Copy'}
+                    </button>
+                  )}
+                </div>
+
+                {resetError && <p className="member-form-error" style={{ marginBottom: '14px' }}>{resetError}</p>}
+
                 <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                  <button type="button" className="action-btn cancel-btn" onClick={() => setResetModalUser(null)}>Cancel</button>
-                  <button type="submit" className="primary" style={{ minHeight: '36px' }}>RESET PASSWORD</button>
+                  <button type="button" className="action-btn cancel-btn" disabled={resetSubmitting} onClick={() => setResetModalUser(null)}>
+                    Cancel
+                  </button>
+                  <button type="submit" className="primary" disabled={resetSubmitting || !newPasswordInput} style={{ minHeight: '36px' }}>
+                    {resetSubmitting ? 'UPDATING…' : 'RESET PASSWORD'}
+                  </button>
                 </div>
               </form>
             </div>

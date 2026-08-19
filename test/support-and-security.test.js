@@ -122,5 +122,23 @@ describe('Helpdesk Role-Restricted Answering & President Dual PIN', () => {
       actorRole: 'SYSTEM',
     })
   })
+
+  it('validates adminResetPasswordSchema accepting both newPassword and password keys', async () => {
+    const { adminResetPasswordSchema } = await import('../server/validators/auth.validator.js')
+
+    const validWithNewPassword = adminResetPasswordSchema.safeParse({ newPassword: 'SuperSecurePassword@2026' })
+    assert.equal(validWithNewPassword.success, true)
+    assert.equal(validWithNewPassword.data.newPassword, 'SuperSecurePassword@2026')
+
+    const validWithPassword = adminResetPasswordSchema.safeParse({ password: 'SuperSecurePassword@2026' })
+    assert.equal(validWithPassword.success, true)
+    assert.equal(validWithPassword.data.newPassword, 'SuperSecurePassword@2026')
+
+    const rejectedEmpty = adminResetPasswordSchema.safeParse({})
+    assert.equal(rejectedEmpty.success, false)
+
+    const rejectedTooShort = adminResetPasswordSchema.safeParse({ password: 'short' })
+    assert.equal(rejectedTooShort.success, false)
+  })
 })
 

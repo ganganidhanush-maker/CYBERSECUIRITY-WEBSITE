@@ -88,5 +88,18 @@ export const transferPresidentSchema = z.object({
 })
 
 export const adminResetPasswordSchema = z.object({
-  newPassword: strongPassword,
+  newPassword: z.string().optional(),
+  password: z.string().optional(),
+}).transform((data, ctx) => {
+  const pwd = data.newPassword || data.password
+  if (!pwd || typeof pwd !== 'string') {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Password is required.' })
+    return { newPassword: '' }
+  }
+  const result = strongPassword.safeParse(pwd)
+  if (!result.success) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: result.error.issues[0]?.message || 'Provide a valid new password (12+ chars, upper, lower, number, symbol).' })
+    return { newPassword: '' }
+  }
+  return { newPassword: result.data }
 })

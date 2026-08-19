@@ -331,7 +331,7 @@ export async function editMember(request, response) {
 }
 
 export async function adminResetPassword(request, response) {
-  const target = await prisma.user.findUnique({ where: { id: request.params.id } })
+  const target = await prisma.user.findUnique({ where: { id: request.params.id }, include: { profile: true } })
   if (!target) return response.status(404).json({ message: 'Resource not found' })
 
   const parsed = adminResetPasswordSchema.safeParse(request.body)
@@ -342,18 +342,23 @@ export async function adminResetPassword(request, response) {
   const passwordHash = await bcrypt.hash(parsed.data.newPassword, env.bcryptRounds)
   await prisma.user.update({
     where: { id: target.id },
-    data: { passwordHash, failedLoginAttempts: 0, lockedUntil: null },
+    data: {
+      passwordHash,
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+      lastLogoutAllDevicesAt: new Date(),
+    },
   })
 
   await tryWriteAuditLog({
     actorUserId: request.user.id,
     action: 'ADMIN_PASSWORD_RESET',
     targetUserId: target.id,
-    metadata: { memberId: target.memberId },
+    metadata: { memberId: target.memberId, name: target.profile?.name },
     ...auditRequest(request),
   })
 
-  return response.status(200).json({ message: `Password reset successfully for Member ID ${target.memberId}.` })
+  return response.status(200).json({ message: `Password reset successfully for Member ID ${target.memberId} (${target.profile?.name || 'Member'}).` })
 }
 
 export async function deleteMember(request, response) {
