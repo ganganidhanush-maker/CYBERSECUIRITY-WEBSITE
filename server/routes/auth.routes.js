@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { confirmTwoFactorSetup, disableTwoFactor, login, logout, logoutAllDevices, me, requestPasswordReset, resetPassword, startTwoFactorSetup, verifyTwoFactorLogin } from '../controllers/auth.controller.js'
 import { registerGuestAccount } from '../controllers/guest.controller.js'
+import { getPublicClubSettings } from '../controllers/member.controller.js'
 import { csrfToken } from '../middleware/csrf.js'
 import { requireAuth } from '../middleware/auth.js'
 import { loginRateLimiter, passwordResetRateLimiter, twoFactorRateLimiter } from '../middleware/rate-limit.js'
@@ -8,6 +9,7 @@ import { asyncHandler } from '../utils/async-handler.js'
 
 export const authRouter = Router()
 authRouter.get('/csrf', csrfToken)
+authRouter.get('/public-settings', asyncHandler(getPublicClubSettings))
 authRouter.post('/login', loginRateLimiter, asyncHandler(login))
 authRouter.post('/register-guest', loginRateLimiter, asyncHandler(registerGuestAccount))
 authRouter.post('/verify-2fa', twoFactorRateLimiter, asyncHandler(verifyTwoFactorLogin))

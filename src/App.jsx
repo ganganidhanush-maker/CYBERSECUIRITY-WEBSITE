@@ -3535,6 +3535,8 @@ function SubscriptionManagement({ user, logout, onNavigate }) {
 // Student Membership (Student Portal - UPI Only)
 // ----------------------------------------------------
 function StudentMembership({ user, logout, onNavigate }) {
+  const { platformMode } = usePlatformTheme()
+  const isMrdu = platformMode === 'MRDU_EVENTS'
   const [subStatus, setSubStatus] = useState(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -3577,7 +3579,7 @@ function StudentMembership({ user, logout, onNavigate }) {
         receiptImage: receiptPreview || null,
         paymentDate: new Date().toISOString(),
       })
-      setMessage('Your UPI subscription payment was submitted successfully. An administrator will verify your membership shortly.')
+      setMessage(isMrdu ? 'Your UPI student pass payment was submitted successfully. Verification in progress.' : 'Your UPI subscription payment was submitted successfully. An administrator will verify your membership shortly.')
       setReceiptPreview('')
       loadStatus()
     } catch (err) {
@@ -3600,19 +3602,19 @@ function StudentMembership({ user, logout, onNavigate }) {
   const isExempt = subStatus?.isExempt
 
   return (
-    <LivePortal user={user} logout={logout} activeTab="student-membership" onNavigate={onNavigate} title="MEMBERSHIP SUBSCRIPTION">
+    <LivePortal user={user} logout={logout} activeTab="student-membership" onNavigate={onNavigate} title={isMrdu ? 'STUDENT PASS SUBSCRIPTION' : 'MEMBERSHIP SUBSCRIPTION'}>
       <section className="member-management">
         <div className="member-heading">
           <div>
             <button className="back-button" type="button" onClick={() => onNavigate('student-dashboard')}>
               ← BACK TO DASHBOARD
             </button>
-            <p className="eyebrow">COMMUNITY MEMBERSHIP</p>
-            <h1>Club Membership Status</h1>
-            <p>Subscribe to unlock official event passes, hands-on lab access, and technical team support.</p>
+            <p className="eyebrow">{isMrdu ? 'MRDU ALL-ACCESS PASS' : 'COMMUNITY MEMBERSHIP'}</p>
+            <h1>{isMrdu ? 'Student Event Pass Status' : 'Club Membership Status'}</h1>
+            <p>{isMrdu ? 'Subscribe to unlock university event passes, technical symposium access, and workshop badges.' : 'Subscribe to unlock official event passes, hands-on lab access, and technical team support.'}</p>
           </div>
           <span className="president-lock">
-            MEMBER ID: {user.memberId}
+            {isMrdu ? 'STUDENT ID' : 'MEMBER ID'}: {user.memberId}
           </span>
         </div>
 
@@ -3620,19 +3622,21 @@ function StudentMembership({ user, logout, onNavigate }) {
         {error && <p className="member-form-error">{error}</p>}
 
         {loading ? (
-          <p className="directory-state">Loading membership information...</p>
+          <p className="directory-state">Loading {isMrdu ? 'student pass' : 'membership'} information...</p>
         ) : isExempt ? (
           <div className="membership-status-box active-box">
             <h2 style={{ font: '700 22px Syne', color: '#70ddb4', margin: '0 0 6px' }}>👑 Leadership Account Active</h2>
             <p style={{ color: '#9bb7cc', fontSize: '13px', margin: 0 }}>
-              As an authorized club leader ({getRoleLabel(user.role)}), you have full unlimited access to all features without a student subscription.
+              As an authorized leader ({getRoleLabel(user.role)}), you have full unlimited access to all features without a student subscription.
             </p>
           </div>
         ) : !isEnabled ? (
           <div className="membership-status-box active-box">
-            <h2 style={{ font: '700 22px Syne', color: '#70ddb4', margin: '0 0 6px' }}>✓ Open Membership Access</h2>
+            <h2 style={{ font: '700 22px Syne', color: '#70ddb4', margin: '0 0 6px' }}>✓ Open {isMrdu ? 'Event Pass' : 'Membership'} Access</h2>
             <p style={{ color: '#9bb7cc', fontSize: '13px', margin: 0 }}>
-              Student membership subscription is currently open & free. You have full access to all club events and activities!
+              {isMrdu
+                ? 'Student event pass access is currently open & free. You have full access to all university events and activities!'
+                : 'Student membership subscription is currently open & free. You have full access to all club events and activities!'}
             </p>
           </div>
         ) : (
@@ -3642,10 +3646,10 @@ function StudentMembership({ user, logout, onNavigate }) {
               <div className="membership-status-box active-box">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
                   <div>
-                    <span className="badge badge-active" style={{ marginBottom: '8px' }}>✓ ACTIVE MEMBERSHIP</span>
-                    <h2 style={{ font: '700 24px Syne', color: '#edf7ff', margin: '4px 0' }}>You are an Active Member</h2>
+                    <span className="badge badge-active" style={{ marginBottom: '8px' }}>{isMrdu ? '✓ ACTIVE STUDENT PASS' : '✓ ACTIVE MEMBERSHIP'}</span>
+                    <h2 style={{ font: '700 24px Syne', color: '#edf7ff', margin: '4px 0' }}>{isMrdu ? 'You have an Active Student Pass' : 'You are an Active Member'}</h2>
                     <p style={{ color: '#9bb7cc', fontSize: '13px', margin: '4px 0' }}>
-                      Your membership is active and valid until <b style={{ color: '#85d7ff' }}>{new Date(activeSub.expiresAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })} at 23:59</b>.
+                      Your {isMrdu ? 'event pass' : 'membership'} is active and valid until <b style={{ color: '#85d7ff' }}>{new Date(activeSub.expiresAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })} at 23:59</b>.
                     </p>
                   </div>
                   <div style={{ textAlign: 'right' }}>
@@ -6246,6 +6250,8 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
 // Student Events Catalog
 // ----------------------------------------------------
 function StudentEvents({ user, logout, onNavigate }) {
+  const { platformMode } = usePlatformTheme()
+  const isMrdu = platformMode === 'MRDU_EVENTS'
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -6258,16 +6264,16 @@ function StudentEvents({ user, logout, onNavigate }) {
   }, [])
 
   return (
-    <LivePortal user={user} logout={logout} activeTab="student-events" onNavigate={onNavigate} title="EVENTS CATALOG">
+    <LivePortal user={user} logout={logout} activeTab="student-events" onNavigate={onNavigate} title={isMrdu ? 'MRDU EVENTS CATALOG' : 'EVENTS CATALOG'}>
       <section className="gallery-section">
         <div className="event-heading">
           <div>
             <button className="back-button" type="button" onClick={() => onNavigate('student-dashboard')}>
               ← BACK TO DASHBOARD
             </button>
-            <p className="eyebrow">COMMUNITY CALENDAR</p>
-            <h1>Upcoming Club Events</h1>
-            <p>Participate in defensive workshops, certification bootcamps, and CTF challenges.</p>
+            <p className="eyebrow">{isMrdu ? 'MRDU UNIVERSITY CALENDAR' : 'COMMUNITY CALENDAR'}</p>
+            <h1>{isMrdu ? 'University Events & Fests' : 'Upcoming Club Events'}</h1>
+            <p>{isMrdu ? 'Register for university-wide technical symposiums, hackathons, cultural fests, and workshops.' : 'Participate in defensive workshops, certification bootcamps, and CTF challenges.'}</p>
           </div>
         </div>
 
@@ -6291,7 +6297,7 @@ function StudentEvents({ user, logout, onNavigate }) {
                 </div>
                 <div className="card-content">
                   <h3>{evt.title}</h3>
-                  <p>{evt.shortDescription || evt.description || 'Department of Cyber Security session.'}</p>
+                  <p>{evt.shortDescription || evt.description || (isMrdu ? 'MRDU University official event session.' : 'Department of Cyber Security session.')}</p>
                   <div className="card-meta">
                     <span>📅 {new Date(evt.dateTime).toLocaleDateString()}</span>
                     <span>📍 {evt.venue || evt.location || 'Campus'}</span>
@@ -6321,6 +6327,8 @@ function StudentEvents({ user, logout, onNavigate }) {
 // Student Registrations & Passes
 // ----------------------------------------------------
 function StudentRegistrations({ user, logout, onNavigate }) {
+  const { platformMode } = usePlatformTheme()
+  const isMrdu = platformMode === 'MRDU_EVENTS'
   const [registrations, setRegistrations] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -6357,16 +6365,16 @@ function StudentRegistrations({ user, logout, onNavigate }) {
   }
 
   return (
-    <LivePortal user={user} logout={logout} activeTab="student-registrations" onNavigate={onNavigate} title="MY EVENT PASSES">
+    <LivePortal user={user} logout={logout} activeTab="student-registrations" onNavigate={onNavigate} title={isMrdu ? 'MY MRDU EVENT PASSES' : 'MY EVENT PASSES'}>
       <section className="gallery-section">
         <div className="event-heading">
           <div>
             <button className="back-button" type="button" onClick={() => onNavigate('student-dashboard')}>
               ← BACK TO DASHBOARD
             </button>
-            <p className="eyebrow">CONFIRMED PASSES</p>
-            <h1>My Event Passes & QR</h1>
-            <p>Your confirmed attendance records and entry passes for all club sessions.</p>
+            <p className="eyebrow">{isMrdu ? 'CONFIRMED PASSES & BADGES' : 'CONFIRMED PASSES'}</p>
+            <h1>{isMrdu ? 'My Event Passes & QR Badges' : 'My Event Passes & QR'}</h1>
+            <p>{isMrdu ? 'Your confirmed attendance passes and digital entrance verification for all MRDU events.' : 'Your confirmed attendance records and entry passes for all club sessions.'}</p>
           </div>
           <button
             type="button"
@@ -6392,7 +6400,7 @@ function StudentRegistrations({ user, logout, onNavigate }) {
                   <span className="badge badge-registered" style={{ alignSelf: 'flex-start', marginBottom: '8px' }}>
                     {reg.status}
                   </span>
-                  <h3>{reg.event?.title || 'Club Event'}</h3>
+                  <h3>{reg.event?.title || (isMrdu ? 'MRDU Event' : 'Club Event')}</h3>
                   <p>{reg.event?.shortDescription || reg.event?.description}</p>
                   <div className="card-meta">
                     <span>📅 {reg.event?.dateTime ? new Date(reg.event.dateTime).toLocaleString() : ''}</span>
@@ -6413,7 +6421,12 @@ function StudentRegistrations({ user, logout, onNavigate }) {
 // ----------------------------------------------------
 // Public Gallery (Student)
 // ----------------------------------------------------
+// ----------------------------------------------------
+// Public Gallery (Student)
+// ----------------------------------------------------
 function StudentGallery({ user, logout, onNavigate }) {
+  const { platformMode } = usePlatformTheme()
+  const isMrdu = platformMode === 'MRDU_EVENTS'
   const [albums, setAlbums] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedAlbum, setSelectedAlbum] = useState(null)
@@ -6446,7 +6459,7 @@ function StudentGallery({ user, logout, onNavigate }) {
   }
 
   return (
-    <LivePortal user={user} logout={logout} activeTab="student-gallery" onNavigate={onNavigate} title="CLUB GALLERY">
+    <LivePortal user={user} logout={logout} activeTab="student-gallery" onNavigate={onNavigate} title={isMrdu ? 'MRDU EVENT GALLERY' : 'CLUB GALLERY'}>
       <section className="gallery-section">
         {selectedAlbum ? (
           // Opened Album View with all photos
@@ -6456,9 +6469,9 @@ function StudentGallery({ user, logout, onNavigate }) {
                 <button className="back-button" type="button" onClick={() => setSelectedAlbum(null)}>
                   ← BACK TO ALL ALBUMS
                 </button>
-                <p className="eyebrow">ALBUM SHOWCASE</p>
+                <p className="eyebrow">{isMrdu ? 'MRDU ALBUM SHOWCASE' : 'ALBUM SHOWCASE'}</p>
                 <h1>{selectedAlbum.name}</h1>
-                <p>{selectedAlbum.description || 'Club photo collection & highlights'}</p>
+                <p>{selectedAlbum.description || (isMrdu ? 'University event photo collection & highlights' : 'Club photo collection & highlights')}</p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span className="badge" style={{ background: '#0e2439', color: '#85d7ff', border: '1px solid #52bbf544', padding: '6px 12px', fontSize: '11px' }}>
@@ -6508,9 +6521,9 @@ function StudentGallery({ user, logout, onNavigate }) {
                 <button className="back-button" type="button" onClick={() => onNavigate('student-dashboard')}>
                   ← BACK TO DASHBOARD
                 </button>
-                <p className="eyebrow">PHOTO MEMORIES</p>
-                <h1>Cyber Security Club Gallery</h1>
-                <p>Highlights, award ceremonies, and lab workshops. Click any album to view its photos.</p>
+                <p className="eyebrow">{isMrdu ? 'EVENT PHOTO ARCHIVES' : 'PHOTO MEMORIES'}</p>
+                <h1>{isMrdu ? 'MRDU Events & Fests Gallery' : 'Cyber Security Club Gallery'}</h1>
+                <p>{isMrdu ? 'Highlights, ceremonies, and celebrations across MRDU university events. Click any album to view photos.' : 'Highlights, award ceremonies, and lab workshops. Click any album to view its photos.'}</p>
               </div>
             </div>
 
@@ -6537,7 +6550,7 @@ function StudentGallery({ user, logout, onNavigate }) {
                     </div>
                     <div className="album-details">
                       <h3>{a.name}</h3>
-                      <p>{a.description || 'Club photo highlights'}</p>
+                      <p>{a.description || (isMrdu ? 'MRDU event photo highlights' : 'Club photo highlights')}</p>
                     </div>
                     <div style={{ padding: '8px 14px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <small style={{ color: '#85d7ff', fontWeight: 600 }}>Open Album →</small>
@@ -6569,6 +6582,8 @@ function StudentGallery({ user, logout, onNavigate }) {
 // Public Team Showcase (Student)
 // ----------------------------------------------------
 function OurTeamShowcase({ user, logout, onNavigate }) {
+  const { platformMode } = usePlatformTheme()
+  const isMrdu = platformMode === 'MRDU_EVENTS'
   const [team, setTeam] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -6605,16 +6620,16 @@ function OurTeamShowcase({ user, logout, onNavigate }) {
   }
 
   return (
-    <LivePortal user={user} logout={logout} activeTab="student-team" onNavigate={onNavigate} title="CLUB LEADERSHIP">
+    <LivePortal user={user} logout={logout} activeTab="student-team" onNavigate={onNavigate} title={isMrdu ? 'ORGANIZING COMMITTEE' : 'CLUB LEADERSHIP'}>
       <section className="member-management">
         <div className="member-heading">
           <div>
             <button className="back-button" type="button" onClick={() => onNavigate('student-dashboard')}>
               ← BACK TO DASHBOARD
             </button>
-            <p className="eyebrow">STUDENT COUNCIL</p>
-            <h1>Meet Our Leadership</h1>
-            <p>The student coordinators and executive leads driving Cyber Security Club MRDU.</p>
+            <p className="eyebrow">{isMrdu ? 'CENTRAL ORGANIZING COMMITTEE' : 'STUDENT COUNCIL'}</p>
+            <h1>{isMrdu ? 'Meet Our Organizing Committee' : 'Meet Our Leadership'}</h1>
+            <p>{isMrdu ? 'The faculty coordinators, event convenors, and student organizers managing MRDU Events.' : 'The student coordinators and executive leads driving Cyber Security Club MRDU.'}</p>
           </div>
           <button
             type="button"
@@ -6763,6 +6778,8 @@ function LivePresidentDashboard({ user, logout, onNavigate }) {
 // Student Member Hub (Student Dashboard)
 // ----------------------------------------------------
 function LiveStudentDashboard({ user, logout, onNavigate }) {
+  const { platformMode } = usePlatformTheme()
+  const isMrdu = platformMode === 'MRDU_EVENTS'
   const [events, setEvents] = useState([])
   const [subStatus, setSubStatus] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -6786,12 +6803,12 @@ function LiveStudentDashboard({ user, logout, onNavigate }) {
   const needsSubscription = subStatus?.subscriptionEnabled && !subStatus?.hasActiveSubscription && !subStatus?.isExempt
 
   return (
-    <LivePortal user={user} logout={logout} activeTab="student-dashboard" onNavigate={onNavigate} title="STUDENT MEMBER HUB">
+    <LivePortal user={user} logout={logout} activeTab="student-dashboard" onNavigate={onNavigate} title={isMrdu ? 'MRDU EVENTS CENTRAL HUB' : 'STUDENT MEMBER HUB'}>
       <section className="welcome">
         <div>
-          <p className="eyebrow">DEPARTMENT OF CYBER SECURITY</p>
+          <p className="eyebrow">{isMrdu ? 'MALLA REDDY (DEEMED TO BE UNIVERSITY)' : 'DEPARTMENT OF CYBER SECURITY'}</p>
           <h1>Hello, {user.name} <span>👋</span></h1>
-          <p>Welcome to the official Cyber Security Club student hub.</p>
+          <p>{isMrdu ? 'Welcome to the official MRDU Events & Fests student portal.' : 'Welcome to the official Cyber Security Club student hub.'}</p>
         </div>
         <button className="outline" type="button" onClick={() => onNavigate('student-events')}>
           BROWSE ALL EVENTS &nbsp;→
@@ -6802,9 +6819,9 @@ function LiveStudentDashboard({ user, logout, onNavigate }) {
       {needsSubscription && (
         <div className="pending-alert-banner" style={{ marginTop: '20px', background: '#2d1f05', borderColor: '#f59e0b', color: '#fef3c7' }}>
           <div>
-            <b>Your student membership is inactive</b>
+            <b>{isMrdu ? 'Your student event pass is inactive' : 'Your student membership is inactive'}</b>
             <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#fde68a' }}>
-              Subscribe (₹{subStatus?.monthlyAmount || 100}/mo via UPI) to unlock event registrations, technical support, and member-only gallery.
+              Subscribe (₹{subStatus?.monthlyAmount || 100}/mo via UPI) to unlock event registrations, technical support, and {isMrdu ? 'event' : 'member-only'} gallery.
             </p>
           </div>
           <button type="button" onClick={() => onNavigate('student-membership')} style={{ background: '#f59e0b', color: '#000' }}>
@@ -6814,23 +6831,23 @@ function LiveStudentDashboard({ user, logout, onNavigate }) {
       )}
 
       <section className="stats" style={{ margin: '28px 0' }}>
-        <div className="stat"><i>▢</i><div><p>CLUB EVENTS</p><h2>{events.length}</h2><small>Workshops & CTFs</small></div></div>
-        <div className="stat"><i>▤</i><div><p>MY PASSES</p><h2>{events.filter(e => e.isRegistered).length}</h2><small>Confirmed registrations</small></div></div>
+        <div className="stat"><i>▢</i><div><p>{isMrdu ? 'UNIVERSITY EVENTS' : 'CLUB EVENTS'}</p><h2>{events.length}</h2><small>{isMrdu ? 'Fests & Workshops' : 'Workshops & CTFs'}</small></div></div>
+        <div className="stat"><i>▤</i><div><p>{isMrdu ? 'MY EVENT PASSES' : 'MY PASSES'}</p><h2>{events.filter(e => e.isRegistered).length}</h2><small>{isMrdu ? 'Confirmed Passes' : 'Confirmed registrations'}</small></div></div>
         <div className={`stat ${subStatus?.hasActiveSubscription ? 'green' : 'amber'}`}>
           <i>💎</i>
           <div>
-            <p>MEMBERSHIP</p>
+            <p>{isMrdu ? 'STUDENT PASS' : 'MEMBERSHIP'}</p>
             <h2>{subStatus?.hasActiveSubscription ? 'ACTIVE' : 'INACTIVE'}</h2>
             <small>{subStatus?.hasActiveSubscription ? 'Verified' : 'Subscribe via UPI'}</small>
           </div>
         </div>
-        <div className="stat green"><i>👤</i><div><p>MEMBER ID</p><h2>{user.memberId}</h2><small>Authorized Account</small></div></div>
+        <div className="stat green"><i>👤</i><div><p>{isMrdu ? 'STUDENT ID' : 'MEMBER ID'}</p><h2>{user.memberId}</h2><small>Authorized Account</small></div></div>
       </section>
 
       <div className="section-title">
         <div>
-          <p className="eyebrow">FEATURED SESSIONS</p>
-          <h2>Upcoming Club Events</h2>
+          <p className="eyebrow">{isMrdu ? 'CAMPUS HIGHLIGHTS' : 'FEATURED SESSIONS'}</p>
+          <h2>{isMrdu ? 'Featured University Events' : 'Upcoming Club Events'}</h2>
         </div>
         <button type="button" onClick={() => onNavigate('student-events')}>EXPLORE ALL &nbsp;→</button>
       </div>
@@ -6855,7 +6872,7 @@ function LiveStudentDashboard({ user, logout, onNavigate }) {
               </div>
               <div className="card-content">
                 <h3>{evt.title}</h3>
-                <p>{evt.shortDescription || evt.description || 'Department of Cyber Security official session.'}</p>
+                <p>{evt.shortDescription || evt.description || (isMrdu ? 'MRDU University official event session.' : 'Department of Cyber Security official session.')}</p>
                 <div className="card-meta">
                   <span>📅 {new Date(evt.dateTime).toLocaleDateString()}</span>
                   <span>📍 {evt.venue || evt.location || 'Campus'}</span>
@@ -7540,6 +7557,19 @@ function App() {
     return () => mq.removeEventListener('change', handler)
   }, [])
 
+  // Fetch initial public club settings to get current platformMode (for students, guests, and admins)
+  useEffect(() => {
+    let mounted = true
+    authApi.getPublicSettings()
+      .then(({ settings: dict }) => {
+        if (!mounted || !dict) return
+        if (dict.platformMode) setPlatformMode(dict.platformMode)
+        if (dict.siteStatus === 'HIBERNATING') setIsHibernating(true)
+      })
+      .catch(() => {})
+    return () => { mounted = false }
+  }, [])
+
   const resolvedTheme = useMemo(() => {
     if (themeMode === 'light') return 'light'
     if (themeMode === 'dark') return 'dark'
@@ -7561,19 +7591,6 @@ function App() {
   useEffect(() => {
     document.documentElement.setAttribute('data-platform', platformMode)
   }, [platformMode])
-
-  // Fetch initial public club settings to get current platformMode
-  useEffect(() => {
-    let mounted = true
-    adminApi.getClubSettings()
-      .then(({ settings: dict }) => {
-        if (!mounted) return
-        if (dict.platformMode) setPlatformMode(dict.platformMode)
-        if (dict.siteStatus === 'HIBERNATING') setIsHibernating(true)
-      })
-      .catch(() => {})
-    return () => { mounted = false }
-  }, [])
 
   function getScreenFromPath(role) {
     const path = window.location.pathname.replace(/^\//, '')

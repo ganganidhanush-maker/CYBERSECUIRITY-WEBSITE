@@ -144,6 +144,7 @@ export async function readMultipleImageFiles(fileList) {
 
 export const authApi = {
   me: () => request('/auth/me'),
+  getPublicSettings: () => request('/auth/public-settings'),
   login: (memberId, password) => request('/auth/login', { method: 'POST', body: JSON.stringify({ memberId, password }) }),
   registerGuest: payload => request('/auth/register-guest', { method: 'POST', body: JSON.stringify(payload) }),
   verifyTwoFactor: code => request('/auth/verify-2fa', { method: 'POST', body: JSON.stringify({ code }) }),
@@ -228,7 +229,7 @@ export const memberApi = {
   listGallery: () => request('/member/gallery'),
   getGalleryAlbum: albumId => request(`/member/gallery/${albumId}`),
   listClubTeam: () => request('/member/team'),
-  getPublicClubSettings: () => request('/member/settings'),
+  getPublicClubSettings: () => request('/auth/public-settings'),
   getSessionStatus: () => request('/member/session-status'),
   completeIntroVideo: () => request('/member/intro-video/complete', { method: 'POST' }),
   completeWaitingQueue: () => request('/member/waiting-queue/complete', { method: 'POST' }),

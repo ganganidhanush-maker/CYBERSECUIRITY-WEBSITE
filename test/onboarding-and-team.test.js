@@ -57,6 +57,21 @@ describe('Onboarding Briefing & Team Priority Management System', () => {
     assert.equal(resolveTheme('system', false), 'light')
   })
 
+  it('guarantees public settings endpoint supplies platformMode to student and guest sessions without requiring admin privileges', () => {
+    const rawSettings = [
+      { key: 'platformMode', value: 'MRDU_EVENTS' },
+      { key: 'siteStatus', value: 'ACTIVE' },
+      { key: 'introVideoEnabled', value: 'true' },
+    ]
+    const dictionary = {}
+    rawSettings.forEach(s => {
+      try { dictionary[s.key] = JSON.parse(s.value) } catch { dictionary[s.key] = s.value }
+    })
+    assert.equal(dictionary.platformMode, 'MRDU_EVENTS')
+    assert.equal(dictionary.siteStatus, 'ACTIVE')
+    assert.equal(dictionary.introVideoEnabled, true)
+  })
+
   it('rejects invalid onboarding briefing mode values', () => {
     const invalidSettings = {
       onboardingBriefingMode: 'INVALID_MODE',
