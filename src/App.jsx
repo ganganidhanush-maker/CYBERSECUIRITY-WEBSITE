@@ -368,12 +368,12 @@ function ConcurrentWaitingQueue({ onComplete }) {
     <div className="queue-overlay">
       <div className="queue-card">
         <Crest small />
-        <h2 style={{ font: '700 22px Syne', color: '#edf7ff', margin: '16px 0 6px' }}>High Member Activity</h2>
-        <p style={{ color: '#8aa2b4', fontSize: '12px', lineHeight: '1.6' }}>
+        <h2 style={{ font: '700 22px Syne', color: 'var(--text-main)', margin: '16px 0 6px' }}>High Member Activity</h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: '1.6' }}>
           More than 20 students are actively connected. Allocating secure session slot...
         </p>
         <div className="queue-timer">{countdown}</div>
-        <small style={{ color: '#6f8da1', font: '500 10px "DM Mono", monospace' }}>ENTERING AUTOMATICALLY...</small>
+        <small style={{ color: 'var(--text-dim)', font: '500 10px "DM Mono", monospace' }}>ENTERING AUTOMATICALLY...</small>
       </div>
     </div>
   )
@@ -643,11 +643,11 @@ function NotificationsModal({ isOpen, onClose, onNavigate }) {
 
   return (
     <div className="photo-lightbox" onClick={onClose}>
-      <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px', width: '100%', background: '#0c1522', padding: '24px', borderRadius: '14px', border: '1px solid var(--line)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+      <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px', width: '100%', background: 'var(--bg-modal)', padding: '24px', borderRadius: '14px', border: '1px solid var(--line)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '12px', marginBottom: '14px' }}>
           <div>
-            <h3 style={{ margin: 0, font: '700 18px Syne', color: '#edf7ff' }}>🔔 Notifications & Alerts</h3>
-            <small style={{ color: '#7e95a7' }}>Updates on events, subscriptions, and support replies</small>
+            <h3 style={{ margin: 0, font: '700 18px Syne', color: 'var(--text-main)' }}>🔔 Notifications & Alerts</h3>
+            <small style={{ color: 'var(--text-muted)' }}>Updates on events, subscriptions, and support replies</small>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button type="button" className="action-btn edit-btn" onClick={handleMarkAll} style={{ fontSize: '10px' }}>Mark all read</button>
@@ -670,19 +670,19 @@ function NotificationsModal({ isOpen, onClose, onNavigate }) {
                   padding: '12px',
                   borderRadius: '8px',
                   marginBottom: '8px',
-                  background: n.isRead ? '#050a12' : '#101d2c',
-                  border: n.isRead ? '1px solid var(--line)' : '1px solid #52bbf555',
+                  background: n.isRead ? 'var(--bg-input)' : 'var(--brand-badge-bg)',
+                  border: n.isRead ? '1px solid var(--line)' : '1px solid var(--brand-border-subtle)',
                   cursor: 'pointer',
                   transition: 'background 0.15s ease',
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                  <b style={{ color: n.isRead ? '#cbdfe9' : '#85d7ff', fontSize: '12px' }}>{n.title}</b>
-                  <small style={{ color: '#688296', fontSize: '9px', font: '500 "DM Mono", monospace' }}>
+                  <b style={{ color: n.isRead ? 'var(--text-main)' : 'var(--brand-primary)', fontSize: '12px' }}>{n.title}</b>
+                  <small style={{ color: 'var(--text-dim)', fontSize: '9px', font: '500 "DM Mono", monospace' }}>
                     {new Date(n.createdAt).toLocaleDateString()}
                   </small>
                 </div>
-                <p style={{ color: '#9bb7cc', fontSize: '11px', margin: '4px 0 0', lineHeight: '1.5' }}>{n.message}</p>
+                <p style={{ color: 'var(--text-muted)', fontSize: '11px', margin: '4px 0 0', lineHeight: '1.5' }}>{n.message}</p>
               </div>
             ))
           )}
@@ -819,10 +819,10 @@ function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
           <span className="badge badge-registered" style={{ marginTop: '10px', display: 'inline-block' }}>
             STUDENT PORTAL REGISTRATION
           </span>
-          <h2 style={{ font: '700 22px Syne', color: '#edf7ff', margin: '8px 0 4px' }}>
+          <h2 style={{ font: '700 22px Syne', color: 'var(--text-main)', margin: '8px 0 4px' }}>
             Create Student Account
           </h2>
-          <p style={{ color: '#7e95a7', fontSize: '12px', margin: 0 }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>
             Guest & External Student Portal Access · MRDU & Partner Colleges
           </p>
         </div>
@@ -904,9 +904,9 @@ function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
             </div>
           )}
 
-          <div style={{ background: '#050d18', border: '1px solid #1c3650', borderRadius: '8px', padding: '12px', margin: '16px 0', fontSize: '11px', color: '#85d7ff' }}>
+          <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '8px', padding: '12px', margin: '16px 0', fontSize: '11px', color: 'var(--brand-primary)' }}>
             🔒 <b>Automated Credentials & ID Pass Generation:</b>
-            <p style={{ margin: '4px 0 0', color: '#7e9db8', lineHeight: '1.5' }}>
+            <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', lineHeight: '1.5' }}>
               Your unique <b>Guest Member ID</b> (e.g. <code>GUEST2026001</code>) and a <b>14-character secure password</b> will be automatically generated. An official <b>ID Pass.png</b> will be downloaded directly to your device.
             </p>
           </div>
@@ -916,7 +916,7 @@ function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
               type="button"
               className="action-btn"
               onClick={onClose}
-              style={{ flex: 1, height: '42px', background: '#111d2b', color: '#85d7ff', border: '1px solid #203a55' }}
+              style={{ flex: 1, height: '42px', background: 'var(--panel-elevated)', color: 'var(--text-main)', border: '1px solid var(--line)' }}
             >
               CANCEL
             </button>
@@ -942,25 +942,25 @@ function GuestCredentialsSuccessModal({ data, onClose, onProceedToLogin }) {
     <div className="photo-lightbox">
       <div className="guest-modal-content" style={{ textAlign: 'center', maxWidth: '520px' }}>
         <span style={{ fontSize: '42px', display: 'block', marginBottom: '8px' }}>🎉</span>
-        <h2 style={{ color: '#edf7ff', font: '700 22px Syne', margin: '0 0 4px' }}>
+        <h2 style={{ color: 'var(--text-main)', font: '700 22px Syne', margin: '0 0 4px' }}>
           Account Created Successfully!
         </h2>
-        <p style={{ color: '#70ddb4', fontSize: '12px', fontWeight: 600, margin: '0 0 16px' }}>
+        <p style={{ color: '#059669', fontSize: '12px', fontWeight: 600, margin: '0 0 16px' }}>
           ✓ Official ID Pass.png has been automatically downloaded to your device
         </p>
 
         <div className="guest-credentials-card">
           <div className="cred-row">
             <span className="cred-label">STUDENT NAME</span>
-            <span style={{ color: '#fff', fontWeight: 600 }}>{data.name}</span>
+            <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>{data.name}</span>
           </div>
           <div className="cred-row">
             <span className="cred-label">COLLEGE</span>
-            <span style={{ color: '#9bb7cc', fontSize: '12px' }}>{data.college}</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{data.college}</span>
           </div>
           <div className="cred-row">
             <span className="cred-label">BRANCH</span>
-            <span style={{ color: '#9bb7cc', fontSize: '12px' }}>{data.branch}{data.specialization ? ` (${data.specialization})` : ''}</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{data.branch}{data.specialization ? ` (${data.specialization})` : ''}</span>
           </div>
           <div className="cred-row">
             <span className="cred-label">MEMBER ID (USERNAME)</span>
@@ -968,11 +968,11 @@ function GuestCredentialsSuccessModal({ data, onClose, onProceedToLogin }) {
           </div>
           <div className="cred-row">
             <span className="cred-label">GENERATED PASSWORD</span>
-            <span className="cred-value" style={{ color: '#70ddb4', border: '1px solid #70ddb444' }}>{data.password}</span>
+            <span className="cred-value" style={{ color: '#059669', border: '1px solid rgba(5, 150, 105, 0.3)' }}>{data.password}</span>
           </div>
         </div>
 
-        <p style={{ color: '#7e95a7', fontSize: '11px', lineHeight: '1.5', margin: '0 0 20px' }}>
+        <p style={{ color: 'var(--text-muted)', fontSize: '11px', lineHeight: '1.5', margin: '0 0 20px' }}>
           Please keep an offline copy of your credentials. You can use this Member ID and Password to sign in to the portal anytime.
         </p>
 
@@ -981,7 +981,7 @@ function GuestCredentialsSuccessModal({ data, onClose, onProceedToLogin }) {
             type="button"
             className="action-btn"
             onClick={() => downloadIdPass(data)}
-            style={{ width: '100%', height: '40px', background: '#0e263d', color: '#85d7ff', border: '1px solid #52bbf555', fontSize: '11px', fontWeight: 600 }}
+            style={{ width: '100%', height: '40px', background: 'var(--panel-elevated)', color: 'var(--brand-primary)', border: '1px solid var(--brand-border-subtle)', fontSize: '11px', fontWeight: 600 }}
           >
             ⬇ DOWNLOAD ID PASS.PNG AGAIN
           </button>
@@ -1014,28 +1014,28 @@ function ForgotPasswordModal({ isOpen, onClose }) {
       <div className="guest-modal-content" onClick={e => e.stopPropagation()} style={{ textAlign: 'center', maxWidth: '480px' }}>
         <button className="lightbox-close" onClick={onClose}>✕</button>
         <span style={{ fontSize: '38px', display: 'block', marginBottom: '12px' }}>🔐</span>
-        <h3 style={{ color: '#edf7ff', margin: '0 0 8px', font: '700 20px Syne' }}>Password Assistance & Recovery</h3>
-        <p style={{ color: '#9bb7cc', fontSize: '13px', lineHeight: '1.6', margin: '0 0 20px' }}>
+        <h3 style={{ color: 'var(--text-main)', margin: '0 0 8px', font: '700 20px Syne' }}>Password Assistance & Recovery</h3>
+        <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.6', margin: '0 0 20px' }}>
           To reset your password or for student/leadership account assistance, please contact the official Cyber Security Club administration directly:
         </p>
         
-        <div style={{ background: '#050c16', border: '1px solid #52bbf544', borderRadius: '8px', padding: '16px', marginBottom: '18px' }}>
-          <small style={{ color: '#728da1', font: '600 10px "DM Mono", monospace', display: 'block', marginBottom: '6px' }}>
+        <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '8px', padding: '16px', marginBottom: '18px' }}>
+          <small style={{ color: 'var(--text-dim)', font: '600 10px "DM Mono", monospace', display: 'block', marginBottom: '6px' }}>
             OFFICIAL CLUB SUPPORT DESK
           </small>
-          <a href="mailto:cyberclubmrdu2025@gmail.com" style={{ color: '#70ddb4', fontSize: '16px', fontWeight: 700, textDecoration: 'none', display: 'block', marginBottom: '10px' }}>
+          <a href="mailto:cyberclubmrdu2025@gmail.com" style={{ color: 'var(--brand-primary)', fontSize: '16px', fontWeight: 700, textDecoration: 'none', display: 'block', marginBottom: '10px' }}>
             cyberclubmrdu2025@gmail.com
           </a>
           <button
             type="button"
             onClick={copyEmail}
-            style={{ background: '#112233', border: '1px solid #52bbf544', color: '#85d7ff', padding: '4px 12px', borderRadius: '4px', fontSize: '10px', cursor: 'pointer', font: '600 10px "DM Mono", monospace' }}
+            style={{ background: 'var(--bg-card)', border: '1px solid var(--brand-border-subtle)', color: 'var(--brand-primary)', padding: '6px 14px', borderRadius: '6px', fontSize: '10px', cursor: 'pointer', font: '600 10px "DM Mono", monospace' }}
           >
             {copied ? '✓ COPIED TO CLIPBOARD' : '📋 COPY EMAIL ADDRESS'}
           </button>
         </div>
 
-        <p style={{ color: '#688296', fontSize: '11px', lineHeight: '1.5', margin: '0 0 20px' }}>
+        <p style={{ color: 'var(--text-muted)', fontSize: '11px', lineHeight: '1.5', margin: '0 0 20px' }}>
           When emailing, please provide your <b>Full Name</b>, <b>College Roll Number / Member ID</b>, and <b>College Name</b> so the admin team can verify your profile.
         </p>
 
@@ -1274,8 +1274,8 @@ function TwoFactorLogin({ onVerify, onBack }) {
         <span className="badge badge-president" style={{ margin: '14px 0 8px', display: 'inline-block' }}>
           SECURITY CHALLENGE
         </span>
-        <h2 style={{ font: '700 24px Syne', color: '#edf7ff', margin: '4px 0 8px' }}>Security Verification</h2>
-        <p style={{ color: '#8aa2b4', fontSize: '13px', margin: '0 0 20px' }}>
+        <h2 style={{ font: '700 24px Syne', color: 'var(--text-main)', margin: '4px 0 8px' }}>Security Verification</h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '0 0 20px' }}>
           Enter the six-digit verification code from your authenticator app (or President Master PIN).
         </p>
 
@@ -1345,8 +1345,8 @@ function PasswordResetRequest({ onBack }) {
           <span className="badge badge-president" style={{ margin: '12px 0 6px', display: 'inline-block' }}>
             PASSWORD RECOVERY
           </span>
-          <h2 style={{ font: '700 24px Syne', color: '#edf7ff', margin: '4px 0 6px' }}>Reset Your Password</h2>
-          <p style={{ color: '#8aa2b4', fontSize: '12px', margin: 0 }}>
+          <h2 style={{ font: '700 24px Syne', color: 'var(--text-main)', margin: '4px 0 6px' }}>Reset Your Password</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>
             Enter your Member ID to receive password recovery instructions.
           </p>
         </div>
@@ -1408,8 +1408,8 @@ function PasswordReset({ token, onComplete }) {
       <section className="login-card" style={{ maxWidth: '440px' }}>
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
           <Crest small />
-          <h2 style={{ font: '700 24px Syne', color: '#edf7ff', margin: '10px 0 6px' }}>Set New Password</h2>
-          <p style={{ color: '#8aa2b4', fontSize: '12px', margin: 0 }}>
+          <h2 style={{ font: '700 24px Syne', color: 'var(--text-main)', margin: '10px 0 6px' }}>Set New Password</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>
             Must be at least 12 characters with uppercase, lowercase, number, and symbol.
           </p>
         </div>
@@ -2126,7 +2126,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                 <div>
                   <p className="eyebrow">BATCH STUDENT PROVISIONING</p>
                   <h2>Bulk Student Accounts</h2>
-                  <p style={{ color: '#7e95a7', fontSize: '11px', margin: '4px 0 12px' }}>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '11px', margin: '4px 0 12px' }}>
                     Paste data for multiple students at once. Roll Number will be assigned as the unique Member ID.
                   </p>
                 </div>
@@ -2134,10 +2134,10 @@ function MemberManagement({ user, logout, onNavigate }) {
                 <form onSubmit={handleBulkSubmit}>
                   <div style={{ marginBottom: '14px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <label style={{ color: '#9bb7cc', font: '600 11px "DM Mono", monospace' }}>
+                      <label style={{ color: 'var(--text-muted)', font: '600 11px "DM Mono", monospace' }}>
                         1. Paste Student Data (Name | Roll Number | Password)
                       </label>
-                      <small style={{ color: '#70ddb4', fontSize: '10px', font: '500 10px "DM Mono", monospace' }}>
+                      <small style={{ color: '#059669', fontSize: '10px', font: '500 10px "DM Mono", monospace' }}>
                         Excel / Tab / Comma Delimited
                       </small>
                     </div>
@@ -2150,17 +2150,17 @@ function MemberManagement({ user, logout, onNavigate }) {
                   </div>
 
                   {/* Common Information Settings */}
-                  <div style={{ background: '#050c16', border: '1px solid #1c3650', borderRadius: '8px', padding: '14px', marginBottom: '16px' }}>
-                    <label style={{ color: '#85d7ff', font: '700 11px "DM Mono", monospace', display: 'block', marginBottom: '10px' }}>
+                  <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '8px', padding: '14px', marginBottom: '16px' }}>
+                    <label style={{ color: 'var(--brand-primary)', font: '700 11px "DM Mono", monospace', display: 'block', marginBottom: '10px' }}>
                       2. Common Batch Information (Applies to All Uploaded Accounts)
                     </label>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
                       <div>
-                        <label style={{ color: '#7e9db8', fontSize: '10px', display: 'block', marginBottom: '4px' }}>ACADEMIC YEAR</label>
+                        <label style={{ color: 'var(--text-dim)', fontSize: '10px', display: 'block', marginBottom: '4px' }}>ACADEMIC YEAR</label>
                         <select
                           value={bulkYear}
                           onChange={e => setBulkYear(Number(e.target.value))}
-                          style={{ width: '100%', height: '36px', background: '#08111e', border: '1px solid var(--line)', borderRadius: '6px', color: '#edf7ff', padding: '0 8px', fontSize: '11px' }}
+                          style={{ width: '100%', height: '36px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 8px', fontSize: '11px' }}
                         >
                           {ACADEMIC_YEARS.map(y => (
                             <option key={y.value} value={y.value}>{y.label}</option>
@@ -2169,11 +2169,11 @@ function MemberManagement({ user, logout, onNavigate }) {
                       </div>
 
                       <div>
-                        <label style={{ color: '#7e9db8', fontSize: '10px', display: 'block', marginBottom: '4px' }}>COLLEGE</label>
+                        <label style={{ color: 'var(--text-dim)', fontSize: '10px', display: 'block', marginBottom: '4px' }}>COLLEGE</label>
                         <select
                           value={bulkCollegeChoice}
                           onChange={e => setBulkCollegeChoice(e.target.value)}
-                          style={{ width: '100%', height: '36px', background: '#08111e', border: '1px solid var(--line)', borderRadius: '6px', color: '#edf7ff', padding: '0 8px', fontSize: '11px' }}
+                          style={{ width: '100%', height: '36px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 8px', fontSize: '11px' }}
                         >
                           <option value="Malla Reddy (MR) Deemed to be University">Malla Reddy (MR) Deemed to be University</option>
                           <option value="Other">Other</option>
@@ -2182,22 +2182,22 @@ function MemberManagement({ user, logout, onNavigate }) {
 
                       {bulkCollegeChoice === 'Other' && (
                         <div style={{ gridColumn: '1 / -1' }}>
-                          <label style={{ color: '#7e9db8', fontSize: '10px', display: 'block', marginBottom: '4px' }}>CUSTOM COLLEGE NAME</label>
+                          <label style={{ color: 'var(--text-dim)', fontSize: '10px', display: 'block', marginBottom: '4px' }}>CUSTOM COLLEGE NAME</label>
                           <input
                             placeholder="Enter College Name"
                             value={bulkCollegeCustom}
                             onChange={e => setBulkCollegeCustom(e.target.value)}
-                            style={{ width: '100%', height: '36px', background: '#08111e', border: '1px solid var(--line)', borderRadius: '6px', color: '#edf7ff', padding: '0 10px', fontSize: '11px' }}
+                            style={{ width: '100%', height: '36px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '11px' }}
                           />
                         </div>
                       )}
 
                       <div>
-                        <label style={{ color: '#7e9db8', fontSize: '10px', display: 'block', marginBottom: '4px' }}>BRANCH</label>
+                        <label style={{ color: 'var(--text-dim)', fontSize: '10px', display: 'block', marginBottom: '4px' }}>BRANCH</label>
                         <select
                           value={bulkBranch}
                           onChange={e => setBulkBranch(e.target.value)}
-                          style={{ width: '100%', height: '36px', background: '#08111e', border: '1px solid var(--line)', borderRadius: '6px', color: '#edf7ff', padding: '0 8px', fontSize: '11px' }}
+                          style={{ width: '100%', height: '36px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 8px', fontSize: '11px' }}
                         >
                           {BRANCH_OPTIONS.map(b => (
                             <option key={b} value={b}>{b}</option>
@@ -2207,11 +2207,11 @@ function MemberManagement({ user, logout, onNavigate }) {
 
                       {bulkBranch === 'CSE' && (
                         <div>
-                          <label style={{ color: '#7e9db8', fontSize: '10px', display: 'block', marginBottom: '4px' }}>CSE SPECIALIZATION</label>
+                          <label style={{ color: 'var(--text-dim)', fontSize: '10px', display: 'block', marginBottom: '4px' }}>CSE SPECIALIZATION</label>
                           <select
                             value={bulkSpecialization}
                             onChange={e => setBulkSpecialization(e.target.value)}
-                            style={{ width: '100%', height: '36px', background: '#08111e', border: '1px solid var(--line)', borderRadius: '6px', color: '#edf7ff', padding: '0 8px', fontSize: '11px' }}
+                            style={{ width: '100%', height: '36px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 8px', fontSize: '11px' }}
                           >
                             {CSE_SPECIALIZATIONS.map(s => (
                               <option key={s} value={s}>{s}</option>
@@ -2226,7 +2226,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                   {parsedBulkStudents.length > 0 && (
                     <div style={{ marginBottom: '16px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <label style={{ color: '#9bb7cc', font: '600 11px "DM Mono", monospace' }}>
+                        <label style={{ color: 'var(--text-muted)', font: '600 11px "DM Mono", monospace' }}>
                           3. Batch Preview & Validation ({parsedBulkStudents.length} Students)
                         </label>
                         <span className={invalidBulkCount === 0 ? 'bulk-badge-valid' : 'bulk-badge-invalid'}>
@@ -2237,7 +2237,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                       <div className="bulk-preview-wrap">
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
                           <thead>
-                            <tr style={{ background: '#0a1626', color: '#85d7ff', borderBottom: '1px solid var(--line)', position: 'sticky', top: 0 }}>
+                            <tr style={{ background: 'var(--panel-subtle)', color: 'var(--brand-primary)', borderBottom: '1px solid var(--line)', position: 'sticky', top: 0 }}>
                               <th style={{ padding: '8px 10px', textAlign: 'left' }}>#</th>
                               <th style={{ padding: '8px 10px', textAlign: 'left' }}>NAME</th>
                               <th style={{ padding: '8px 10px', textAlign: 'left' }}>ROLL NO / MEMBER ID</th>
@@ -2247,16 +2247,16 @@ function MemberManagement({ user, logout, onNavigate }) {
                           </thead>
                           <tbody>
                             {parsedBulkStudents.map(s => (
-                              <tr key={s.index} style={{ borderBottom: '1px solid #142232', background: s.isValid ? 'transparent' : 'rgba(239, 68, 68, 0.08)' }}>
-                                <td style={{ padding: '6px 10px', color: '#688296' }}>{s.index}</td>
-                                <td style={{ padding: '6px 10px', color: '#edf7ff', fontWeight: 500 }}>{s.name || '<Empty>'}</td>
-                                <td style={{ padding: '6px 10px', color: '#85d7ff', fontFamily: 'monospace' }}>{s.memberId || '<Empty>'}</td>
-                                <td style={{ padding: '6px 10px', color: '#9bb7cc', fontFamily: 'monospace' }}>{s.password ? '••••••••' : '<Empty>'}</td>
+                              <tr key={s.index} style={{ borderBottom: '1px solid var(--line)', background: s.isValid ? 'transparent' : 'rgba(239, 68, 68, 0.08)' }}>
+                                <td style={{ padding: '6px 10px', color: 'var(--text-dim)' }}>{s.index}</td>
+                                <td style={{ padding: '6px 10px', color: 'var(--text-main)', fontWeight: 500 }}>{s.name || '<Empty>'}</td>
+                                <td style={{ padding: '6px 10px', color: 'var(--brand-primary)', fontFamily: 'monospace' }}>{s.memberId || '<Empty>'}</td>
+                                <td style={{ padding: '6px 10px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{s.password ? '••••••••' : '<Empty>'}</td>
                                 <td style={{ padding: '6px 10px' }}>
                                   {s.isValid ? (
-                                    <span style={{ color: '#70ddb4', fontWeight: 600 }}>✓ Valid</span>
+                                    <span style={{ color: '#059669', fontWeight: 600 }}>✓ Valid</span>
                                   ) : (
-                                    <span style={{ color: '#fca5a5', fontWeight: 500 }}>⚠️ {s.errors.join(', ')}</span>
+                                    <span style={{ color: '#dc2626', fontWeight: 500 }}>⚠️ {s.errors.join(', ')}</span>
                                   )}
                                 </td>
                               </tr>
@@ -2301,7 +2301,7 @@ function MemberManagement({ user, logout, onNavigate }) {
 
             <div style={{ marginTop: '14px' }}>
               <input
-                style={{ width: '100%', height: '38px', padding: '0 12px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', fontSize: '11px' }}
+                style={{ width: '100%', height: '38px', padding: '0 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', fontSize: '11px' }}
                 placeholder="Search by Member ID, Name, Role, or Email..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
@@ -2362,15 +2362,15 @@ function MemberManagement({ user, logout, onNavigate }) {
                           <>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                               {m.profileImage ? (
-                                <img src={m.profileImage} alt={m.name} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #52bbf555' }} />
+                                <img src={m.profileImage} alt={m.name} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--brand-border-subtle)' }} />
                               ) : (
-                                <span style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#1c2e42', display: 'grid', placeItems: 'center', color: '#85d7ff', font: '700 10px Syne' }}>
+                                <span style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--panel-subtle)', display: 'grid', placeItems: 'center', color: 'var(--brand-primary)', font: '700 10px Syne' }}>
                                   {m.initials}
                                 </span>
                               )}
                               <div>
                                 <b>{m.name}</b>
-                                <small style={{ color: '#85d7ff', display: 'block' }}>{m.memberId}</small>
+                                <small style={{ color: 'var(--brand-primary)', display: 'block' }}>{m.memberId}</small>
                               </div>
                             </div>
                             <div>
@@ -2378,7 +2378,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                                 {m.isPrimaryAdmin ? '👑 PRESIDENT' : getRoleLabel(m.role)}
                               </span>
                               {m.twoFactorEnabled && (
-                                <span className="badge" style={{ background: '#0a3520', color: '#70ddb4', border: '1px solid #70ddb444', marginLeft: '6px', fontSize: '8px' }}>
+                                <span className="badge badge-active" style={{ marginLeft: '6px', fontSize: '8px' }}>
                                   🔒 2FA ON
                                 </span>
                               )}
@@ -2416,17 +2416,17 @@ function MemberManagement({ user, logout, onNavigate }) {
         {/* Reset Password Modal */}
         {resetModalUser && (
           <div className="photo-lightbox" onClick={() => { if (!resetSubmitting) setResetModalUser(null) }}>
-            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: '#0d1522', padding: '28px', borderRadius: '12px', border: '1px solid var(--line)', maxWidth: '440px', width: '100%' }}>
+            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-modal)', padding: '28px', borderRadius: '12px', border: '1px solid var(--line)', maxWidth: '440px', width: '100%' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <h3 style={{ margin: 0, font: '700 18px Syne', color: '#fff' }}>Reset Member Password</h3>
+                <h3 style={{ margin: 0, font: '700 18px Syne', color: 'var(--text-main)' }}>Reset Member Password</h3>
                 <button type="button" className="lightbox-close" onClick={() => setResetModalUser(null)} style={{ position: 'static' }}>✕</button>
               </div>
-              <p style={{ color: '#829bb0', fontSize: '12px', margin: '0 0 16px' }}>
-                Resetting password for: <b style={{ color: '#85d7ff' }}>{resetModalUser.name}</b> (<span style={{ color: '#70ddb4', fontFamily: 'DM Mono' }}>{resetModalUser.memberId}</span>)
+              <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '0 0 16px' }}>
+                Resetting password for: <b style={{ color: 'var(--brand-primary)' }}>{resetModalUser.name}</b> (<span style={{ color: '#059669', fontFamily: 'DM Mono' }}>{resetModalUser.memberId}</span>)
               </p>
 
               <form onSubmit={handleAdminResetPassword}>
-                <label style={{ display: 'block', fontSize: '11px', color: '#b4c7d5', marginBottom: '6px' }}>
+                <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>
                   New Password (12+ characters, uppercase, lowercase, number, symbol) *
                 </label>
                 <div style={{ position: 'relative', marginBottom: '12px' }}>
@@ -2437,12 +2437,12 @@ function MemberManagement({ user, logout, onNavigate }) {
                     placeholder="Enter or generate new password"
                     value={newPasswordInput}
                     onChange={e => setNewPasswordInput(e.target.value)}
-                    style={{ width: '100%', height: '42px', padding: '0 40px 0 12px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', fontSize: '13px', fontFamily: showResetPassword ? 'DM Mono, monospace' : 'inherit' }}
+                    style={{ width: '100%', height: '42px', padding: '0 40px 0 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', fontSize: '13px', fontFamily: showResetPassword ? 'DM Mono, monospace' : 'inherit' }}
                   />
                   <button
                     type="button"
                     onClick={() => setShowResetPassword(!showResetPassword)}
-                    style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: '#85d7ff', cursor: 'pointer', fontSize: '14px', padding: '4px' }}
+                    style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--brand-primary)', cursor: 'pointer', fontSize: '14px', padding: '4px' }}
                     title={showResetPassword ? 'Hide password' : 'Show password'}
                   >
                     {showResetPassword ? '🙈' : '👁️'}
@@ -2463,7 +2463,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                       type="button"
                       className="outline"
                       onClick={handleCopyResetPassword}
-                      style={{ fontSize: '11px', padding: '5px 10px', color: resetCopied ? '#70ddb4' : '#85d7ff', borderColor: resetCopied ? '#70ddb4' : 'var(--line)' }}
+                      style={{ fontSize: '11px', padding: '5px 10px', color: resetCopied ? '#059669' : 'var(--brand-primary)', borderColor: resetCopied ? '#059669' : 'var(--line)' }}
                     >
                       {resetCopied ? '✓ Copied!' : '📋 Copy'}
                     </button>
@@ -2488,13 +2488,13 @@ function MemberManagement({ user, logout, onNavigate }) {
         {/* Transfer Leadership Modal */}
         {transferModalOpen && (
           <div className="photo-lightbox" onClick={() => setTransferModalOpen(false)}>
-            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: '#0d1522', padding: '28px', borderRadius: '12px', border: '1px solid #ff980055', maxWidth: '460px' }}>
-              <h3 style={{ margin: '0 0 8px', font: '700 18px Syne', color: '#ffb74d' }}>Transfer Primary Leadership</h3>
-              <p style={{ color: '#829bb0', fontSize: '12px', margin: '0 0 16px' }}>
+            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-modal)', padding: '28px', borderRadius: '12px', border: '1px solid #f59e0b', maxWidth: '460px' }}>
+              <h3 style={{ margin: '0 0 8px', font: '700 18px Syne', color: '#d97706' }}>Transfer Primary Leadership</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '0 0 16px' }}>
                 Select the administrator who will become the new Primary President.
               </p>
               <form onSubmit={handleTransferLeadership}>
-                <label style={{ display: 'block', color: '#b4c7d5', fontSize: '11px', marginBottom: '6px' }}>
+                <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '11px', marginBottom: '6px' }}>
                   Select New Primary President
                   <select
                     className="member-select"
@@ -2509,14 +2509,14 @@ function MemberManagement({ user, logout, onNavigate }) {
                     ))}
                   </select>
                 </label>
-                <label style={{ display: 'block', color: '#b4c7d5', fontSize: '11px', marginBottom: '6px' }}>
+                <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '11px', marginBottom: '6px' }}>
                   Your 6-Digit Master Security PIN or Password
                   <input
                     required
                     placeholder="Enter Security PIN or Password"
                     value={transferAuthCode}
                     onChange={e => setTransferAuthCode(e.target.value)}
-                    style={{ width: '100%', height: '40px', padding: '0 12px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', marginBottom: '14px' }}
+                    style={{ width: '100%', height: '40px', padding: '0 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', marginBottom: '14px' }}
                   />
                 </label>
                 {transferError && <p className="member-form-error">{transferError}</p>}
@@ -2536,33 +2536,33 @@ function MemberManagement({ user, logout, onNavigate }) {
           <div className="photo-lightbox" onClick={() => setBulkResultModal(null)}>
             <div className="guest-modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '640px' }}>
               <button className="lightbox-close" onClick={() => setBulkResultModal(null)}>✕</button>
-              <h3 style={{ color: '#edf7ff', font: '700 20px Syne', margin: '0 0 8px' }}>
+              <h3 style={{ color: 'var(--text-main)', font: '700 20px Syne', margin: '0 0 8px' }}>
                 Batch Account Creation Results
               </h3>
-              <p style={{ color: '#7e95a7', fontSize: '12px', margin: '0 0 16px' }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '0 0 16px' }}>
                 {bulkResultModal.message}
               </p>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
-                <div style={{ background: '#071813', border: '1px solid #70ddb444', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
-                  <span style={{ color: '#70ddb4', fontSize: '24px', fontWeight: 700, display: 'block' }}>{bulkResultModal.successCount}</span>
-                  <small style={{ color: '#85d7ff', font: '600 10px "DM Mono", monospace' }}>SUCCESSFULLY CREATED</small>
+                <div style={{ background: 'var(--panel-subtle)', border: '1px solid rgba(5, 150, 105, 0.3)', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
+                  <span style={{ color: '#059669', fontSize: '24px', fontWeight: 700, display: 'block' }}>{bulkResultModal.successCount}</span>
+                  <small style={{ color: 'var(--brand-primary)', font: '600 10px "DM Mono", monospace' }}>SUCCESSFULLY CREATED</small>
                 </div>
-                <div style={{ background: bulkResultModal.failedCount > 0 ? '#220b0b' : '#0a1420', border: bulkResultModal.failedCount > 0 ? '1px solid #ef444455' : '1px solid var(--line)', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
-                  <span style={{ color: bulkResultModal.failedCount > 0 ? '#fca5a5' : '#688296', fontSize: '24px', fontWeight: 700, display: 'block' }}>{bulkResultModal.failedCount}</span>
-                  <small style={{ color: '#728da1', font: '600 10px "DM Mono", monospace' }}>FAILED / SKIPPED</small>
+                <div style={{ background: bulkResultModal.failedCount > 0 ? '#fee2e2' : 'var(--panel-subtle)', border: bulkResultModal.failedCount > 0 ? '1px solid #fca5a5' : '1px solid var(--line)', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
+                  <span style={{ color: bulkResultModal.failedCount > 0 ? '#b91c1c' : 'var(--text-dim)', fontSize: '24px', fontWeight: 700, display: 'block' }}>{bulkResultModal.failedCount}</span>
+                  <small style={{ color: 'var(--text-muted)', font: '600 10px "DM Mono", monospace' }}>FAILED / SKIPPED</small>
                 </div>
               </div>
 
               {bulkResultModal.failedItems && bulkResultModal.failedItems.length > 0 && (
                 <div style={{ marginBottom: '20px' }}>
-                  <label style={{ color: '#fca5a5', font: '600 11px "DM Mono", monospace', display: 'block', marginBottom: '6px' }}>
+                  <label style={{ color: '#b91c1c', font: '600 11px "DM Mono", monospace', display: 'block', marginBottom: '6px' }}>
                     FAILED STUDENT RECORDS ({bulkResultModal.failedItems.length})
                   </label>
-                  <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #ef444433', borderRadius: '6px', background: '#0a0d14' }}>
+                  <div style={{ maxHeight: '180px', overflowY: 'auto', border: '1px solid #fca5a5', borderRadius: '6px', background: 'var(--bg-input)' }}>
                     <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
                       <thead>
-                        <tr style={{ background: '#160d0d', color: '#fca5a5', borderBottom: '1px solid #ef444433' }}>
+                        <tr style={{ background: '#fee2e2', color: '#b91c1c', borderBottom: '1px solid #fca5a5' }}>
                           <th style={{ padding: '6px 10px', textAlign: 'left' }}>ROW</th>
                           <th style={{ padding: '6px 10px', textAlign: 'left' }}>ROLL NO / MEMBER ID</th>
                           <th style={{ padding: '6px 10px', textAlign: 'left' }}>NAME</th>
@@ -2571,11 +2571,11 @@ function MemberManagement({ user, logout, onNavigate }) {
                       </thead>
                       <tbody>
                         {bulkResultModal.failedItems.map((f, idx) => (
-                          <tr key={idx} style={{ borderBottom: '1px solid #1c1414' }}>
-                            <td style={{ padding: '6px 10px', color: '#85d7ff' }}>#{f.row}</td>
-                            <td style={{ padding: '6px 10px', color: '#edf7ff', fontFamily: 'monospace' }}>{f.memberId}</td>
-                            <td style={{ padding: '6px 10px', color: '#9bb7cc' }}>{f.name}</td>
-                            <td style={{ padding: '6px 10px', color: '#fca5a5' }}>{f.reason}</td>
+                          <tr key={idx} style={{ borderBottom: '1px solid var(--line)' }}>
+                            <td style={{ padding: '6px 10px', color: 'var(--brand-primary)' }}>#{f.row}</td>
+                            <td style={{ padding: '6px 10px', color: 'var(--text-main)', fontFamily: 'monospace' }}>{f.memberId}</td>
+                            <td style={{ padding: '6px 10px', color: 'var(--text-muted)' }}>{f.name}</td>
+                            <td style={{ padding: '6px 10px', color: '#b91c1c' }}>{f.reason}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -2658,17 +2658,17 @@ function UniversalProfileView({ user, logout, onNavigate, onProfileUpdated }) {
         <div className="member-management-grid">
           <article className="account-form-card" style={{ maxWidth: '640px' }}>
             <form onSubmit={handleSave}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '20px', padding: '14px', background: '#050a12', borderRadius: '10px', border: '1px solid var(--line)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '20px', padding: '14px', background: 'var(--panel-subtle)', borderRadius: '10px', border: '1px solid var(--line)' }}>
                 {photoPreview ? (
-                  <img src={photoPreview} alt="Profile" style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '2px solid #52bbf5' }} />
+                  <img src={photoPreview} alt="Profile" style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--brand-primary)' }} />
                 ) : (
                   <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'linear-gradient(135deg,#2488d8,#18447e)', display: 'grid', placeItems: 'center', color: '#fff', font: '700 24px Syne' }}>
                     {user.initials}
                   </div>
                 )}
                 <div>
-                  <b style={{ color: '#edf7ff', fontSize: '14px', display: 'block' }}>Profile Photo</b>
-                  <p style={{ color: '#7e95a7', fontSize: '11px', margin: '2px 0 10px' }}>Upload a JPEG or PNG photo</p>
+                  <b style={{ color: 'var(--text-main)', fontSize: '14px', display: 'block' }}>Profile Photo</b>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '11px', margin: '2px 0 10px' }}>Upload a JPEG or PNG photo</p>
                   <label className="action-btn edit-btn" style={{ cursor: 'pointer', display: 'inline-block' }}>
                     Upload New Image
                     <input
@@ -2974,32 +2974,32 @@ function SupportDeskView({ user, logout, onNavigate }) {
                       style={{
                         padding: '14px',
                         borderRadius: '10px',
-                        background: isSelected ? '#102235' : '#050a12',
-                        border: isSelected ? '1px solid #52bbf5' : '1px solid var(--line)',
+                        background: isSelected ? 'var(--brand-badge-bg)' : 'var(--panel-subtle)',
+                        border: isSelected ? '1px solid var(--brand-primary)' : '1px solid var(--line)',
                         cursor: 'pointer',
                         transition: 'border-color 0.15s ease',
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
                         <div>
-                          <span className="badge" style={{ background: '#1c2e42', color: '#ffb74d', border: '1px solid #ffb74d44', fontSize: '9px', marginRight: '6px' }}>
+                          <span className="badge" style={{ background: 'var(--brand-badge-bg)', color: 'var(--brand-badge-color)', border: '1px solid var(--brand-border-subtle)', fontSize: '9px', marginRight: '6px' }}>
                             @{t.taggedRole}
                           </span>
                           <span className={`badge badge-${t.status.toLowerCase()}`}>
                             {t.status}
                           </span>
                         </div>
-                        <small style={{ color: '#688296', font: '500 9px "DM Mono", monospace' }}>
+                        <small style={{ color: 'var(--text-dim)', font: '500 9px "DM Mono", monospace' }}>
                           {new Date(t.createdAt).toLocaleDateString()}
                         </small>
                       </div>
-                      <h4 style={{ margin: '8px 0 4px', font: '700 14px Syne', color: '#edf7ff' }}>{t.subject}</h4>
-                      <p style={{ color: '#8aa2b4', fontSize: '11px', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <h4 style={{ margin: '8px 0 4px', font: '700 14px Syne', color: 'var(--text-main)' }}>{t.subject}</h4>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '11px', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {t.message}
                       </p>
                       <div style={{ marginTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <small style={{ color: '#7e95a7' }}>From: {t.user?.profile?.name || t.user?.memberId}</small>
-                        <small style={{ color: '#85d7ff' }}>{t.replies?.length || 0} replies →</small>
+                        <small style={{ color: 'var(--text-dim)' }}>From: {t.user?.profile?.name || t.user?.memberId}</small>
+                        <small style={{ color: 'var(--brand-primary)' }}>{t.replies?.length || 0} replies →</small>
                       </div>
                     </div>
                   )
@@ -3015,15 +3015,15 @@ function SupportDeskView({ user, logout, onNavigate }) {
                 <div style={{ borderBottom: '1px solid var(--line)', paddingBottom: '14px', marginBottom: '14px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
                     <div>
-                      <span className="badge" style={{ background: '#1c2e42', color: '#ffb74d', border: '1px solid #ffb74d44', fontSize: '10px', marginRight: '8px' }}>
+                      <span className="badge" style={{ background: 'var(--brand-badge-bg)', color: 'var(--brand-badge-color)', border: '1px solid var(--brand-border-subtle)', fontSize: '10px', marginRight: '8px' }}>
                         TAGGED: @{selectedTicket.taggedRole}
                       </span>
                       <span className={`badge badge-${selectedTicket.status.toLowerCase()}`}>
                         {selectedTicket.status}
                       </span>
-                      <h3 style={{ margin: '8px 0 4px', font: '700 18px Syne', color: '#edf7ff' }}>{selectedTicket.subject}</h3>
-                      <small style={{ color: '#7e95a7' }}>
-                        Asked by: <b style={{ color: '#85d7ff' }}>{selectedTicket.user?.profile?.name || selectedTicket.user?.memberId}</b> on {new Date(selectedTicket.createdAt).toLocaleString()}
+                      <h3 style={{ margin: '8px 0 4px', font: '700 18px Syne', color: 'var(--text-main)' }}>{selectedTicket.subject}</h3>
+                      <small style={{ color: 'var(--text-dim)' }}>
+                        Asked by: <b style={{ color: 'var(--brand-primary)' }}>{selectedTicket.user?.profile?.name || selectedTicket.user?.memberId}</b> on {new Date(selectedTicket.createdAt).toLocaleString()}
                       </small>
                     </div>
                     {!isStudent && (
@@ -3040,7 +3040,7 @@ function SupportDeskView({ user, logout, onNavigate }) {
                       </div>
                     )}
                   </div>
-                  <p style={{ color: '#cbdfe9', fontSize: '13px', lineHeight: '1.6', margin: '12px 0 0', padding: '12px', background: '#050a12', borderRadius: '8px', border: '1px solid var(--line)' }}>
+                  <p style={{ color: 'var(--text-main)', fontSize: '13px', lineHeight: '1.6', margin: '12px 0 0', padding: '12px', background: 'var(--panel-subtle)', borderRadius: '8px', border: '1px solid var(--line)' }}>
                     {selectedTicket.message}
                   </p>
                 </div>
@@ -3062,22 +3062,22 @@ function SupportDeskView({ user, logout, onNavigate }) {
                             maxWidth: '85%',
                             padding: '12px 16px',
                             borderRadius: '12px',
-                            background: isMe ? '#163854' : '#081320',
-                            border: isReplierPresident ? '1px solid #ffb74d66' : isMe ? '1px solid #52bbf544' : '1px solid var(--line)',
+                            background: isMe ? 'var(--brand-badge-bg)' : 'var(--panel-elevated)',
+                            border: isReplierPresident ? '1px solid #f59e0b' : isMe ? '1px solid var(--brand-border-subtle)' : '1px solid var(--line)',
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                            <b style={{ color: isReplierPresident ? '#ffb74d' : '#85d7ff', fontSize: '11px' }}>
+                            <b style={{ color: isReplierPresident ? '#d97706' : 'var(--brand-primary)', fontSize: '11px' }}>
                               {isReplierPresident ? '👑 ' : ''}{r.user?.profile?.name || r.user?.name || r.user?.memberId}
                             </b>
                             <span className="badge" style={{ fontSize: '8px', padding: '2px 6px' }}>
                               {isReplierPresident ? 'PRESIDENT' : getRoleLabel(replierRole)}
                             </span>
-                            <small style={{ color: '#688296', fontSize: '9px', marginLeft: 'auto' }}>
+                            <small style={{ color: 'var(--text-dim)', fontSize: '9px', marginLeft: 'auto' }}>
                               {new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </small>
                           </div>
-                          <p style={{ color: '#edf7ff', fontSize: '12px', margin: 0, lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+                          <p style={{ color: 'var(--text-main)', fontSize: '12px', margin: 0, lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
                             {r.message}
                           </p>
                         </div>
@@ -3093,20 +3093,20 @@ function SupportDeskView({ user, logout, onNavigate }) {
                       placeholder={`Type response as ${user.name} (${getRoleLabel(user.role)})...`}
                       value={replyText}
                       onChange={e => setReplyText(e.target.value)}
-                      style={{ flex: 1, height: '42px', padding: '0 14px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
+                      style={{ flex: 1, height: '42px', padding: '0 14px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '12px' }}
                     />
                     <button className="primary" disabled={submittingReply || !replyText.trim()} style={{ minHeight: '42px', padding: '0 18px' }}>
                       {submittingReply ? 'SENDING…' : 'REPLY →'}
                     </button>
                   </form>
                 ) : (
-                  <div style={{ padding: '10px 14px', borderRadius: '8px', background: '#1c1515', border: '1px solid #f8717144', color: '#fca5a5', fontSize: '11px', textAlign: 'center' }}>
+                  <div style={{ padding: '10px 14px', borderRadius: '8px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#b91c1c', fontSize: '11px', textAlign: 'center' }}>
                     🔒 Role Restriction: Only members of <b>@{selectedTicket.taggedRole}</b> or the President are authorized to reply to this query.
                   </div>
                 )}
               </>
             ) : (
-              <div style={{ margin: 'auto', textAlign: 'center', color: '#7e95a7' }}>
+              <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-muted)' }}>
                 <p>Select any doubt inquiry from the left to view the thread and respond.</p>
               </div>
             )}
@@ -3116,17 +3116,17 @@ function SupportDeskView({ user, logout, onNavigate }) {
         {/* Ask a Doubt Modal (Student) */}
         {showCreateModal && (
           <div className="photo-lightbox" onClick={() => setShowCreateModal(false)}>
-            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: '#0d1522', padding: '28px', borderRadius: '14px', border: '1px solid var(--line)', maxWidth: '520px', width: '100%' }}>
+            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-modal)', padding: '28px', borderRadius: '14px', border: '1px solid var(--line)', maxWidth: '520px', width: '100%' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <div>
-                  <h3 style={{ margin: 0, font: '700 20px Syne', color: '#edf7ff' }}>Ask a Doubt / Query</h3>
-                  <small style={{ color: '#7e95a7' }}>Tag a specific club leadership council team</small>
+                  <h3 style={{ margin: 0, font: '700 20px Syne', color: 'var(--text-main)' }}>Ask a Doubt / Query</h3>
+                  <small style={{ color: 'var(--text-muted)' }}>Tag a specific club leadership council team</small>
                 </div>
                 <button className="lightbox-close" onClick={() => setShowCreateModal(false)} style={{ position: 'static' }}>✕</button>
               </div>
 
               <form onSubmit={handleCreateTicket}>
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#b4c7d5', marginBottom: '6px' }}>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px' }}>
                   Tag Club Council Role *
                   <select
                     className="member-select"
@@ -3146,25 +3146,25 @@ function SupportDeskView({ user, logout, onNavigate }) {
                   </select>
                 </label>
 
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#b4c7d5', marginBottom: '6px' }}>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px' }}>
                   Subject / Question Topic *
                   <input
                     required
                     placeholder="e.g. Query regarding upcoming Wireshark lab requirements"
                     value={newSubject}
                     onChange={e => setNewSubject(e.target.value)}
-                    style={{ width: '100%', height: '40px', padding: '0 12px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', marginBottom: '14px' }}
+                    style={{ width: '100%', height: '40px', padding: '0 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', marginBottom: '14px' }}
                   />
                 </label>
 
-                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#b4c7d5', marginBottom: '6px' }}>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px' }}>
                   Description / Details *
                   <textarea
                     required
                     placeholder="Explain your doubt in detail..."
                     value={newMessage}
                     onChange={e => setNewMessage(e.target.value)}
-                    style={{ width: '100%', height: '90px', padding: '10px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', marginBottom: '16px', resize: 'none' }}
+                    style={{ width: '100%', height: '90px', padding: '10px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', marginBottom: '16px', resize: 'none' }}
                   />
                 </label>
 
@@ -3398,7 +3398,7 @@ function SubscriptionManagement({ user, logout, onNavigate }) {
               ))}
             </div>
             <input
-              style={{ height: '36px', padding: '0 12px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', fontSize: '11px', minWidth: '240px' }}
+              style={{ height: '36px', padding: '0 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', fontSize: '11px', minWidth: '240px' }}
               placeholder="Search by ID, Name, or UTR Ref..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
@@ -3424,15 +3424,15 @@ function SubscriptionManagement({ user, logout, onNavigate }) {
                   <div className="sub-table-row" key={sub.id}>
                     <div>
                       <b>{sub.name}</b>
-                      <small style={{ color: '#85d7ff', display: 'block' }}>{sub.memberId}</small>
+                      <small style={{ color: 'var(--brand-primary)', display: 'block' }}>{sub.memberId}</small>
                     </div>
                     <div>
-                      <strong style={{ color: '#70ddb4' }}>₹{sub.amount.toFixed(2)}</strong>
-                      <small style={{ color: '#8aa2b4', display: 'block' }}>Ref: {sub.transactionRef}</small>
+                      <strong style={{ color: '#059669' }}>₹{sub.amount.toFixed(2)}</strong>
+                      <small style={{ color: 'var(--text-muted)', display: 'block' }}>Ref: {sub.transactionRef}</small>
                     </div>
                     <div>
                       <small>{new Date(sub.submittedAt).toLocaleDateString()}</small>
-                      <small style={{ color: '#688296', display: 'block' }}>{new Date(sub.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+                      <small style={{ color: 'var(--text-dim)', display: 'block' }}>{new Date(sub.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
                     </div>
                     <div>
                       {sub.receiptImage ? (
@@ -3444,7 +3444,7 @@ function SubscriptionManagement({ user, logout, onNavigate }) {
                           title="Click to view full receipt"
                         />
                       ) : (
-                        <small style={{ color: '#5e7485' }}>No receipt</small>
+                        <small style={{ color: 'var(--text-dim)' }}>No receipt</small>
                       )}
                     </div>
                     <div>
@@ -3452,12 +3452,12 @@ function SubscriptionManagement({ user, logout, onNavigate }) {
                         {sub.status}
                       </span>
                       {sub.expiresAt && sub.status === 'ACTIVE' && (
-                        <small style={{ display: 'block', marginTop: '3px', color: '#85d7ff' }}>
+                        <small style={{ display: 'block', marginTop: '3px', color: 'var(--brand-primary)' }}>
                           Expires: {new Date(sub.expiresAt).toLocaleDateString()}
                         </small>
                       )}
                       {sub.rejectionReason && sub.status === 'REJECTED' && (
-                        <small style={{ display: 'block', marginTop: '3px', color: '#ff9898' }}>
+                        <small style={{ display: 'block', marginTop: '3px', color: '#b91c1c' }}>
                           {sub.rejectionReason}
                         </small>
                       )}
@@ -3479,10 +3479,10 @@ function SubscriptionManagement({ user, logout, onNavigate }) {
                         </button>
                       )}
                       {sub.status === 'ACTIVE' && (
-                        <small style={{ color: '#70ddb4' }}>Verified by {sub.verifiedBy}</small>
+                        <small style={{ color: '#059669' }}>Verified by {sub.verifiedBy}</small>
                       )}
                       {sub.status === 'EXPIRED' && (
-                        <small style={{ color: '#8aa2b4' }}>Expired on {new Date(sub.expiresAt).toLocaleDateString()}</small>
+                        <small style={{ color: 'var(--text-muted)' }}>Expired on {new Date(sub.expiresAt).toLocaleDateString()}</small>
                       )}
                     </div>
                   </div>
@@ -3495,9 +3495,9 @@ function SubscriptionManagement({ user, logout, onNavigate }) {
         {/* Receipt Image Lightbox Modal */}
         {viewingReceipt && (
           <div className="photo-lightbox" onClick={() => setViewingReceipt(null)}>
-            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', background: '#0b131e', padding: '20px', borderRadius: '12px', border: '1px solid var(--line)' }}>
+            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', background: 'var(--bg-modal)', padding: '20px', borderRadius: '12px', border: '1px solid var(--line)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <b style={{ color: '#85d7ff', fontSize: '13px' }}>PAYMENT RECEIPT PROOF</b>
+                <b style={{ color: 'var(--brand-primary)', fontSize: '13px' }}>PAYMENT RECEIPT PROOF</b>
                 <button className="lightbox-close" onClick={() => setViewingReceipt(null)} style={{ position: 'static' }}>✕</button>
               </div>
               <img src={viewingReceipt} alt="Receipt Full" style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '8px' }} />
@@ -3508,16 +3508,16 @@ function SubscriptionManagement({ user, logout, onNavigate }) {
         {/* Rejection Modal */}
         {rejectingSub && (
           <div className="photo-lightbox" onClick={() => setRejectingSub(null)}>
-            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: '#0d1522', padding: '28px', borderRadius: '12px', border: '1px solid #f8717155', maxWidth: '420px' }}>
-              <h3 style={{ margin: '0 0 8px', font: '700 18px Syne', color: '#f87171' }}>Reject Payment</h3>
-              <p style={{ color: '#829bb0', fontSize: '12px', margin: '0 0 16px' }}>
-                Reject payment for: <b style={{ color: '#fff' }}>{rejectingSub.name} ({rejectingSub.memberId})</b>
+            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-modal)', padding: '28px', borderRadius: '12px', border: '1px solid #f8717155', maxWidth: '420px' }}>
+              <h3 style={{ margin: '0 0 8px', font: '700 18px Syne', color: '#dc2626' }}>Reject Payment</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '0 0 16px' }}>
+                Reject payment for: <b style={{ color: 'var(--text-main)' }}>{rejectingSub.name} ({rejectingSub.memberId})</b>
               </p>
               <textarea
                 placeholder="Reason for rejection (e.g. Invalid UTR reference ID / Screenshot unreadable)"
                 value={rejectionReason}
                 onChange={e => setRejectionReason(e.target.value)}
-                style={{ width: '100%', height: '80px', padding: '10px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', marginBottom: '14px', resize: 'none' }}
+                style={{ width: '100%', height: '80px', padding: '10px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', marginBottom: '14px', resize: 'none' }}
               />
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                 <button type="button" className="action-btn cancel-btn" onClick={() => setRejectingSub(null)}>Cancel</button>
@@ -3647,14 +3647,14 @@ function StudentMembership({ user, logout, onNavigate }) {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
                   <div>
                     <span className="badge badge-active" style={{ marginBottom: '8px' }}>{isMrdu ? '✓ ACTIVE STUDENT PASS' : '✓ ACTIVE MEMBERSHIP'}</span>
-                    <h2 style={{ font: '700 24px Syne', color: '#edf7ff', margin: '4px 0' }}>{isMrdu ? 'You have an Active Student Pass' : 'You are an Active Member'}</h2>
-                    <p style={{ color: '#9bb7cc', fontSize: '13px', margin: '4px 0' }}>
-                      Your {isMrdu ? 'event pass' : 'membership'} is active and valid until <b style={{ color: '#85d7ff' }}>{new Date(activeSub.expiresAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })} at 23:59</b>.
+                    <h2 style={{ font: '700 24px Syne', color: 'var(--text-main)', margin: '4px 0' }}>{isMrdu ? 'You have an Active Student Pass' : 'You are an Active Member'}</h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '4px 0' }}>
+                      Your {isMrdu ? 'event pass' : 'membership'} is active and valid until <b style={{ color: 'var(--brand-primary)' }}>{new Date(activeSub.expiresAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })} at 23:59</b>.
                     </p>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <small style={{ color: '#6f8da1', font: '500 9px "DM Mono", monospace' }}>SUBSCRIPTION FEE</small>
-                    <div style={{ font: '700 22px Syne', color: '#70ddb4' }}>₹{Number(activeSub.amount).toFixed(2)}</div>
+                    <small style={{ color: 'var(--text-dim)', font: '500 9px "DM Mono", monospace' }}>SUBSCRIPTION FEE</small>
+                    <div style={{ font: '700 22px Syne', color: '#059669' }}>₹{Number(activeSub.amount).toFixed(2)}</div>
                   </div>
                 </div>
 
@@ -3666,18 +3666,18 @@ function StudentMembership({ user, logout, onNavigate }) {
                 </div>
               </div>
             ) : pendingSub ? (
-              <div className="membership-status-box" style={{ borderColor: '#ffc10744', background: 'radial-gradient(circle at 100% 0, #78350f22, transparent 60%), #0c1522' }}>
+              <div className="membership-status-box" style={{ borderColor: '#f59e0b55', background: 'radial-gradient(circle at 100% 0, rgba(245, 158, 11, 0.08), transparent 60%), var(--bg-card)' }}>
                 <span className="badge badge-pending" style={{ marginBottom: '8px' }}>⏳ VERIFICATION PENDING</span>
-                <h2 style={{ font: '700 22px Syne', color: '#ffd54f', margin: '4px 0 8px' }}>Payment Verification in Progress</h2>
-                <p style={{ color: '#9bb7cc', fontSize: '13px', margin: '0 0 14px' }}>
-                  Your UPI subscription payment of <b style={{ color: '#fff' }}>₹{Number(pendingSub.amount).toFixed(2)}</b> (Ref: {pendingSub.transactionRef}) was submitted on {new Date(pendingSub.submittedAt).toLocaleDateString()}. An administrator will verify and activate your membership shortly.
+                <h2 style={{ font: '700 22px Syne', color: '#d97706', margin: '4px 0 8px' }}>Payment Verification in Progress</h2>
+                <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '0 0 14px' }}>
+                  Your UPI subscription payment of <b style={{ color: 'var(--text-main)' }}>₹{Number(pendingSub.amount).toFixed(2)}</b> (Ref: {pendingSub.transactionRef}) was submitted on {new Date(pendingSub.submittedAt).toLocaleDateString()}. An administrator will verify and activate your membership shortly.
                 </p>
               </div>
             ) : (
               <div className="membership-status-box inactive-box">
                 <span className="badge badge-disabled" style={{ marginBottom: '8px' }}>✕ MEMBERSHIP INACTIVE</span>
-                <h2 style={{ font: '700 24px Syne', color: '#edf7ff', margin: '4px 0 8px' }}>Your membership is inactive.</h2>
-                <p style={{ color: '#9bb7cc', fontSize: '13px', margin: '0 0 16px' }}>
+                <h2 style={{ font: '700 24px Syne', color: 'var(--text-main)', margin: '4px 0 8px' }}>Your membership is inactive.</h2>
+                <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '0 0 16px' }}>
                   Subscribe via UPI to unlock official event passes, technical support, and member-only club activities.
                 </p>
                 <div className="membership-benefits-list">
@@ -3693,8 +3693,8 @@ function StudentMembership({ user, logout, onNavigate }) {
               <article className="account-form-card">
                 <p className="eyebrow">UPI PAYMENT GATEWAY</p>
                 <h2>Submit UPI Membership Fee</h2>
-                <p style={{ color: '#7e95a7', fontSize: '12px', margin: '4px 0 18px' }}>
-                  Monthly Membership Fee: <b style={{ color: '#70ddb4', fontSize: '16px' }}>₹{subStatus.monthlyAmount || 100}</b>
+                <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '4px 0 18px' }}>
+                  Monthly Membership Fee: <b style={{ color: '#059669', fontSize: '16px' }}>₹{subStatus.monthlyAmount || 100}</b>
                 </p>
 
                 <form onSubmit={handleSubmitPayment}>
@@ -3745,13 +3745,13 @@ function StudentMembership({ user, logout, onNavigate }) {
                   {subStatus.qrUrl ? (
                     <img src={subStatus.qrUrl} alt="Club Official QR Code" />
                   ) : (
-                    <div style={{ width: '180px', height: '180px', background: '#0a1522', border: '1px dashed #52bbf555', borderRadius: '8px', display: 'grid', placeContent: 'center', color: '#6f8da1', fontSize: '11px' }}>
+                    <div style={{ width: '180px', height: '180px', background: 'var(--panel-subtle)', border: '1px dashed var(--brand-border-subtle)', borderRadius: '8px', display: 'grid', placeContent: 'center', color: 'var(--text-muted)', fontSize: '11px' }}>
                       UPI QR Code
                     </div>
                   )}
                   {subStatus.upiId && (
                     <div style={{ marginTop: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <code style={{ color: '#85d7ff', background: '#050a12', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', border: '1px solid var(--line)' }}>
+                      <code style={{ color: 'var(--brand-primary)', background: 'var(--bg-input)', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', border: '1px solid var(--line)' }}>
                         {subStatus.upiId}
                       </code>
                       <button type="button" className="action-btn edit-btn" onClick={copyUpiId}>
@@ -3760,7 +3760,7 @@ function StudentMembership({ user, logout, onNavigate }) {
                     </div>
                   )}
                 </div>
-                <small style={{ color: '#72879a', fontSize: '11px', display: 'block' }}>
+                <small style={{ color: 'var(--text-muted)', fontSize: '11px', display: 'block' }}>
                   Pay via Google Pay, PhonePe, Paytm, or BHIM, then enter the transaction ID.
                 </small>
               </article>
@@ -4272,7 +4272,7 @@ function EventManagement({ user, logout, onNavigate }) {
                       placeholder="Detailed event scope and outcomes..."
                       value={formData.description}
                       onChange={e => updateFormField('description', e.target.value)}
-                      style={{ width: '100%', padding: '10px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', fontSize: '11px' }}
+                      style={{ width: '100%', padding: '10px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', fontSize: '11px' }}
                     />
                   </label>
                   <label className="form-wide">
@@ -4283,7 +4283,7 @@ function EventManagement({ user, logout, onNavigate }) {
                       placeholder="Requirements (e.g. Kali Linux VM installed, laptop required)..."
                       value={formData.rules}
                       onChange={e => updateFormField('rules', e.target.value)}
-                      style={{ width: '100%', padding: '10px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', fontSize: '11px' }}
+                      style={{ width: '100%', padding: '10px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', fontSize: '11px' }}
                     />
                   </label>
                   <div className="form-wide" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
@@ -4321,13 +4321,13 @@ function EventManagement({ user, logout, onNavigate }) {
                   </div>
 
                   {/* Multi-Track Custom Activities List */}
-                  <div style={{ background: '#050a12', border: '1px solid var(--line)', borderRadius: '8px', padding: '14px', marginBottom: '14px' }}>
+                  <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '8px', padding: '14px', marginBottom: '14px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <b style={{ color: '#85d7ff', fontSize: '12px' }}>Event Activities & Add-on Tracks</b>
+                      <b style={{ color: 'var(--brand-primary)', fontSize: '12px' }}>Event Activities & Add-on Tracks</b>
                       <button type="button" className="action-btn save-btn" onClick={addActivity}>＋ Add Activity Track</button>
                     </div>
                     {activities.length === 0 ? (
-                      <p style={{ color: '#7e95a7', fontSize: '12px', margin: '8px 0' }}>No separate sub-activities added. Event will use standard single registration.</p>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '8px 0' }}>No separate sub-activities added. Event will use standard single registration.</p>
                     ) : (
                       activities.map((act, idx) => (
                         <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
@@ -4350,13 +4350,13 @@ function EventManagement({ user, logout, onNavigate }) {
               {/* Tab 4: Dynamic Custom Registration Form Builder */}
               {activeTab === 'fields' && (
                 <div>
-                  <div style={{ background: '#050a12', border: '1px solid var(--line)', borderRadius: '8px', padding: '14px', marginBottom: '14px' }}>
+                  <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '8px', padding: '14px', marginBottom: '14px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <b style={{ color: '#85d7ff', fontSize: '12px' }}>Custom Registration Questions</b>
+                      <b style={{ color: 'var(--brand-primary)', fontSize: '12px' }}>Custom Registration Questions</b>
                       <button type="button" className="action-btn save-btn" onClick={addCustomField}>＋ Add Question</button>
                     </div>
                     {formFields.length === 0 ? (
-                      <p style={{ color: '#7e95a7', fontSize: '12px', margin: '8px 0' }}>No custom questions added. Default member fields (Name, Member ID, Email) will be used.</p>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '8px 0' }}>No custom questions added. Default member fields (Name, Member ID, Email) will be used.</p>
                     ) : (
                       formFields.map((ff, i) => (
                         <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto auto', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
@@ -4463,11 +4463,11 @@ function EventManagement({ user, logout, onNavigate }) {
         {/* Analytics & Passes Modal */}
         {analyticsModalEvent && (
           <div className="photo-lightbox" onClick={() => setAnalyticsModalEvent(null)}>
-            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: '#0d1522', padding: '28px', borderRadius: '12px', border: '1px solid var(--line)', maxWidth: '720px', maxHeight: '85vh', overflowY: 'auto' }}>
+            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-modal)', padding: '28px', borderRadius: '12px', border: '1px solid var(--line)', maxWidth: '720px', maxHeight: '85vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
                 <div>
-                  <b style={{ color: '#85d7ff', fontSize: '16px' }}>{analyticsModalEvent.title}</b>
-                  <small style={{ display: 'block', color: '#7e95a7' }}>Registration & Attendee Roster</small>
+                  <b style={{ color: 'var(--brand-primary)', fontSize: '16px' }}>{analyticsModalEvent.title}</b>
+                  <small style={{ display: 'block', color: 'var(--text-muted)' }}>Registration & Attendee Roster</small>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <button
@@ -4501,7 +4501,7 @@ function EventManagement({ user, logout, onNavigate }) {
                       <div className="table-row" key={r.id}>
                         <div>
                           <b>{r.user?.profile?.name || r.user?.memberId}</b>
-                          <small style={{ color: '#85d7ff', display: 'block' }}>{r.user?.memberId}</small>
+                          <small style={{ color: 'var(--brand-primary)', display: 'block' }}>{r.user?.memberId}</small>
                         </div>
                         <div>
                           <small>{new Date(r.registeredAt).toLocaleString()}</small>
@@ -4510,7 +4510,7 @@ function EventManagement({ user, logout, onNavigate }) {
                           <span className="badge badge-registered">{r.status}</span>
                         </div>
                         <div>
-                          <strong style={{ color: '#70ddb4' }}>{r.paymentStatus}</strong>
+                          <strong style={{ color: '#059669' }}>{r.paymentStatus}</strong>
                         </div>
                       </div>
                     ))}
@@ -4644,20 +4644,20 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
 
             <div className="event-info-box">
               <span className="badge badge-president">{event.eventType}</span>
-              <h1 style={{ font: '700 clamp(24px, 3vw, 36px) Syne', color: '#edf7ff', margin: '12px 0 8px' }}>{event.title}</h1>
-              <p style={{ color: '#9bb7cc', fontSize: '14px', lineHeight: '1.7' }}>{event.description || event.shortDescription}</p>
+              <h1 style={{ font: '700 clamp(24px, 3vw, 36px) Syne', color: 'var(--text-main)', margin: '12px 0 8px' }}>{event.title}</h1>
+              <p style={{ color: 'var(--text-muted)', fontSize: '14px', lineHeight: '1.7' }}>{event.description || event.shortDescription}</p>
 
               {event.agenda && (
                 <div style={{ marginTop: '24px' }}>
-                  <b style={{ color: '#85d7ff', fontSize: '13px' }}>AGENDA & SCHEDULE</b>
-                  <pre style={{ color: '#cbdfe9', font: '12px Manrope', whiteSpace: 'pre-wrap', marginTop: '8px' }}>{event.agenda}</pre>
+                  <b style={{ color: 'var(--brand-primary)', fontSize: '13px' }}>AGENDA & SCHEDULE</b>
+                  <pre style={{ color: 'var(--text-main)', font: '12px Manrope', whiteSpace: 'pre-wrap', marginTop: '8px' }}>{event.agenda}</pre>
                 </div>
               )}
 
               {event.rules && (
                 <div style={{ marginTop: '24px' }}>
-                  <b style={{ color: '#85d7ff', fontSize: '13px' }}>RULES & ETHICS</b>
-                  <pre style={{ color: '#cbdfe9', font: '12px Manrope', whiteSpace: 'pre-wrap', marginTop: '8px' }}>{event.rules}</pre>
+                  <b style={{ color: 'var(--brand-primary)', fontSize: '13px' }}>RULES & ETHICS</b>
+                  <pre style={{ color: 'var(--text-main)', font: '12px Manrope', whiteSpace: 'pre-wrap', marginTop: '8px' }}>{event.rules}</pre>
                 </div>
               )}
             </div>
@@ -4669,14 +4669,14 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
               <p className="eyebrow">REGISTRATION PASS</p>
               <h2>{event.isRegistered ? 'Registration Confirmed' : 'Reserve Your Slot'}</h2>
 
-              <div style={{ margin: '14px 0', padding: '12px', background: '#050a12', borderRadius: '8px', border: '1px solid var(--line)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#829bb0', marginBottom: '6px' }}>
+              <div style={{ margin: '14px 0', padding: '12px', background: 'var(--panel-subtle)', borderRadius: '8px', border: '1px solid var(--line)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>
                   <span>Date & Time:</span>
-                  <b style={{ color: '#fff' }}>{new Date(event.dateTime).toLocaleDateString()}</b>
+                  <b style={{ color: 'var(--text-main)' }}>{new Date(event.dateTime).toLocaleDateString()}</b>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#829bb0', marginBottom: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>
                   <span>Venue:</span>
-                  <b style={{ color: '#fff' }}>{event.venue || event.location || 'Campus'}</b>
+                  <b style={{ color: 'var(--text-main)' }}>{event.venue || event.location || 'Campus'}</b>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#829bb0' }}>
                   <span>Coordinator:</span>
@@ -4731,9 +4731,9 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                         </div>
                       )}
 
-                      <label style={{ display: 'block', fontSize: '11px', color: '#b4c7d5', marginBottom: '6px' }}>
+                      <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>
                         Transaction / UTR Reference ID
-                        <input name="paymentReference" required placeholder="UPI Reference or Bank Txn ID" style={{ width: '100%', height: '38px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', padding: '0 10px', marginTop: '4px' }} />
+                        <input name="paymentReference" required placeholder="UPI Reference or Bank Txn ID" style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', marginTop: '4px' }} />
                       </label>
                     </div>
                   )}
@@ -4980,10 +4980,10 @@ function GalleryLightbox({ photos = [], activePhoto, onClose, onSelectPhoto, onD
         {/* Caption, Date & Admin Actions */}
         <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', padding: '0 6px' }}>
           <div>
-            <p style={{ color: '#edf7ff', margin: 0, fontSize: '13px', fontWeight: 600 }}>
+            <p style={{ color: 'var(--text-main)', margin: 0, fontSize: '13px', fontWeight: 600 }}>
               {currentPhoto.caption || albumName || 'Club Gallery Photo'}
             </p>
-            <small style={{ color: '#85d7ff', fontSize: '10px' }}>
+            <small style={{ color: 'var(--brand-primary)', fontSize: '10px' }}>
               {currentPhoto.createdAt ? new Date(currentPhoto.createdAt).toLocaleDateString() : ''}
             </small>
           </div>
@@ -5697,9 +5697,9 @@ function TeamManagement({ user, logout, onNavigate }) {
                     ) : (
                       <div className="leader-photo-placeholder">{l.name.slice(0, 2).toUpperCase()}</div>
                     )}
-                    <b style={{ color: '#edf7ff', fontSize: '15px' }}>{l.name}</b>
-                    <small style={{ color: '#85d7ff', font: '600 10px "DM Mono", monospace', margin: '4px 0' }}>{l.roleTitle}</small>
-                    <p style={{ color: '#7e95a7', fontSize: '11px', margin: '6px 0 12px' }}>{l.bio || 'No bio provided.'}</p>
+                    <b style={{ color: 'var(--text-main)', fontSize: '15px' }}>{l.name}</b>
+                    <small style={{ color: 'var(--brand-primary)', font: '600 10px "DM Mono", monospace', margin: '4px 0' }}>{l.roleTitle}</small>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '11px', margin: '6px 0 12px' }}>{l.bio || 'No bio provided.'}</p>
 
                     <div className="leader-card-actions">
                       <button
@@ -5732,11 +5732,11 @@ function TeamManagement({ user, logout, onNavigate }) {
           <div className="photo-lightbox" onClick={() => setEditingMember(null)}>
             <div className="guest-modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '580px' }}>
               <button className="lightbox-close" onClick={() => setEditingMember(null)}>✕</button>
-              <p className="eyebrow" style={{ color: '#52bbf5' }}>UPDATE COUNCIL PROFILE</p>
-              <h3 style={{ color: '#edf7ff', font: '700 20px Syne', margin: '4px 0 8px' }}>
+              <p className="eyebrow">UPDATE COUNCIL PROFILE</p>
+              <h3 style={{ color: 'var(--text-main)', font: '700 20px Syne', margin: '4px 0 8px' }}>
                 Edit Leader Profile: {editingMember.name}
               </h3>
-              <p style={{ color: '#7e95a7', fontSize: '11px', margin: '0 0 16px' }}>
+              <p style={{ color: 'var(--text-muted)', fontSize: '11px', margin: '0 0 16px' }}>
                 Changes will immediately update across the website and in the onboarding briefing slideshow.
               </p>
 
@@ -6501,12 +6501,12 @@ function StudentGallery({ user, logout, onNavigate }) {
                     </div>
                     {p.caption && (
                       <div className="album-details">
-                        <p style={{ color: '#edf7ff', fontWeight: 500 }}>{p.caption}</p>
+                        <p style={{ color: 'var(--text-main)', fontWeight: 500 }}>{p.caption}</p>
                       </div>
                     )}
                     <div style={{ padding: '6px 12px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <small style={{ color: '#688296', fontSize: '10px' }}>{new Date(p.createdAt).toLocaleDateString()}</small>
-                      <small style={{ color: '#85d7ff', fontSize: '10px' }}>🔍 Expand</small>
+                      <small style={{ color: 'var(--text-dim)', fontSize: '10px' }}>{new Date(p.createdAt).toLocaleDateString()}</small>
+                      <small style={{ color: 'var(--brand-primary)', fontSize: '10px' }}>🔍 Expand</small>
                     </div>
                   </div>
                 ))}
@@ -6553,8 +6553,8 @@ function StudentGallery({ user, logout, onNavigate }) {
                       <p>{a.description || (isMrdu ? 'MRDU event photo highlights' : 'Club photo highlights')}</p>
                     </div>
                     <div style={{ padding: '8px 14px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <small style={{ color: '#85d7ff', fontWeight: 600 }}>Open Album →</small>
-                      <small style={{ color: '#688296' }}>{a.photos?.length || 0} photos</small>
+                      <small style={{ color: 'var(--brand-primary)', fontWeight: 600 }}>Open Album →</small>
+                      <small style={{ color: 'var(--text-dim)' }}>{a.photos?.length || 0} photos</small>
                     </div>
                   </div>
                 ))}
@@ -6656,9 +6656,9 @@ function OurTeamShowcase({ user, logout, onNavigate }) {
                 ) : (
                   <div className="leader-photo-placeholder">{l.name.slice(0, 2).toUpperCase()}</div>
                 )}
-                <b style={{ color: '#edf7ff', fontSize: '15px' }}>{l.name}</b>
-                <small style={{ color: '#85d7ff', font: '600 10px "DM Mono", monospace', margin: '4px 0' }}>{l.roleTitle}</small>
-                <p style={{ color: '#7e95a7', fontSize: '11px', margin: '6px 0 12px' }}>{l.bio}</p>
+                <b style={{ color: 'var(--text-main)', fontSize: '15px' }}>{l.name}</b>
+                <small style={{ color: 'var(--brand-primary)', font: '600 10px "DM Mono", monospace', margin: '4px 0' }}>{l.roleTitle}</small>
+                <p style={{ color: 'var(--text-muted)', fontSize: '11px', margin: '6px 0 12px' }}>{l.bio}</p>
                 <div className="leader-socials">
                   {l.linkedinUrl && <a className="social-pill" href={l.linkedinUrl} target="_blank" rel="noreferrer">LinkedIn</a>}
                   {l.githubUrl && <a className="social-pill" href={l.githubUrl} target="_blank" rel="noreferrer">GitHub</a>}
@@ -7174,7 +7174,7 @@ function AuditLogView({ user, logout, onNavigate }) {
               >
                 <span>{c.icon}</span>
                 <span>{c.label}</span>
-                <small style={{ color: categoryFilter === c.id ? '#edf7ff' : '#688296' }}>({count})</small>
+                <small style={{ color: categoryFilter === c.id ? 'var(--brand-primary)' : 'var(--text-dim)' }}>({count})</small>
               </button>
             )
           })}
@@ -7183,7 +7183,7 @@ function AuditLogView({ user, logout, onNavigate }) {
         {/* Search Bar */}
         <div style={{ marginBottom: '16px' }}>
           <input
-            style={{ width: '100%', height: '38px', padding: '0 14px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', fontSize: '11px' }}
+            style={{ width: '100%', height: '38px', padding: '0 14px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', fontSize: '11px' }}
             placeholder="Search by Member ID, Name, Role, Action, or Changes..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
@@ -7217,12 +7217,12 @@ function AuditLogView({ user, logout, onNavigate }) {
                   return (
                     <div className="audit-table-row" key={entry.id}>
                       <div>
-                        <span style={{ color: '#85d7ff', fontWeight: 700, fontFamily: 'DM Mono', fontSize: '12px' }}>
+                        <span style={{ color: 'var(--brand-primary)', fontWeight: 700, fontFamily: 'DM Mono', fontSize: '12px' }}>
                           {actorMemberId}
                         </span>
                       </div>
                       <div>
-                        <b style={{ color: '#edf7ff', fontSize: '13px', display: 'block' }}>
+                        <b style={{ color: 'var(--text-main)', fontSize: '13px', display: 'block' }}>
                           {actorName}
                         </b>
                       </div>
@@ -7236,16 +7236,16 @@ function AuditLogView({ user, logout, onNavigate }) {
                           <b style={{ color: badge.color, fontSize: '11px', letterSpacing: '0.04em' }}>
                             {entry.action.replaceAll('_', ' ')}
                           </b>
-                          <span style={{ color: '#c5d8e8', fontSize: '11px', lineHeight: 1.4 }}>
+                          <span style={{ color: 'var(--text-muted)', fontSize: '11px', lineHeight: 1.4 }}>
                             {summary}
                           </span>
                         </div>
                       </div>
                       <div>
-                        <small style={{ color: '#edf7ff', display: 'block', fontSize: '11px' }}>
+                        <small style={{ color: 'var(--text-main)', display: 'block', fontSize: '11px' }}>
                           {new Date(entry.createdAt).toLocaleDateString()}
                         </small>
-                        <small style={{ color: '#85d7ff', display: 'block', fontWeight: 600, fontSize: '11px', fontFamily: 'DM Mono' }}>
+                        <small style={{ color: 'var(--brand-primary)', display: 'block', fontWeight: 600, fontSize: '11px', fontFamily: 'DM Mono' }}>
                           {new Date(entry.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                         </small>
                       </div>
@@ -7270,17 +7270,17 @@ function AuditLogView({ user, logout, onNavigate }) {
         {/* Clear Audit Confirmation Modal */}
         {clearModalOpen && (
           <div className="photo-lightbox" onClick={() => setClearModalOpen(false)}>
-            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: '#0d1522', padding: '28px', borderRadius: '14px', border: '1px solid #f8717155', maxWidth: '440px', width: '100%' }}>
+            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-modal)', padding: '28px', borderRadius: '14px', border: '1px solid #f8717155', maxWidth: '440px', width: '100%' }}>
               <div style={{ textAlign: 'center', marginBottom: '16px' }}>
                 <span style={{ fontSize: '36px' }}>⚠️</span>
-                <h3 style={{ margin: '8px 0 4px', font: '700 20px Syne', color: '#f87171' }}>Clear Audit Logs</h3>
-                <p style={{ color: '#8aa2b4', fontSize: '12px', margin: 0 }}>
+                <h3 style={{ margin: '8px 0 4px', font: '700 20px Syne', color: '#dc2626' }}>Clear Audit Logs</h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>
                   This will purge all previous compliance records from the database. Only the Primary President can execute this.
                 </p>
               </div>
 
               <form onSubmit={handleClearAudit}>
-                <label style={{ display: 'block', fontSize: '11px', color: '#b4c7d5', marginBottom: '6px' }}>
+                <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>
                   Enter Master Security PIN or Password *
                   <input
                     type="password"
@@ -7288,7 +7288,7 @@ function AuditLogView({ user, logout, onNavigate }) {
                     placeholder="Enter PIN or password to authorize"
                     value={authCode}
                     onChange={e => setAuthCode(e.target.value)}
-                    style={{ width: '100%', height: '40px', padding: '0 12px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '6px', color: '#fff', marginTop: '4px' }}
+                    style={{ width: '100%', height: '40px', padding: '0 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', marginTop: '4px' }}
                   />
                 </label>
 
@@ -7315,13 +7315,13 @@ function AuditLogView({ user, logout, onNavigate }) {
 
           return (
             <div className="photo-lightbox" onClick={() => setSelectedLog(null)}>
-              <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: '#0d1522', padding: '28px', borderRadius: '14px', border: '1px solid #52bbf555', maxWidth: '640px', width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
+              <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-modal)', padding: '28px', borderRadius: '14px', border: '1px solid var(--brand-border-subtle)', maxWidth: '640px', width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '14px', marginBottom: '14px' }}>
                   <div>
                     <span className="badge badge-president" style={{ marginBottom: '6px' }}>
                       {selectedLog.action}
                     </span>
-                    <h3 style={{ margin: '4px 0 0', font: '700 18px Syne', color: '#edf7ff' }}>
+                    <h3 style={{ margin: '4px 0 0', font: '700 18px Syne', color: 'var(--text-main)' }}>
                       Audit Event Details
                     </h3>
                   </div>
@@ -7332,40 +7332,40 @@ function AuditLogView({ user, logout, onNavigate }) {
                 <div className="audit-detail-grid">
                   <div className="audit-detail-field">
                     <b>MEMBER PROFILE NAME</b>
-                    <p style={{ color: '#edf7ff', fontWeight: 600, fontSize: '13px' }}>{actorName}</p>
+                    <p style={{ color: 'var(--text-main)', fontWeight: 600, fontSize: '13px' }}>{actorName}</p>
                   </div>
                   <div className="audit-detail-field">
                     <b>MEMBER ID & ROLE</b>
-                    <p style={{ color: '#85d7ff', fontWeight: 600, fontSize: '13px' }}>
+                    <p style={{ color: 'var(--brand-primary)', fontWeight: 600, fontSize: '13px' }}>
                       {actorMemberId ? `${actorMemberId} (${getRoleLabel(actorRole)})` : 'SYSTEM ACTION'}
                     </p>
                   </div>
                   <div className="audit-detail-field">
                     <b>ACTION EVENT</b>
-                    <p style={{ color: '#ffb74d', fontWeight: 600 }}>{selectedLog.action.replaceAll('_', ' ')}</p>
+                    <p style={{ color: '#d97706', fontWeight: 600 }}>{selectedLog.action.replaceAll('_', ' ')}</p>
                   </div>
                   <div className="audit-detail-field">
                     <b>DATE & EXACT TIMING</b>
-                    <p style={{ color: '#70ddb4', fontFamily: 'DM Mono', fontSize: '12px' }}>{new Date(selectedLog.createdAt).toLocaleString()}</p>
+                    <p style={{ color: '#059669', fontFamily: 'DM Mono', fontSize: '12px' }}>{new Date(selectedLog.createdAt).toLocaleString()}</p>
                   </div>
-                  <div className="audit-detail-field" style={{ gridColumn: '1 / -1', background: '#070f1a', padding: '10px 14px', borderRadius: '6px', border: '1px solid #52bbf533' }}>
-                    <b style={{ color: '#85d7ff' }}>CHANGES / ACTIVITY SUMMARY</b>
-                    <p style={{ margin: '4px 0 0', color: '#edf7ff', fontSize: '12px', lineHeight: 1.5 }}>
+                  <div className="audit-detail-field" style={{ gridColumn: '1 / -1', background: 'var(--panel-subtle)', padding: '10px 14px', borderRadius: '6px', border: '1px solid var(--brand-border-subtle)' }}>
+                    <b style={{ color: 'var(--brand-primary)' }}>CHANGES / ACTIVITY SUMMARY</b>
+                    <p style={{ margin: '4px 0 0', color: 'var(--text-main)', fontSize: '12px', lineHeight: 1.5 }}>
                       {summary}
                     </p>
                   </div>
                   {targetMemberId && (
-                    <div className="audit-detail-field" style={{ gridColumn: '1 / -1', background: '#070f1a', padding: '10px 14px', borderRadius: '6px', border: '1px solid #ffb74d44' }}>
-                      <b style={{ color: '#ffb74d' }}>TARGET MEMBER ACTION APPLIED TO</b>
-                      <p style={{ margin: '4px 0 0', color: '#edf7ff', fontSize: '12px' }}>
-                        <b>{targetName || targetMemberId}</b> ({targetMemberId}) · <span style={{ color: '#85d7ff' }}>{getRoleLabel(targetRole)}</span>
+                    <div className="audit-detail-field" style={{ gridColumn: '1 / -1', background: 'var(--panel-subtle)', padding: '10px 14px', borderRadius: '6px', border: '1px solid var(--line)' }}>
+                      <b style={{ color: '#d97706' }}>TARGET MEMBER ACTION APPLIED TO</b>
+                      <p style={{ margin: '4px 0 0', color: 'var(--text-main)', fontSize: '12px' }}>
+                        <b>{targetName || targetMemberId}</b> ({targetMemberId}) · <span style={{ color: 'var(--brand-primary)' }}>{getRoleLabel(targetRole)}</span>
                       </p>
                     </div>
                   )}
                 </div>
 
                 {/* Metadata Key-Value Breakdown */}
-                <b style={{ color: '#85d7ff', fontSize: '12px', display: 'block', margin: '14px 0 6px' }}>FULL PARAMETERS & RECORDED DATA:</b>
+                <b style={{ color: 'var(--brand-primary)', fontSize: '12px', display: 'block', margin: '14px 0 6px' }}>FULL PARAMETERS & RECORDED DATA:</b>
                 {selectedLog.metadata && Object.keys(selectedLog.metadata).length > 0 ? (
                   <table className="audit-meta-table">
                     <tbody>
@@ -7378,7 +7378,7 @@ function AuditLogView({ user, logout, onNavigate }) {
                     </tbody>
                   </table>
                 ) : (
-                  <p style={{ color: '#688296', fontSize: '12px', margin: '8px 0' }}>No extra parameters recorded for this operation.</p>
+                  <p style={{ color: 'var(--text-dim)', fontSize: '12px', margin: '8px 0' }}>No extra parameters recorded for this operation.</p>
                 )}
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
@@ -7483,19 +7483,19 @@ function CouncilChatView({ user, logout, onNavigate }) {
                         {m.user?.profile?.name?.slice(0, 2).toUpperCase() || m.user?.memberId?.slice(0, 2) || 'CS'}
                       </div>
                     )}
-                    <div style={{ background: isMe ? '#163854' : '#081320', border: isPresident ? '1px solid #ffb74d66' : isMe ? '1px solid #52bbf544' : '1px solid var(--line)', padding: '10px 14px', borderRadius: '12px' }}>
+                    <div style={{ background: isMe ? 'var(--brand-badge-bg)' : 'var(--panel-elevated)', border: isPresident ? '1px solid #f59e0b' : isMe ? '1px solid var(--brand-border-subtle)' : '1px solid var(--line)', padding: '10px 14px', borderRadius: '12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                        <b style={{ color: isPresident ? '#ffb74d' : '#85d7ff', fontSize: '11px' }}>
+                        <b style={{ color: isPresident ? '#d97706' : 'var(--brand-primary)', fontSize: '11px' }}>
                           {isPresident ? '👑 ' : ''}{m.user?.profile?.name || m.user?.memberId}
                         </b>
                         <span className="badge" style={{ fontSize: '8px', padding: '1px 5px' }}>
                           {isPresident ? 'PRESIDENT' : getRoleLabel(m.user?.role)}
                         </span>
-                        <small style={{ color: '#688296', fontSize: '9px', marginLeft: 'auto' }}>
+                        <small style={{ color: 'var(--text-dim)', fontSize: '9px', marginLeft: 'auto' }}>
                           {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </small>
                       </div>
-                      <p style={{ color: '#edf7ff', fontSize: '12px', margin: 0, lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
+                      <p style={{ color: 'var(--text-main)', fontSize: '12px', margin: 0, lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
                         {m.message}
                       </p>
                     </div>
@@ -7512,7 +7512,7 @@ function CouncilChatView({ user, logout, onNavigate }) {
               placeholder={`Send message to Executive Council as ${user.name} (${getRoleLabel(user.role)})...`}
               value={text}
               onChange={e => setText(e.target.value)}
-              style={{ flex: 1, height: '44px', padding: '0 16px', background: '#050a12', border: '1px solid var(--line)', borderRadius: '8px', color: '#fff', fontSize: '12px' }}
+              style={{ flex: 1, height: '44px', padding: '0 16px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '12px' }}
             />
             <button className="primary" disabled={sending || !text.trim()} style={{ minHeight: '44px', padding: '0 20px' }}>
               {sending ? 'SENDING…' : 'SEND ➔'}
