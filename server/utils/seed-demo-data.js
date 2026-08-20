@@ -30,8 +30,8 @@ async function seed() {
 
   await prisma.clubSetting.upsert({
     where: { key: 'introVideoUrl' },
-    create: { key: 'introVideoUrl', value: 'https://www.youtube.com/watch?v=inWWhr5tnEA' },
-    update: { value: 'https://www.youtube.com/watch?v=inWWhr5tnEA' },
+    create: { key: 'introVideoUrl', value: 'https://www.youtube.com/watch?v=gokPW83s7nA' },
+    update: { value: 'https://www.youtube.com/watch?v=gokPW83s7nA' },
   })
 
   // 2. Create Gallery Albums with High-Quality Cybersecurity Photos

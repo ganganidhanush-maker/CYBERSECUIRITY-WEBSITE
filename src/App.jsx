@@ -151,91 +151,57 @@ function toPortalUser(user) {
 }
 
 // ----------------------------------------------------
-// Intro Video Experience (YouTube API Sync & Fallback Briefing)
+// ----------------------------------------------------
+// Mandatory Student Onboarding Video Experience (Guaranteed YouTube Player)
 // ----------------------------------------------------
 function IntroVideoExperience({ onComplete }) {
-  const [briefingMode, setBriefingMode] = useState('VIDEO') // 'VIDEO' | 'SLIDESHOW'
-  const [videoUrl, setVideoUrl] = useState('https://www.youtube.com/watch?v=inWWhr5tnEA')
-  const [requireTwoMinutes, setRequireTwoMinutes] = useState(true)
+  const [videoUrl, setVideoUrl] = useState('https://www.youtube.com/watch?v=gokPW83s7nA')
   const [secondsWatched, setSecondsWatched] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [useFallback, setUseFallback] = useState(false)
-  const [fallbackReason, setFallbackReason] = useState('')
+  const [isPlaying, setIsPlaying] = useState(true)
   const [canProceed, setCanProceed] = useState(false)
-  const [galleryPhotos, setGalleryPhotos] = useState([])
-  const [leaders, setLeaders] = useState([])
-  const [activeSlideIndex, setActiveSlideIndex] = useState(0)
-  const [slideshowProgress, setSlideshowProgress] = useState(0)
-
+  const [completing, setCompleting] = useState(false)
   const iframeRef = useRef(null)
-  const hasStartedPlayingRef = useRef(false)
 
-  // 1. Fetch Club Settings, Gallery Photos (Latest first), and Leader Profiles (Priority order)
+  const REQUIRED_DURATION = 120 // Compulsory 2 minutes (120 seconds)
+
+  // 1. Fetch configured video URL from club settings (defaults directly to specified video)
   useEffect(() => {
     let mounted = true
     memberApi.getPublicClubSettings()
       .then(({ settings }) => {
         if (!mounted) return
-        const mode = settings?.onboardingBriefingMode || settings?.introBriefingMode || 'VIDEO'
-        setBriefingMode(mode)
-        if (settings?.introVideoUrl) {
-          setVideoUrl(settings.introVideoUrl)
-        }
-        if (settings?.introVideoRequireTwoMinutes !== undefined) {
-          setRequireTwoMinutes(settings.introVideoRequireTwoMinutes === true || settings.introVideoRequireTwoMinutes === 'true')
-        }
-        if (mode === 'SLIDESHOW') {
-          setUseFallback(true)
+        if (settings?.introVideoUrl && typeof settings.introVideoUrl === 'string' && settings.introVideoUrl.trim()) {
+          setVideoUrl(settings.introVideoUrl.trim())
         }
       })
       .catch(() => {})
-
-    // Fetch existing gallery photos for slideshow
-    memberApi.listGalleryAlbums()
-      .then(({ albums }) => {
-        if (!mounted) return
-        const allPhotos = (albums || []).flatMap(a =>
-          (a.photos || []).map(p => ({
-            id: p.id,
-            imageUrl: p.imageUrl,
-            caption: p.caption || a.name,
-            albumName: a.name,
-            createdAt: p.createdAt,
-          }))
-        )
-        // Sort newest first to oldest
-        allPhotos.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-        setGalleryPhotos(allPhotos)
-      })
-      .catch(() => {})
-
-    // Fetch leadership profiles for secondary fallback
-    memberApi.listClubTeam()
-      .then(({ team }) => {
-        if (!mounted) return
-        const activeLeaders = (team || []).filter(l => l.isActive !== false)
-        activeLeaders.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-        setLeaders(activeLeaders)
-      })
-      .catch(() => {})
-
     return () => { mounted = false }
   }, [])
 
-  const requiredDuration = requireTwoMinutes ? 120 : 5
-  const youtubeId = parseYouTubeVideoId(videoUrl) || 'inWWhr5tnEA'
-  const isVideoBriefing = briefingMode === 'VIDEO' && !useFallback
+  const youtubeId = parseYouTubeVideoId(videoUrl) || 'gokPW83s7nA'
 
-  // 2. YouTube Playback Listener via postMessage API & 15-Second Watchdog Timer
+  // 2. Active timer: ticks every 1 second continuously while video orientation screen is active
   useEffect(() => {
-    if (!isVideoBriefing) return
+    const interval = setInterval(() => {
+      setSecondsWatched(prev => {
+        const next = prev + 1
+        if (next >= REQUIRED_DURATION) {
+          setCanProceed(true)
+        }
+        return next
+      })
+    }, 1000)
 
+    return () => clearInterval(interval)
+  }, [REQUIRED_DURATION])
+
+  // 3. YouTube postMessage Listener for video events
+  useEffect(() => {
     function handleMessage(event) {
       if (!event.data) return
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
         let playerState = undefined
-
         if (data.event === 'onStateChange' && data.data !== undefined) {
           playerState = data.data
         } else if (data.info && data.info.playerState !== undefined) {
@@ -243,291 +209,134 @@ function IntroVideoExperience({ onComplete }) {
         }
 
         if (playerState === 1) { // PLAYING
-          hasStartedPlayingRef.current = true
           setIsPlaying(true)
         } else if (playerState === 2) { // PAUSED
           setIsPlaying(false)
         } else if (playerState === 0) { // ENDED
-          setIsPlaying(false)
           setCanProceed(true)
-        } else if (playerState === 3 || playerState === -1) { // BUFFERING or UNSTARTED
-          setIsPlaying(false)
         }
       } catch {}
     }
 
     window.addEventListener('message', handleMessage)
-
-    // Handshake to request postMessage notifications from YouTube iframe
-    const handshakeInterval = setInterval(() => {
-      try {
-        if (iframeRef.current?.contentWindow) {
-          iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'listening' }), '*')
-        }
-      } catch {}
-    }, 800)
-
-    // 15-Second Loading Watchdog: If video does not start playing within 15 seconds, switch to fallback
-    const watchdogTimer = setTimeout(() => {
-      if (!hasStartedPlayingRef.current) {
-        setUseFallback(true)
-        setFallbackReason('YouTube video took longer than 15 seconds to start. Automatically switched to club gallery slideshow.')
-      }
-    }, 15000)
-
-    return () => {
-      window.removeEventListener('message', handleMessage)
-      clearInterval(handshakeInterval)
-      clearTimeout(watchdogTimer)
-    }
-  }, [isVideoBriefing])
-
-  // 3. Strict Playback Watch Timer (Only counts while video is actively playing)
-  useEffect(() => {
-    if (!isPlaying) return
-    const interval = setInterval(() => {
-      setSecondsWatched(prev => {
-        const next = prev + 1
-        if (next >= requiredDuration) {
-          setCanProceed(true)
-        }
-        return next
-      })
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [isPlaying, requiredDuration])
-
-  // 4. Slideshow Auto-Cycle & Progress (For Alternative Slideshow or 15s Fallback)
-  const totalSlides = galleryPhotos.length > 0 ? galleryPhotos.length : leaders.length
-  useEffect(() => {
-    if (!useFallback && briefingMode !== 'SLIDESHOW') return
-
-    if (totalSlides === 0) {
-      const delay = setTimeout(() => setCanProceed(true), 5000)
-      return () => clearTimeout(delay)
-    }
-
-    const slideTimer = setInterval(() => {
-      setActiveSlideIndex(prev => (prev + 1) % totalSlides)
-    }, 4000)
-
-    const progressTimer = setInterval(() => {
-      setSlideshowProgress(prev => {
-        const next = prev + 1
-        if (next >= 5) {
-          setCanProceed(true)
-        }
-        return next
-      })
-    }, 1000)
-
-    return () => {
-      clearInterval(slideTimer)
-      clearInterval(progressTimer)
-    }
-  }, [useFallback, briefingMode, totalSlides])
+    return () => window.removeEventListener('message', handleMessage)
+  }, [])
 
   async function handleFinish() {
+    if (!canProceed || completing) return
+    setCompleting(true)
     try {
       await memberApi.completeIntroVideo()
     } catch {}
     onComplete()
   }
 
-  const currentPhoto = galleryPhotos.length > 0 ? galleryPhotos[activeSlideIndex % galleryPhotos.length] : null
-  const currentLeader = !currentPhoto && leaders.length > 0 ? leaders[activeSlideIndex % leaders.length] : null
+  const remainingSeconds = Math.max(0, REQUIRED_DURATION - secondsWatched)
+  const progressPercent = Math.min(100, Math.round((secondsWatched / REQUIRED_DURATION) * 100))
 
   return (
-    <div className="intro-video-overlay">
-      <div className="intro-video-container">
-        <div className="intro-video-header">
+    <div className="intro-video-overlay" style={{ zIndex: 999999, background: 'rgba(2, 6, 12, 0.96)', backdropFilter: 'blur(16px)' }}>
+      <div className="intro-video-container" style={{ maxWidth: '980px', width: '100%', borderRadius: '16px', border: '1px solid var(--brand-border-subtle)', background: 'var(--bg-card)', boxShadow: '0 0 80px rgba(0,0,0,0.9)' }}>
+        {/* Header with Live Countdown & Status */}
+        <div className="intro-video-header" style={{ padding: '16px 24px', background: 'var(--bg-input)', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div>
-            <b>CYBER SECURITY CLUB · ONBOARDING BRIEFING</b>
-            <small style={{ display: 'block', color: '#7e9db8', fontSize: '10px', marginTop: '2px' }}>
-              {briefingMode === 'SLIDESHOW'
-                ? 'ALTERNATIVE SLIDESHOW BRIEFING'
-                : useFallback
-                ? 'FALLBACK BRIEFING SLIDESHOW'
-                : 'MANDATORY 2-MINUTE VIDEO BRIEFING'}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: canProceed ? '#70ddb4' : 'var(--brand-primary)', boxShadow: `0 0 8px ${canProceed ? '#70ddb4' : 'var(--brand-primary)'}` }} />
+              <b style={{ font: '700 14px Syne', color: 'var(--text-main)', letterSpacing: '.04em' }}>
+                MANDATORY STUDENT ONBOARDING BRIEFING
+              </b>
+            </div>
+            <small style={{ color: 'var(--text-muted)', fontSize: '11px', display: 'block' }}>
+              Please watch the official 2-minute orientation video completely to unlock access to your portal and events.
             </small>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {/* Quick Testing Switcher for Video / Slideshow */}
-            <div style={{ display: 'flex', gap: '4px', background: '#0a1626', padding: '2px', borderRadius: '6px', border: '1px solid var(--line)' }}>
-              <button
-                type="button"
-                className={`tab-btn ${!useFallback && briefingMode === 'VIDEO' ? 'active' : ''}`}
-                onClick={() => { setUseFallback(false); setBriefingMode('VIDEO'); }}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '10px',
-                  borderRadius: '4px',
-                  background: !useFallback && briefingMode === 'VIDEO' ? '#14304c' : 'transparent',
-                  color: !useFallback && briefingMode === 'VIDEO' ? '#85d7ff' : '#688296',
-                  border: 0,
-                  cursor: 'pointer',
-                }}
-              >
-                🎬 Video
-              </button>
-              <button
-                type="button"
-                className={`tab-btn ${useFallback || briefingMode === 'SLIDESHOW' ? 'active' : ''}`}
-                onClick={() => { setUseFallback(true); setBriefingMode('SLIDESHOW'); }}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '10px',
-                  borderRadius: '4px',
-                  background: useFallback || briefingMode === 'SLIDESHOW' ? '#14304c' : 'transparent',
-                  color: useFallback || briefingMode === 'SLIDESHOW' ? '#85d7ff' : '#688296',
-                  border: 0,
-                  cursor: 'pointer',
-                }}
-              >
-                🖼️ Slideshow
-              </button>
-            </div>
 
-            <span>
-              {canProceed
-                ? '✓ BRIEFING REQUIREMENT MET'
-                : isVideoBriefing
-                ? `PLAYBACK: ${Math.floor(secondsWatched / 60)}:${String(secondsWatched % 60).padStart(2, '0')} / ${Math.floor(requiredDuration / 60)}:${String(requiredDuration % 60).padStart(2, '0')}${!isPlaying ? ' (PAUSED)' : ''}`
-                : `BRIEFING ACTIVE (${Math.max(0, 5 - slideshowProgress)}s)`}
-            </span>
+          {/* Big Digital Timer Badge */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{
+              background: canProceed ? 'rgba(16, 185, 129, 0.15)' : 'var(--brand-badge-bg)',
+              border: `1px solid ${canProceed ? '#10b981' : 'var(--brand-primary)'}`,
+              padding: '6px 14px',
+              borderRadius: '8px',
+              textAlign: 'right',
+            }}>
+              <span style={{
+                color: canProceed ? '#70ddb4' : 'var(--brand-primary)',
+                font: '700 13px "DM Mono", monospace',
+                letterSpacing: '.08em',
+                display: 'block',
+              }}>
+                {canProceed ? '✓ 2:00 COMPLETED' : `⏱️ ${Math.floor(secondsWatched / 60)}:${String(secondsWatched % 60).padStart(2, '0')} / 2:00`}
+              </span>
+              <small style={{ color: 'var(--text-muted)', fontSize: '9px', font: '500 9px "DM Mono", monospace' }}>
+                {canProceed ? 'REQUIREMENT SATISFIED' : `${remainingSeconds}s REMAINING (${progressPercent}%)`}
+              </small>
+            </div>
           </div>
         </div>
 
-        <div style={{ position: 'relative', width: '100%', minHeight: '400px', aspectRatio: '16/9', background: '#000', overflow: 'hidden' }}>
-          {isVideoBriefing && youtubeId ? (
-            <iframe
-              id="youtube-player-iframe"
-              ref={iframeRef}
-              src={`https://www.youtube.com/embed/${youtubeId}?enablejsapi=1&autoplay=1&controls=1&rel=0&modestbranding=1&origin=${encodeURIComponent(window.location.origin)}`}
-              title="Cyber Security Club Onboarding Briefing"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-              style={{ width: '100%', height: '100%', border: 0, position: 'absolute', top: 0, left: 0 }}
-            />
-          ) : (
-            /* Dynamic Slideshow: Priority 1 (Latest Gallery Photos) -> Priority 2 (Leader Profiles in Priority Order) */
-            <div className="briefing-slideshow-container">
-              {currentPhoto ? (
-                <>
-                  <img
-                    className="briefing-slide-image"
-                    src={currentPhoto.imageUrl}
-                    alt={currentPhoto.caption}
-                  />
-                  <div className="briefing-slide-overlay">
-                    <div>
-                      <span className="badge badge-president" style={{ marginBottom: '6px', display: 'inline-block' }}>
-                        ALBUM: {currentPhoto.albumName}
-                      </span>
-                      <h3 style={{ color: '#edf7ff', font: '700 18px Syne', margin: '4px 0' }}>
-                        {currentPhoto.caption}
-                      </h3>
-                      <small style={{ color: '#85d7ff', font: '500 10px "DM Mono", monospace' }}>
-                        PHOTO {activeSlideIndex + 1} OF {galleryPhotos.length} · LATEST FIRST
-                      </small>
-                    </div>
-                  </div>
-                </>
-              ) : currentLeader ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '30px', maxWidth: '540px' }}>
-                  {currentLeader.photoUrl ? (
-                    <img
-                      src={currentLeader.photoUrl}
-                      alt={currentLeader.name}
-                      style={{ width: '110px', height: '110px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #52bbf5', marginBottom: '16px' }}
-                    />
-                  ) : (
-                    <div style={{ width: '110px', height: '110px', borderRadius: '50%', background: '#13283e', display: 'grid', placeItems: 'center', color: '#85d7ff', font: '700 36px Syne', border: '3px solid #52bbf5', marginBottom: '16px' }}>
-                      {currentLeader.name.slice(0, 2).toUpperCase()}
-                    </div>
-                  )}
-                  <span className="badge badge-president" style={{ marginBottom: '8px' }}>
-                    PRIORITY #{activeSlideIndex + 1} · {currentLeader.roleTitle}
-                  </span>
-                  <h2 style={{ color: '#edf7ff', font: '700 22px Syne', margin: '4px 0' }}>
-                    {currentLeader.name}
-                  </h2>
-                  <p style={{ color: '#9bb7cc', fontSize: '13px', lineHeight: '1.6', margin: '10px 0 16px' }}>
-                    {currentLeader.bio || 'Core Leadership Council Member driving cybersecurity research and hands-on student workshops.'}
-                  </p>
-                  <small style={{ color: '#85d7ff', font: '500 10px "DM Mono", monospace' }}>
-                    LEADER PROFILE {activeSlideIndex + 1} OF {leaders.length}
-                  </small>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', padding: '28px', textAlign: 'center' }}>
-                  <Crest small />
-                  <h3 style={{ font: '700 22px Syne', color: '#edf7ff', margin: '16px 0 8px' }}>
-                    Cyber Security Club MRDU
-                  </h3>
-                  <p style={{ color: '#9bb7cc', fontSize: '13px', maxWidth: '500px' }}>
-                    Welcome to the official Cyber Security Club portal. Prepare for hands-on CTFs, security labs, and workshops.
-                  </p>
-                </div>
-              )}
-
-              {/* Navigation controls for slideshow */}
-              {totalSlides > 1 && (
-                <>
-                  <button
-                    type="button"
-                    className="briefing-nav-btn briefing-nav-prev"
-                    onClick={() => setActiveSlideIndex(prev => (prev - 1 + totalSlides) % totalSlides)}
-                    title="Previous Slide"
-                  >
-                    ◀
-                  </button>
-                  <button
-                    type="button"
-                    className="briefing-nav-btn briefing-nav-next"
-                    onClick={() => setActiveSlideIndex(prev => (prev + 1) % totalSlides)}
-                    title="Next Slide"
-                  >
-                    ▶
-                  </button>
-                </>
-              )}
-            </div>
-          )}
+        {/* Animated Progress Bar Strip */}
+        <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.06)', position: 'relative' }}>
+          <div style={{
+            height: '100%',
+            width: `${progressPercent}%`,
+            background: canProceed ? 'linear-gradient(90deg, #10b981, #70ddb4)' : 'var(--brand-gradient)',
+            transition: 'width 1s linear',
+            boxShadow: canProceed ? '0 0 12px #70ddb4' : '0 0 12px var(--brand-glow)',
+          }} />
         </div>
 
-        {/* Fallback Notice Banner */}
-        {useFallback && fallbackReason && (
-          <div style={{ padding: '8px 16px', background: '#122538', borderBottom: '1px solid #52bbf533', color: '#85d7ff', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span>ℹ</span>
-            <span>{fallbackReason}</span>
-          </div>
-        )}
+        {/* YouTube Video Player (Always Forced & Reliable) */}
+        <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', minHeight: '440px', background: '#000000', overflow: 'hidden' }}>
+          <iframe
+            id="youtube-player-iframe"
+            ref={iframeRef}
+            src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&controls=1&rel=0&playsinline=1&enablejsapi=1&modestbranding=1`}
+            title="Student Onboarding Orientation Video"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            style={{ width: '100%', height: '100%', border: 0, position: 'absolute', top: 0, left: 0 }}
+          />
+        </div>
 
-        <div style={{ padding: '16px 20px', background: '#050a11', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          <div style={{ color: '#829bb0', fontSize: '11px', font: '500 10px "DM Mono", monospace' }}>
-            {!canProceed ? (
-              isVideoBriefing ? (
-                <span style={{ color: isPlaying ? '#70ddb4' : '#fca5a5' }}>
-                  {isPlaying
-                    ? `▶ Video playing — ${Math.max(0, requiredDuration - secondsWatched)}s remaining`
-                    : `⏸ Video paused — playback timer is paused`}
-                </span>
-              ) : (
-                <span>🔒 Briefing delay active ({Math.max(0, 5 - slideshowProgress)}s remaining)</span>
-              )
-            ) : (
-              <span style={{ color: '#70ddb4' }}>✓ Onboarding briefing requirement satisfied.</span>
-            )}
+        {/* Footer with Live Instructions and Entry Action */}
+        <div style={{ padding: '18px 24px', background: 'var(--bg-input)', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '18px' }}>{canProceed ? '🎉' : '⏳'}</span>
+            <div>
+              <p style={{ margin: 0, color: 'var(--text-main)', fontSize: '12px', fontWeight: 600 }}>
+                {canProceed
+                  ? 'Orientation video requirement complete!'
+                  : `Watching orientation briefing... (${remainingSeconds} seconds remaining)`}
+              </p>
+              <small style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
+                {canProceed
+                  ? 'Click the button below to proceed to your student dashboard.'
+                  : 'Click the video player if autoplay was paused by your browser.'}
+              </small>
+            </div>
           </div>
+
           <button
             className="primary"
             type="button"
-            disabled={!canProceed}
+            disabled={!canProceed || completing}
             onClick={handleFinish}
-            style={{ padding: '0 24px', minHeight: '40px', fontSize: '11px' }}
+            style={{
+              padding: '0 28px',
+              minHeight: '44px',
+              fontSize: '11px',
+              background: canProceed ? 'linear-gradient(105deg, #059669, #10b981)' : undefined,
+              borderColor: canProceed ? '#10b981' : undefined,
+              color: canProceed ? '#ffffff' : undefined,
+              cursor: canProceed ? 'pointer' : 'not-allowed',
+            }}
           >
-            CONTINUE TO PORTAL →
+            {completing
+              ? 'PREPARING DASHBOARD…'
+              : canProceed
+              ? 'ENTER PORTAL DASHBOARD →'
+              : `🔒 COMPLETE VIDEO (WAIT ${remainingSeconds}s)`}
           </button>
         </div>
       </div>
@@ -6303,12 +6112,12 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
             )}
           </article>
 
-          {/* Card 3: Onboarding Briefing Mode Controls */}
+          {/* Card 3: Student Onboarding Video (Compulsory 2-Minute Briefing) */}
           <article className="settings-section-card">
             <div className="settings-card-header">
               <div>
-                <p className="eyebrow" style={{ color: '#85d7ff' }}>ONBOARDING BRIEFING</p>
-                <h3>Onboarding Briefing Controls</h3>
+                <p className="eyebrow" style={{ color: '#85d7ff' }}>MANDATORY STUDENT ONBOARDING</p>
+                <h3>2-Minute YouTube Orientation Video</h3>
               </div>
               <div className="toggle-switch-container">
                 <button
@@ -6330,65 +6139,21 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
               </div>
             </div>
 
-            {/* Mode Switcher: 2-Minute Video vs Alternative Slideshow */}
-            <div style={{ background: '#070e17', border: '1px solid var(--line)', borderRadius: '10px', padding: '16px', margin: '14px 0' }}>
-              <label style={{ color: '#85d7ff', font: '700 11px "DM Mono", monospace', display: 'block', marginBottom: '10px' }}>
-                SELECT ONBOARDING BRIEFING MODE (PRIMARY ADMIN)
-              </label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <button
-                  type="button"
-                  onClick={() => setOnboardingBriefingMode('VIDEO')}
-                  disabled={!user.isPrimaryAdmin}
-                  style={{
-                    background: onboardingBriefingMode === 'VIDEO' ? '#14304c' : '#050a12',
-                    border: onboardingBriefingMode === 'VIDEO' ? '1px solid #52bbf5' : '1px solid var(--line)',
-                    borderRadius: '8px',
-                    padding: '12px 14px',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <b style={{ color: onboardingBriefingMode === 'VIDEO' ? '#85d7ff' : '#c3d8e8', display: 'block', fontSize: '13px' }}>
-                    🎬 A. 2-Minute Video Briefing
-                  </b>
-                  <small style={{ color: '#7e95a7', fontSize: '11px', display: 'block', marginTop: '4px', lineHeight: '1.4' }}>
-                    Compulsory 2-minute YouTube video playback. Active playback is synchronized to timer. 15s loading watchdog automatically triggers dynamic slideshow fallback.
-                  </small>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setOnboardingBriefingMode('SLIDESHOW')}
-                  disabled={!user.isPrimaryAdmin}
-                  style={{
-                    background: onboardingBriefingMode === 'SLIDESHOW' ? '#14304c' : '#050a12',
-                    border: onboardingBriefingMode === 'SLIDESHOW' ? '1px solid #52bbf5' : '1px solid var(--line)',
-                    borderRadius: '8px',
-                    padding: '12px 14px',
-                    textAlign: 'left',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <b style={{ color: onboardingBriefingMode === 'SLIDESHOW' ? '#85d7ff' : '#c3d8e8', display: 'block', fontSize: '13px' }}>
-                    🖼️ B. Alternative Slideshow Briefing
-                  </b>
-                  <small style={{ color: '#7e95a7', fontSize: '11px', display: 'block', marginTop: '4px', lineHeight: '1.4' }}>
-                    Directly starts the dynamic slideshow without loading YouTube. Cycles through Latest Gallery Photos → Leader Profiles in Priority Order.
-                  </small>
-                </button>
-              </div>
-            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.6', margin: '0 0 16px' }}>
+              {introVideoEnabled
+                ? '🟢 ON / ENABLED: Newly logged-in students must watch the mandatory 2-minute YouTube orientation video before gaining access to the portal dashboard and event registrations.'
+                : '⚪ OFF / DISABLED: Students bypass the orientation video and proceed directly to their dashboard.'}
+            </p>
 
             {/* YouTube Onboarding Video URL Input & Status */}
-            <div style={{ background: '#050a12', border: '1px solid var(--line)', borderRadius: '8px', padding: '14px', marginTop: '14px' }}>
+            <div style={{ background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '10px', padding: '16px' }}>
               <div className="member-form-grid">
                 <label className="form-wide">
                   <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span>YouTube Onboarding Video URL (Watch, Shorts, youtu.be, or Embed)</span>
-                    {parseYouTubeVideoId(introVideoUrl) ? (
+                    <span style={{ fontWeight: 600 }}>YouTube Onboarding Video URL</span>
+                    {parseYouTubeVideoId(introVideoUrl || 'https://www.youtube.com/watch?v=gokPW83s7nA') ? (
                       <span style={{ color: '#70ddb4', fontSize: '11px', fontWeight: 600 }}>
-                        ✓ Detected ID: <code>{parseYouTubeVideoId(introVideoUrl)}</code>
+                        ✓ Detected ID: <code>{parseYouTubeVideoId(introVideoUrl || 'https://www.youtube.com/watch?v=gokPW83s7nA')}</code>
                       </span>
                     ) : introVideoUrl ? (
                       <span style={{ color: '#f87171', fontSize: '11px', fontWeight: 600 }}>
@@ -6399,30 +6164,29 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
                   <input
                     value={introVideoUrl}
                     onChange={e => setIntroVideoUrl(e.target.value)}
-                    placeholder="https://www.youtube.com/watch?v=inWWhr5tnEA or https://youtu.be/..."
+                    placeholder="https://www.youtube.com/watch?v=gokPW83s7nA"
                     disabled={!user.isPrimaryAdmin}
                     style={{ marginTop: '6px' }}
                   />
                 </label>
               </div>
 
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginTop: '10px' }}>
-                {parseYouTubeVideoId(introVideoUrl) && (
-                  <a
-                    href={`https://www.youtube.com/watch?v=${parseYouTubeVideoId(introVideoUrl)}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="action-btn"
-                    style={{ background: '#182b3d', color: '#85d7ff', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
-                  >
-                    ↗ Test on YouTube
-                  </a>
-                )}
-                <div style={{ padding: '6px 10px', borderRadius: '6px', background: '#09131f', border: '1px solid #52bbf533', color: '#70ddb4', fontSize: '11px' }}>
-                  ⏱ 2-Minute Playback Requirement: <b>ACTIVE & COMPULSORY</b>
+              {/* Video Live Preview in Settings */}
+              {parseYouTubeVideoId(introVideoUrl || 'https://www.youtube.com/watch?v=gokPW83s7nA') && (
+                <div style={{ marginTop: '14px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--brand-border-subtle)', background: '#000' }}>
+                  <iframe
+                    src={`https://www.youtube.com/embed/${parseYouTubeVideoId(introVideoUrl || 'https://www.youtube.com/watch?v=gokPW83s7nA')}?controls=1&rel=0&modestbranding=1`}
+                    title="Orientation Video Preview"
+                    style={{ width: '100%', height: '240px', border: 0, display: 'block' }}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
                 </div>
-                <div style={{ padding: '6px 10px', borderRadius: '6px', background: '#09131f', border: '1px solid #52bbf533', color: '#85d7ff', fontSize: '11px' }}>
-                  ⚡ 15-Second Fallback: <b>Latest Photos → Leader Priority Order</b>
+              )}
+
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginTop: '12px' }}>
+                <div style={{ padding: '6px 12px', borderRadius: '6px', background: 'var(--brand-badge-bg)', border: '1px solid var(--brand-border-subtle)', color: 'var(--brand-primary)', fontSize: '11px', fontWeight: 600 }}>
+                  ⏱ 2-Minute Playback Requirement: COMPULSORY (120 SECONDS)
                 </div>
               </div>
             </div>

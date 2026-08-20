@@ -183,6 +183,7 @@ describe('Onboarding Briefing & Team Priority Management System', () => {
 
   it('parses all YouTube video URL variants correctly (watch, shorts, live, embed, youtu.be, raw ID)', async () => {
     const { parseYouTubeVideoId } = await import('../src/lib/video.js')
+    assert.equal(parseYouTubeVideoId('https://www.youtube.com/watch?v=gokPW83s7nA'), 'gokPW83s7nA')
     assert.equal(parseYouTubeVideoId('https://www.youtube.com/watch?v=inWWhr5tnEA'), 'inWWhr5tnEA')
     assert.equal(parseYouTubeVideoId('https://www.youtube.com/watch?feature=shared&v=dQw4w9WgXcQ'), 'dQw4w9WgXcQ')
     assert.equal(parseYouTubeVideoId('https://youtu.be/inWWhr5tnEA?si=xyz123'), 'inWWhr5tnEA')
