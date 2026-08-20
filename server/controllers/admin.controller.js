@@ -1107,6 +1107,7 @@ export async function updateClubSettings(request, response) {
   if (!parsed.success) return response.status(400).json({ message: 'Invalid settings payload.' })
 
   const globalPresidentKeys = [
+    'platformMode',
     'siteStatus',
     'hibernationStartedAt',
     'subscriptionEnabled',
@@ -1122,7 +1123,7 @@ export async function updateClubSettings(request, response) {
 
   const hasGlobalKey = Object.keys(parsed.data).some(k => globalPresidentKeys.includes(k) && parsed.data[k] !== undefined)
   if (hasGlobalKey && !request.user.isPrimaryAdmin) {
-    return response.status(403).json({ message: 'Only the Primary President can modify global site, subscription, or video settings.' })
+    return response.status(403).json({ message: 'Only the Primary President can modify global site, platform mode, subscription, or video settings.' })
   }
 
   // If site status is being changed to HIBERNATING, record the timestamp if not already provided

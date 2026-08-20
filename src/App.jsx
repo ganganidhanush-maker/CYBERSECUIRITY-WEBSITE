@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import clubLogo from './assets/branding/cyber-security-club-logo.jpeg'
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import clubLogo from './assets/branding/cyber-security-club-neon.jpg'
+import clubLogoDark from './assets/branding/cyber-security-club-logo.jpg'
+import mrduBanner from './assets/branding/mrdu-header-banner.png'
 import { adminApi, authApi, memberApi, readImageFile, readMultipleImageFiles } from './lib/api'
 import { downloadIdPass } from './lib/id-pass'
 import { downloadCsv } from './lib/export-csv'
@@ -7,6 +9,18 @@ import { getYouTubeEmbedUrl, parseYouTubeVideoId } from './lib/video'
 import './App.css'
 
 /* oxlint-disable no-unused-vars */
+
+export const PlatformThemeContext = createContext({
+  platformMode: 'CYBER_SECURITY_CLUB',
+  setPlatformMode: () => {},
+  themeMode: 'system',
+  setThemeMode: () => {},
+  resolvedTheme: 'dark',
+})
+
+export function usePlatformTheme() {
+  return useContext(PlatformThemeContext)
+}
 
 const CLUB_ROLES = [
   { id: 'STUDENT', label: 'Student Member', roleType: 'student' },
@@ -35,7 +49,61 @@ function getRoleLabel(roleId) {
   return r ? r.label : roleId
 }
 
-function Crest({ small = false }) {
+function Crest({ platformMode = 'CYBER_SECURITY_CLUB', small = false, showBanner = false }) {
+  const isMrdu = platformMode === 'MRDU_EVENTS'
+
+  if (isMrdu) {
+    if (showBanner) {
+      return (
+        <div className="crest official-crest" style={{ display: 'inline-flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ background: '#ffffff', padding: '6px 14px', borderRadius: '10px', border: '1px solid rgba(211, 47, 47, 0.3)', boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }}>
+            <img
+              className="brand-logo"
+              src={mrduBanner}
+              alt="Malla Reddy (MR) Deemed to be University"
+              style={{ maxHeight: small ? 38 : 64, objectFit: 'contain', width: 'auto' }}
+            />
+          </div>
+          {!small && (
+            <div className="wordmark">
+              <span style={{ font: '600 13px Syne', letterSpacing: '.12em', color: 'var(--brand-eyebrow)' }}>MALLA REDDY UNIVERSITY</span>
+              <strong style={{ font: '800 24px Syne', letterSpacing: '.14em', color: 'var(--text-main)', display: 'block' }}>CENTRAL EVENTS PORTAL</strong>
+              <small style={{ color: 'var(--text-muted)', font: '500 9px "DM Mono", monospace', letterSpacing: '.08em', marginTop: '2px', display: 'block' }}>
+                ALL DEPARTMENTS, INSTITUTES & TECHNICAL SOCIETIES
+              </small>
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    return (
+      <div className={`crest official-crest ${small ? 'small' : ''}`} style={{ display: 'inline-flex', alignItems: 'center', gap: small ? '10px' : '16px' }}>
+        <div style={{ background: '#ffffff', padding: small ? '2px 6px' : '4px 10px', borderRadius: small ? 8 : 12, border: '1px solid rgba(211, 47, 47, 0.35)', boxShadow: '0 0 16px rgba(211, 47, 47, .2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+          <img
+            className="brand-logo"
+            src={mrduBanner}
+            alt="Malla Reddy University"
+            style={{
+              height: small ? 32 : 56,
+              maxWidth: small ? 90 : 180,
+              objectFit: 'contain',
+            }}
+          />
+        </div>
+        {!small && (
+          <div className="wordmark">
+            <span style={{ font: '600 14px Syne', letterSpacing: '.1em', color: 'var(--brand-eyebrow)' }}>MALLA REDDY UNIVERSITY</span>
+            <strong style={{ font: '800 24px Syne', letterSpacing: '.12em', color: 'var(--text-main)' }}>EVENTS PORTAL</strong>
+            <small style={{ color: 'var(--text-muted)', font: '500 9px "DM Mono", monospace', letterSpacing: '.08em', marginTop: '4px' }}>
+              MRDU · OFFICIAL EVENTS & CONFERENCES
+            </small>
+          </div>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className={`crest official-crest ${small ? 'small' : ''}`} style={{ display: 'inline-flex', alignItems: 'center', gap: small ? '10px' : '16px' }}>
       <img
@@ -47,14 +115,15 @@ function Crest({ small = false }) {
           height: small ? 38 : 78,
           objectFit: 'contain',
           borderRadius: small ? 8 : 12,
-          boxShadow: '0 0 16px rgba(61, 165, 255, .2)',
+          boxShadow: '0 0 16px rgba(61, 165, 255, .25)',
+          background: '#040911',
         }}
       />
       {!small && (
         <div className="wordmark">
           <span style={{ font: '600 15px Syne', letterSpacing: '.08em' }}>CYBER SECURITY</span>
-          <strong style={{ font: '800 26px Syne', letterSpacing: '.14em', color: '#edf7ff' }}>CLUB</strong>
-          <small style={{ color: '#7fb9df', font: '500 9px "DM Mono", monospace', letterSpacing: '.08em', marginTop: '4px' }}>
+          <strong style={{ font: '800 26px Syne', letterSpacing: '.14em', color: 'var(--text-main)' }}>CLUB</strong>
+          <small style={{ color: 'var(--brand-eyebrow)', font: '500 9px "DM Mono", monospace', letterSpacing: '.08em', marginTop: '4px' }}>
             MRDU · DEPARTMENT OF CYBER SECURITY
           </small>
         </div>
@@ -583,33 +652,35 @@ function HibernationScreen({ onAdminLogin }) {
 // Navigation, Header & LivePortal Frame
 // ----------------------------------------------------
 function Sidebar({ user, logout, activeTab, onNavigate, isOpen, onClose }) {
+  const { platformMode } = usePlatformTheme()
+  const isMrdu = platformMode === 'MRDU_EVENTS'
   const perms = user.permissions || []
   const has = perm => user.isPrimaryAdmin || perms.includes(perm)
 
   const navItems = user.isAdminUser
     ? [
-        ['▦', 'Dashboard', 'admin-dashboard', true],
-        ['♙', 'Members', 'admin-members', has('ACCOUNT_MANAGEMENT')],
+        ['▦', isMrdu ? 'Portal Home' : 'Dashboard', 'admin-dashboard', true],
+        ['♙', isMrdu ? 'Participants' : 'Members', 'admin-members', has('ACCOUNT_MANAGEMENT')],
         ['▢', 'Event Studio', 'admin-events', has('EVENTS_VIEW') || has('EVENT_MANAGE')],
-        ['💎', 'Subscriptions', 'admin-subscriptions', has('PAYMENTS_VIEW') || user.role === 'TREASURER' || user.role === 'PRESIDENT'],
-        ['💳', 'Event Payments', 'admin-payments', has('PAYMENTS_VIEW')],
+        ['💎', isMrdu ? 'Pass Subscriptions' : 'Subscriptions', 'admin-subscriptions', has('PAYMENTS_VIEW') || user.role === 'TREASURER' || user.role === 'PRESIDENT'],
+        ['💳', isMrdu ? 'Registrations & Pay' : 'Event Payments', 'admin-payments', has('PAYMENTS_VIEW')],
         ['💬', 'Helpdesk & Doubts', 'admin-support', true],
         ['🛡️', 'Council Room', 'admin-chat', true],
-        ['▧', 'Gallery', 'admin-gallery', has('GALLERY_VIEW') || has('GALLERY_MANAGE')],
-        ['👥', 'Team / Leaders', 'admin-team', has('TEAM_MANAGE')],
+        ['▧', isMrdu ? 'Event Gallery' : 'Gallery', 'admin-gallery', has('GALLERY_VIEW') || has('GALLERY_MANAGE')],
+        ['👥', isMrdu ? 'Organizing Team' : 'Team / Leaders', 'admin-team', has('TEAM_MANAGE')],
         ['⚙', 'Settings & Links', 'admin-settings', has('SETTINGS_MANAGE')],
         ['◫', 'Audit Log', 'admin-audit', has('AUDIT_VIEW')],
         ['👤', 'My Profile', 'admin-profile', true],
         ['▣', 'Security', 'security', true],
       ].filter(item => item[3])
     : [
-        ['▦', 'Dashboard', 'student-dashboard', true],
+        ['▦', isMrdu ? 'Events Home' : 'Dashboard', 'student-dashboard', true],
         ['▢', 'Events Catalog', 'student-events', true],
-        ['▤', 'My Passes', 'student-registrations', true],
-        ['💎', 'Membership', 'student-membership', true],
+        ['▤', isMrdu ? 'My Event Passes' : 'My Passes', 'student-registrations', true],
+        ['💎', isMrdu ? 'Student Pass' : 'Membership', 'student-membership', true],
         ['💬', 'Helpdesk & Doubts', 'student-support', true],
-        ['👥', 'Our Team', 'student-team', true],
-        ['▧', 'Gallery', 'student-gallery', true],
+        ['👥', isMrdu ? 'Organizing Team' : 'Our Team', 'student-team', true],
+        ['▧', isMrdu ? 'Event Gallery' : 'Gallery', 'student-gallery', true],
         ['👤', 'My Profile', 'student-profile', true],
         ['▣', 'Security', 'security', true],
       ]
@@ -619,10 +690,10 @@ function Sidebar({ user, logout, activeTab, onNavigate, isOpen, onClose }) {
       <div className={`sidebar-overlay ${isOpen ? 'active' : ''}`} onClick={onClose} />
       <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
         <div className="side-logo">
-          <Crest small />
+          <Crest platformMode={platformMode} small />
           <div>
-            <strong>CSC</strong>
-            <small>MRDU</small>
+            <strong>{isMrdu ? 'MRDU' : 'CSC'}</strong>
+            <small>{isMrdu ? 'EVENTS' : 'MRDU'}</small>
           </div>
         </div>
         <nav>
@@ -653,6 +724,17 @@ function Sidebar({ user, logout, activeTab, onNavigate, isOpen, onClose }) {
 }
 
 function Header({ user, title, onProfile, onToggleNav, onOpenNotifications, unreadCount }) {
+  const { platformMode, themeMode, setThemeMode } = usePlatformTheme()
+  const isMrdu = platformMode === 'MRDU_EVENTS'
+
+  function cycleTheme() {
+    if (themeMode === 'dark') setThemeMode('light')
+    else if (themeMode === 'light') setThemeMode('system')
+    else setThemeMode('dark')
+  }
+
+  const themeIcon = themeMode === 'light' ? '☀️ Light' : themeMode === 'dark' ? '🌙 Dark' : '🖥️ System'
+
   return (
     <header className="header">
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -660,11 +742,21 @@ function Header({ user, title, onProfile, onToggleNav, onOpenNotifications, unre
           ☰
         </button>
         <div>
-          <b>{title || (user.isAdminUser ? getRoleLabel(user.role).toUpperCase() : 'STUDENT MEMBER PORTAL')}</b>
-          <small>CYBER SECURITY CLUB · MRDU</small>
+          <b>{title || (user.isAdminUser ? getRoleLabel(user.role).toUpperCase() : (isMrdu ? 'MRDU PARTICIPANT PORTAL' : 'STUDENT MEMBER PORTAL'))}</b>
+          <small>{isMrdu ? 'MALLA REDDY (DEEMED TO BE UNIVERSITY) · CENTRAL EVENTS' : 'CYBER SECURITY CLUB · MRDU'}</small>
         </div>
       </div>
-      <div className="header-tools" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div className="header-tools" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Quick Theme Toggle */}
+        <button
+          type="button"
+          className="quick-theme-toggle"
+          onClick={cycleTheme}
+          title={`Theme: ${themeMode.toUpperCase()} (Click to toggle)`}
+        >
+          {themeIcon}
+        </button>
+
         {/* In-App Notifications Bell */}
         <button
           type="button"
@@ -684,22 +776,22 @@ function Header({ user, title, onProfile, onToggleNav, onOpenNotifications, unre
             className="profile profile-button"
             onClick={onProfile}
             aria-label="Open profile"
-            style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(16, 26, 39, 0.7)', padding: '5px 12px', borderRadius: '8px', border: '1px solid var(--line)', cursor: 'pointer' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--bg-input)', padding: '5px 12px', borderRadius: '8px', border: '1px solid var(--line)', cursor: 'pointer' }}
           >
             {user.profile?.profileImage ? (
               <img
                 src={user.profile.profileImage}
                 alt={user.name}
-                style={{ width: '32px', height: '32px', borderRadius: '6px', objectFit: 'cover', border: '1px solid #52bbf555' }}
+                style={{ width: '32px', height: '32px', borderRadius: '6px', objectFit: 'cover', border: '1px solid var(--brand-border-subtle)' }}
               />
             ) : (
-              <span style={{ width: '32px', height: '32px', borderRadius: '6px', background: 'linear-gradient(135deg, #2488d8, #18447e)', display: 'grid', placeItems: 'center', color: '#fff', font: '700 11px Syne' }}>
+              <span style={{ width: '32px', height: '32px', borderRadius: '6px', background: 'var(--brand-gradient)', display: 'grid', placeItems: 'center', color: 'var(--brand-text)', font: '700 11px Syne' }}>
                 {user.initials}
               </span>
             )}
             <div style={{ textAlign: 'left' }}>
-              <b style={{ color: '#edf7ff', fontSize: '11px', display: 'block' }}>{user.name}</b>
-              <small style={{ color: '#7ba2be', font: '500 9px "DM Mono", monospace', display: 'block' }}>
+              <b style={{ color: 'var(--text-main)', fontSize: '11px', display: 'block' }}>{user.name}</b>
+              <small style={{ color: 'var(--brand-eyebrow)', font: '500 9px "DM Mono", monospace', display: 'block' }}>
                 {user.isPrimaryAdmin ? 'Primary President' : `${getRoleLabel(user.role)} · ${user.memberId}`}
               </small>
             </div>
@@ -1175,34 +1267,48 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
     }
   }
 
+  const { platformMode, themeMode, setThemeMode } = usePlatformTheme()
+  const isMrdu = platformMode === 'MRDU_EVENTS'
+
   return (
     <main className="login-page">
       <section className="login-showcase">
         <div className="grid-overlay" />
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#85d7ff', font: '600 10px "DM Mono", monospace', letterSpacing: '.12em', zIndex: 2 }}>
-          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#70ddb4', boxShadow: '0 0 10px #70ddb4', display: 'inline-block' }} />
-          OFFICIAL STUDENT COMMUNITY · MRDU
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--brand-eyebrow)', font: '600 10px "DM Mono", monospace', letterSpacing: '.12em', zIndex: 2 }}>
+          <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--brand-accent)', boxShadow: '0 0 10px var(--brand-accent)', display: 'inline-block' }} />
+          {isMrdu ? 'MALLA REDDY (DEEMED TO BE UNIVERSITY) · NAAC A++' : 'OFFICIAL STUDENT COMMUNITY · MRDU'}
         </div>
 
         <div style={{ position: 'relative', zIndex: 2, maxWidth: '560px', margin: '40px 0' }}>
-          <Crest />
+          <Crest platformMode={platformMode} showBanner={isMrdu} />
           <div style={{ marginTop: '28px' }}>
-            <p className="eyebrow">DEPARTMENT OF CYBER SECURITY</p>
-            <h1 style={{ font: '800 clamp(32px, 4vw, 54px)/1.08 Syne', color: '#edf7ff', margin: '8px 0 16px', letterSpacing: '-.04em' }}>
-              Defend the digital frontier.<br />
-              <em style={{ color: '#85d7ff', fontStyle: 'normal' }}>Empower tomorrow.</em>
+            <p className="eyebrow">{isMrdu ? 'MALLA REDDY UNIVERSITY' : 'DEPARTMENT OF CYBER SECURITY'}</p>
+            <h1 style={{ font: '800 clamp(32px, 4vw, 54px)/1.08 Syne', color: 'var(--text-main)', margin: '8px 0 16px', letterSpacing: '-.04em' }}>
+              {isMrdu ? (
+                <>
+                  Empowering innovation.<br />
+                  <em style={{ color: 'var(--brand-primary)', fontStyle: 'normal' }}>Central Events Portal.</em>
+                </>
+              ) : (
+                <>
+                  Defend the digital frontier.<br />
+                  <em style={{ color: 'var(--brand-primary)', fontStyle: 'normal' }}>Empower tomorrow.</em>
+                </>
+              )}
             </h1>
-            <p style={{ color: '#9bb7cc', fontSize: '14px', lineHeight: '1.7', margin: 0 }}>
-              The official hub for student cybersecurity operations, ethical hacking sandboxes, live CTFs, and certified technical workshops.
+            <p style={{ color: 'var(--text-muted)', fontSize: '14px', lineHeight: '1.7', margin: 0 }}>
+              {isMrdu
+                ? 'The official university gateway for students, faculty, and participants across all departments to register for events, workshops, hackathons, and technical symposiums.'
+                : 'The official hub for student cybersecurity operations, ethical hacking sandboxes, live CTFs, and certified technical workshops.'}
             </p>
           </div>
         </div>
 
-        <div style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', background: 'rgba(5, 10, 18, 0.6)', border: '1px solid rgba(82, 187, 245, 0.2)', borderRadius: '10px', width: 'fit-content' }}>
-          <span style={{ color: '#70ddb4', fontSize: '14px' }}>🔒</span>
+        <div style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '10px', width: 'fit-content' }}>
+          <span style={{ color: 'var(--brand-accent)', fontSize: '14px' }}>{isMrdu ? '🎓' : '🔒'}</span>
           <div>
-            <b style={{ color: '#edf7ff', fontSize: '11px', display: 'block' }}>CYBER SECURITY CLUB PORTAL</b>
-            <small style={{ color: '#728da1', font: '500 9px "DM Mono", monospace' }}>OFFICIAL STUDENT & FACULTY ACCESS · MRDU</small>
+            <b style={{ color: 'var(--text-main)', fontSize: '11px', display: 'block' }}>{isMrdu ? 'MRDU EVENTS CENTRAL PORTAL' : 'CYBER SECURITY CLUB PORTAL'}</b>
+            <small style={{ color: 'var(--text-dim)', font: '500 9px "DM Mono", monospace' }}>{isMrdu ? 'OFFICIAL UNIVERSITY EVENT SYSTEM · ALL CAMPUSES' : 'OFFICIAL STUDENT & FACULTY ACCESS · MRDU'}</small>
           </div>
         </div>
       </section>
@@ -1210,12 +1316,12 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
       <section className="login-panel">
         <div className="login-card">
           <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <Crest small />
+            <Crest platformMode={platformMode} small />
             <span className="badge badge-president" style={{ marginTop: '12px', display: 'inline-block' }}>
-              SECURE MEMBER ACCESS
+              {isMrdu ? 'SECURE PARTICIPANT ACCESS' : 'SECURE MEMBER ACCESS'}
             </span>
-            <h2 style={{ font: '700 24px Syne', color: '#edf7ff', margin: '10px 0 4px' }}>Sign in to Portal</h2>
-            <p style={{ color: '#7e95a7', fontSize: '12px', margin: 0 }}>
+            <h2 style={{ font: '700 24px Syne', color: 'var(--text-main)', margin: '10px 0 4px' }}>Sign in to Portal</h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>
               Enter your authorized Member ID and password.
             </p>
           </div>
@@ -2684,6 +2790,7 @@ function MemberManagement({ user, logout, onNavigate }) {
 // Universal Member Profile Management (Students & Admins)
 // ----------------------------------------------------
 function UniversalProfileView({ user, logout, onNavigate, onProfileUpdated }) {
+  const { themeMode, setThemeMode } = usePlatformTheme()
   const [profile, setProfile] = useState(user.profile || {})
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -2806,30 +2913,68 @@ function UniversalProfileView({ user, logout, onNavigate, onProfileUpdated }) {
             </form>
           </article>
 
-          {/* Profile Card Preview */}
-          <article className="account-form-card" style={{ textAlign: 'center' }}>
-            <p className="eyebrow">BADGE PREVIEW</p>
-            <h2>My Member Badge</h2>
-            <div style={{ marginTop: '20px', padding: '24px', background: '#050a12', borderRadius: '12px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              {photoPreview ? (
-                <img src={photoPreview} alt="Profile" style={{ width: '96px', height: '96px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #52bbf5', marginBottom: '14px' }} />
-              ) : (
-                <div style={{ width: '96px', height: '96px', borderRadius: '50%', background: 'linear-gradient(135deg,#2488d8,#18447e)', display: 'grid', placeItems: 'center', color: '#fff', font: '700 30px Syne', marginBottom: '14px' }}>
-                  {user.initials}
-                </div>
-              )}
-              <h3 style={{ margin: '0 0 4px', font: '700 20px Syne', color: '#edf7ff' }}>{profile.name || user.name}</h3>
-              <span className={`badge ${user.isPrimaryAdmin ? 'badge-president' : user.role === 'STUDENT' ? 'badge-student' : 'badge-admin'}`} style={{ marginBottom: '10px' }}>
-                {user.isPrimaryAdmin ? '👑 PRESIDENT' : getRoleLabel(user.role)}
-              </span>
-              <p style={{ color: '#85d7ff', font: '500 11px "DM Mono", monospace', margin: '0 0 10px' }}>
-                MEMBER ID: {user.memberId}
-              </p>
-              <p style={{ color: '#8aa2b4', fontSize: '12px', lineHeight: '1.6', margin: '0 0 14px' }}>
-                {profile.bio || 'Authorized member of Cyber Security Club MRDU.'}
-              </p>
-            </div>
-          </article>
+          {/* Profile Card Preview & Appearance */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <article className="account-form-card" style={{ textAlign: 'center' }}>
+              <p className="eyebrow">BADGE PREVIEW</p>
+              <h2>My Member Badge</h2>
+              <div style={{ marginTop: '20px', padding: '24px', background: 'var(--bg-input)', borderRadius: '12px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                {photoPreview ? (
+                  <img src={photoPreview} alt="Profile" style={{ width: '96px', height: '96px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--brand-primary)', marginBottom: '14px' }} />
+                ) : (
+                  <div style={{ width: '96px', height: '96px', borderRadius: '50%', background: 'var(--brand-gradient)', display: 'grid', placeItems: 'center', color: 'var(--brand-text)', font: '700 30px Syne', marginBottom: '14px' }}>
+                    {user.initials}
+                  </div>
+                )}
+                <h3 style={{ margin: '0 0 4px', font: '700 20px Syne', color: 'var(--text-main)' }}>{profile.name || user.name}</h3>
+                <span className={`badge ${user.isPrimaryAdmin ? 'badge-president' : user.role === 'STUDENT' ? 'badge-student' : 'badge-admin'}`} style={{ marginBottom: '10px' }}>
+                  {user.isPrimaryAdmin ? '👑 PRESIDENT' : getRoleLabel(user.role)}
+                </span>
+                <p style={{ color: 'var(--brand-primary)', font: '500 11px "DM Mono", monospace', margin: '0 0 10px' }}>
+                  MEMBER ID: {user.memberId}
+                </p>
+                <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: '1.6', margin: '0 0 14px' }}>
+                  {profile.bio || 'Authorized member · Malla Reddy (MR) Deemed to be University.'}
+                </p>
+              </div>
+            </article>
+
+            {/* Appearance Preference Card */}
+            <article className="account-form-card">
+              <p className="eyebrow">THEME PREFERENCE</p>
+              <h2>Interface Appearance</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '0 0 14px' }}>Choose your personal display theme for this browser.</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                <button
+                  type="button"
+                  className={`theme-mode-card ${themeMode === 'system' ? 'active' : ''}`}
+                  onClick={() => setThemeMode('system')}
+                  style={{ padding: '10px 8px', textAlign: 'center' }}
+                >
+                  <b style={{ fontSize: '11px', justifyContent: 'center' }}>🖥️ Auto</b>
+                  <p style={{ fontSize: '9px', textAlign: 'center' }}>System</p>
+                </button>
+                <button
+                  type="button"
+                  className={`theme-mode-card ${themeMode === 'light' ? 'active' : ''}`}
+                  onClick={() => setThemeMode('light')}
+                  style={{ padding: '10px 8px', textAlign: 'center' }}
+                >
+                  <b style={{ fontSize: '11px', justifyContent: 'center' }}>☀️ Light</b>
+                  <p style={{ fontSize: '9px', textAlign: 'center' }}>Daylight</p>
+                </button>
+                <button
+                  type="button"
+                  className={`theme-mode-card ${themeMode === 'dark' ? 'active' : ''}`}
+                  onClick={() => setThemeMode('dark')}
+                  style={{ padding: '10px 8px', textAlign: 'center' }}
+                >
+                  <b style={{ fontSize: '11px', justifyContent: 'center' }}>🌙 Dark</b>
+                  <p style={{ fontSize: '9px', textAlign: 'center' }}>Cyber</p>
+                </button>
+              </div>
+            </article>
+          </div>
         </div>
       </section>
     </LivePortal>
@@ -5842,7 +5987,9 @@ function TeamManagement({ user, logout, onNavigate }) {
 // Club Settings & Priority Controls (Admin)
 // ----------------------------------------------------
 function ClubSettingsManager({ user, logout, onNavigate }) {
+  const { platformMode, setPlatformMode, themeMode, setThemeMode } = usePlatformTheme()
   const [settings, setSettings] = useState({})
+  const [selectedPlatform, setSelectedPlatform] = useState(platformMode || 'CYBER_SECURITY_CLUB')
   const [siteStatus, setSiteStatus] = useState('ACTIVE')
   const [subscriptionEnabled, setSubscriptionEnabled] = useState(false)
   const [subscriptionAmount, setSubscriptionAmount] = useState('100')
@@ -5862,6 +6009,10 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
       .then(({ settings: dict }) => {
         if (!mounted) return
         setSettings(dict)
+        if (dict.platformMode) {
+          setSelectedPlatform(dict.platformMode)
+          setPlatformMode(dict.platformMode)
+        }
         setSiteStatus(dict.siteStatus || 'ACTIVE')
         setSubscriptionEnabled(dict.subscriptionEnabled === true || dict.subscriptionEnabled === 'true')
         setSubscriptionAmount(String(dict.subscriptionMonthlyAmount || '100'))
@@ -5874,7 +6025,7 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
       })
       .catch(err => { if (mounted) setError(err.message) })
     return () => { mounted = false }
-  }, [])
+  }, [setPlatformMode])
 
   async function handleSaveSettings(e) {
     e.preventDefault()
@@ -5883,6 +6034,7 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
     setError('')
 
     const payload = {
+      platformMode: selectedPlatform,
       siteStatus,
       subscriptionEnabled,
       subscriptionMonthlyAmount: subscriptionAmount ? Number(subscriptionAmount) : 100,
@@ -5905,7 +6057,8 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
     setSubmitting(true)
     try {
       await adminApi.updateClubSettings(payload)
-      setMessage('Club settings updated successfully.')
+      setPlatformMode(selectedPlatform)
+      setMessage('Platform & club settings updated successfully.')
     } catch (err) {
       setError(err.message)
     } finally {
@@ -5914,7 +6067,7 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
   }
 
   return (
-    <LivePortal user={user} logout={logout} activeTab="admin-settings" onNavigate={onNavigate} title="CLUB SETTINGS">
+    <LivePortal user={user} logout={logout} activeTab="admin-settings" onNavigate={onNavigate} title={selectedPlatform === 'MRDU_EVENTS' ? 'PORTAL SETTINGS' : 'CLUB SETTINGS'}>
       <section className="member-management">
         <div className="member-heading">
           <div>
@@ -5922,8 +6075,8 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
               ← COMMAND CENTER
             </button>
             <p className="eyebrow">CENTRAL CONFIGURATION</p>
-            <h1>Global Controls & Club Media</h1>
-            <p>Manage site availability, student subscriptions, onboarding briefing mode, and social channels.</p>
+            <h1>Global Controls & Platform Identity</h1>
+            <p>Switch platform modes, adjust dark/light themes, manage site availability, subscriptions, and briefings.</p>
           </div>
           {user.isPrimaryAdmin && (
             <span className="president-lock">👑 PRIMARY PRESIDENT CONTROLS</span>
@@ -5934,6 +6087,116 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
         {error && <p className="member-form-error">{error}</p>}
 
         <form onSubmit={handleSaveSettings}>
+          {/* Card 0: Platform Identity & Mode (Primary Admin Switcher) */}
+          <article className="settings-section-card" style={{ border: '1px solid var(--brand-border-subtle)', background: 'var(--bg-card)' }}>
+            <div className="settings-card-header">
+              <div>
+                <p className="eyebrow" style={{ color: 'var(--brand-eyebrow)' }}>PLATFORM IDENTITY & BRANDING</p>
+                <h3 style={{ color: 'var(--text-main)' }}>Platform Mode Switcher (Primary Admin)</h3>
+              </div>
+              <span className="platform-active-pill">
+                ACTIVE: {selectedPlatform === 'MRDU_EVENTS' ? 'MRDU EVENTS' : 'CYBER SECURITY CLUB'}
+              </span>
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.6', margin: '0 0 16px' }}>
+              Switch the complete website and portal identity between <b>Cyber Security Club</b> and <b>MRDU Events</b>. All features, data, events, registrations, and admin controls remain 100% active and identical across both modes.
+            </p>
+
+            <div className="platform-mode-switcher-grid">
+              <button
+                type="button"
+                className={`platform-mode-card ${selectedPlatform === 'CYBER_SECURITY_CLUB' ? 'active' : ''}`}
+                onClick={() => {
+                  if (!user.isPrimaryAdmin) return
+                  setSelectedPlatform('CYBER_SECURITY_CLUB')
+                  setPlatformMode('CYBER_SECURITY_CLUB')
+                }}
+                disabled={!user.isPrimaryAdmin}
+              >
+                <div className="platform-mode-card-header">
+                  <b>🛡️ Cyber Security Club</b>
+                  {selectedPlatform === 'CYBER_SECURITY_CLUB' && <span className="platform-active-pill">SELECTED</span>}
+                </div>
+                <p>
+                  Official Cyber Security Club identity. Uses cyber defense crest, dark neon cyan accents, CTF sandbox references, and cybersecurity department themes.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                className={`platform-mode-card ${selectedPlatform === 'MRDU_EVENTS' ? 'active' : ''}`}
+                onClick={() => {
+                  if (!user.isPrimaryAdmin) return
+                  setSelectedPlatform('MRDU_EVENTS')
+                  setPlatformMode('MRDU_EVENTS')
+                }}
+                disabled={!user.isPrimaryAdmin}
+              >
+                <div className="platform-mode-card-header">
+                  <b>🎓 MRDU Events Portal</b>
+                  {selectedPlatform === 'MRDU_EVENTS' && <span className="platform-active-pill">SELECTED</span>}
+                </div>
+                <p>
+                  Official Malla Reddy University Events identity. Uses official university banner/crest, academic garnet & gold accents, and multi-department event hub themes.
+                </p>
+              </button>
+            </div>
+          </article>
+
+          {/* Card 0.5: Appearance & Theme Mode (System / Light / Dark) */}
+          <article className="settings-section-card" style={{ border: '1px solid var(--line)', background: 'var(--bg-card)' }}>
+            <div className="settings-card-header">
+              <div>
+                <p className="eyebrow" style={{ color: 'var(--brand-eyebrow)' }}>APPEARANCE & COLOR SCHEME</p>
+                <h3 style={{ color: 'var(--text-main)' }}>Interface Theme (Dark / Light / System)</h3>
+              </div>
+              <span className="badge" style={{ background: 'var(--brand-badge-bg)', color: 'var(--brand-badge-color)', border: '1px solid var(--brand-border-subtle)' }}>
+                {themeMode.toUpperCase()} MODE
+              </span>
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.6', margin: '0 0 16px' }}>
+              Choose your visual theme. Changes take effect immediately across all pages, sidebars, forms, tables, and dialogs.
+            </p>
+
+            <div className="theme-mode-switcher-grid">
+              <button
+                type="button"
+                className={`theme-mode-card ${themeMode === 'system' ? 'active' : ''}`}
+                onClick={() => setThemeMode('system')}
+              >
+                <div className="theme-mode-card-header">
+                  <b>🖥️ System Preference</b>
+                  {themeMode === 'system' && <span className="platform-active-pill">ACTIVE</span>}
+                </div>
+                <p>Automatically match your device / operating system appearance settings.</p>
+              </button>
+
+              <button
+                type="button"
+                className={`theme-mode-card ${themeMode === 'light' ? 'active' : ''}`}
+                onClick={() => setThemeMode('light')}
+              >
+                <div className="theme-mode-card-header">
+                  <b>☀️ Light Mode</b>
+                  {themeMode === 'light' && <span className="platform-active-pill">ACTIVE</span>}
+                </div>
+                <p>Bright, crisp, high-contrast theme optimized for daylight readability.</p>
+              </button>
+
+              <button
+                type="button"
+                className={`theme-mode-card ${themeMode === 'dark' ? 'active' : ''}`}
+                onClick={() => setThemeMode('dark')}
+              >
+                <div className="theme-mode-card-header">
+                  <b>🌙 Dark Mode</b>
+                  {themeMode === 'dark' && <span className="platform-active-pill">ACTIVE</span>}
+                </div>
+                <p>Sleek, deep-contrast theme optimized for focused low-light environments.</p>
+              </button>
+            </div>
+          </article>
+
           {/* Card 1: Site Status (Hibernation Mode) */}
           <article className="settings-section-card">
             <div className="settings-card-header">
@@ -7489,11 +7752,64 @@ function App() {
   const [screen, setScreen] = useState(resetToken ? 'reset-password' : 'login')
   const [checkingSession, setCheckingSession] = useState(true)
 
+  // Platform Mode & Theme System
+  const [platformMode, setPlatformMode] = useState('CYBER_SECURITY_CLUB')
+  const [themeMode, setThemeModeState] = useState(() => {
+    return localStorage.getItem('app-theme-preference') || 'system'
+  })
+  const [systemDark, setSystemDark] = useState(() => {
+    return typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+  })
+
   // Experience & System flags
   const [showIntroVideo, setShowIntroVideo] = useState(false)
   const [showWaitingQueue, setShowWaitingQueue] = useState(false)
   const [isHibernating, setIsHibernating] = useState(false)
   const [adminLoginModal, setAdminLoginModal] = useState(false)
+
+  // Listen to OS theme changes
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const handler = e => setSystemDark(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+
+  const resolvedTheme = useMemo(() => {
+    if (themeMode === 'light') return 'light'
+    if (themeMode === 'dark') return 'dark'
+    return systemDark ? 'dark' : 'light'
+  }, [themeMode, systemDark])
+
+  const setThemeMode = (mode) => {
+    setThemeModeState(mode)
+    try {
+      localStorage.setItem('app-theme-preference', mode)
+    } catch {}
+  }
+
+  // Synchronize document attributes
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', resolvedTheme)
+  }, [resolvedTheme])
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-platform', platformMode)
+  }, [platformMode])
+
+  // Fetch initial public club settings to get current platformMode
+  useEffect(() => {
+    let mounted = true
+    adminApi.getClubSettings()
+      .then(({ settings: dict }) => {
+        if (!mounted) return
+        if (dict.platformMode) setPlatformMode(dict.platformMode)
+        if (dict.siteStatus === 'HIBERNATING') setIsHibernating(true)
+      })
+      .catch(() => {})
+    return () => { mounted = false }
+  }, [])
 
   function getScreenFromPath(role) {
     const path = window.location.pathname.replace(/^\//, '')
@@ -7606,68 +7922,76 @@ function App() {
     }
   }
 
-  if (checkingSession) {
-    return (
-      <main className="auth-loading" style={{ minHeight: '100vh', display: 'grid', placeContent: 'center', gap: 14, background: '#080c12', color: '#9ed9ff', textAlign: 'center' }}>
-        <Crest small />
-        <p style={{ font: "500 10px 'DM Mono', monospace", letterSpacing: '.12em' }}>VERIFYING SECURE SESSION…</p>
-      </main>
-    )
-  }
-
-  // Hibernation Mode: shown to unauthenticated users and students
-  if (isHibernating && (!user || user.role === 'STUDENT') && !adminLoginModal) {
-    return <HibernationScreen onAdminLogin={() => setAdminLoginModal(true)} />
-  }
-
-  if (screen === 'reset-password' && resetToken) return <PasswordReset token={resetToken} onComplete={() => setScreen('login')} />
-  if (screen === 'password-reset-request') return <PasswordResetRequest onBack={() => setScreen('login')} />
-  if (screen === 'two-factor') return <TwoFactorLogin onVerify={verifyTwoFactor} onBack={() => setScreen('login')} />
-
-  if (user) {
-    if (showIntroVideo) {
-      return <IntroVideoExperience onComplete={() => setShowIntroVideo(false)} />
+  function renderContent() {
+    if (checkingSession) {
+      return (
+        <main className="auth-loading" style={{ minHeight: '100vh', display: 'grid', placeContent: 'center', gap: 14, background: 'var(--bg-portal)', color: 'var(--brand-primary)', textAlign: 'center' }}>
+          <Crest platformMode={platformMode} small />
+          <p style={{ font: "500 10px 'DM Mono', monospace", letterSpacing: '.12em', color: 'var(--brand-eyebrow)' }}>VERIFYING SECURE SESSION…</p>
+        </main>
+      )
     }
 
-    if (showWaitingQueue) {
-      return <ConcurrentWaitingQueue onComplete={() => setShowWaitingQueue(false)} />
+    // Hibernation Mode: shown to unauthenticated users and students
+    if (isHibernating && (!user || user.role === 'STUDENT') && !adminLoginModal) {
+      return <HibernationScreen onAdminLogin={() => setAdminLoginModal(true)} />
     }
 
-    if (screen.startsWith('event-detail/')) {
-      const eventId = screen.replace('event-detail/', '')
-      return <StudentEventDetail user={user} eventId={eventId} logout={logout} onNavigate={navigateTo} />
-    }
+    if (screen === 'reset-password' && resetToken) return <PasswordReset token={resetToken} onComplete={() => setScreen('login')} />
+    if (screen === 'password-reset-request') return <PasswordResetRequest onBack={() => setScreen('login')} />
+    if (screen === 'two-factor') return <TwoFactorLogin onVerify={verifyTwoFactor} onBack={() => setScreen('login')} />
 
-    // Admin Screens
-    if (user.isAdminUser) {
-      if (screen === 'admin-members') return <MemberManagement user={user} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'admin-events') return <EventManagement user={user} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'admin-payments') return <PaymentManagement user={user} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'admin-subscriptions') return <SubscriptionManagement user={user} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'admin-support') return <SupportDeskView user={user} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'admin-chat') return <CouncilChatView user={user} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'admin-gallery') return <GalleryManagement user={user} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'admin-team') return <TeamManagement user={user} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'admin-settings') return <ClubSettingsManager user={user} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'admin-audit') return <AuditLogView user={user} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'admin-profile') return <UniversalProfileView user={user} logout={logout} onNavigate={navigateTo} onProfileUpdated={u => setUser(toPortalUser(u))} />
+    if (user) {
+      if (showIntroVideo) {
+        return <IntroVideoExperience onComplete={() => setShowIntroVideo(false)} />
+      }
+
+      if (showWaitingQueue) {
+        return <ConcurrentWaitingQueue onComplete={() => setShowWaitingQueue(false)} />
+      }
+
+      if (screen.startsWith('event-detail/')) {
+        const eventId = screen.replace('event-detail/', '')
+        return <StudentEventDetail user={user} eventId={eventId} logout={logout} onNavigate={navigateTo} />
+      }
+
+      // Admin Screens
+      if (user.isAdminUser) {
+        if (screen === 'admin-members') return <MemberManagement user={user} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-events') return <EventManagement user={user} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-payments') return <PaymentManagement user={user} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-subscriptions') return <SubscriptionManagement user={user} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-support') return <SupportDeskView user={user} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-chat') return <CouncilChatView user={user} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-gallery') return <GalleryManagement user={user} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-team') return <TeamManagement user={user} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-settings') return <ClubSettingsManager user={user} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-audit') return <AuditLogView user={user} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-profile') return <UniversalProfileView user={user} logout={logout} onNavigate={navigateTo} onProfileUpdated={u => setUser(toPortalUser(u))} />
+        if (screen === 'security') return <AccountSecurity user={user} logout={logout} onNavigate={navigateTo} />
+        return <LivePresidentDashboard user={user} logout={logout} onNavigate={navigateTo} />
+      }
+
+      // Student Screens
+      if (screen === 'student-events') return <StudentEvents user={user} logout={logout} onNavigate={navigateTo} />
+      if (screen === 'student-registrations') return <StudentRegistrations user={user} logout={logout} onNavigate={navigateTo} />
+      if (screen === 'student-membership') return <StudentMembership user={user} logout={logout} onNavigate={navigateTo} />
+      if (screen === 'student-support') return <SupportDeskView user={user} logout={logout} onNavigate={navigateTo} />
+      if (screen === 'student-team') return <OurTeamShowcase user={user} logout={logout} onNavigate={navigateTo} />
+      if (screen === 'student-gallery') return <StudentGallery user={user} logout={logout} onNavigate={navigateTo} />
+      if (screen === 'student-profile') return <UniversalProfileView user={user} logout={logout} onNavigate={navigateTo} onProfileUpdated={u => setUser(toPortalUser(u))} />
       if (screen === 'security') return <AccountSecurity user={user} logout={logout} onNavigate={navigateTo} />
-      return <LivePresidentDashboard user={user} logout={logout} onNavigate={navigateTo} />
+      return <LiveStudentDashboard user={user} logout={logout} onNavigate={navigateTo} />
     }
 
-    // Student Screens
-    if (screen === 'student-events') return <StudentEvents user={user} logout={logout} onNavigate={navigateTo} />
-    if (screen === 'student-registrations') return <StudentRegistrations user={user} logout={logout} onNavigate={navigateTo} />
-    if (screen === 'student-membership') return <StudentMembership user={user} logout={logout} onNavigate={navigateTo} />
-    if (screen === 'student-support') return <SupportDeskView user={user} logout={logout} onNavigate={navigateTo} />
-    if (screen === 'student-team') return <OurTeamShowcase user={user} logout={logout} onNavigate={navigateTo} />
-    if (screen === 'student-gallery') return <StudentGallery user={user} logout={logout} onNavigate={navigateTo} />
-    if (screen === 'student-profile') return <UniversalProfileView user={user} logout={logout} onNavigate={navigateTo} onProfileUpdated={u => setUser(toPortalUser(u))} />
-    if (screen === 'security') return <AccountSecurity user={user} logout={logout} onNavigate={navigateTo} />
-    return <LiveStudentDashboard user={user} logout={logout} onNavigate={navigateTo} />
+    return <FinalLogin onSignIn={signedIn} onForgotPassword={() => setScreen('password-reset-request')} />
   }
 
-  return <FinalLogin onSignIn={signedIn} onForgotPassword={() => setScreen('password-reset-request')} />
+  return (
+    <PlatformThemeContext.Provider value={{ platformMode, setPlatformMode, themeMode, setThemeMode, resolvedTheme }}>
+      {renderContent()}
+    </PlatformThemeContext.Provider>
+  )
 }
 
 export default App

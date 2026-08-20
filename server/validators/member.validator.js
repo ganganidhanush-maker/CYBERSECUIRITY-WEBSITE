@@ -188,6 +188,7 @@ export const deleteProtectedAccountSchema = z.object({
 })
 
 export const clubSettingsSchema = z.object({
+  platformMode: z.enum(['CYBER_SECURITY_CLUB', 'MRDU_EVENTS']).optional(),
   siteStatus: z.enum(['ACTIVE', 'HIBERNATING']).optional(),
   hibernationStartedAt: optionalText(64),
   subscriptionEnabled: z.boolean().optional(),

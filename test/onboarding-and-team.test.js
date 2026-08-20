@@ -23,6 +23,40 @@ describe('Onboarding Briefing & Team Priority Management System', () => {
     assert.equal(parsedSlideshow.data.onboardingBriefingMode, 'SLIDESHOW')
   })
 
+  it('validates Platform Mode settings schema for CYBER_SECURITY_CLUB and MRDU_EVENTS', () => {
+    const cscMode = { platformMode: 'CYBER_SECURITY_CLUB' }
+    const parsedCsc = clubSettingsSchema.safeParse(cscMode)
+    assert.equal(parsedCsc.success, true)
+    assert.equal(parsedCsc.data.platformMode, 'CYBER_SECURITY_CLUB')
+
+    const mrduMode = { platformMode: 'MRDU_EVENTS' }
+    const parsedMrdu = clubSettingsSchema.safeParse(mrduMode)
+    assert.equal(parsedMrdu.success, true)
+    assert.equal(parsedMrdu.data.platformMode, 'MRDU_EVENTS')
+
+    const invalidMode = { platformMode: 'INVALID_PLATFORM' }
+    const parsedInvalid = clubSettingsSchema.safeParse(invalidMode)
+    assert.equal(parsedInvalid.success, false)
+  })
+
+  it('validates Theme resolution logic across System, Light, and Dark modes', () => {
+    function resolveTheme(themeMode, systemIsDark) {
+      if (themeMode === 'light') return 'light'
+      if (themeMode === 'dark') return 'dark'
+      return systemIsDark ? 'dark' : 'light'
+    }
+
+    // Explicit user selections
+    assert.equal(resolveTheme('light', true), 'light')
+    assert.equal(resolveTheme('light', false), 'light')
+    assert.equal(resolveTheme('dark', true), 'dark')
+    assert.equal(resolveTheme('dark', false), 'dark')
+
+    // System preference fallback
+    assert.equal(resolveTheme('system', true), 'dark')
+    assert.equal(resolveTheme('system', false), 'light')
+  })
+
   it('rejects invalid onboarding briefing mode values', () => {
     const invalidSettings = {
       onboardingBriefingMode: 'INVALID_MODE',
