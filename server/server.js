@@ -7,12 +7,41 @@ import { startAuditRetentionJob } from './services/audit-retention.service.js'
 
 assertRuntimeConfiguration()
 
+async function verifyDatabaseConnection(maxRetries = 5, delayMs = 3000) {
+  let dbHost = 'unknown'
+  let dbPort = 3306
+  let dbName = ''
+  try {
+    const url = new URL(env.databaseUrl)
+    dbHost = url.hostname
+    dbPort = Number(url.port || 3306)
+    dbName = url.pathname.slice(1)
+  } catch {}
+
+  console.info(`[DB INFO] Verifying connection to ${dbHost}:${dbPort}/${dbName}...`)
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await prisma.$queryRaw`SELECT 1`
+      console.info(`[DB INFO] Database connected successfully to ${dbHost}:${dbPort}/${dbName}.`)
+      return
+    } catch (error) {
+      if (attempt < maxRetries) {
+        console.warn(`[DB WARN] Database connection attempt ${attempt}/${maxRetries} failed: ${error.message}. Retrying in ${delayMs / 1000}s...`)
+        await new Promise(resolve => setTimeout(resolve, delayMs))
+      } else {
+        throw error
+      }
+    }
+  }
+}
+
 try {
-  await prisma.$queryRaw`SELECT 1`
+  await verifyDatabaseConnection(5, 3000)
   await bootstrapDatabase()
   if (env.isProduction) await verifyMailConfiguration()
 } catch (error) {
-  console.error('Startup validation failed: required local services are unavailable.', error.message)
+  console.error('Startup validation failed: required database service is unreachable.', error.message)
   await prisma.$disconnect()
   process.exitCode = 1
   throw error

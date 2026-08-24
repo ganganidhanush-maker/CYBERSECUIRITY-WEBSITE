@@ -7,12 +7,25 @@ const CIPHER = 'aes-256-gcm'
 
 function sessionDatabaseOptions() {
   const connection = new URL(env.databaseUrl)
+  const sslParam = connection.searchParams.get('ssl') || connection.searchParams.get('sslmode') || connection.searchParams.get('sslaccept')
+  let ssl = undefined
+  if (sslParam) {
+    const lower = sslParam.toLowerCase()
+    if (lower === 'true' || lower === 'require' || lower === 'strict') ssl = true
+    else if (lower === 'accept-invalid-certs' || lower === 'prefer' || lower === 'no-verify') ssl = { rejectUnauthorized: false }
+    else if (lower === 'false' || lower === 'disable') ssl = false
+    else {
+      try { ssl = JSON.parse(sslParam) } catch { ssl = true }
+    }
+  }
+
   return {
     host: connection.hostname,
     port: Number(connection.port || 3306),
     user: decodeURIComponent(connection.username),
     password: decodeURIComponent(connection.password),
     database: connection.pathname.slice(1),
+    ...(ssl !== undefined ? { ssl } : {}),
   }
 }
 
