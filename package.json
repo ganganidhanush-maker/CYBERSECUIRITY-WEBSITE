@@ -10,7 +10,7 @@
     "dev": "concurrently -n client,server -c cyan,green \"npm:dev:client\" \"npm:dev:server\"",
     "dev:client": "vite",
     "dev:server": "node --watch server/server.js",
-    "start": "npx prisma db push --skip-generate && node server/server.js",
+    "start": "node server/server.js",
     "build": "prisma generate && vite build",
     "railway-build": "prisma generate && prisma migrate deploy && vite build",
     "vercel-build": "prisma generate && prisma migrate deploy && vite build",
