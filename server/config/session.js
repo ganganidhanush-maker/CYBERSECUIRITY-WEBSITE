@@ -25,6 +25,7 @@ function sessionDatabaseOptions() {
     user: decodeURIComponent(connection.username),
     password: decodeURIComponent(connection.password),
     database: connection.pathname.slice(1),
+    allowPublicKeyRetrieval: true,
     ...(ssl !== undefined ? { ssl } : {}),
   }
 }

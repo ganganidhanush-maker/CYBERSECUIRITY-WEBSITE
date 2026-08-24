@@ -36,6 +36,7 @@ const adapter = new PrismaMariaDb({
   connectionLimit: 10,
   connectTimeout: 30000,
   acquireTimeout: 30000,
+  allowPublicKeyRetrieval: true,
   ...(ssl !== undefined ? { ssl } : {}),
 })
 
