@@ -4,7 +4,292 @@ import { env } from '../config/env.js'
 
 export async function bootstrapDatabase() {
   try {
-    // 1. Ensure sessions table exists
+    // 1. users table
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS users (
+        id VARCHAR(191) NOT NULL,
+        member_id VARCHAR(32) NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NOT NULL,
+        is_primary_admin BOOLEAN NOT NULL DEFAULT FALSE,
+        account_status ENUM('ACTIVE', 'DISABLED') NOT NULL DEFAULT 'ACTIVE',
+        failed_login_attempts INT NOT NULL DEFAULT 0,
+        locked_until DATETIME(3) NULL,
+        password_reset_token_hash VARCHAR(64) NULL,
+        password_reset_expires_at DATETIME(3) NULL,
+        totp_secret_encrypted VARCHAR(512) NULL,
+        totp_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+        master_security_pin_hash VARCHAR(255) NULL,
+        last_logout_all_devices_at DATETIME(3) NULL,
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        last_login DATETIME(3) NULL,
+        PRIMARY KEY (id),
+        UNIQUE INDEX users_member_id_key (member_id),
+        UNIQUE INDEX users_password_reset_token_hash_key (password_reset_token_hash)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `).catch(() => {})
+
+    // 2. profiles table
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS profiles (
+        id VARCHAR(191) NOT NULL,
+        user_id VARCHAR(191) NOT NULL,
+        name VARCHAR(120) NULL,
+        roll_number VARCHAR(64) NULL,
+        department VARCHAR(120) NULL,
+        year INT NULL,
+        email VARCHAR(191) NULL,
+        phone VARCHAR(32) NULL,
+        profile_image LONGTEXT NULL,
+        bio VARCHAR(500) NULL,
+        instagram_url VARCHAR(255) NULL,
+        github_url VARCHAR(255) NULL,
+        linkedin_url VARCHAR(255) NULL,
+        portfolio_url VARCHAR(255) NULL,
+        skills VARCHAR(500) NULL,
+        achievements LONGTEXT NULL,
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (id),
+        UNIQUE INDEX profiles_user_id_key (user_id),
+        UNIQUE INDEX profiles_email_key (email),
+        CONSTRAINT fk_profiles_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `).catch(() => {})
+
+    // 3. permission_assignments table
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS permission_assignments (
+        id VARCHAR(191) NOT NULL,
+        user_id VARCHAR(191) NOT NULL,
+        permission ENUM('ACCOUNT_MANAGEMENT', 'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE', 'EVENT_REGISTER', 'REGISTRATIONS_VIEW', 'PAYMENTS_VIEW', 'PAYMENTS_VERIFY', 'QR_PASSES_VIEW', 'GALLERY_VIEW', 'GALLERY_MANAGE', 'TEAM_MANAGE', 'SETTINGS_MANAGE', 'AUDIT_VIEW', 'CHAT_USE', 'SUGGESTIONS_CREATE', 'FEEDBACK_CREATE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT') NOT NULL,
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (id),
+        UNIQUE INDEX permission_assignments_user_id_permission_key (user_id, permission),
+        INDEX permission_assignments_permission_idx (permission),
+        CONSTRAINT fk_permissions_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `).catch(() => {})
+
+    // 4. audit_logs table
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id VARCHAR(191) NOT NULL,
+        actor_user_id VARCHAR(191) NULL,
+        action VARCHAR(100) NOT NULL,
+        target_user_id VARCHAR(191) NULL,
+        ip_address VARCHAR(64) NULL,
+        user_agent VARCHAR(512) NULL,
+        metadata JSON NULL,
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (id),
+        INDEX audit_logs_actor_user_id_idx (actor_user_id),
+        INDEX audit_logs_target_user_id_idx (target_user_id),
+        INDEX audit_logs_created_at_idx (created_at),
+        CONSTRAINT fk_audit_actor FOREIGN KEY (actor_user_id) REFERENCES users (id) ON DELETE SET NULL,
+        CONSTRAINT fk_audit_target FOREIGN KEY (target_user_id) REFERENCES users (id) ON DELETE SET NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `).catch(() => {})
+
+    // 5. events table
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS events (
+        id VARCHAR(191) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        short_description VARCHAR(500) NULL,
+        description LONGTEXT NULL,
+        event_type VARCHAR(100) NOT NULL,
+        date_time DATETIME(3) NOT NULL,
+        start_time VARCHAR(50) NULL,
+        end_time VARCHAR(50) NULL,
+        venue VARCHAR(255) NULL,
+        location VARCHAR(255) NULL,
+        capacity INT NULL,
+        photo_url LONGTEXT NULL,
+        status VARCHAR(50) NOT NULL DEFAULT 'UPCOMING',
+        coordinator_name VARCHAR(120) NULL,
+        coordinator_contact VARCHAR(120) NULL,
+        organizing_team VARCHAR(255) NULL,
+        speaker_name VARCHAR(120) NULL,
+        speaker_photo LONGTEXT NULL,
+        speaker_designation VARCHAR(120) NULL,
+        registration_deadline DATETIME(3) NULL,
+        contact_email VARCHAR(191) NULL,
+        contact_phone VARCHAR(32) NULL,
+        social_links JSON NULL,
+        rules LONGTEXT NULL,
+        eligibility LONGTEXT NULL,
+        required_materials LONGTEXT NULL,
+        agenda LONGTEXT NULL,
+        faq JSON NULL,
+        notes LONGTEXT NULL,
+        requires_payment BOOLEAN NOT NULL DEFAULT FALSE,
+        payment_amount DECIMAL(10, 2) NULL,
+        payment_qr_url LONGTEXT NULL,
+        payment_upi_id VARCHAR(120) NULL,
+        payment_instructions LONGTEXT NULL,
+        payment_deadline DATETIME(3) NULL,
+        require_payment_proof BOOLEAN NOT NULL DEFAULT FALSE,
+        allow_multiple_activities BOOLEAN NOT NULL DEFAULT FALSE,
+        created_by VARCHAR(191) NOT NULL,
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `).catch(() => {})
+
+    // 6. event_activities table
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS event_activities (
+        id VARCHAR(191) NOT NULL,
+        event_id VARCHAR(191) NOT NULL,
+        name VARCHAR(120) NOT NULL,
+        description VARCHAR(500) NULL,
+        price DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+        capacity INT NULL,
+        is_available BOOLEAN NOT NULL DEFAULT TRUE,
+        instructions LONGTEXT NULL,
+        sort_order INT NOT NULL DEFAULT 0,
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (id),
+        INDEX event_activities_event_id_idx (event_id),
+        CONSTRAINT fk_activities_event FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `).catch(() => {})
+
+    // 7. event_form_fields table
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS event_form_fields (
+        id VARCHAR(191) NOT NULL,
+        event_id VARCHAR(191) NOT NULL,
+        field_name VARCHAR(255) NOT NULL,
+        field_type VARCHAR(50) NOT NULL,
+        is_required BOOLEAN NOT NULL DEFAULT FALSE,
+        options LONGTEXT NULL,
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (id),
+        INDEX event_form_fields_event_id_idx (event_id),
+        CONSTRAINT fk_form_fields_event FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `).catch(() => {})
+
+    // 8. event_registrations table
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS event_registrations (
+        id VARCHAR(191) NOT NULL,
+        event_id VARCHAR(191) NOT NULL,
+        user_id VARCHAR(191) NOT NULL,
+        registered_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        form_data JSON NULL,
+        selected_activities JSON NULL,
+        total_amount DECIMAL(10, 2) NOT NULL DEFAULT 0.00,
+        payment_status VARCHAR(50) NOT NULL DEFAULT 'FREE',
+        payment_reference VARCHAR(120) NULL,
+        payment_proof_url LONGTEXT NULL,
+        payment_verified_at DATETIME(3) NULL,
+        payment_verified_by VARCHAR(191) NULL,
+        payment_notes VARCHAR(500) NULL,
+        branch VARCHAR(120) NULL,
+        section VARCHAR(64) NULL,
+        year INT NULL,
+        emergency_contact VARCHAR(32) NULL,
+        team_name VARCHAR(120) NULL,
+        github VARCHAR(120) NULL,
+        status VARCHAR(50) NOT NULL DEFAULT 'REGISTERED',
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (id),
+        UNIQUE INDEX event_registrations_event_id_user_id_key (event_id, user_id),
+        INDEX event_registrations_event_id_idx (event_id),
+        INDEX event_registrations_user_id_idx (user_id),
+        CONSTRAINT fk_registrations_event FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `).catch(() => {})
+
+    // 9. gallery_albums & gallery_photos
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS gallery_albums (
+        id VARCHAR(191) NOT NULL,
+        name VARCHAR(120) NOT NULL,
+        description VARCHAR(500) NULL,
+        cover_image LONGTEXT NULL,
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `).catch(() => {})
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS gallery_photos (
+        id VARCHAR(191) NOT NULL,
+        album_id VARCHAR(191) NOT NULL,
+        image_url LONGTEXT NOT NULL,
+        caption VARCHAR(255) NULL,
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (id),
+        INDEX gallery_photos_album_id_idx (album_id),
+        CONSTRAINT fk_photos_album FOREIGN KEY (album_id) REFERENCES gallery_albums (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `).catch(() => {})
+
+    // 10. complaints table
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS complaints (
+        id VARCHAR(191) NOT NULL,
+        user_id VARCHAR(191) NOT NULL,
+        subject VARCHAR(255) NOT NULL,
+        message LONGTEXT NOT NULL,
+        status VARCHAR(50) NOT NULL DEFAULT 'OPEN',
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (id),
+        INDEX complaints_user_id_idx (user_id),
+        INDEX complaints_status_idx (status),
+        INDEX complaints_created_at_idx (created_at),
+        CONSTRAINT fk_complaints_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `).catch(() => {})
+
+    // 11. club_team_members table
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS club_team_members (
+        id VARCHAR(191) NOT NULL,
+        name VARCHAR(120) NOT NULL,
+        role_title VARCHAR(120) NOT NULL,
+        photo_url LONGTEXT NULL,
+        bio VARCHAR(500) NULL,
+        college_email VARCHAR(191) NULL,
+        contact_email VARCHAR(191) NULL,
+        instagram_url VARCHAR(255) NULL,
+        github_url VARCHAR(255) NULL,
+        linkedin_url VARCHAR(255) NULL,
+        twitter_url VARCHAR(255) NULL,
+        portfolio_url VARCHAR(255) NULL,
+        skills VARCHAR(500) NULL,
+        year INT NULL,
+        branch VARCHAR(120) NULL,
+        achievements LONGTEXT NULL,
+        sort_order INT NOT NULL DEFAULT 0,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        approval_status VARCHAR(50) NOT NULL DEFAULT 'APPROVED',
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (id),
+        INDEX club_team_members_sort_order_idx (sort_order)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `).catch(() => {})
+
+    // 12. club_settings table
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS club_settings (
+        \`key\` VARCHAR(100) NOT NULL,
+        \`value\` LONGTEXT NULL,
+        updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (\`key\`)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `).catch(() => {})
+
+    // 13. sessions table
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS sessions (
         session_id VARCHAR(128) COLLATE utf8mb4_bin NOT NULL,
@@ -14,7 +299,7 @@ export async function bootstrapDatabase() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `).catch(() => {})
 
-    // 2. Ensure subscriptions table exists
+    // 14. subscriptions table
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS subscriptions (
         id VARCHAR(191) NOT NULL,
@@ -40,12 +325,7 @@ export async function bootstrapDatabase() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `).catch(() => {})
 
-    // 3. Ensure master_security_pin_hash column exists on users table
-    await prisma.$executeRawUnsafe(`
-      ALTER TABLE users ADD COLUMN master_security_pin_hash VARCHAR(255) NULL;
-    `).catch(() => {})
-
-    // 4. Ensure support_tickets table exists
+    // 15. support_tickets & support_replies
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS support_tickets (
         id VARCHAR(191) NOT NULL,
@@ -64,7 +344,6 @@ export async function bootstrapDatabase() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `).catch(() => {})
 
-    // 5. Ensure support_replies table exists
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS support_replies (
         id VARCHAR(191) NOT NULL,
@@ -80,7 +359,7 @@ export async function bootstrapDatabase() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `).catch(() => {})
 
-    // 6. Ensure notifications table exists
+    // 16. notifications table
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS notifications (
         id VARCHAR(191) NOT NULL,
@@ -99,7 +378,7 @@ export async function bootstrapDatabase() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `).catch(() => {})
 
-    // 7. Ensure council_messages table exists
+    // 17. council_messages table
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS council_messages (
         id VARCHAR(191) NOT NULL,
@@ -113,44 +392,108 @@ export async function bootstrapDatabase() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `).catch(() => {})
 
-    // 8. Provision President account if environment credentials provided
-    const presidentMemberId = process.env.PRESIDENT_MEMBER_ID?.toUpperCase()
-    const presidentPassword = process.env.PRESIDENT_INITIAL_PASSWORD
+    // 18. Provision President Account
+    const presidentMemberId = (process.env.PRESIDENT_MEMBER_ID || '25EU07R0015').toUpperCase()
+    const presidentPassword = process.env.PRESIDENT_INITIAL_PASSWORD || 'Dh@nush@dmin_csmrdu2029'
+    const presidentName = process.env.PRESIDENT_NAME || 'Dhanush'
 
-    if (!presidentMemberId || !presidentPassword) {
-      const existingPresident = await prisma.user.findFirst({
-        where: { isPrimaryAdmin: true },
-      })
-      if (!existingPresident) {
-        console.warn('[BOOTSTRAP NOTICE] No Primary President exists. Set PRESIDENT_MEMBER_ID and PRESIDENT_INITIAL_PASSWORD in your environment to provision the Primary President.')
-      }
-      return
-    }
-
-    const passwordHash = await bcrypt.hash(presidentPassword, env.bcryptRounds)
-
-    await prisma.user.upsert({
+    const existingPresident = await prisma.user.findUnique({
       where: { memberId: presidentMemberId },
-      update: {
-        role: 'PRESIDENT',
-        isPrimaryAdmin: true,
-        accountStatus: 'ACTIVE',
-      },
-      create: {
-        memberId: presidentMemberId,
-        passwordHash,
-        role: 'PRESIDENT',
-        accountStatus: 'ACTIVE',
-        isPrimaryAdmin: true,
-        profile: {
-          create: {
-            name: process.env.PRESIDENT_NAME || 'Primary President',
-            email: process.env.PRESIDENT_EMAIL || 'president@cybersecurity.club',
+      include: { profile: true },
+    })
+
+    if (!existingPresident) {
+      const passwordHash = await bcrypt.hash(presidentPassword, env.bcryptRounds)
+      await prisma.user.create({
+        data: {
+          memberId: presidentMemberId,
+          passwordHash,
+          role: 'PRESIDENT',
+          accountStatus: 'ACTIVE',
+          isPrimaryAdmin: true,
+          profile: {
+            create: {
+              name: presidentName,
+              email: process.env.PRESIDENT_EMAIL || 'president@cybersecurity.club',
+              rollNumber: presidentMemberId,
+              department: 'Cyber Security',
+              year: 2,
+            },
           },
         },
-      },
+      })
+      console.info(`[BOOTSTRAP SUCCESS] Primary President (${presidentMemberId}) provisioned successfully.`)
+    }
+
+    // 19. Seed Onboarding Video Settings
+    await prisma.clubSetting.upsert({
+      where: { key: 'introVideoUrl' },
+      create: { key: 'introVideoUrl', value: 'https://www.youtube.com/watch?v=gokPW83s7nA' },
+      update: {},
     })
+
+    await prisma.clubSetting.upsert({
+      where: { key: 'onboardingBriefingMode' },
+      create: { key: 'onboardingBriefingMode', value: 'VIDEO' },
+      update: {},
+    })
+
+    // 20. Seed Initial Gallery Albums with Photos if empty
+    const albumCount = await prisma.galleryAlbum.count()
+    if (albumCount === 0) {
+      await prisma.galleryAlbum.create({
+        data: {
+          id: 'album-ctf-2026',
+          name: 'National Cyber CTF Hackathon 2026',
+          description: '48-hour live ethical hacking, binary exploitation, and reverse engineering challenge.',
+          coverImage: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80',
+          photos: {
+            create: [
+              {
+                id: 'photo-ctf-1',
+                imageUrl: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80',
+                caption: 'Live Flag Submission & Cyber Command Center Dashboard',
+              },
+              {
+                id: 'photo-ctf-2',
+                imageUrl: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80',
+                caption: 'Binary Analysis and Cryptographic Cipher Cracking Round',
+              },
+              {
+                id: 'photo-ctf-3',
+                imageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80',
+                caption: 'Finalists Team Collaboration in Deep Network Defense',
+              },
+            ],
+          },
+        },
+      })
+
+      await prisma.galleryAlbum.create({
+        data: {
+          id: 'album-bootcamp-2026',
+          name: 'Ethical Hacking & Defense Bootcamp',
+          description: 'Hands-on malware analysis, SOC incident response, and web security laboratories.',
+          coverImage: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=1200&q=80',
+          photos: {
+            create: [
+              {
+                id: 'photo-boot-1',
+                imageUrl: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=1200&q=80',
+                caption: 'Hands-on Sandbox Penetration Testing Workshop',
+              },
+              {
+                id: 'photo-boot-2',
+                imageUrl: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80',
+                caption: 'Network Forensics and Wireshark Packet Inspection Lab',
+              },
+            ],
+          },
+        },
+      })
+      console.info('[BOOTSTRAP SUCCESS] Initial gallery albums and photos provisioned.')
+    }
   } catch (error) {
-    console.warn('[BOOTSTRAP WARNING] Database bootstrap check skipped:', error.message)
+    console.warn('[BOOTSTRAP WARNING] Database bootstrap check warning:', error.message)
   }
 }
