@@ -11,6 +11,8 @@ export async function bootstrapDatabase() {
         member_id VARCHAR(32) NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
         role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NOT NULL,
+        csc_role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NULL,
+        mrdu_role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NULL,
         is_primary_admin BOOLEAN NOT NULL DEFAULT FALSE,
         account_status ENUM('ACTIVE', 'DISABLED') NOT NULL DEFAULT 'ACTIVE',
         failed_login_attempts INT NOT NULL DEFAULT 0,
@@ -28,6 +30,25 @@ export async function bootstrapDatabase() {
         UNIQUE INDEX users_member_id_key (member_id),
         UNIQUE INDEX users_password_reset_token_hash_key (password_reset_token_hash)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `).catch(() => {})
+
+    // Add csc_role and mrdu_role columns if they don't exist yet on existing tables
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE users ADD COLUMN csc_role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NULL;
+    `).catch(() => {})
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE users ADD COLUMN mrdu_role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NULL;
+    `).catch(() => {})
+
+    // Seed/sync default platform roles for existing users
+    await prisma.$executeRawUnsafe(`
+      UPDATE users SET csc_role = role WHERE csc_role IS NULL;
+    `).catch(() => {})
+    await prisma.$executeRawUnsafe(`
+      UPDATE users SET mrdu_role = 'PRESIDENT' WHERE is_primary_admin = TRUE AND mrdu_role IS NULL;
+    `).catch(() => {})
+    await prisma.$executeRawUnsafe(`
+      UPDATE users SET mrdu_role = 'STUDENT' WHERE is_primary_admin = FALSE AND mrdu_role IS NULL;
     `).catch(() => {})
 
     // 2. profiles table
@@ -197,6 +218,10 @@ export async function bootstrapDatabase() {
         team_name VARCHAR(120) NULL,
         github VARCHAR(120) NULL,
         status VARCHAR(50) NOT NULL DEFAULT 'REGISTERED',
+        attendance_marked BOOLEAN NOT NULL DEFAULT FALSE,
+        attended_at DATETIME(3) NULL,
+        attendance_verified_by VARCHAR(191) NULL,
+        qr_code_data LONGTEXT NULL,
         created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
         PRIMARY KEY (id),
         UNIQUE INDEX event_registrations_event_id_user_id_key (event_id, user_id),
@@ -205,6 +230,12 @@ export async function bootstrapDatabase() {
         CONSTRAINT fk_registrations_event FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `).catch(() => {})
+
+    // Self-healing column additions for existing event_registrations table
+    await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN attendance_marked BOOLEAN NOT NULL DEFAULT FALSE`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN attended_at DATETIME(3) NULL`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN attendance_verified_by VARCHAR(191) NULL`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN qr_code_data LONGTEXT NULL`).catch(() => {})
 
     // 9. gallery_albums & gallery_photos
     await prisma.$executeRawUnsafe(`

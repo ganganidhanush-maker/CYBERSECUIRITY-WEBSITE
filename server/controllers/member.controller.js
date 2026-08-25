@@ -1,4 +1,5 @@
 import crypto from 'node:crypto'
+import QRCode from 'qrcode'
 import { prisma } from '../db/prisma.js'
 import { tryWriteAuditLog } from '../services/audit.service.js'
 import { toSafeUser } from '../utils/safe-user.js'
@@ -169,9 +170,16 @@ export async function registerForEvent(request, response) {
     }
   }
 
+  const regId = crypto.randomUUID()
+  const qrPassPayload = `EVENT_PASS:${regId}`
+  let qrCodeData = null
+  try {
+    qrCodeData = await QRCode.toDataURL(qrPassPayload, { margin: 2, width: 300, color: { dark: '#000000', light: '#ffffff' } })
+  } catch {}
+
   const registration = await prisma.eventRegistration.create({
     data: {
-      id: crypto.randomUUID(),
+      id: regId,
       eventId: event.id,
       userId: request.user.id,
       selectedActivities: selectedActivitiesList.length ? selectedActivitiesList : undefined,
@@ -187,6 +195,8 @@ export async function registerForEvent(request, response) {
       github: data.github || null,
       formData: data.formData || null,
       status: registrationStatus,
+      attendanceMarked: false,
+      qrCodeData,
     },
   })
 
@@ -204,7 +214,11 @@ export async function registerForEvent(request, response) {
   })
 
   return response.status(201).json({
-    registration: { ...registration, totalAmount: Number(registration.totalAmount) },
+    registration: {
+      ...registration,
+      totalAmount: Number(registration.totalAmount),
+      qrCodeData: registration.qrCodeData || qrCodeData,
+    },
   })
 }
 
@@ -219,15 +233,29 @@ export async function listMyRegistrations(request, response) {
     orderBy: { registeredAt: 'desc' },
   })
 
+  const enrichedRegistrations = await Promise.all(
+    registrations.map(async reg => {
+      let qrCode = reg.qrCodeData
+      if (!qrCode) {
+        try {
+          qrCode = await QRCode.toDataURL(`EVENT_PASS:${reg.id}`, { margin: 2, width: 300, color: { dark: '#000000', light: '#ffffff' } })
+          prisma.eventRegistration.update({ where: { id: reg.id }, data: { qrCodeData: qrCode } }).catch(() => {})
+        } catch {}
+      }
+      return {
+        ...reg,
+        totalAmount: Number(reg.totalAmount),
+        qrCodeData: qrCode,
+        event: reg.event ? {
+          ...reg.event,
+          paymentAmount: reg.event.paymentAmount ? Number(reg.event.paymentAmount) : null,
+        } : null,
+      }
+    })
+  )
+
   return response.status(200).json({
-    registrations: registrations.map(reg => ({
-      ...reg,
-      totalAmount: Number(reg.totalAmount),
-      event: reg.event ? {
-        ...reg.event,
-        paymentAmount: reg.event.paymentAmount ? Number(reg.event.paymentAmount) : null,
-      } : null,
-    })),
+    registrations: enrichedRegistrations,
   })
 }
 

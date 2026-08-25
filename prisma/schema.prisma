@@ -59,6 +59,8 @@ model User {
   memberId               String                 @unique @map("member_id") @db.VarChar(32)
   passwordHash           String                 @map("password_hash") @db.VarChar(255)
   role                   Role
+  cscRole                Role?                  @map("csc_role")
+  mrduRole               Role?                  @map("mrdu_role")
   isPrimaryAdmin         Boolean                @default(false) @map("is_primary_admin")
   accountStatus          AccountStatus          @default(ACTIVE) @map("account_status")
   failedLoginAttempts    Int                    @default(0) @map("failed_login_attempts")
@@ -240,6 +242,10 @@ model EventRegistration {
   teamName           String?   @map("team_name") @db.VarChar(120)
   github             String?   @db.VarChar(120)
   status             String    @default("REGISTERED") @db.VarChar(50)
+  attendanceMarked   Boolean   @default(false) @map("attendance_marked")
+  attendedAt         DateTime? @map("attended_at")
+  attendanceVerifiedBy String? @map("attendance_verified_by") @db.VarChar(191)
+  qrCodeData         String?   @map("qr_code_data") @db.LongText
   createdAt          DateTime  @default(now()) @map("created_at")
   event              Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
 

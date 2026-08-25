@@ -4,6 +4,7 @@ import { prisma } from './db/prisma.js'
 import { bootstrapDatabase } from './db/bootstrap.js'
 import { verifyMailConfiguration } from './services/mailer.service.js'
 import { startAuditRetentionJob } from './services/audit-retention.service.js'
+import { ensureLocalDatabase } from '../scripts/ensure-local-db.js'
 
 assertRuntimeConfiguration()
 
@@ -17,6 +18,11 @@ async function verifyDatabaseConnection(maxRetries = 5, delayMs = 3000) {
     dbPort = Number(url.port || 3306)
     dbName = url.pathname.slice(1)
   } catch {}
+
+  // Auto-launch local database service if on local host
+  if (dbHost === '127.0.0.1' || dbHost === 'localhost') {
+    await ensureLocalDatabase().catch(() => {})
+  }
 
   console.info(`[DB INFO] Verifying connection to ${dbHost}:${dbPort}/${dbName}...`)
 

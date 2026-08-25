@@ -7,6 +7,8 @@ import { verifyTotp } from '../services/totp.service.js'
 import { toSafeUser } from '../utils/safe-user.js'
 import { env } from '../config/env.js'
 import { getRolePermissions } from '../config/permissions.js'
+import { getActivePlatformMode, invalidatePlatformModeCache } from '../services/platform-role.service.js'
+import { generateFullDatabaseSqlDump } from '../services/database-dump.service.js'
 import {
   accountStatusSchema,
   adminResetPasswordSchema,
@@ -33,11 +35,13 @@ function auditRequest(request) {
   return { ipAddress: request.ip, userAgent: request.get('user-agent') || null }
 }
 
-function flattenMember(user) {
-  const safe = toSafeUser(user)
+function flattenMember(user, platformMode = 'CYBER_SECURITY_CLUB') {
+  const safe = toSafeUser(user, platformMode)
   return {
     ...safe,
     isPrimaryAdmin: Boolean(user.isPrimaryAdmin),
+    cscRole: user.cscRole || user.role || 'STUDENT',
+    mrduRole: user.mrduRole || (user.isPrimaryAdmin ? 'PRESIDENT' : 'STUDENT'),
     name: safe.profile?.name || null,
     email: safe.profile?.email || null,
     phone: safe.profile?.phone || null,
@@ -57,8 +61,9 @@ async function verifyPresidentActionCode(target, authenticationCode) {
 }
 
 export async function listMembers(request, response) {
+  const platformMode = request.platformMode || await getActivePlatformMode()
   const users = await prisma.user.findMany({ include: userInclude, orderBy: { createdAt: 'desc' } })
-  return response.status(200).json({ users: users.map(flattenMember) })
+  return response.status(200).json({ users: users.map(u => flattenMember(u, platformMode)) })
 }
 
 export async function createMember(request, response) {
@@ -68,6 +73,8 @@ export async function createMember(request, response) {
     return response.status(400).json({ message })
   }
 
+  const platformMode = request.platformMode || await getActivePlatformMode()
+  const isMrdu = platformMode === 'MRDU_EVENTS'
   const data = parsed.data
   const assignedPermissions = data.permissions && data.permissions.length
     ? data.permissions
@@ -80,6 +87,8 @@ export async function createMember(request, response) {
         memberId: data.memberId.toUpperCase(),
         passwordHash,
         role: data.role,
+        cscRole: isMrdu ? 'STUDENT' : data.role,
+        mrduRole: isMrdu ? data.role : 'STUDENT',
         isPrimaryAdmin: false,
         accountStatus: 'ACTIVE',
         profile: { create: data.profile },
@@ -94,7 +103,7 @@ export async function createMember(request, response) {
       metadata: { memberId: user.memberId, role: data.role, permissions: assignedPermissions },
       ...auditRequest(request),
     })
-    return response.status(201).json({ user: flattenMember(user) })
+    return response.status(201).json({ user: flattenMember(user, platformMode) })
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return response.status(409).json({ message: 'That Member ID or email is already assigned.' })
@@ -185,12 +194,16 @@ export async function bulkCreateMembers(request, response) {
     if (s.email) seenEmailInBatch.add(s.email)
 
     try {
+      const platformMode = request.platformMode || await getActivePlatformMode()
+      const isMrdu = platformMode === 'MRDU_EVENTS'
       const passwordHash = await bcrypt.hash(s.password, env.bcryptRounds)
       const user = await prisma.user.create({
         data: {
           memberId: memId,
           passwordHash,
           role: 'STUDENT',
+          cscRole: 'STUDENT',
+          mrduRole: 'STUDENT',
           isPrimaryAdmin: false,
           accountStatus: 'ACTIVE',
           profile: {
@@ -210,7 +223,7 @@ export async function bulkCreateMembers(request, response) {
         include: userInclude,
       })
 
-      successList.push(flattenMember(user))
+      successList.push(flattenMember(user, platformMode))
     } catch (err) {
       failedItems.push({
         row: rowNum,
@@ -251,9 +264,10 @@ export async function changeAccountStatus(request, response) {
   if (!target) return response.status(404).json({ message: 'Resource not found' })
   if (target.isPrimaryAdmin) return response.status(400).json({ message: 'The Primary President account cannot be disabled.' })
 
+  const platformMode = request.platformMode || await getActivePlatformMode()
   const user = await prisma.user.update({ where: { id: target.id }, data: { accountStatus: parsed.data.accountStatus }, include: userInclude })
   await tryWriteAuditLog({ actorUserId: request.user.id, action: 'ACCOUNT_STATUS_CHANGED', targetUserId: target.id, metadata: { from: target.accountStatus, to: parsed.data.accountStatus }, ...auditRequest(request) })
-  return response.status(200).json({ user: flattenMember(user) })
+  return response.status(200).json({ user: flattenMember(user, platformMode) })
 }
 
 export async function changeMemberPermissions(request, response) {
@@ -264,13 +278,14 @@ export async function changeMemberPermissions(request, response) {
   if (!target) return response.status(404).json({ message: 'Resource not found' })
   if (target.isPrimaryAdmin) return response.status(400).json({ message: 'Primary President permissions cannot be customized.' })
 
+  const platformMode = request.platformMode || await getActivePlatformMode()
   const user = await prisma.user.update({
     where: { id: target.id },
     data: { permissions: { deleteMany: {}, create: parsed.data.permissions.map(permission => ({ permission })) } },
     include: userInclude,
   })
   await tryWriteAuditLog({ actorUserId: request.user.id, action: 'ACCOUNT_PERMISSIONS_CHANGED', targetUserId: target.id, metadata: { from: target.permissions.map(entry => entry.permission), to: parsed.data.permissions }, ...auditRequest(request) })
-  return response.status(200).json({ user: flattenMember(user) })
+  return response.status(200).json({ user: flattenMember(user, platformMode) })
 }
 
 export async function editMember(request, response) {
@@ -280,15 +295,23 @@ export async function editMember(request, response) {
     return response.status(400).json({ message: 'Primary President account cannot be modified by other users.' })
   }
 
+  const platformMode = request.platformMode || await getActivePlatformMode()
+  const isMrdu = platformMode === 'MRDU_EVENTS'
+
   const { name, email, phone, rollNumber, department, year, role, profileImage } = request.body
-  const newRole = role || target.role
-  const permissionsUpdate = role && role !== target.role ? getRolePermissions(role) : null
+  const currentModeRole = isMrdu ? (target.mrduRole || 'STUDENT') : (target.cscRole || target.role)
+  const newRole = role || currentModeRole
+  const permissionsUpdate = role && role !== currentModeRole ? getRolePermissions(role) : null
 
   try {
     const user = await prisma.user.update({
       where: { id: target.id },
       data: {
         role: target.isPrimaryAdmin ? 'PRESIDENT' : newRole,
+        ...(target.isPrimaryAdmin ? {
+          cscRole: 'PRESIDENT',
+          mrduRole: 'PRESIDENT',
+        } : (isMrdu ? { mrduRole: newRole } : { cscRole: newRole })),
         ...(permissionsUpdate ? {
           permissions: {
             deleteMany: {},
@@ -321,7 +344,7 @@ export async function editMember(request, response) {
       include: userInclude,
     })
     await tryWriteAuditLog({ actorUserId: request.user.id, action: 'ACCOUNT_UPDATED', targetUserId: target.id, metadata: { memberId: target.memberId, updatedFields: Object.keys(request.body) }, ...auditRequest(request) })
-    return response.status(200).json({ user: flattenMember(user) })
+    return response.status(200).json({ user: flattenMember(user, platformMode) })
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
       return response.status(409).json({ message: 'Email or Roll number is already in use.' })
@@ -1143,6 +1166,10 @@ export async function updateClubSettings(request, response) {
     }
   }
 
+  if (parsed.data.platformMode) {
+    invalidatePlatformModeCache()
+  }
+
   await tryWriteAuditLog({ actorUserId: request.user.id, action: 'CLUB_SETTINGS_UPDATED', metadata: { keys: Object.keys(parsed.data) }, ...auditRequest(request) })
   return response.status(200).json({ message: 'Club settings updated successfully.' })
 }
@@ -1384,4 +1411,290 @@ export async function sendCouncilMessage(request, response) {
   })
 
   return response.status(201).json({ message: created })
+}
+
+// ----------------------------------------------------
+// One-Click Full Database Backup (.sql)
+// ----------------------------------------------------
+export async function exportDatabaseSql(request, response) {
+  const { password } = request.body || {}
+  if (!password) {
+    return response.status(400).json({ message: 'Primary President account password is required to generate a full database backup.' })
+  }
+
+  // Fetch current primary president account with passwordHash
+  const president = await prisma.user.findUnique({ where: { id: request.user.id } })
+  if (!president || !president.isPrimaryAdmin) {
+    return response.status(403).json({ message: 'Access Denied: Only the Primary President can export complete database dumps.' })
+  }
+
+  const isPasswordValid = await bcrypt.compare(password, president.passwordHash)
+  if (!isPasswordValid) {
+    await tryWriteAuditLog({
+      actorUserId: request.user.id,
+      action: 'DATABASE_EXPORT_REJECTED_INVALID_PASSWORD',
+      metadata: { memberId: request.user.memberId, ip: request.ip },
+      ...auditRequest(request),
+    })
+    return response.status(401).json({ message: 'Incorrect Primary President password. Database export authorization failed.' })
+  }
+
+  const sqlDump = await generateFullDatabaseSqlDump(request.user.memberId)
+  const now = new Date()
+  const dateStr = now.toISOString().slice(0, 10)
+  const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '-')
+  const filename = `mrdu_csc_full_database_${dateStr}_${timeStr}.sql`
+
+  await tryWriteAuditLog({
+    actorUserId: request.user.id,
+    action: 'FULL_DATABASE_EXPORT_SQL',
+    metadata: {
+      memberId: request.user.memberId,
+      filename,
+      sizeBytes: Buffer.byteLength(sqlDump, 'utf8'),
+    },
+    ...auditRequest(request),
+  })
+
+  return response.status(200).json({
+    filename,
+    sqlContent: sqlDump,
+    message: 'Database backup generated successfully.',
+  })
+}
+
+// ----------------------------------------------------
+// QR Code Scanner & Event Entry Gate (Admins / Event Coordinators Only)
+// ----------------------------------------------------
+export async function scanQrCode(request, response) {
+  let code = String(request.query.code || request.body?.code || '').trim()
+  if (!code) {
+    return response.status(400).json({ message: 'QR Code or scan query is required.' })
+  }
+
+  // Handle JSON encoded QR codes
+  if (code.startsWith('{') && code.endsWith('}')) {
+    try {
+      const parsed = JSON.parse(code)
+      code = parsed.registrationId || parsed.passId || parsed.id || parsed.memberId || code
+    } catch {}
+  }
+
+  // Handle URL formatted QR codes (e.g. https://domain.com/event-pass/xyz or ?code=xyz)
+  if (code.includes('?code=')) {
+    const parts = code.split('?code=')
+    code = decodeURIComponent(parts[1] || '').split('&')[0]
+  } else if (code.includes('/event-pass/')) {
+    code = code.split('/event-pass/')[1]?.split('/')[0]?.split('?')[0] || code
+  } else if (code.includes('/events/')) {
+    code = code.split('/events/')[1]?.split('/')[0]?.split('?')[0] || code
+  }
+
+  // 1. Match Event Pass QR formats: EVENT_PASS:<id>, PASS:<id>, REG:<id> or raw ID
+  let regId = code
+  if (/^(EVENT_PASS|PASS|REG|TICKET):/i.test(code)) {
+    regId = code.replace(/^(EVENT_PASS|PASS|REG|TICKET):/i, '').trim()
+  }
+
+  let registration = await prisma.eventRegistration.findFirst({
+    where: {
+      OR: [
+        { id: regId },
+        { id: code },
+        { qrCodeData: code },
+      ],
+    },
+    include: {
+      event: {
+        include: { activities: true },
+      },
+    },
+  })
+
+  let attendeeUser = null
+  if (registration) {
+    attendeeUser = await prisma.user.findUnique({
+      where: { id: registration.userId },
+      include: { profile: true },
+    })
+  } else {
+    // 2. If not found by registration ID, check if this is a student member ID who has an active registration
+    let memberLookup = code
+    if (/^STUDENT_ID:/i.test(code)) {
+      memberLookup = code.replace(/^STUDENT_ID:/i, '').trim()
+    }
+
+    const studentUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { memberId: memberLookup.toUpperCase() },
+          { id: memberLookup },
+          { profile: { rollNumber: memberLookup } },
+        ],
+      },
+      include: {
+        profile: true,
+      },
+    })
+
+    if (studentUser) {
+      registration = await prisma.eventRegistration.findFirst({
+        where: { userId: studentUser.id },
+        include: {
+          event: { include: { activities: true } },
+        },
+        orderBy: { registeredAt: 'desc' },
+      })
+      if (registration) {
+        attendeeUser = studentUser
+      }
+    }
+  }
+
+  // 3. If registration is found, return the structured Event Pass response
+  if (registration && attendeeUser) {
+    return response.status(200).json({
+      scanType: 'EVENT_PASS',
+      registration: {
+        id: registration.id,
+        status: registration.status,
+        paymentStatus: registration.paymentStatus,
+        totalAmount: Number(registration.totalAmount),
+        attendanceMarked: Boolean(registration.attendanceMarked),
+        attendedAt: registration.attendedAt,
+        attendanceVerifiedBy: registration.attendanceVerifiedBy,
+        registeredAt: registration.registeredAt,
+        selectedActivities: registration.selectedActivities,
+        user: {
+          id: attendeeUser.id,
+          memberId: attendeeUser.memberId,
+          name: attendeeUser.profile?.name || attendeeUser.name,
+          rollNumber: attendeeUser.profile?.rollNumber || attendeeUser.memberId,
+          department: attendeeUser.profile?.department || 'Engineering',
+          year: attendeeUser.profile?.year,
+          email: attendeeUser.profile?.email,
+          phone: attendeeUser.profile?.phone,
+          profileImage: attendeeUser.profile?.profileImage,
+        },
+        event: {
+          id: registration.event.id,
+          title: registration.event.title,
+          description: registration.event.description,
+          eventType: registration.event.eventType,
+          dateTime: registration.event.dateTime,
+          venue: registration.event.venue || registration.event.location || 'MRDU Campus Main Auditorium',
+          bannerUrl: registration.event.photoUrl,
+        },
+      },
+    })
+  }
+
+  // 4. Check if the scanned code is an Event ID directly
+  const directEvent = await prisma.event.findFirst({
+    where: {
+      OR: [
+        { id: code },
+        { title: { contains: code } },
+      ],
+    },
+  })
+
+  if (directEvent) {
+    const allRegs = await prisma.eventRegistration.findMany({
+      where: { eventId: directEvent.id },
+    })
+    return response.status(200).json({
+      scanType: 'EVENT_DIRECT',
+      event: {
+        id: directEvent.id,
+        title: directEvent.title,
+        eventType: directEvent.eventType,
+        dateTime: directEvent.dateTime,
+        venue: directEvent.venue || directEvent.location || 'Campus',
+        totalRegistrations: allRegs.length,
+        attendedCount: allRegs.filter(r => r.attendanceMarked).length,
+      },
+    })
+  }
+
+  return response.status(404).json({
+    message: 'Scanned QR code does not match any valid Event Pass or ticket record.',
+  })
+}
+
+export async function grantEventEntry(request, response) {
+  const { registrationId } = request.body || {}
+  if (!registrationId) {
+    return response.status(400).json({ message: 'Registration ID is required to grant entry.' })
+  }
+
+  const registration = await prisma.eventRegistration.findUnique({
+    where: { id: registrationId },
+    include: {
+      event: true,
+    },
+  })
+
+  if (!registration) {
+    return response.status(404).json({ message: 'Event registration record not found.' })
+  }
+
+  const attendeeUser = await prisma.user.findUnique({
+    where: { id: registration.userId },
+    include: { profile: true },
+  })
+
+  const attendeeName = attendeeUser?.profile?.name || attendeeUser?.memberId || 'Attendee'
+
+  // PREVENT DUPLICATE ENTRIES
+  if (registration.attendanceMarked) {
+    const verifiedAtStr = registration.attendedAt ? new Date(registration.attendedAt).toLocaleTimeString() : 'earlier'
+    const verifierStr = registration.attendanceVerifiedBy || 'Coordinator'
+    return response.status(409).json({
+      code: 'DUPLICATE_ENTRY_REJECTED',
+      message: `DUPLICATE ENTRY REJECTED: Attendance for ${attendeeName} was already granted at ${verifiedAtStr} by ${verifierStr}.`,
+      registration,
+    })
+  }
+
+  const updated = await prisma.eventRegistration.update({
+    where: { id: registrationId },
+    data: {
+      attendanceMarked: true,
+      attendedAt: new Date(),
+      attendanceVerifiedBy: request.user.memberId || request.user.name || 'Coordinator',
+    },
+    include: {
+      event: true,
+    },
+  })
+
+  await tryWriteAuditLog({
+    actorUserId: request.user.id,
+    action: 'EVENT_ENTRY_GRANTED',
+    metadata: {
+      registrationId: updated.id,
+      eventId: updated.eventId,
+      eventTitle: updated.event?.title,
+      attendeeMemberId: attendeeUser?.memberId,
+      attendeeName,
+      verifiedBy: updated.attendanceVerifiedBy,
+    },
+    ...auditRequest(request),
+  })
+
+  return response.status(200).json({
+    message: `✓ Access Granted! Attendance recorded for ${attendeeName}.`,
+    registration: {
+      ...updated,
+      totalAmount: Number(updated.totalAmount),
+      user: attendeeUser ? {
+        id: attendeeUser.id,
+        memberId: attendeeUser.memberId,
+        name: attendeeName,
+        rollNumber: attendeeUser.profile?.rollNumber || attendeeUser.memberId,
+        department: attendeeUser.profile?.department || 'Engineering',
+      } : null,
+    },
+  })
 }

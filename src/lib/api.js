@@ -217,6 +217,35 @@ export const adminApi = {
   updateComplaintStatus: (complaintId, status) => request(`/admin/complaints/${complaintId}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
   listAuditLogs: () => request('/admin/audit-logs'),
   clearAuditLogs: authCode => request('/admin/audit-logs/clear', { method: 'POST', body: JSON.stringify({ authCode }) }),
+
+  // Full Database Backup (.sql) — Primary President Protected Action
+  exportDatabaseSql: password => request('/admin/database/export-sql', { method: 'POST', body: JSON.stringify({ password }) }),
+
+  // QR Code Scanner & Event Entry
+  scanQrCode: async code => {
+    try {
+      return await request(`/admin/qr/scan?code=${encodeURIComponent(code)}`)
+    } catch (err) {
+      if (err.status === 403 || err.status === 404) {
+        try {
+          return await request(`/member/qr/scan?code=${encodeURIComponent(code)}`)
+        } catch (mErr) {
+          throw mErr
+        }
+      }
+      throw err
+    }
+  },
+  grantEventEntry: async registrationId => {
+    try {
+      return await request('/admin/qr/grant-entry', { method: 'POST', body: JSON.stringify({ registrationId }) })
+    } catch (err) {
+      if (err.status === 403) {
+        return await request('/member/qr/grant-entry', { method: 'POST', body: JSON.stringify({ registrationId }) })
+      }
+      throw err
+    }
+  },
 }
 
 export const memberApi = {

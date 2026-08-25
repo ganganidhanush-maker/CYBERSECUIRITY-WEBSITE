@@ -10,6 +10,7 @@ import { decryptSecret, encryptSecret } from '../services/secret-crypto.service.
 import { createTotpSecret, createTotpUri, verifyTotp } from '../services/totp.service.js'
 import { toSafeUser } from '../utils/safe-user.js'
 import { issueCsrfToken } from '../middleware/csrf.js'
+import { getActivePlatformMode } from '../services/platform-role.service.js'
 import { loginSchema, passwordConfirmationSchema, passwordResetRequestSchema, passwordResetSchema, totpCodeSchema } from '../validators/auth.validator.js'
 
 const invalidCredentials = { message: 'Invalid Member ID or password.' }
@@ -102,6 +103,7 @@ export async function login(request, response) {
       const csrfToken = await establishTwoFactorChallenge(request, user)
       return response.status(200).json({ requiresTwoFactor: true, isMasterPin: true, csrfToken })
     }
+    const platformMode = await getActivePlatformMode()
     const csrfToken = await establishAuthenticatedSession(request, user)
     await tryWriteAuditLog({
       actorUserId: user.id,
@@ -109,7 +111,7 @@ export async function login(request, response) {
       metadata: { memberId: user.memberId, name: user.profile?.name || user.name, role: user.role, isPrimaryAdmin: true },
       ...auditRequest(request),
     })
-    return response.status(200).json({ user: toSafeUser(user), csrfToken })
+    return response.status(200).json({ user: toSafeUser(user, platformMode), csrfToken })
   }
 
   if (user.totpEnabled) {
@@ -121,6 +123,7 @@ export async function login(request, response) {
     return response.status(200).json({ requiresTwoFactor: true, csrfToken })
   }
 
+  const platformMode = await getActivePlatformMode()
   const csrfToken = await establishAuthenticatedSession(request, user)
   await tryWriteAuditLog({
     actorUserId: user.id,
@@ -128,7 +131,7 @@ export async function login(request, response) {
     metadata: { memberId: user.memberId, name: user.profile?.name || user.name, role: user.role },
     ...auditRequest(request),
   })
-  return response.status(200).json({ user: toSafeUser(user), csrfToken })
+  return response.status(200).json({ user: toSafeUser(user, platformMode), csrfToken })
 }
 
 export async function verifyTwoFactorLogin(request, response) {
@@ -180,6 +183,7 @@ export async function verifyTwoFactorLogin(request, response) {
     })
   }
 
+  const platformMode = await getActivePlatformMode()
   const csrfToken = await establishAuthenticatedSession(request, user)
   await tryWriteAuditLog({
     actorUserId: user.id,
@@ -187,11 +191,12 @@ export async function verifyTwoFactorLogin(request, response) {
     metadata: { memberId: user.memberId, name: user.profile?.name || user.name, role: user.role, isPrimaryAdmin: user.isPrimaryAdmin },
     ...auditRequest(request),
   })
-  return response.status(200).json({ user: toSafeUser(user), csrfToken })
+  return response.status(200).json({ user: toSafeUser(user, platformMode), csrfToken })
 }
 
-export function me(request, response) {
-  return response.status(200).json({ user: toSafeUser(request.user) })
+export async function me(request, response) {
+  const platformMode = request.platformMode || await getActivePlatformMode()
+  return response.status(200).json({ user: toSafeUser(request.user, platformMode) })
 }
 
 export async function logout(request, response) {

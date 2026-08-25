@@ -21,6 +21,10 @@ import {
   updateProfile,
 } from '../controllers/member.controller.js'
 import {
+  scanQrCode,
+  grantEventEntry,
+} from '../controllers/admin.controller.js'
+import {
   getStudentSubscriptionStatus,
   submitStudentSubscription,
 } from '../controllers/subscription.controller.js'
@@ -73,3 +77,8 @@ memberRouter.post('/notifications/read-all', markAllNotificationsRead)
 memberRouter.get('/gallery', requirePermission('GALLERY_VIEW'), listGallery)
 memberRouter.get('/gallery/:albumId', requirePermission('GALLERY_VIEW'), getGalleryAlbum)
 memberRouter.get('/team', listClubTeam)
+
+// QR Event Pass Scanner & Gate Entry
+memberRouter.get('/qr/scan', scanQrCode)
+memberRouter.post('/qr/scan', scanQrCode)
+memberRouter.post('/qr/grant-entry', grantEventEntry)

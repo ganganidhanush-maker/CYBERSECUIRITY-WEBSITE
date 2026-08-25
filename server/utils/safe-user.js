@@ -1,9 +1,17 @@
-export function toSafeUser(user) {
+export function toSafeUser(user, platformMode = 'CYBER_SECURITY_CLUB') {
+  const isMrdu = platformMode === 'MRDU_EVENTS'
+  const isPrimary = Boolean(user?.isPrimaryAdmin)
+  const cscRole = user?.cscRole || user?.role || 'STUDENT'
+  const mrduRole = user?.mrduRole || (isPrimary ? 'PRESIDENT' : 'STUDENT')
+  const effectiveRole = isPrimary ? 'PRESIDENT' : (isMrdu ? mrduRole : cscRole)
+
   return {
     id: user.id,
     memberId: user.memberId,
-    role: user.role,
-    isPrimaryAdmin: Boolean(user.isPrimaryAdmin),
+    role: effectiveRole,
+    cscRole,
+    mrduRole,
+    isPrimaryAdmin: isPrimary,
     accountStatus: user.accountStatus,
     twoFactorEnabled: user.totpEnabled || false,
     permissions: user.permissions?.map(({ permission }) => permission) || [],

@@ -1,0 +1,576 @@
+================================================================================
+           CYBER SECURITY CLUB MRDU - MASTER TECHNICAL GUIDE (A TO Z)
+================================================================================
+Author: Antigravity (AI Engineering Partner)
+Purpose: Complete Educational & Architectural Reference for Personal Learning
+Target: Dhanush / Student Lead & Developer
+================================================================================
+
+TABLE OF CONTENTS
+--------------------------------------------------------------------------------
+ 1. Executive Project Overview
+ 2. High-Level System Architecture & Technology Stack
+ 3. Database Architecture & Data Modeling (Prisma & MySQL)
+ 4. Complete Backend Engineering (Node.js & Express 5)
+ 5. Security Engineering & Defense-in-Depth Hardening
+ 6. Complete Frontend Architecture (React 19 & Vite)
+ 7. Detailed Walkthrough of Core Modules (Features 1 to 14)
+ 8. Client-Side Utilities & Advanced Techniques
+ 9. Deployment, DevOps & Local Environment Setup
+10. Key Engineering Lessons & Concepts to Master for Interviews / Hackathons
+--------------------------------------------------------------------------------
+
+
+================================================================================
+1. EXECUTIVE PROJECT OVERVIEW
+================================================================================
+
+The Cyber Security Club MRDU Portal is a full-stack, enterprise-grade web
+application designed specifically for university cybersecurity clubs and campus
+organizations. It serves two distinct audiences within a single unified platform:
+
+1. General Students & Members:
+   - Browse upcoming cybersecurity workshops, hackathons, CTFs, and tech events.
+   - Register for events with custom dynamic forms and activity selection.
+   - Complete UPI payment verification by uploading proof screenshots.
+   - Apply for annual club membership subscriptions with proof verification.
+   - View high-resolution club photo galleries and team directories.
+   - Submit support tickets, doubts, and feedback directly to executive leads.
+   - Generate and download custom, high-resolution official ID Passes (PNG).
+
+2. Executive Council & Administrators (President, VP, Treasurer, Media Lead, etc.):
+   - Manage users, roles, and fine-grained permissions.
+   - Create, edit, and orchestrate club events and custom registration forms.
+   - Verify financial payments and annual subscriptions.
+   - Curate albums and batch-upload gallery photos with client-side compression.
+   - Access live audit logs with forensic metadata tracking.
+   - Real-time private council communications for leadership.
+   - Toggle system-wide "Hibernation Mode" during vacations or exam periods.
+   - Switch between dual branding modes ("Cyber Security Club" vs "MRDU Central Events").
+
+
+================================================================================
+2. HIGH-LEVEL SYSTEM ARCHITECTURE & TECHNOLOGY STACK
+================================================================================
+
+The application follows a Modern Decoupled Monolith (Single-Origin SPA + API)
+design. In development, Vite and Express run concurrently on separate ports with
+Vite proxying `/api` requests. In production, Express serves the optimized static
+React build and handles all `/api/v1` routes from the exact same origin,
+eliminating third-party cookie restrictions.
+
++-------------------------------------------------------------------------+
+|                              CLIENT BROWSER                             |
+|  - React 19 Single Page Application (SPA)                              |
+|  - Vanilla CSS Variables (Theming: Cyber Neon Dark & MRDU Crimson Light)|
+|  - HTML5 Canvas Engine (ID Pass generator, Image compressor)            |
+|  - YouTube iframe postMessage API (Onboarding Video Tracker)            |
++-------------------------------------------------------------------------+
+                                    |
+                    HTTPS Requests (Same-Origin / Proxy)
+                    Cookies: csc.sid (HTTP-only, SameSite=Strict)
+                    Headers: X-CSRF-Token, X-Requested-With
+                                    v
++-------------------------------------------------------------------------+
+|                           EXPRESS 5 API SERVER                          |
+|  Middleware Pipeline:                                                   |
+|    1. Request Context & Correlation ID (`req.id`)                       |
+|    2. Helmet Security Headers (Strict CSP, HSTS, Permissions-Policy)    |
+|    3. CORS Origin Validation                                            |
+|    4. Express JSON & URL-Encoded Body Parsers (100MB max limit)         |
+|    5. Encrypted MySQL Session Store (AES-256-GCM session payloads)      |
+|    6. CSRF Protection Middleware (HMAC-SHA256 validation)               |
+|    7. System Hibernation Check (Interception for non-admins)           |
+|    8. Rate Limiters (Global API limiter, Auth brute-force protection)   |
+|    9. Route Controllers (Auth, Admin, Member, Guest, Subscriptions)     |
+|   10. Centralized Error Handler (Sanitizes stack traces in prod)        |
++-------------------------------------------------------------------------+
+                                    |
+                         Prisma ORM Database Client
+                                    v
++-------------------------------------------------------------------------+
+|                            MARIADB / MYSQL                              |
+|  14 Normalized Relational Tables:                                       |
+|  - users, profiles, permission_assignments, audit_logs                  |
+|  - events, event_activities, event_form_fields, event_registrations     |
+|  - gallery_albums, gallery_photos, club_team_members, club_settings     |
+|  - subscriptions, support_tickets, support_replies, notifications       |
+|  - council_messages, csc_sessions                                       |
++-------------------------------------------------------------------------+
+
+
+================================================================================
+3. DATABASE ARCHITECTURE & DATA MODELING (PRISMA & MYSQL)
+================================================================================
+
+The database is designed with strict relational integrity, cascade deletions,
+indexing on query filters, and comprehensive enums.
+
+--------------------------------------------------------------------------------
+3.1 Role & Permission Enums
+--------------------------------------------------------------------------------
+- Roles (10 types):
+  PRESIDENT, VICE_PRESIDENT, TREASURER, EVENT_MANAGEMENT, MEDIA_LEAD,
+  TECH_TEAM, PR_TEAM, CULTURAL, SECRETARY, STUDENT (plus legacy ADMIN).
+
+- Permissions (19 granular flags):
+  ACCOUNT_MANAGEMENT, DASHBOARD_VIEW, EVENTS_VIEW, EVENT_MANAGE,
+  EVENT_REGISTER, REGISTRATIONS_VIEW, PAYMENTS_VIEW, PAYMENTS_VERIFY,
+  QR_PASSES_VIEW, GALLERY_VIEW, GALLERY_MANAGE, TEAM_MANAGE,
+  SETTINGS_MANAGE, AUDIT_VIEW, CHAT_USE, SUGGESTIONS_CREATE,
+  FEEDBACK_CREATE, NOTIFICATIONS_VIEW, PROFILE_EDIT.
+
+--------------------------------------------------------------------------------
+3.2 Key Relational Models Explained
+--------------------------------------------------------------------------------
+
+1. User (`users`):
+   - Stores account credentials, role, status (`ACTIVE` / `DISABLED`),
+     lockout metadata (`failedLoginAttempts`, `lockedUntil`), password reset
+     token hash and expiry, encrypted TOTP secret (`totpSecretEncrypted`),
+     Primary President flag (`isPrimaryAdmin`), and Master PIN hash.
+   - Has a 1-to-1 relationship with `Profile`.
+   - Has a 1-to-Many relationship with `PermissionAssignment`, `AuditLog`,
+     `Subscription`, `SupportTicket`, `Notification`, and `CouncilMessage`.
+
+2. Profile (`profiles`):
+   - Extended user info: name, roll number, department, year, email, phone,
+     profile image (Base64/URL), bio, social links (Instagram, GitHub, LinkedIn,
+     Portfolio), skills, and achievements.
+
+3. Event & Sub-entities (`events`, `event_activities`, `event_form_fields`, `event_registrations`):
+   - `Event`: Holds metadata (title, descriptions, speaker details, venue,
+     payment UPI info, registration deadlines, social links, FAQs).
+   - `EventActivity`: Sub-events or tracks (e.g. "Workshop", "Hackathon Track")
+     with individual pricing and capacities.
+   - `EventFormField`: Dynamic custom form builder fields (Text, Select,
+     Checkbox, etc.) that admins configure per event.
+   - `EventRegistration`: Junction record linking a User to an Event, storing
+     custom form JSON data, selected activity IDs, payment status (`FREE`,
+     `PENDING`, `VERIFIED`, `REJECTED`), transaction reference, and proof image.
+
+4. Subscription (`subscriptions`):
+   - Tracks annual club membership payments, transaction reference IDs,
+     uploaded payment receipt images, status (`PENDING`, `ACTIVE`, `EXPIRED`,
+     `REJECTED`), verifiedBy admin ID, and expiration date.
+
+5. SupportTicket & SupportReply (`support_tickets`, `support_replies`):
+   - Threaded ticketing system where students can tag a specific council role
+     (e.g., TREASURER for payment issues, EVENT_MANAGEMENT for tickets) and
+     receive multi-turn replies with status tracking (`OPEN`, `RESOLVED`, `CLOSED`).
+
+6. AuditLog (`audit_logs`):
+   - Immutable security log recording actorUserId, action name, targetUserId,
+     IP address, User-Agent, and detailed JSON metadata. Automatically pruned
+     by the retention service after 90 days.
+
+7. ClubSetting (`club_settings`):
+   - Key-value dynamic store for system configurations:
+     - `introVideoUrl`: URL for mandatory student onboarding.
+     - `waitingQueueEnabled` & `waitingQueueCapacity`: Load management.
+     - `hibernationEnabled` & `hibernationMessage`: Site lockdown mode.
+     - `platformMode`: Theme preset ("CYBER_SECURITY_CLUB" or "MRDU_EVENTS").
+     - Social URLs, UPI IDs, club banner URLs.
+
+
+================================================================================
+4. COMPLETE BACKEND ENGINEERING (NODE.JS & EXPRESS 5)
+================================================================================
+
+--------------------------------------------------------------------------------
+4.1 Application Initialization Flow (`server/server.js`)
+--------------------------------------------------------------------------------
+1. `assertRuntimeConfiguration()`: Validates that all required environment
+   variables are present using Zod. If in production and secrets are missing,
+   it immediately halts process execution before opening any network ports.
+2. `prisma.$queryRaw'SELECT 1'`: Performs a pre-flight database ping to confirm
+   MySQL connection availability.
+3. `bootstrapDatabase()`: Automatically verifies table integrity and creates
+   the session table if missing.
+4. `verifyMailConfiguration()`: If in production, ensures SMTP transport is
+   functional for password reset delivery.
+5. Server starts listening on `env.port`.
+6. Background workers initialized (e.g., `startAuditRetentionJob()`).
+7. Graceful shutdown handler registered (`SIGINT`, `SIGTERM`):
+   - Closes server listener.
+   - Stops accepting new connections.
+   - Closes active socket connections after a 30s drain timeout.
+   - Disconnects session store and Prisma database client cleanly.
+
+--------------------------------------------------------------------------------
+4.2 Middleware Architecture (`server/middleware/`)
+--------------------------------------------------------------------------------
+
+- `request-context.js`:
+  Assigns a cryptographically random UUID (`req.id`) to each request and sets
+  the `X-Request-Id` response header for tracing.
+
+- `csrf.js`:
+  Uses HMAC-SHA256 tokens bound to the session cookie. Any mutating HTTP method
+  (`POST`, `PUT`, `DELETE`, `PATCH`) must supply the token in the `X-CSRF-Token`
+  header. If invalid, returns 403 Forbidden.
+
+- `auth.js`:
+  - `requireAuth`: Confirms the session has a valid `userId`. Fetches the user
+    from the database, verifying that their `accountStatus === 'ACTIVE'`.
+  - `requireRole(...roles)`: Verifies the authenticated user holds one of the
+    authorized role names.
+  - `requirePermission(...permissions)`: Checks if the user has the required
+    granular permission (or is the Primary President).
+
+- `hibernation.js`:
+  Checks if the club is currently in Hibernation Mode. If active, non-admin
+  requests to member APIs receive a `503 Service Unavailable` with payload
+  `{ code: 'SITE_HIBERNATING', hibernationReason: '...' }`.
+
+- `rate-limit.js`:
+  Implements `express-rate-limit` with specific windows:
+  - Global API: 600 requests per minute per IP.
+  - Login Endpoint: Strict 10 attempts per minute to stop brute-forcing.
+  - Registration Endpoint: 5 attempts per 15 minutes.
+
+- `error-handler.js`:
+  Catches unhandled errors. In production, hides internal stack traces and
+  returns clean JSON error objects with correlation IDs.
+
+
+================================================================================
+5. SECURITY ENGINEERING & DEFENSE-IN-DEPTH HARDENING
+================================================================================
+
+The application was designed with enterprise cybersecurity principles at its core:
+
+--------------------------------------------------------------------------------
+5.1 Session Security & At-Rest Encryption
+--------------------------------------------------------------------------------
+- Traditional systems store session data in plaintext in Redis or MySQL. If the
+  database is dumped or exposed via SQL injection, all user sessions are compromised.
+- Our portal uses `express-mysql-session` wrapped with **AES-256-GCM encryption**:
+  Every session payload is encrypted before writing to MySQL and decrypted on read.
+- Cookies are configured with:
+  - `httpOnly: true` (JavaScript in the browser cannot read `document.cookie`).
+  - `sameSite: 'strict'` (Prevents CSRF across different domains).
+  - `secure: true` in production (Only transmitted over HTTPS).
+  - `name: 'csc.sid'` (Obscures the backend technology stack).
+
+--------------------------------------------------------------------------------
+5.2 Multi-Factor Authentication (TOTP - RFC 6238)
+--------------------------------------------------------------------------------
+- Implements Time-Based One-Time Passwords compatible with Google Authenticator,
+  Microsoft Authenticator, and 1Password.
+- Setup workflow:
+  1. Server generates a cryptographically random 20-byte base32 secret.
+  2. The secret is encrypted using AES-256-GCM and stored in the database.
+  3. Server generates an `otpauth://` URI and returns a QR Code PNG.
+  4. The user scans the QR code and submits a 6-digit code.
+  5. Once validated, `totpEnabled` is set to `true`.
+- On login: If 2FA is active, the password verification issues a temporary
+  challenge session (`pendingTwoFactorUserId`). Full authentication is only
+  granted after the 6-digit TOTP code is verified.
+
+--------------------------------------------------------------------------------
+5.3 Primary President Protection & Master PIN
+--------------------------------------------------------------------------------
+- The "Primary President" is the supreme root administrator account.
+- Protection invariants enforced in code:
+  1. The Primary President account CANNOT be deleted by any API call.
+  2. The Primary President's role CANNOT be changed by other admins.
+  3. Transferring the Primary President role requires two-step verification:
+     Entering the target user ID AND verifying with the current President's
+     2FA authentication code.
+  4. Master Security PIN: The President can configure a 6-digit emergency PIN
+     that bypasses standard TOTP authenticator apps in case their phone is lost.
+
+--------------------------------------------------------------------------------
+5.4 Password Security & Brute-Force Defense
+--------------------------------------------------------------------------------
+- Passwords are hashed using `bcrypt` with configurable salt rounds (default 12).
+- Account Lockout: If a user enters the wrong password 5 consecutive times,
+  their account is automatically locked for 15 minutes (`lockedUntil`).
+- "Logout All Devices": Resets the user's `lastLogoutAllDevicesAt` timestamp,
+  invalidating all existing sessions across all browsers and phones.
+
+--------------------------------------------------------------------------------
+5.5 Content Security Policy (CSP) & Permissions Policy
+--------------------------------------------------------------------------------
+Configured via `helmet`:
+- `default-src 'self'`
+- `frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com`
+- `img-src 'self' data: https://img.youtube.com https://i.ytimg.com`
+- `object-src 'none'` (Blocks Flash/Java applets)
+- `Permissions-Policy: camera=(), geolocation=(), microphone=(), payment=(), usb=()`
+
+
+================================================================================
+6. COMPLETE FRONTEND ARCHITECTURE (REACT 19 & VITE)
+================================================================================
+
+--------------------------------------------------------------------------------
+6.1 Modern State Management & Context
+--------------------------------------------------------------------------------
+- No heavy external Redux or Zustand libraries were needed; React 19's native
+  hooks (`useState`, `useEffect`, `useMemo`, `useRef`, `useContext`) provide
+  instant rendering with zero bloat.
+- `PlatformThemeContext`: Manages active theme state (`dark`, `light`, `system`)
+  and platform branding mode (`CYBER_SECURITY_CLUB` vs `MRDU_EVENTS`).
+- `toPortalUser(user)`: Normalizes raw server user objects into a clean client
+  model with computed permissions and initials.
+
+--------------------------------------------------------------------------------
+6.2 Styling System (`src/App.css`)
+--------------------------------------------------------------------------------
+- 100% Vanilla CSS with CSS Custom Properties (Variables):
+  - `--bg-base`, `--bg-surface`, `--bg-card`, `--border-color`
+  - `--text-main`, `--text-muted`, `--accent-primary`, `--accent-cyan`
+- Glassmorphism & Cyber Aesthetics:
+  - `backdrop-filter: blur(12px)`
+  - Glowing box-shadows: `box-shadow: 0 0 20px rgba(82, 187, 245, 0.15)`
+  - Modern typography using `Syne` for display headers and `DM Mono` for code.
+- Fully Responsive Layouts:
+  - Flexible Grid and Flexbox with mobile media queries (`@media (max-width: 900px)`).
+  - Responsive collapsible sidebar with slide-over drawer on mobile screens.
+
+
+================================================================================
+7. DETAILED WALKTHROUGH OF CORE MODULES (FEATURES 1 TO 14)
+================================================================================
+
+--------------------------------------------------------------------------------
+Feature 1: Dual Platform Branding Mode ("Crest" System)
+--------------------------------------------------------------------------------
+- The top-left crest and headers dynamically switch between:
+  1. Cyber Security Club: Dark cyber-neon theme, neon shield logo, futuristic accents.
+  2. MRDU Central Events: University crimson/white theme, official university banner.
+- Controlled via `ClubSetting` (`platformMode`) so admins can transform the
+  entire portal's identity with a single toggle in the settings tab.
+
+--------------------------------------------------------------------------------
+Feature 2: Guest Self-Registration & HTML5 Canvas ID Pass Generator
+--------------------------------------------------------------------------------
+- Students who don't have an account can click "Guest / Student Register".
+- They submit their Name, College, Department, Roll Number, Phone, and Email.
+- The server generates a unique sequential Member ID (e.g. `CSC2026-STU-042`)
+  and a secure random initial password.
+- Client-Side ID Pass Generator (`src/lib/id-pass.js`):
+  - Immediately spins up an off-screen HTML5 Canvas (1000x620px).
+  - Renders a tech-themed ID card complete with cyber borders, corner crosshairs,
+    university branding, the student's name, department, Member ID, and password.
+  - Automatically converts the canvas to a Blob and downloads `ID Pass.png`
+    directly to the student's device so they never lose their credentials!
+
+--------------------------------------------------------------------------------
+Feature 3: Mandatory Student Onboarding Video Experience
+--------------------------------------------------------------------------------
+- Upon first login, student accounts are greeted by `IntroVideoExperience`.
+- An embedded YouTube player streams the official club orientation video.
+- Security & Engagement Protection:
+  - Active 120-second timer ensures students actually watch the orientation.
+  - Uses `window.addEventListener('message')` to communicate with the YouTube
+    iframe API, tracking play/pause events.
+  - "Proceed to Portal" button only unlocks once the mandatory watch time is met.
+  - Upon completion, the client calls `POST /api/v1/member/intro-video/complete`,
+    persisting the completion flag in the user's session.
+
+--------------------------------------------------------------------------------
+Feature 4: Concurrent Traffic Waiting Queue
+--------------------------------------------------------------------------------
+- During major event registration launches (e.g., Annual Hackathon), hundreds of
+  students might hit the server simultaneously.
+- When enabled by admins in Club Settings, `ConcurrentWaitingQueue` intercepts
+  incoming sessions, assigns a virtual queue ticket number, and displays an
+  animated radar scanning screen before safely admitting the user into the portal.
+
+--------------------------------------------------------------------------------
+Feature 5: President Live Dashboard (`LivePresidentDashboard`)
+--------------------------------------------------------------------------------
+- High-level command center displaying real-time club metrics:
+  - Total Active Members, Total Students, Council Leads.
+  - Active & Upcoming Events with registration fill rates.
+  - Pending Subscriptions & Payments needing Treasurer approval.
+  - Unresolved Support Tickets and Open Complaints.
+  - Quick action shortcuts to create events, add members, or view audit logs.
+
+--------------------------------------------------------------------------------
+Feature 6: Member & Council Management (`MemberManagement`)
+--------------------------------------------------------------------------------
+- Full CRUD for user accounts:
+  - Single Account Creation: Assign custom role and toggle individual permissions.
+  - Bulk Student Import: Paste multi-line CSVs or JSON lists to provision 100+
+    student accounts simultaneously with auto-hashed passwords.
+  - Account Status Toggle: Instantly disable or activate accounts.
+  - Admin Password Reset: Generate and copy one-time passwords for locked students.
+  - 2FA Emergency Override: Admins can disable 2FA for students who lost their phone.
+  - CSV Export: Download the full membership directory formatted for Excel (`downloadCsv`).
+
+--------------------------------------------------------------------------------
+Feature 7: Event Management & Dynamic Registration Engine
+--------------------------------------------------------------------------------
+- Event Creation Suite (`EventManagement`):
+  - Configure dates, venues, capacities, coordinators, speakers, and agenda.
+  - Multi-Activity Pricing: Create sub-activities (e.g., "CTF Entry: Rs 150",
+    "Hardware Workshop: Rs 300").
+  - Dynamic Form Builder: Add custom questions (e.g., "GitHub Profile", "T-Shirt Size",
+    "Dietary Preference", "Team Name") stored as JSON schemas.
+  - Payment Gateways: Configure UPI ID and QR Code image for paid events.
+- Student Registration Flow (`StudentEventDetail`):
+  - Students fill out the dynamic form, select their activities, calculate the total,
+    scan the QR code, input their UPI Transaction Reference Number, and upload
+    their payment screenshot.
+
+--------------------------------------------------------------------------------
+Feature 8: Financial Management & Payment Verification (`PaymentManagement`)
+--------------------------------------------------------------------------------
+- Central ledger for Treasurers and Presidents to review all incoming payments.
+- Visual Proof Modal: View uploaded transaction screenshots in high resolution.
+- 1-Click Verification: Mark payments as `VERIFIED` (automatically confirming
+  event registration) or `REJECTED` with custom feedback notes.
+
+--------------------------------------------------------------------------------
+Feature 9: Annual Subscription System (`SubscriptionManagement` & `StudentMembership`)
+--------------------------------------------------------------------------------
+- Manages official club membership subscriptions (e.g., Annual Rs 500 Membership).
+- Students submit their payment receipt and transaction ID.
+- Treasurers review submissions; once verified, the user's `SubscriptionStatus`
+  becomes `ACTIVE` and an expiration date (1 year) is automatically calculated.
+
+--------------------------------------------------------------------------------
+Feature 10: Gallery & Lightbox with Client-Side Canvas Compression
+--------------------------------------------------------------------------------
+- Album Management (`GalleryManagement`):
+  - Create albums (e.g., "CyberCon 2026", "Ethical Hacking Bootcamp").
+  - Batch Photo Uploads: Select 10+ high-res camera photos (5MB - 20MB each).
+  - Client-Side Compression (`src/lib/api.js - compressImage`):
+    Uses HTML5 Canvas to scale images down to a maximum of 2048px and compresses
+    them to JPEG/PNG at 88% quality, reducing a 20MB file down to ~400KB in
+    milliseconds before transmission. This prevents server memory overloads!
+- Interactive Lightbox (`GalleryLightbox`):
+  - Fullscreen darkroom view with next/previous keyboard controls, caption
+    overlays, and deletion permissions for Media Leads.
+
+--------------------------------------------------------------------------------
+Feature 11: Help Desk & Multi-Role Support Ticket System (`SupportDeskView`)
+--------------------------------------------------------------------------------
+- Students can open tickets tagged to specific council roles:
+  - Tag `TREASURER` for payment issues.
+  - Tag `EVENT_MANAGEMENT` for venue/schedule queries.
+  - Tag `TECH_TEAM` for portal bugs.
+- Threaded conversation view where leads can reply, resolve, or re-open tickets.
+
+--------------------------------------------------------------------------------
+Feature 12: Executive Council Live Chat (`CouncilChatView`)
+--------------------------------------------------------------------------------
+- A private communication room restricted exclusively to Council Leads and Admins.
+- Enables the organizing team to coordinate event logistics, announcements, and
+  emergencies directly within the portal without needing third-party chat apps.
+
+--------------------------------------------------------------------------------
+Feature 13: Audit Trail & Security Logs (`AuditLogView`)
+--------------------------------------------------------------------------------
+- Records all sensitive actions: `LOGIN_SUCCESS`, `ACCOUNT_LOCKED`, `EVENT_CREATED`,
+  `PAYMENT_VERIFIED`, `ROLE_TRANSFERRED`, `2FA_DISABLED`.
+- Tracks actor ID, target ID, client IP, hashed User-Agent, and detailed JSON diffs.
+- Includes a forensic search filter and scheduled 90-day retention auto-purge.
+
+--------------------------------------------------------------------------------
+Feature 14: System Hibernation Mode
+--------------------------------------------------------------------------------
+- During exam periods, semester breaks, or site maintenance, the President can
+  enable "Hibernation Mode".
+- When active, all regular students are greeted with a peaceful animated
+  hibernation screen displaying a countdown and custom message, while Council
+  Leads retain full admin login access to prepare upcoming events.
+
+
+================================================================================
+8. CLIENT-SIDE UTILITIES & ADVANCED TECHNIQUES
+================================================================================
+
+1. Client-Side Image Compression (`src/lib/api.js`):
+   - Off-screen Image loading with Canvas 2D smoothing.
+   - Proportional aspect-ratio downscaling to 2048px maximum bound.
+   - High-fidelity JPEG compression (0.88 quality factor).
+
+2. RFC-4180 Escaped CSV Exporter (`src/lib/export-csv.js`):
+   - Adds UTF-8 Byte Order Mark (`\uFEFF`) at the beginning of the file so that
+     Microsoft Excel and Google Sheets open foreign characters and formatting
+     without encoding errors.
+   - Escapes quotes and commas properly.
+
+3. YouTube URL Resolver (`src/lib/video.js`):
+   - Regex-based parser supporting all YouTube formats:
+     - `https://youtu.be/<id>`
+     - `https://www.youtube.com/watch?v=<id>`
+     - `https://www.youtube.com/embed/<id>`
+     - `https://www.youtube.com/shorts/<id>`
+
+
+================================================================================
+9. DEPLOYMENT, DEVOPS & LOCAL ENVIRONMENT SETUP
+================================================================================
+
+--------------------------------------------------------------------------------
+9.1 Local Development Workflow
+--------------------------------------------------------------------------------
+1. Start local MariaDB via Docker:
+   `npm run db:local:start`
+   (Or native fallback: `npm run db:local:start-native`)
+2. Configure local environment:
+   `npm run setup:local-env`
+3. Apply database migrations & seed:
+   `npm run db:migrate`
+   `npm run db:seed`
+4. Launch concurrent client + server:
+   `npm run dev`
+
+--------------------------------------------------------------------------------
+9.2 Production Deployment (Railway / Vercel / Render / VPS)
+--------------------------------------------------------------------------------
+- Build command:
+  `npm run railway-build` (Runs `prisma generate && prisma migrate deploy && vite build`)
+- Start command:
+  `node server/server.js`
+- Required Environment Variables in Production:
+  - `NODE_ENV=production`
+  - `DATABASE_URL=mysql://user:pass@host:3306/cyber_security_club`
+  - `SESSION_SECRET=<random 64-char hex string>`
+  - `SESSION_ENCRYPTION_KEY=<random 64-char hex string>`
+  - `PUBLIC_APP_URL=https://your-domain.up.railway.app`
+  - `CORS_ORIGIN=https://your-domain.up.railway.app`
+  - `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`
+
+
+================================================================================
+10. KEY ENGINEERING LESSONS & CONCEPTS TO MASTER
+================================================================================
+
+When you explain this project in technical interviews or portfolio showcases,
+highlight these core computer science and software engineering achievements:
+
+1. Defense-in-Depth Authentication:
+   - "Instead of storing JWTs in localStorage where they are vulnerable to XSS,
+     I implemented HTTP-only encrypted session cookies with server-side AES-256-GCM
+     encryption and per-session CSRF token validation."
+
+2. Granular Role-Based Access Control (RBAC):
+   - "Rather than simple boolean `isAdmin` flags, I architected a hybrid system
+     with 10 distinct leadership roles and 19 fine-grained permissions that can
+     be customized per user in the database."
+
+3. Client-Side Performance Optimization:
+   - "To handle bulk photo uploads and prevent server memory saturation, I wrote
+     a custom HTML5 Canvas image compression utility that resizes 20MB files on
+     the client device before network transfer."
+
+4. Scalable Relational Modeling:
+   - "I modeled 14 normalized entities using Prisma ORM, leveraging foreign key
+     cascades, relational integrity constraints, and query indexes for sub-millisecond
+     database query times."
+
+5. Complete User Experience Lifecycle:
+   - "From guest self-registration and canvas ID Pass generation to multi-activity
+     event ticketing, payment verification, and audit logging, the application
+     automates the entire operational workflow of a collegiate organization."
+
+================================================================================
+                         END OF MASTER TECHNICAL GUIDE
+================================================================================

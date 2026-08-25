@@ -1,5 +1,6 @@
 import { prisma } from '../db/prisma.js'
 import { hasPermission, isAdmin, isPresident, isPrimaryPresident } from '../utils/safe-user.js'
+import { getActivePlatformMode, resolveUserPlatformRole } from '../services/platform-role.service.js'
 
 export async function requireAuth(request, response, next) {
   const userId = request.session?.userId
@@ -15,7 +16,16 @@ export async function requireAuth(request, response, next) {
       request.session.destroy(() => {})
       return response.status(401).json({ message: 'Session expired. Please log in again.' })
     }
+
+    const platformMode = await getActivePlatformMode()
+    const { role: effectiveRole, cscRole, mrduRole } = resolveUserPlatformRole(user, platformMode)
+    user.effectiveRole = effectiveRole
+    user.role = effectiveRole
+    user.cscRole = cscRole
+    user.mrduRole = mrduRole
+
     request.user = user
+    request.platformMode = platformMode
     return next()
   } catch (error) {
     return next(error)

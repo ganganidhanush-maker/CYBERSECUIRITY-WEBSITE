@@ -2,10 +2,13 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import clubLogo from './assets/branding/cyber-security-club-neon.jpg'
 import clubLogoDark from './assets/branding/cyber-security-club-logo.jpg'
 import mrduBanner from './assets/branding/mrdu-header-banner.png'
+import mrduOfficialLogo from './assets/branding/mrdu-official-logo.png'
+import MrduOfficialLanding from './components/MrduOfficialLanding'
 import { adminApi, authApi, memberApi, readImageFile, readMultipleImageFiles } from './lib/api'
 import { downloadIdPass } from './lib/id-pass'
 import { downloadCsv } from './lib/export-csv'
 import { getYouTubeEmbedUrl, parseYouTubeVideoId } from './lib/video'
+import jsQR from 'jsqr'
 import './App.css'
 
 /* oxlint-disable no-unused-vars */
@@ -66,8 +69,8 @@ function Crest({ platformMode = 'CYBER_SECURITY_CLUB', small = false, showBanner
           </div>
           {!small && (
             <div className="wordmark">
-              <span style={{ font: '600 13px Syne', letterSpacing: '.12em', color: 'var(--brand-eyebrow)' }}>MALLA REDDY UNIVERSITY</span>
-              <strong style={{ font: '800 24px Syne', letterSpacing: '.14em', color: 'var(--text-main)', display: 'block' }}>CENTRAL EVENTS PORTAL</strong>
+              <span style={{ font: '700 13px "Plus Jakarta Sans", sans-serif', letterSpacing: '.12em', color: 'var(--brand-eyebrow, #ea580c)' }}>MALLA REDDY UNIVERSITY</span>
+              <strong style={{ font: '800 24px "Plus Jakarta Sans", sans-serif', letterSpacing: '.04em', color: 'var(--text-main)', display: 'block' }}>CENTRAL EVENTS PORTAL</strong>
               <small style={{ color: 'var(--text-muted)', font: '500 9px "DM Mono", monospace', letterSpacing: '.08em', marginTop: '2px', display: 'block' }}>
                 ALL DEPARTMENTS, INSTITUTES & TECHNICAL SOCIETIES
               </small>
@@ -78,25 +81,24 @@ function Crest({ platformMode = 'CYBER_SECURITY_CLUB', small = false, showBanner
     }
 
     return (
-      <div className={`crest official-crest ${small ? 'small' : ''}`} style={{ display: 'inline-flex', alignItems: 'center', gap: small ? '10px' : '16px' }}>
-        <div style={{ background: '#ffffff', padding: small ? '2px 6px' : '4px 10px', borderRadius: small ? 8 : 12, border: '1px solid rgba(211, 47, 47, 0.35)', boxShadow: '0 0 16px rgba(211, 47, 47, .2)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-          <img
-            className="brand-logo"
-            src={mrduBanner}
-            alt="Malla Reddy University"
-            style={{
-              height: small ? 32 : 56,
-              maxWidth: small ? 90 : 180,
-              objectFit: 'contain',
-            }}
-          />
-        </div>
+      <div className={`crest official-crest ${small ? 'small' : ''}`} style={{ display: 'inline-flex', alignItems: 'center', gap: small ? '10px' : '14px' }}>
+        <img
+          className="brand-logo"
+          src={mrduOfficialLogo}
+          alt="Malla Reddy (MR) Deemed to be University"
+          style={{
+            height: small ? 38 : 56,
+            width: 'auto',
+            objectFit: 'contain',
+            filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.1))',
+          }}
+        />
         {!small && (
           <div className="wordmark">
-            <span style={{ font: '600 14px Syne', letterSpacing: '.1em', color: 'var(--brand-eyebrow)' }}>MALLA REDDY UNIVERSITY</span>
-            <strong style={{ font: '800 24px Syne', letterSpacing: '.12em', color: 'var(--text-main)' }}>EVENTS PORTAL</strong>
-            <small style={{ color: 'var(--text-muted)', font: '500 9px "DM Mono", monospace', letterSpacing: '.08em', marginTop: '4px' }}>
-              MRDU · OFFICIAL EVENTS & CONFERENCES
+            <span style={{ font: '700 13px "Plus Jakarta Sans", sans-serif', letterSpacing: '.08em', color: 'var(--brand-eyebrow, #ea580c)' }}>MALLA REDDY (MR)</span>
+            <strong style={{ font: '800 20px "Plus Jakarta Sans", sans-serif', letterSpacing: '-.02em', color: 'var(--text-main)' }}>DEEMED TO BE UNIVERSITY</strong>
+            <small style={{ color: 'var(--text-muted)', font: '500 9px "DM Mono", monospace', letterSpacing: '.08em', marginTop: '3px' }}>
+              OFFICIAL CENTRAL EVENTS PORTAL
             </small>
           </div>
         )}
@@ -449,11 +451,157 @@ function HibernationScreen({ onAdminLogin }) {
           </div>
         </div>
 
-        <button type="button" className="hibernation-admin-btn" onClick={onAdminLogin}>
-          👑 President & Admin Gateway →
+        <button type="button" className="hibernation-admin-btn" onClick={onAdminLogin} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+          <IconCrown size={14} /> President & Admin Gateway &rarr;
         </button>
       </div>
     </div>
+  )
+}
+
+// ----------------------------------------------------
+// Icons8 & Vector Icon System (Crisp Theme-Adaptive Assets)
+// ----------------------------------------------------
+function Icon8({ name, size = 18, style = {}, className = '', alt = '' }) {
+  const iconMap = {
+    access: '/icons8/icons8-access-50.png',
+    authentication: '/icons8/icons8-authentication-50.png',
+    captcha: '/icons8/icons8-captcha-50.png',
+    faceId: '/icons8/icons8-face-id-50.png',
+    fingerprint: '/icons8/icons8-fingerprint-50.png',
+    idDocs: '/icons8/icons8-identification-documents-50.png',
+    irisScan: '/icons8/icons8-iris-scan-50.png',
+    keySecurity: '/icons8/icons8-key-security-50.png',
+    password: '/icons8/icons8-password-50.png',
+    protect: '/icons8/icons8-protect-50.png',
+    realtime: '/icons8/icons8-realtime-50.png',
+    showPassword: '/icons8/icons8-show-password-50.png',
+    user: '/icons8/icons8-male-user-50.png',
+    bookmark: '/icons8/icons8-add-bookmark-50.png',
+    sun: '/icons8/icons8-sun-50.png',
+    document: '/icons8/icons8-document-50.png',
+    pointer: '/icons8/icons8-3d-pointer-50.png',
+    handCursor: '/icons8/icons8-hand-cursor-50.png',
+  }
+  const src = iconMap[name] || iconMap.protect
+  return (
+    <img
+      src={src}
+      alt={alt || name}
+      className={`icon8-img ${className}`}
+      style={{
+        width: `${size}px`,
+        height: `${size}px`,
+        objectFit: 'contain',
+        verticalAlign: 'middle',
+        display: 'inline-block',
+        ...style,
+      }}
+    />
+  )
+}
+
+function IconSun({ size = 15, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+    </svg>
+  )
+}
+
+function IconMoon({ size = 15, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+  )
+}
+
+function IconMonitor({ size = 15, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <rect x="2" y="3" width="20" height="14" rx="2" ry="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
+    </svg>
+  )
+}
+
+function IconBell({ size = 16, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  )
+}
+
+function IconDownload({ size = 14, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  )
+}
+
+function IconCrown({ size = 14, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <polygon points="2 4 5 20 19 20 22 4 15 10 12 2 9 10 2 4" />
+    </svg>
+  )
+}
+
+function IconCalendar({ size = 13, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  )
+}
+
+function IconLocationPin({ size = 13, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
+    </svg>
+  )
+}
+
+function IconCreditCard({ size = 13, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" />
+    </svg>
+  )
+}
+
+function IconAlertTriangle({ size = 16, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  )
+}
+
+function IconCheckCircle({ size = 15, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+    </svg>
+  )
+}
+
+function IconSearchSvg({ size = 14, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  )
+}
+
+function IconUserSvg({ size = 13, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+    </svg>
   )
 }
 
@@ -465,34 +613,47 @@ function Sidebar({ user, logout, activeTab, onNavigate, isOpen, onClose }) {
   const isMrdu = platformMode === 'MRDU_EVENTS'
   const perms = user.permissions || []
   const has = perm => user.isPrimaryAdmin || perms.includes(perm)
+  const [subEnabled, setSubEnabled] = useState(false)
+
+  useEffect(() => {
+    let mounted = true
+    memberApi.getPublicClubSettings()
+      .then(({ settings }) => {
+        if (!mounted) return
+        const isEnabled = settings?.subscriptionEnabled === true || settings?.subscriptionEnabled === 'true'
+        setSubEnabled(isEnabled)
+      })
+      .catch(() => {})
+    return () => { mounted = false }
+  }, [])
 
   const navItems = user.isAdminUser
     ? [
-        ['▦', isMrdu ? 'Portal Home' : 'Dashboard', 'admin-dashboard', true],
-        ['♙', isMrdu ? 'Participants' : 'Members', 'admin-members', has('ACCOUNT_MANAGEMENT')],
-        ['▢', 'Event Studio', 'admin-events', has('EVENTS_VIEW') || has('EVENT_MANAGE')],
-        ['💎', isMrdu ? 'Pass Subscriptions' : 'Subscriptions', 'admin-subscriptions', has('PAYMENTS_VIEW') || user.role === 'TREASURER' || user.role === 'PRESIDENT'],
-        ['💳', isMrdu ? 'Registrations & Pay' : 'Event Payments', 'admin-payments', has('PAYMENTS_VIEW')],
-        ['💬', 'Helpdesk & Doubts', 'admin-support', true],
-        ['🛡️', 'Council Room', 'admin-chat', true],
-        ['▧', isMrdu ? 'Event Gallery' : 'Gallery', 'admin-gallery', has('GALLERY_VIEW') || has('GALLERY_MANAGE')],
-        ['👥', isMrdu ? 'Organizing Team' : 'Team / Leaders', 'admin-team', has('TEAM_MANAGE')],
-        ['⚙', 'Settings & Links', 'admin-settings', has('SETTINGS_MANAGE')],
-        ['◫', 'Audit Log', 'admin-audit', has('AUDIT_VIEW')],
-        ['👤', 'My Profile', 'admin-profile', true],
-        ['▣', 'Security', 'security', true],
+        [<Icon8 name="protect" size={17} />, isMrdu ? 'Portal Home' : 'Dashboard', 'admin-dashboard', true],
+        [<Icon8 name="faceId" size={17} />, 'QR Entry Gate', 'admin-qr-scanner', has('EVENTS_VIEW') || has('EVENT_MANAGE') || user.isAdminUser],
+        [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Participants' : 'Members', 'admin-members', has('ACCOUNT_MANAGEMENT')],
+        [<Icon8 name="realtime" size={17} />, 'Event Studio', 'admin-events', has('EVENTS_VIEW') || has('EVENT_MANAGE')],
+        [<Icon8 name="access" size={17} />, isMrdu ? 'Pass Subscriptions' : 'Subscriptions', 'admin-subscriptions', has('PAYMENTS_VIEW') || user.role === 'TREASURER' || user.role === 'PRESIDENT'],
+        [<Icon8 name="authentication" size={17} />, isMrdu ? 'Registrations & Pay' : 'Event Payments', 'admin-payments', has('PAYMENTS_VIEW')],
+        [<Icon8 name="captcha" size={17} />, 'Helpdesk & Doubts', 'admin-support', true],
+        [<Icon8 name="protect" size={17} />, 'Council Room', 'admin-chat', true],
+        [<Icon8 name="irisScan" size={17} />, isMrdu ? 'Event Gallery' : 'Gallery', 'admin-gallery', has('GALLERY_VIEW') || has('GALLERY_MANAGE')],
+        [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Organizing Team' : 'Team / Leaders', 'admin-team', has('TEAM_MANAGE')],
+        [<Icon8 name="keySecurity" size={17} />, 'Settings & Links', 'admin-settings', has('SETTINGS_MANAGE')],
+        [<Icon8 name="showPassword" size={17} />, 'Audit Log', 'admin-audit', has('AUDIT_VIEW')],
+        [<Icon8 name="fingerprint" size={17} />, 'My Profile', 'admin-profile', true],
+        [<Icon8 name="password" size={17} />, 'Security & PIN', 'security', true],
       ].filter(item => item[3])
     : [
-        ['▦', isMrdu ? 'Events Home' : 'Dashboard', 'student-dashboard', true],
-        ['▢', 'Events Catalog', 'student-events', true],
-        ['▤', isMrdu ? 'My Event Passes' : 'My Passes', 'student-registrations', true],
-        ['💎', isMrdu ? 'Student Pass' : 'Membership', 'student-membership', true],
-        ['💬', 'Helpdesk & Doubts', 'student-support', true],
-        ['👥', isMrdu ? 'Organizing Team' : 'Our Team', 'student-team', true],
-        ['▧', isMrdu ? 'Event Gallery' : 'Gallery', 'student-gallery', true],
-        ['👤', 'My Profile', 'student-profile', true],
-        ['▣', 'Security', 'security', true],
-      ]
+        [<Icon8 name="protect" size={17} />, isMrdu ? 'Events Home' : 'Dashboard', 'student-dashboard', true],
+        [<Icon8 name="realtime" size={17} />, 'Events Catalog', 'student-events', true],
+        [<Icon8 name="faceId" size={17} />, isMrdu ? 'My Event Passes' : 'My Passes', 'student-registrations', true],
+        [<Icon8 name="access" size={17} />, isMrdu ? 'Student Pass' : 'Membership', 'student-membership', subEnabled],
+        [<Icon8 name="captcha" size={17} />, 'Helpdesk & Doubts', 'student-support', true],
+        [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Organizing Team' : 'Our Team', 'student-team', true],
+        [<Icon8 name="irisScan" size={17} />, isMrdu ? 'Event Gallery' : 'Gallery', 'student-gallery', true],
+        [<Icon8 name="fingerprint" size={17} />, 'My Profile', 'student-profile', true],
+      ].filter(item => item[3])
 
   return (
     <>
@@ -516,14 +677,15 @@ function Sidebar({ user, logout, activeTab, onNavigate, isOpen, onClose }) {
                 if (onClose) onClose()
               }}
             >
-              <span style={{ fontSize: '15px' }}>{icon}</span>
-              <span>{label}</span>
+              <span className="nav-icon">{icon}</span>
+              <span className="nav-label">{label}</span>
             </button>
           ))}
         </nav>
         <div className="side-bottom">
           <button type="button" onClick={logout}>
-            <span>↪</span>Sign out
+            <span className="nav-icon"><Icon8 name="access" size={16} /></span>
+            <span className="nav-label">Sign out</span>
           </button>
           <small>SECURE SESSION · {user.memberId}</small>
         </div>
@@ -542,7 +704,8 @@ function Header({ user, title, onProfile, onToggleNav, onOpenNotifications, unre
     else setThemeMode('dark')
   }
 
-  const themeIcon = themeMode === 'light' ? '☀️ Light' : themeMode === 'dark' ? '🌙 Dark' : '🖥️ System'
+  const ThemeIconComponent = themeMode === 'light' ? IconSun : themeMode === 'dark' ? IconMoon : IconMonitor
+  const themeLabel = themeMode === 'light' ? 'Light' : themeMode === 'dark' ? 'Dark' : 'System'
 
   return (
     <header className="header">
@@ -562,8 +725,10 @@ function Header({ user, title, onProfile, onToggleNav, onOpenNotifications, unre
           className="quick-theme-toggle"
           onClick={cycleTheme}
           title={`Theme: ${themeMode.toUpperCase()} (Click to toggle)`}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
         >
-          {themeIcon}
+          <ThemeIconComponent size={14} />
+          <span>{themeLabel}</span>
         </button>
 
         {/* In-App Notifications Bell */}
@@ -573,8 +738,9 @@ function Header({ user, title, onProfile, onToggleNav, onOpenNotifications, unre
           onClick={onOpenNotifications}
           aria-label="View notifications"
           title="Notifications & Updates"
+          style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
         >
-          <span style={{ fontSize: '16px' }}>🔔</span>
+          <IconBell size={16} />
           {unreadCount > 0 && <span className="notification-badge-count">{unreadCount}</span>}
         </button>
 
@@ -1055,6 +1221,19 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
   const [showRegisterModal, setShowRegisterModal] = useState(false)
   const [showForgotModal, setShowForgotModal] = useState(false)
   const [guestSuccessData, setGuestSuccessData] = useState(null)
+  const [showLoginModal, setShowLoginModal] = useState(false)
+  const [publicEvents, setPublicEvents] = useState([])
+
+  const { platformMode, themeMode, setThemeMode } = usePlatformTheme()
+  const isMrdu = platformMode === 'MRDU_EVENTS'
+
+  useEffect(() => {
+    if (isMrdu) {
+      authApi.getPublicEvents()
+        .then(res => setPublicEvents(res.events || []))
+        .catch(() => {})
+    }
+  }, [isMrdu])
 
   async function submit(event) {
     event.preventDefault()
@@ -1076,8 +1255,211 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
     }
   }
 
-  const { platformMode, themeMode, setThemeMode } = usePlatformTheme()
-  const isMrdu = platformMode === 'MRDU_EVENTS'
+  if (isMrdu) {
+    return (
+      <main className="mrdu-landing-wrapper">
+        <MrduOfficialLanding
+          onOpenAuth={() => setShowLoginModal(true)}
+          onOpenRegister={() => setShowRegisterModal(true)}
+          events={publicEvents}
+        />
+
+        {/* Modal for Portal Sign In */}
+        {showLoginModal && (
+          <div
+            className="modal-backdrop"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(7, 22, 44, 0.75)',
+              backdropFilter: 'blur(8px)',
+              zIndex: 1000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px',
+            }}
+            onClick={() => setShowLoginModal(false)}
+          >
+            <div
+              className="login-card"
+              style={{
+                maxWidth: '460px',
+                width: '100%',
+                background: '#ffffff',
+                border: '1px solid rgba(11, 30, 54, 0.15)',
+                borderRadius: '20px',
+                padding: '36px 32px',
+                boxShadow: '0 24px 60px rgba(0, 0, 0, 0.3)',
+                position: 'relative',
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setShowLoginModal(false)}
+                style={{
+                  position: 'absolute',
+                  top: '16px',
+                  right: '16px',
+                  background: '#f1f5f9',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: '14px',
+                  color: '#475569',
+                }}
+              >
+                ✕
+              </button>
+
+              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                <Crest platformMode={platformMode} small />
+                <span className="badge badge-president" style={{ marginTop: '12px', display: 'inline-block', background: '#fff7ed', color: '#ea580c', border: '1px solid rgba(234, 88, 12, 0.2)' }}>
+                  OFFICIAL UNIVERSITY ACCESS
+                </span>
+                <h2 style={{ font: '800 24px "Plus Jakarta Sans", sans-serif', color: '#0b1e36', margin: '10px 0 4px' }}>Sign in to Portal</h2>
+                <p style={{ color: '#64748b', fontSize: '13px', margin: 0 }}>
+                  Enter your university credentials to access events & passes.
+                </p>
+              </div>
+
+              <form onSubmit={submit} noValidate>
+                <div className="login-field-group">
+                  <label htmlFor="modal-member-id" style={{ color: '#0b1e36', fontWeight: 600 }}>Member / Student ID</label>
+                  <div className="login-input-wrapper">
+                    <span className="login-input-icon">👤</span>
+                    <input
+                      id="modal-member-id"
+                      name="memberId"
+                      required
+                      maxLength={32}
+                      pattern="[A-Za-z0-9]+"
+                      autoComplete="username"
+                      placeholder="e.g. 25EU07R0015"
+                      value={memberIdVal}
+                      onChange={e => setMemberIdVal(e.target.value.toUpperCase())}
+                      style={{ color: '#0f172a', background: '#f8fafc', border: '1px solid #cbd5e1' }}
+                    />
+                  </div>
+                </div>
+
+                <div className="login-field-group">
+                  <label htmlFor="modal-password" style={{ color: '#0b1e36', fontWeight: 600 }}>Account Password</label>
+                  <div className="login-input-wrapper">
+                    <span className="login-input-icon">🔒</span>
+                    <input
+                      id="modal-password"
+                      name="password"
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      minLength={12}
+                      maxLength={128}
+                      autoComplete="current-password"
+                      placeholder="Enter your password"
+                      style={{ color: '#0f172a', background: '#f8fafc', border: '1px solid #cbd5e1' }}
+                    />
+                    <button
+                      type="button"
+                      className="login-pwd-toggle"
+                      onClick={() => setShowPassword(p => !p)}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? '🙈' : '👁'}
+                    </button>
+                  </div>
+                </div>
+
+                {error && (
+                  <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid #ef444455', color: '#b91c1c', fontSize: '12px', marginBottom: '16px' }} role="alert">
+                    ⚠️ {error}
+                  </div>
+                )}
+
+                <button
+                  className="primary"
+                  disabled={loading}
+                  style={{
+                    width: '100%',
+                    minHeight: '46px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    background: 'linear-gradient(135deg, #ff5722, #dc2626)',
+                    boxShadow: '0 4px 16px rgba(255, 87, 34, 0.35)',
+                    borderRadius: '10px',
+                  }}
+                >
+                  {loading ? 'AUTHENTICATING SECURE SESSION…' : 'SIGN IN TO UNIVERSITY PORTAL ➔'}
+                </button>
+              </form>
+
+              <div className="login-footer-links" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '18px' }}>
+                <button
+                  className="back-button"
+                  type="button"
+                  onClick={() => {
+                    setShowLoginModal(false)
+                    setShowRegisterModal(true)
+                  }}
+                  style={{ margin: 0, fontSize: '12px', color: '#ff5722', fontWeight: 700 }}
+                >
+                  ⚡ Register as Guest
+                </button>
+                <span style={{ color: '#cbd5e1', fontSize: '12px' }}>|</span>
+                <button
+                  className="back-button"
+                  type="button"
+                  onClick={() => {
+                    setShowLoginModal(false)
+                    setShowForgotModal(true)
+                  }}
+                  style={{ margin: 0, fontSize: '12px', color: '#475569' }}
+                >
+                  Forgot Password?
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Guest Student Registration Modal */}
+        {showRegisterModal && (
+          <GuestRegisterModal
+            isOpen={showRegisterModal}
+            onClose={() => setShowRegisterModal(false)}
+            onSuccess={data => {
+              setShowRegisterModal(false)
+              setGuestSuccessData(data)
+            }}
+          />
+        )}
+
+        {/* Auto-Downloaded Credentials Confirmation Modal */}
+        {guestSuccessData && (
+          <GuestCredentialsSuccessModal
+            data={guestSuccessData}
+            onClose={() => setGuestSuccessData(null)}
+            onProceedToLogin={() => {
+              setMemberIdVal(guestSuccessData.memberId)
+              setGuestSuccessData(null)
+              setShowLoginModal(true)
+            }}
+          />
+        )}
+
+        {/* Forgot Password / Support Modal */}
+        {showForgotModal && (
+          <ForgotPasswordModal
+            isOpen={showForgotModal}
+            onClose={() => setShowForgotModal(false)}
+          />
+        )}
+      </main>
+    )
+  }
 
   return (
     <main className="login-page">
@@ -1515,19 +1897,32 @@ function AccountSecurity({ user, logout, onNavigate }) {
     }
   }
 
+  if (!user.isAdminUser) {
+    return (
+      <LivePortal user={user} logout={logout} activeTab="student-dashboard" onNavigate={onNavigate} title="DASHBOARD">
+        <section className="member-management">
+          <p className="directory-state">Security & administrative authorization controls are reserved for council accounts.</p>
+        </section>
+      </LivePortal>
+    )
+  }
+
   return (
     <LivePortal user={user} logout={logout} activeTab="security" onNavigate={onNavigate} title="ACCOUNT SECURITY">
       <section className="member-management">
         <div className="member-heading">
           <div>
-            <button className="back-button" type="button" onClick={() => onNavigate(user.isAdminUser ? 'admin-dashboard' : 'student-dashboard')}>
+            <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
               ← BACK
             </button>
-            <p className="eyebrow">AUTHENTICATION PROTECTION</p>
+            <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Icon8 name="password" size={14} /> AUTHENTICATION PROTECTION
+            </p>
             <h1>Account Security & Locks</h1>
             <p>Configure two-factor protection and manage secondary authorization controls.</p>
           </div>
-          <span className="president-lock">
+          <span className="president-lock" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <Icon8 name="authentication" size={14} />
             {user.twoFactorEnabled ? '2FA ACTIVE' : '2FA OPTIONAL'}
           </span>
         </div>
@@ -1535,8 +1930,12 @@ function AccountSecurity({ user, logout, onNavigate }) {
         {/* Primary President Dual Lock Master PIN Card */}
         {user.isPrimaryAdmin && (
           <article className="account-form-card security-card" style={{ maxWidth: '720px', marginBottom: '24px', border: '1px solid #ffb74d55' }}>
-            <p className="eyebrow" style={{ color: '#ffb74d' }}>PRIMARY PRESIDENT SECURITY</p>
-            <h2 style={{ color: '#ffb74d' }}>👑 Dual 6-Digit Master Security PIN (Two Locks)</h2>
+            <p className="eyebrow" style={{ color: '#ffb74d', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Icon8 name="keySecurity" size={16} /> PRIMARY PRESIDENT SECURITY
+            </p>
+            <h2 style={{ color: '#ffb74d', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Icon8 name="keySecurity" size={24} /> Dual 6-Digit Master Security PIN (Two Locks)
+            </h2>
             <p style={{ color: '#9bb7cc', fontSize: '13px', lineHeight: '1.6' }}>
               Set a dedicated 6-digit Master PIN for your Primary President account. When enabled, signing in requires your password + this 6-digit PIN (independent of authenticator apps).
             </p>
@@ -1638,6 +2037,8 @@ function AccountSecurity({ user, logout, onNavigate }) {
 // Member Management & Leadership Directory
 // ----------------------------------------------------
 function MemberManagement({ user, logout, onNavigate }) {
+  const { platformMode } = usePlatformTheme()
+  const isMrdu = platformMode === 'MRDU_EVENTS'
   const [members, setMembers] = useState([])
   const [role, setRole] = useState('STUDENT')
   const [loading, setLoading] = useState(true)
@@ -1755,7 +2156,7 @@ function MemberManagement({ user, logout, onNavigate }) {
 
   useEffect(() => {
     loadMembers()
-  }, [])
+  }, [platformMode])
 
   async function createAccount(e) {
     e.preventDefault()
@@ -1993,8 +2394,8 @@ function MemberManagement({ user, logout, onNavigate }) {
             <p>Add new club members, assign predefined roles, manage 2FA locks, and oversee authorized access.</p>
           </div>
           {user.isPrimaryAdmin && (
-            <button className="outline" type="button" onClick={() => setTransferModalOpen(true)}>
-              👑 TRANSFER PRIMARY LEADERSHIP
+            <button className="outline" type="button" onClick={() => setTransferModalOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <IconCrown size={14} /> TRANSFER PRIMARY LEADERSHIP
             </button>
           )}
         </div>
@@ -2292,10 +2693,10 @@ function MemberManagement({ user, logout, onNavigate }) {
                 className="outline"
                 onClick={handleDownloadMembersCsv}
                 disabled={filteredMembers.length === 0}
-                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
                 title="Download filtered members list as CSV"
               >
-                📥 DOWNLOAD MEMBERS CSV
+                <IconDownload size={14} /> DOWNLOAD MEMBERS CSV
               </button>
             </div>
 
@@ -2317,7 +2718,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                 <div className="members-table">
                   <div className="table-header">
                     <span>MEMBER</span>
-                    <span>ROLE & 2FA</span>
+                    <span>{isMrdu ? 'MRDU ROLE & 2FA' : 'CLUB ROLE & 2FA'}</span>
                     <span>CONTACT INFO</span>
                     <span>ACTIONS</span>
                   </div>
@@ -2354,7 +2755,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                               </select>
                             </div>
                             <div className="action-buttons" style={{ marginTop: '8px' }}>
-                              <button className="action-btn save-btn" onClick={() => updateMember(m.id)}>Save</button>
+                              <button className="action-btn save-btn" onClick={() => updateMember(m.id)}>Save {isMrdu ? 'MRDU Role' : 'Club Role'}</button>
                               <button className="action-btn cancel-btn" onClick={() => { setEditingId(null); setEditData({}) }}>Cancel</button>
                             </div>
                           </div>
@@ -2374,13 +2775,22 @@ function MemberManagement({ user, logout, onNavigate }) {
                               </div>
                             </div>
                             <div>
-                              <span className={`badge ${m.isPrimaryAdmin ? 'badge-president' : m.role === 'STUDENT' ? 'badge-student' : 'badge-admin'}`}>
-                                {m.isPrimaryAdmin ? '👑 PRESIDENT' : getRoleLabel(m.role)}
-                              </span>
-                              {m.twoFactorEnabled && (
-                                <span className="badge badge-active" style={{ marginLeft: '6px', fontSize: '8px' }}>
-                                  🔒 2FA ON
+                              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                                <span className={`badge ${m.isPrimaryAdmin ? 'badge-president' : m.role === 'STUDENT' ? 'badge-student' : 'badge-admin'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  {m.isPrimaryAdmin ? <><IconCrown size={12} /> PRESIDENT</> : getRoleLabel(m.role)}
                                 </span>
+                                {m.twoFactorEnabled && (
+                                  <span className="badge badge-active" style={{ fontSize: '8px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                    <Icon8 name="authentication" size={10} /> 2FA ON
+                                  </span>
+                                )}
+                              </div>
+                              {!m.isPrimaryAdmin && (
+                                <small style={{ color: 'var(--text-dim)', fontSize: '9px', display: 'block', marginTop: '3px' }}>
+                                  {isMrdu
+                                    ? `CSC Club Role: ${getRoleLabel(m.cscRole || 'STUDENT')}`
+                                    : `MRDU Mode: ${getRoleLabel(m.mrduRole || 'STUDENT')}`}
+                                </small>
                               )}
                             </div>
                             <div>
@@ -2736,8 +3146,8 @@ function UniversalProfileView({ user, logout, onNavigate, onProfileUpdated }) {
                   </div>
                 )}
                 <h3 style={{ margin: '0 0 4px', font: '700 20px Syne', color: 'var(--text-main)' }}>{profile.name || user.name}</h3>
-                <span className={`badge ${user.isPrimaryAdmin ? 'badge-president' : user.role === 'STUDENT' ? 'badge-student' : 'badge-admin'}`} style={{ marginBottom: '10px' }}>
-                  {user.isPrimaryAdmin ? '👑 PRESIDENT' : getRoleLabel(user.role)}
+                <span className={`badge ${user.isPrimaryAdmin ? 'badge-president' : user.role === 'STUDENT' ? 'badge-student' : 'badge-admin'}`} style={{ marginBottom: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  {user.isPrimaryAdmin ? <><IconCrown size={12} /> PRESIDENT</> : getRoleLabel(user.role)}
                 </span>
                 <p style={{ color: 'var(--brand-primary)', font: '500 11px "DM Mono", monospace', margin: '0 0 10px' }}>
                   MEMBER ID: {user.memberId}
@@ -2927,19 +3337,21 @@ function SupportDeskView({ user, logout, onNavigate }) {
             <p>Direct question & answer channel between student members and specialized club council leads.</p>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button
-              type="button"
-              className="outline"
-              onClick={handleDownloadSupportCsv}
-              disabled={tickets.length === 0}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
-              title="Download support inquiries as CSV"
-            >
-              📥 DOWNLOAD QUERIES CSV
-            </button>
+            {!isStudent && (
+              <button
+                type="button"
+                className="outline"
+                onClick={handleDownloadSupportCsv}
+                disabled={tickets.length === 0}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+                title="Download support inquiries as CSV"
+              >
+                <IconDownload size={14} /> DOWNLOAD QUERIES CSV
+              </button>
+            )}
             {isStudent && (
-              <button className="primary" type="button" onClick={() => setShowCreateModal(true)}>
-                ＋ &nbsp; ASK A DOUBT / QUERY
+              <button className="primary" type="button" onClick={() => setShowCreateModal(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '14px', lineHeight: 1 }}>+</span> ASK A DOUBT / QUERY
               </button>
             )}
           </div>
@@ -3067,8 +3479,9 @@ function SupportDeskView({ user, logout, onNavigate }) {
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                            <b style={{ color: isReplierPresident ? '#d97706' : 'var(--brand-primary)', fontSize: '11px' }}>
-                              {isReplierPresident ? '👑 ' : ''}{r.user?.profile?.name || r.user?.name || r.user?.memberId}
+                            <b style={{ color: isReplierPresident ? '#d97706' : 'var(--brand-primary)', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              {isReplierPresident && <IconCrown size={12} />}
+                              {r.user?.profile?.name || r.user?.name || r.user?.memberId}
                             </b>
                             <span className="badge" style={{ fontSize: '8px', padding: '2px 6px' }}>
                               {isReplierPresident ? 'PRESIDENT' : getRoleLabel(replierRole)}
@@ -3311,13 +3724,13 @@ function SubscriptionManagement({ user, logout, onNavigate }) {
               className="outline"
               onClick={handleDownloadSubscriptionsCsv}
               disabled={filtered.length === 0}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
               title="Download subscriptions list as CSV"
             >
-              📥 DOWNLOAD SUBSCRIPTIONS CSV
+              <IconDownload size={14} /> DOWNLOAD SUBSCRIPTIONS CSV
             </button>
-            <button className="outline" type="button" onClick={() => onNavigate('admin-settings')}>
-              ⚙ SUBSCRIPTION SETTINGS
+            <button className="outline" type="button" onClick={() => onNavigate('admin-settings')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
+              <Icon8 name="keySecurity" size={14} /> SUBSCRIPTION SETTINGS
             </button>
           </div>
         </div>
@@ -3328,38 +3741,38 @@ function SubscriptionManagement({ user, logout, onNavigate }) {
         {/* Top Statistics Cards */}
         <div className="sub-stats-grid">
           <div className="sub-stat-card blue">
-            <i>👥</i>
+            <i><Icon8 name="idDocs" size={22} /></i>
             <div>
               <p>TOTAL STUDENTS</p>
               <b>{stats.totalStudents || 0}</b>
             </div>
           </div>
           <div className="sub-stat-card green">
-            <i>✓</i>
+            <i><Icon8 name="authentication" size={22} /></i>
             <div>
               <p>ACTIVE SUBSCRIPTIONS</p>
               <b>{stats.activeSubscriptions || 0}</b>
             </div>
           </div>
           <div className="sub-stat-card amber">
-            <i>⏳</i>
+            <i><Icon8 name="realtime" size={22} /></i>
             <div>
               <p>PENDING VERIFICATION</p>
               <b>{stats.pendingVerification || 0}</b>
             </div>
           </div>
           <div className="sub-stat-card purple">
-            <i>⌛</i>
+            <i><Icon8 name="protect" size={22} /></i>
             <div>
               <p>EXPIRED SUBSCRIPTIONS</p>
               <b>{stats.expiredSubscriptions || 0}</b>
             </div>
           </div>
           <div className="sub-stat-card red">
-            <i>✕</i>
+            <i><Icon8 name="captcha" size={22} /></i>
             <div>
               <p>REJECTED PAYMENTS</p>
-              <b>{stats.rejectedPayments || 0}</b>
+              <b>{stats.rejectedPayments || stats.rejectedCount || 0}</b>
             </div>
           </div>
         </div>
@@ -3625,14 +4038,18 @@ function StudentMembership({ user, logout, onNavigate }) {
           <p className="directory-state">Loading {isMrdu ? 'student pass' : 'membership'} information...</p>
         ) : isExempt ? (
           <div className="membership-status-box active-box">
-            <h2 style={{ font: '700 22px Syne', color: '#70ddb4', margin: '0 0 6px' }}>👑 Leadership Account Active</h2>
+            <h2 style={{ font: '700 22px Syne', color: '#70ddb4', margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <IconCrown size={20} /> Leadership Account Active
+            </h2>
             <p style={{ color: '#9bb7cc', fontSize: '13px', margin: 0 }}>
               As an authorized leader ({getRoleLabel(user.role)}), you have full unlimited access to all features without a student subscription.
             </p>
           </div>
         ) : !isEnabled ? (
           <div className="membership-status-box active-box">
-            <h2 style={{ font: '700 22px Syne', color: '#70ddb4', margin: '0 0 6px' }}>✓ Open {isMrdu ? 'Event Pass' : 'Membership'} Access</h2>
+            <h2 style={{ font: '700 22px Syne', color: '#70ddb4', margin: '0 0 6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Icon8 name="authentication" size={20} /> Open {isMrdu ? 'Event Pass' : 'Membership'} Access
+            </h2>
             <p style={{ color: '#9bb7cc', fontSize: '13px', margin: 0 }}>
               {isMrdu
                 ? 'Student event pass access is currently open & free. You have full access to all university events and activities!'
@@ -4124,16 +4541,25 @@ function EventManagement({ user, logout, onNavigate }) {
             <h1>Club Events & Master Studio</h1>
             <p>Publish workshops, CTF competitions, seminars, and custom-tiered activity events.</p>
           </div>
-          <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => onNavigate('admin-qr-scanner')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px' }}
+              title="Scan attendee event passes and verify tickets"
+            >
+              <Icon8 name="irisScan" size={16} /> SCAN EVENT PASSES (ENTRY GATE)
+            </button>
             <button
               type="button"
               className="outline"
               onClick={handleDownloadEventsList}
               disabled={events.length === 0}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
               title="Download events catalog as CSV"
             >
-              📥 DOWNLOAD EVENTS CSV
+              <IconDownload size={14} /> DOWNLOAD EVENTS CSV
             </button>
             <div className="event-hero-stats">
               <span><b>{events.length}</b><small>Total Events</small></span>
@@ -4409,10 +4835,10 @@ function EventManagement({ user, logout, onNavigate }) {
                 className="outline"
                 onClick={handleDownloadEventsList}
                 disabled={events.length === 0}
-                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
                 title="Download events catalog as CSV"
               >
-                📥 DOWNLOAD EVENTS CSV
+                <IconDownload size={14} /> DOWNLOAD EVENTS CSV
               </button>
             </div>
 
@@ -4475,10 +4901,10 @@ function EventManagement({ user, logout, onNavigate }) {
                     className="outline"
                     onClick={() => handleDownloadEventRegistrations(analyticsModalEvent, analyticsData?.registrations)}
                     disabled={!analyticsData?.registrations || analyticsData.registrations.length === 0}
-                    style={{ fontSize: '11px', padding: '5px 10px' }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '5px 10px' }}
                     title="Download event registrations roster as CSV"
                   >
-                    📥 DOWNLOAD ROSTER CSV
+                    <IconDownload size={13} /> DOWNLOAD ROSTER CSV
                   </button>
                   <button className="lightbox-close" onClick={() => setAnalyticsModalEvent(null)} style={{ position: 'static' }}>✕</button>
                 </div>
@@ -4821,13 +5247,13 @@ function PaymentManagement({ user, logout, onNavigate }) {
               className="outline"
               onClick={handleDownloadPaymentsCsv}
               disabled={payments.length === 0}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
               title="Download event payments as CSV"
             >
-              📥 DOWNLOAD PAYMENTS CSV
+              <IconDownload size={14} /> DOWNLOAD PAYMENTS CSV
             </button>
-            <button className="outline" type="button" onClick={() => onNavigate('admin-subscriptions')}>
-              💎 VIEW STUDENT MEMBERSHIP SUBSCRIPTIONS →
+            <button className="outline" type="button" onClick={() => onNavigate('admin-subscriptions')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
+              <Icon8 name="access" size={14} /> VIEW STUDENT MEMBERSHIP SUBSCRIPTIONS &rarr;
             </button>
           </div>
         </div>
@@ -5579,10 +6005,10 @@ function TeamManagement({ user, logout, onNavigate }) {
             className="outline"
             onClick={handleDownloadLeadersCsv}
             disabled={team.length === 0}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
             title="Download leadership directory as CSV"
           >
-            📥 DOWNLOAD LEADERS CSV
+            <IconDownload size={14} /> DOWNLOAD LEADERS CSV
           </button>
         </div>
 
@@ -5649,10 +6075,10 @@ function TeamManagement({ user, logout, onNavigate }) {
                 className="outline"
                 onClick={handleDownloadLeadersCsv}
                 disabled={team.length === 0}
-                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
                 title="Download leadership directory as CSV"
               >
-                📥 DOWNLOAD LEADERS CSV
+                <IconDownload size={14} /> DOWNLOAD LEADERS CSV
               </button>
             </div>
             <p style={{ color: '#7e95a7', fontSize: '11px', margin: '4px 0 14px' }}>
@@ -5816,6 +6242,13 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  // One-Click Full Database (.sql) Export States
+  const [sqlExportModalOpen, setSqlExportModalOpen] = useState(false)
+  const [sqlExportPassword, setSqlExportPassword] = useState('')
+  const [sqlExportSubmitting, setSqlExportSubmitting] = useState(false)
+  const [sqlExportError, setSqlExportError] = useState('')
+  const [sqlExportSuccess, setSqlExportSuccess] = useState('')
+
   useEffect(() => {
     let mounted = true
     adminApi.getClubSettings()
@@ -5879,6 +6312,39 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
     }
   }
 
+  async function handleExecuteSqlExport(e) {
+    e.preventDefault()
+    setSqlExportError('')
+    setSqlExportSuccess('')
+    if (!sqlExportPassword) {
+      setSqlExportError('Please enter your account password.')
+      return
+    }
+
+    setSqlExportSubmitting(true)
+    try {
+      const res = await adminApi.exportDatabaseSql(sqlExportPassword)
+      const blob = new Blob([res.sqlContent], { type: 'application/sql;charset=utf-8;' })
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = res.filename || `mrdu_csc_full_database_backup_${Date.now()}.sql`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      setSqlExportSuccess(`✓ Full database export (${(res.sqlContent.length / 1024).toFixed(1)} KB) generated and downloaded successfully!`)
+      setSqlExportPassword('')
+      setTimeout(() => {
+        setSqlExportModalOpen(false)
+        setSqlExportSuccess('')
+      }, 2500)
+    } catch (err) {
+      setSqlExportError(err.message || 'Failed to export database.')
+    } finally {
+      setSqlExportSubmitting(false)
+    }
+  }
+
   return (
     <LivePortal user={user} logout={logout} activeTab="admin-settings" onNavigate={onNavigate} title={selectedPlatform === 'MRDU_EVENTS' ? 'PORTAL SETTINGS' : 'CLUB SETTINGS'}>
       <section className="member-management">
@@ -5892,12 +6358,62 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
             <p>Switch platform modes, adjust dark/light themes, manage site availability, subscriptions, and briefings.</p>
           </div>
           {user.isPrimaryAdmin && (
-            <span className="president-lock">👑 PRIMARY PRESIDENT CONTROLS</span>
+            <span className="president-lock" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <IconCrown size={13} /> PRIMARY PRESIDENT CONTROLS
+            </span>
           )}
         </div>
 
         {message && <p className="member-form-success">{message}</p>}
         {error && <p className="member-form-error">{error}</p>}
+
+        {/* Card: Full Database Backup (.SQL One-Click Export) */}
+        {user.isPrimaryAdmin && (
+          <article className="settings-section-card" style={{ border: '1px solid rgba(234, 88, 12, 0.35)', background: 'linear-gradient(180deg, rgba(234, 88, 12, 0.05) 0%, var(--bg-card) 100%)', marginBottom: '24px' }}>
+            <div className="settings-card-header">
+              <div>
+                <p className="eyebrow" style={{ color: '#ea580c' }}>DISASTER RECOVERY & ARCHIVAL</p>
+                <h3 style={{ color: 'var(--text-main)' }}>Full Database Backup (.SQL One-Click Export)</h3>
+              </div>
+              <span className="platform-active-pill" style={{ background: '#fff7ed', color: '#ea580c', borderColor: 'rgba(234, 88, 12, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <IconCrown size={13} /> PRIMARY PRESIDENT SECURE TOOL
+              </span>
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.6', margin: '0 0 16px' }}>
+              Download a complete, unencrypted <b>.SQL database dump</b> containing all 19 system tables (all members, accounts, profiles, events, registrations, settings, gallery, complaints, support tickets, and audit records). The downloaded file can be imported directly into any MySQL database with a single click.
+            </p>
+
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="primary"
+                onClick={() => {
+                  setSqlExportPassword('')
+                  setSqlExportError('')
+                  setSqlExportSuccess('')
+                  setSqlExportModalOpen(true)
+                }}
+                style={{
+                  background: 'linear-gradient(135deg, #ea580c, #c2410c)',
+                  borderColor: '#ea580c',
+                  color: '#ffffff',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 20px',
+                  fontWeight: 700,
+                  fontSize: '12px',
+                  borderRadius: '8px',
+                }}
+              >
+                <IconDownload size={15} /> DOWNLOAD ALL WEBSITE DATA (.SQL)
+              </button>
+              <small style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <Icon8 name="keySecurity" size={13} /> Requires Primary President account password for authorization
+              </small>
+            </div>
+          </article>
+        )}
 
         <form onSubmit={handleSaveSettings}>
           {/* Card 0: Platform Identity & Mode (Primary Admin Switcher) */}
@@ -6241,6 +6757,120 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
             {submitting ? 'SAVING ALL SETTINGS…' : 'SAVE CONFIGURATION'}
           </button>
         </form>
+
+        {/* Modal for SQL Export Password Confirmation */}
+        {sqlExportModalOpen && (
+          <div
+            className="modal-backdrop"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(7, 22, 44, 0.8)',
+              backdropFilter: 'blur(6px)',
+              zIndex: 1100,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '20px',
+            }}
+            onClick={() => setSqlExportModalOpen(false)}
+          >
+            <div
+              className="login-card"
+              style={{
+                maxWidth: '480px',
+                width: '100%',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--brand-border-subtle)',
+                borderRadius: '16px',
+                padding: '28px 24px',
+                position: 'relative',
+                boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              <button
+                onClick={() => setSqlExportModalOpen(false)}
+                style={{
+                  position: 'absolute',
+                  top: '14px',
+                  right: '14px',
+                  background: 'var(--panel-subtle)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '30px',
+                  height: '30px',
+                  cursor: 'pointer',
+                  color: 'var(--text-main)',
+                  fontWeight: 700,
+                }}
+              >
+                ✕
+              </button>
+
+              <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                <span style={{ fontSize: '32px' }}>💾</span>
+                <h2 style={{ font: '700 20px Syne', color: 'var(--text-main)', margin: '8px 0 4px' }}>
+                  Export Full Database (.SQL)
+                </h2>
+                <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0, lineHeight: 1.5 }}>
+                  Enter your Primary President account password to authorize and generate a complete SQL backup dump.
+                </p>
+              </div>
+
+              {sqlExportSuccess && (
+                <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b98155', color: '#6ee7b7', fontSize: '12px', marginBottom: '16px' }}>
+                  {sqlExportSuccess}
+                </div>
+              )}
+
+              {sqlExportError && (
+                <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef444455', color: '#fca5a5', fontSize: '12px', marginBottom: '16px' }}>
+                  ⚠️ {sqlExportError}
+                </div>
+              )}
+
+              <form onSubmit={handleExecuteSqlExport}>
+                <div className="login-field-group">
+                  <label style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 600 }}>
+                    Primary President Account Password
+                  </label>
+                  <div className="login-input-wrapper">
+                    <span className="login-input-icon">🔒</span>
+                    <input
+                      type="password"
+                      required
+                      placeholder="Enter your account password"
+                      value={sqlExportPassword}
+                      onChange={e => setSqlExportPassword(e.target.value)}
+                      autoFocus
+                      style={{ background: 'var(--bg-input)', color: 'var(--text-main)' }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                  <button
+                    type="submit"
+                    className="primary"
+                    disabled={sqlExportSubmitting || !sqlExportPassword}
+                    style={{ flex: 1, minHeight: '42px', fontSize: '11px', background: 'linear-gradient(135deg, #ea580c, #c2410c)' }}
+                  >
+                    {sqlExportSubmitting ? 'GENERATING SQL DUMP…' : 'AUTHORIZE & DOWNLOAD .SQL ➔'}
+                  </button>
+                  <button
+                    type="button"
+                    className="outline"
+                    onClick={() => setSqlExportModalOpen(false)}
+                    style={{ minHeight: '42px', fontSize: '11px' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </section>
     </LivePortal>
   )
@@ -6299,17 +6929,19 @@ function StudentEvents({ user, logout, onNavigate }) {
                   <h3>{evt.title}</h3>
                   <p>{evt.shortDescription || evt.description || (isMrdu ? 'MRDU University official event session.' : 'Department of Cyber Security session.')}</p>
                   <div className="card-meta">
-                    <span>📅 {new Date(evt.dateTime).toLocaleDateString()}</span>
-                    <span>📍 {evt.venue || evt.location || 'Campus'}</span>
-                    <span>💳 {evt.requiresPayment ? `₹${evt.paymentAmount || 'Tiered'}` : 'FREE'}</span>
-                    <span>👥 {evt.registrationCount || 0} registered</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCalendar size={13} /> {new Date(evt.dateTime).toLocaleDateString()}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconLocationPin size={13} /> {evt.venue || evt.location || 'Campus'}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCreditCard size={13} /> {evt.requiresPayment ? `₹${evt.paymentAmount || 'Tiered'}` : 'FREE'}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconUserSvg size={13} /> {evt.registrationCount || 0} registered</span>
                   </div>
                   <div className="card-footer">
                     {evt.isRegistered ? (
-                      <span className="badge badge-registered">✓ REGISTERED</span>
+                      <span className="badge badge-registered" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <Icon8 name="authentication" size={12} /> REGISTERED
+                      </span>
                     ) : (
                       <button className="register-btn" type="button" onClick={() => onNavigate(`event-detail/${evt.id}`)}>
-                        VIEW DETAILS & REGISTER →
+                        VIEW DETAILS & REGISTER &rarr;
                       </button>
                     )}
                   </div>
@@ -6331,6 +6963,8 @@ function StudentRegistrations({ user, logout, onNavigate }) {
   const isMrdu = platformMode === 'MRDU_EVENTS'
   const [registrations, setRegistrations] = useState([])
   const [loading, setLoading] = useState(true)
+  const [selectedPass, setSelectedPass] = useState(null)
+  const [copiedId, setCopiedId] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -6340,28 +6974,12 @@ function StudentRegistrations({ user, logout, onNavigate }) {
     return () => { mounted = false }
   }, [])
 
-  function handleDownloadMyPassesCsv() {
-    const headers = [
-      'Registration ID',
-      'Event Title',
-      'Category',
-      'Event Date & Time',
-      'Venue',
-      'Amount Paid (₹)',
-      'Payment Status',
-      'Registration Date',
-    ]
-    const rows = registrations.map(r => [
-      r.id,
-      r.event?.title,
-      r.event?.eventType,
-      r.event?.dateTime ? new Date(r.event.dateTime).toLocaleString() : null,
-      r.event?.venue || r.event?.location,
-      Number(r.totalAmount || 0),
-      r.paymentStatus,
-      r.registeredAt ? new Date(r.registeredAt).toLocaleString() : null,
-    ])
-    downloadCsv('my_event_passes.csv', headers, rows)
+  function handleCopyPassId(id) {
+    if (!id) return
+    navigator.clipboard?.writeText(id).then(() => {
+      setCopiedId(true)
+      setTimeout(() => setCopiedId(false), 2200)
+    }).catch(() => {})
   }
 
   return (
@@ -6372,20 +6990,12 @@ function StudentRegistrations({ user, logout, onNavigate }) {
             <button className="back-button" type="button" onClick={() => onNavigate('student-dashboard')}>
               ← BACK TO DASHBOARD
             </button>
-            <p className="eyebrow">{isMrdu ? 'CONFIRMED PASSES & BADGES' : 'CONFIRMED PASSES'}</p>
+            <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Icon8 name="idDocs" size={14} /> {isMrdu ? 'CONFIRMED PASSES & BADGES' : 'CONFIRMED PASSES'}
+            </p>
             <h1>{isMrdu ? 'My Event Passes & QR Badges' : 'My Event Passes & QR'}</h1>
             <p>{isMrdu ? 'Your confirmed attendance passes and digital entrance verification for all MRDU events.' : 'Your confirmed attendance records and entry passes for all club sessions.'}</p>
           </div>
-          <button
-            type="button"
-            className="outline"
-            onClick={handleDownloadMyPassesCsv}
-            disabled={registrations.length === 0}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
-            title="Download your confirmed event passes as CSV"
-          >
-            📥 DOWNLOAD PASSES CSV
-          </button>
         </div>
 
         {loading ? (
@@ -6393,24 +7003,333 @@ function StudentRegistrations({ user, logout, onNavigate }) {
         ) : registrations.length === 0 ? (
           <p className="directory-state">You have not registered for any events yet.</p>
         ) : (
-          <div className="student-events-container">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px', marginTop: '20px' }}>
             {registrations.map(reg => (
-              <article key={reg.id} className="live-event-card">
-                <div className="card-content">
-                  <span className="badge badge-registered" style={{ alignSelf: 'flex-start', marginBottom: '8px' }}>
-                    {reg.status}
-                  </span>
-                  <h3>{reg.event?.title || (isMrdu ? 'MRDU Event' : 'Club Event')}</h3>
-                  <p>{reg.event?.shortDescription || reg.event?.description}</p>
-                  <div className="card-meta">
-                    <span>📅 {reg.event?.dateTime ? new Date(reg.event.dateTime).toLocaleString() : ''}</span>
-                    <span>📍 {reg.event?.venue || reg.event?.location || 'Campus'}</span>
-                    <span>🎟 Pass ID: {reg.id.slice(0, 8)}</span>
-                    <span>Payment: <b style={{ color: '#70ddb4' }}>{reg.paymentStatus}</b></span>
+              <article
+                key={reg.id}
+                className="live-event-card"
+                style={{
+                  background: 'var(--bg-card)',
+                  border: reg.attendanceMarked ? '1px solid #10b98166' : '1px solid var(--brand-border-subtle)',
+                  borderRadius: '16px',
+                  overflow: 'hidden',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  boxShadow: reg.attendanceMarked ? '0 8px 30px rgba(16, 185, 129, 0.12)' : '0 8px 30px rgba(0,0,0,0.2)',
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                }}
+              >
+                {/* Event Top Badge */}
+                <div style={{ padding: '16px 20px', background: reg.attendanceMarked ? 'rgba(16, 185, 129, 0.12)' : 'var(--panel-subtle)', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <span className="badge" style={{ background: 'var(--brand-badge-bg)', color: 'var(--brand-badge-color)', fontSize: '10px' }}>
+                      {reg.event?.eventType || 'EVENT PASS'}
+                    </span>
+                  </div>
+                  {reg.attendanceMarked ? (
+                    <span className="badge" style={{ background: '#064e3b', color: '#6ee7b7', border: '1px solid #10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Icon8 name="authentication" size={14} /> ATTENDANCE CONFIRMED
+                    </span>
+                  ) : (
+                    <span className="badge badge-registered" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Icon8 name="faceId" size={14} /> ENTRY VALID · SCAN AT GATE
+                    </span>
+                  )}
+                </div>
+
+                <div className="card-content" style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <h3 style={{ margin: '0 0 8px', font: '700 18px Syne', color: 'var(--text-main)' }}>
+                    {reg.event?.title || (isMrdu ? 'MRDU Event' : 'Club Event')}
+                  </h3>
+
+                  <div className="card-meta" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', margin: '12px 0 16px', fontSize: '11px' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCalendar size={13} /> {reg.event?.dateTime ? new Date(reg.event.dateTime).toLocaleDateString() : 'TBA'}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconLocationPin size={13} /> {reg.event?.venue || reg.event?.location || 'Campus'}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCreditCard size={13} /> Payment: <b style={{ color: '#70ddb4', marginLeft: 4 }}>{reg.paymentStatus}</b></span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconUserSvg size={13} /> Attendee: {user.memberId}</span>
+                  </div>
+
+                  {/* QR Code Pass Box */}
+                  <div
+                    style={{
+                      marginTop: 'auto',
+                      padding: '16px',
+                      borderRadius: '12px',
+                      background: '#ffffff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '16px',
+                      color: '#000000',
+                      boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
+                    }}
+                  >
+                    {reg.qrCodeData ? (
+                      <img
+                        src={reg.qrCodeData}
+                        alt={`QR Pass for ${reg.event?.title}`}
+                        onClick={() => setSelectedPass(reg)}
+                        style={{ width: '96px', height: '96px', borderRadius: '8px', border: '1px solid #e2e8f0', flexShrink: 0, imageRendering: 'pixelated', cursor: 'pointer' }}
+                        title="Click to view full pass"
+                      />
+                    ) : (
+                      <div style={{ width: '96px', height: '96px', background: '#f1f5f9', display: 'grid', placeItems: 'center', borderRadius: '8px', fontSize: '10px', color: '#64748b' }}>
+                        QR PASS
+                      </div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ margin: 0, font: '700 12px Syne', color: '#0f172a' }}>
+                        OFFICIAL ENTRANCE QR PASS
+                      </p>
+                      <p style={{ margin: '4px 0 0', fontSize: '10px', color: '#64748b', wordBreak: 'break-all', fontFamily: 'monospace' }}>
+                        PASS ID: {reg.id.slice(0, 16)}...
+                      </p>
+                      <p style={{ margin: '6px 0 0', fontSize: '10px', color: reg.attendanceMarked ? '#059669' : '#d97706', fontWeight: 600 }}>
+                        {reg.attendanceMarked
+                          ? `✓ Checked in at ${reg.attendedAt ? new Date(reg.attendedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Gate'}`
+                          : 'Show this QR to coordinator at gate'}
+                      </p>
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          className="primary"
+                          onClick={() => setSelectedPass(reg)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            padding: '5px 10px',
+                            height: '28px',
+                            background: '#0284c7',
+                            borderColor: '#0284c7',
+                          }}
+                        >
+                          🔍 VIEW FULL PASS
+                        </button>
+                        {reg.qrCodeData && (
+                          <a
+                            href={reg.qrCodeData}
+                            download={`event-pass-${reg.event?.title || 'ticket'}.png`}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              color: '#0f172a',
+                              background: '#f1f5f9',
+                              padding: '5px 10px',
+                              borderRadius: '6px',
+                              textDecoration: 'none',
+                              border: '1px solid #cbd5e1',
+                              height: '28px',
+                              boxSizing: 'border-box',
+                            }}
+                          >
+                            <IconDownload size={12} /> DOWNLOAD
+                          </a>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </article>
             ))}
+          </div>
+        )}
+
+        {/* FULL DIGITAL PASS MODAL / LIGHTBOX */}
+        {selectedPass && (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0, 0, 0, 0.82)',
+              backdropFilter: 'blur(10px)',
+              zIndex: 9999,
+              display: 'grid',
+              placeItems: 'center',
+              padding: '20px',
+              overflowY: 'auto',
+            }}
+            onClick={() => setSelectedPass(null)}
+          >
+            <div
+              style={{
+                width: '100%',
+                maxWidth: '520px',
+                background: 'var(--bg-card)',
+                borderRadius: '20px',
+                border: '2px solid var(--brand-primary)',
+                boxShadow: '0 25px 60px rgba(0,0,0,0.6)',
+                overflow: 'hidden',
+                position: 'relative',
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Top Banner */}
+              <div
+                style={{
+                  padding: '20px 24px',
+                  background: selectedPass.attendanceMarked ? 'linear-gradient(135deg, #064e3b, #047857)' : 'linear-gradient(135deg, #0f2744, #1e3a8a)',
+                  color: '#ffffff',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                }}
+              >
+                <div>
+                  <span className="badge" style={{ background: 'rgba(255,255,255,0.2)', color: '#ffffff', fontSize: '10px', textTransform: 'uppercase' }}>
+                    {selectedPass.event?.eventType || 'OFFICIAL EVENT PASS'}
+                  </span>
+                  <h2 style={{ margin: '6px 0 0', font: '700 20px Syne', color: '#ffffff' }}>
+                    {selectedPass.event?.title}
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPass(null)}
+                  style={{
+                    background: 'rgba(255,255,255,0.15)',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '36px',
+                    height: '36px',
+                    color: '#ffffff',
+                    fontSize: '18px',
+                    cursor: 'pointer',
+                    display: 'grid',
+                    placeItems: 'center',
+                  }}
+                  title="Close Pass"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div style={{ padding: '24px' }}>
+                {/* Large Center QR Pass */}
+                <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+                  <div
+                    style={{
+                      display: 'inline-block',
+                      padding: '16px',
+                      background: '#ffffff',
+                      borderRadius: '16px',
+                      boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
+                      border: '2px solid #e2e8f0',
+                    }}
+                  >
+                    {selectedPass.qrCodeData ? (
+                      <img
+                        src={selectedPass.qrCodeData}
+                        alt="Event QR Code"
+                        style={{ width: '200px', height: '200px', display: 'block', imageRendering: 'pixelated' }}
+                      />
+                    ) : (
+                      <div style={{ width: '200px', height: '200px', background: '#f1f5f9', display: 'grid', placeItems: 'center', color: '#64748b' }}>
+                        QR PASS
+                      </div>
+                    )}
+                  </div>
+                  <p style={{ margin: '10px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
+                    Hold this QR code up to the coordinator's scanner at the event entrance
+                  </p>
+                </div>
+
+                {/* Full Pass ID Box */}
+                <div style={{ padding: '14px', background: 'var(--bg-input)', borderRadius: '12px', border: '1px solid var(--line)', marginBottom: '18px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <small style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      FULL PASS ID & VERIFICATION KEY
+                    </small>
+                    <button
+                      type="button"
+                      className="outline"
+                      onClick={() => handleCopyPassId(selectedPass.id)}
+                      style={{ fontSize: '10px', padding: '3px 8px', height: '24px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      {copiedId ? '✓ COPIED!' : '📋 COPY ID'}
+                    </button>
+                  </div>
+                  <code style={{ display: 'block', fontSize: '12px', color: '#38bdf8', wordBreak: 'break-all', fontFamily: 'monospace', fontWeight: 600 }}>
+                    {selectedPass.id}
+                  </code>
+                </div>
+
+                {/* Ticket Details Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', padding: '16px', background: 'var(--panel-subtle)', borderRadius: '12px', border: '1px solid var(--line)', marginBottom: '20px', fontSize: '12px' }}>
+                  <div>
+                    <span style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block' }}>Attendee Name</span>
+                    <b style={{ color: 'var(--text-main)' }}>{user.profile?.name || user.name || user.memberId}</b>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block' }}>Member ID / Roll No</span>
+                    <b style={{ color: 'var(--brand-primary)', fontFamily: 'monospace' }}>{user.profile?.rollNumber || user.memberId}</b>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block' }}>Event Date & Time</span>
+                    <span style={{ color: 'var(--text-main)' }}>{selectedPass.event?.dateTime ? new Date(selectedPass.event.dateTime).toLocaleString() : 'TBA'}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block' }}>Venue / Location</span>
+                    <span style={{ color: 'var(--text-main)' }}>{selectedPass.event?.venue || selectedPass.event?.location || 'Campus Auditorium'}</span>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block' }}>Payment Status</span>
+                    <b style={{ color: '#70ddb4' }}>{selectedPass.paymentStatus} {selectedPass.totalAmount > 0 ? `(₹${selectedPass.totalAmount})` : '(Free)'}</b>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block' }}>Gate Attendance Status</span>
+                    {selectedPass.attendanceMarked ? (
+                      <b style={{ color: '#10b981' }}>✓ CHECKED IN ({selectedPass.attendedAt ? new Date(selectedPass.attendedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Gate'})</b>
+                    ) : (
+                      <b style={{ color: '#f59e0b' }}>⚡ READY FOR ENTRANCE</b>
+                    )}
+                  </div>
+                </div>
+
+                {/* Modal Action Buttons */}
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  {selectedPass.qrCodeData && (
+                    <a
+                      href={selectedPass.qrCodeData}
+                      download={`event-pass-${selectedPass.event?.title || 'ticket'}.png`}
+                      className="primary"
+                      style={{
+                        flex: 1,
+                        height: '42px',
+                        fontSize: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        textDecoration: 'none',
+                      }}
+                    >
+                      <IconDownload size={14} /> DOWNLOAD PASS
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    className="outline"
+                    onClick={() => window.print()}
+                    style={{ flex: 1, height: '42px', fontSize: '12px' }}
+                  >
+                    🖨️ PRINT PASS
+                  </button>
+                  <button
+                    type="button"
+                    className="outline"
+                    onClick={() => setSelectedPass(null)}
+                    style={{ height: '42px', padding: '0 16px', fontSize: '12px' }}
+                  >
+                    CLOSE
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </section>
@@ -6595,30 +7514,6 @@ function OurTeamShowcase({ user, logout, onNavigate }) {
     return () => { mounted = false }
   }, [])
 
-  function handleDownloadLeadersCsv() {
-    const headers = [
-      'Priority #',
-      'Full Name',
-      'Council Role Title',
-      'Official Email',
-      'Short Bio',
-      'LinkedIn URL',
-      'GitHub URL',
-      'Instagram URL',
-    ]
-    const rows = team.map((l, idx) => [
-      idx + 1,
-      l.name,
-      l.roleTitle,
-      l.collegeEmail,
-      l.bio,
-      l.linkedinUrl,
-      l.githubUrl,
-      l.instagramUrl,
-    ])
-    downloadCsv('club_leadership_directory.csv', headers, rows)
-  }
-
   return (
     <LivePortal user={user} logout={logout} activeTab="student-team" onNavigate={onNavigate} title={isMrdu ? 'ORGANIZING COMMITTEE' : 'CLUB LEADERSHIP'}>
       <section className="member-management">
@@ -6631,16 +7526,6 @@ function OurTeamShowcase({ user, logout, onNavigate }) {
             <h1>{isMrdu ? 'Meet Our Organizing Committee' : 'Meet Our Leadership'}</h1>
             <p>{isMrdu ? 'The faculty coordinators, event convenors, and student organizers managing MRDU Events.' : 'The student coordinators and executive leads driving Cyber Security Club MRDU.'}</p>
           </div>
-          <button
-            type="button"
-            className="outline"
-            onClick={handleDownloadLeadersCsv}
-            disabled={team.length === 0}
-            style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
-            title="Download leadership directory as CSV"
-          >
-            📥 DOWNLOAD LEADERS CSV
-          </button>
         </div>
 
         {loading ? (
@@ -6667,6 +7552,685 @@ function OurTeamShowcase({ user, logout, onNavigate }) {
             ))}
           </div>
         )}
+      </section>
+    </LivePortal>
+  )
+}
+
+// ----------------------------------------------------
+// Admin QR Code Scanner & Event Entry Gate
+// ----------------------------------------------------
+function AdminQrScanner({ user, logout, onNavigate }) {
+  const { platformMode } = usePlatformTheme()
+  const isMrdu = platformMode === 'MRDU_EVENTS'
+
+  const [inputCode, setInputCode] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
+  const [scanResult, setScanResult] = useState(null)
+  const [recentScans, setRecentScans] = useState([])
+  const [cameraActive, setCameraActive] = useState(false)
+  const [actionLoading, setActionLoading] = useState(false)
+  const [laserActive, setLaserActive] = useState(false)
+
+  const videoRef = useRef(null)
+  const streamRef = useRef(null)
+  const animFrameRef = useRef(null)
+  const lastScannedRef = useRef({ code: '', time: 0 })
+  const fileInputRef = useRef(null)
+
+  function playScanBeep() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext
+      if (!AudioCtx) return
+      const ctx = new AudioCtx()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'sine'
+      osc.frequency.setValueAtTime(880, ctx.currentTime)
+      gain.gain.setValueAtTime(0.2, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.16)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start()
+      osc.stop(ctx.currentTime + 0.16)
+      navigator.vibrate?.([90])
+    } catch {}
+  }
+
+  // Real-time Camera Stream and jsQR Frame Processor
+  useEffect(() => {
+    if (!cameraActive) {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop())
+        streamRef.current = null
+      }
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current)
+        animFrameRef.current = null
+      }
+      return
+    }
+
+    let isMounted = true
+
+    async function startCamera() {
+      setError('')
+      try {
+        const constraints = {
+          video: {
+            facingMode: 'user',
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+        }
+        const stream = await navigator.mediaDevices.getUserMedia(constraints)
+        if (!isMounted) {
+          stream.getTracks().forEach(t => t.stop())
+          return
+        }
+        streamRef.current = stream
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream
+          videoRef.current.setAttribute('playsinline', 'true')
+          await videoRef.current.play().catch(() => {})
+        }
+
+        // Set up continuous canvas-based decoding with jsQR
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d', { willReadFrequently: true })
+
+        function scanTick() {
+          if (!isMounted) return
+
+          const video = videoRef.current
+          if (video && video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
+            canvas.width = video.videoWidth
+            canvas.height = video.videoHeight
+
+            // 1. Direct raw frame pass
+            ctx.clearRect(0, 0, canvas.width, canvas.height)
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+            const rawData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+            let code = jsQR(rawData.data, rawData.width, rawData.height, {
+              inversionAttempts: 'attemptBoth',
+            })
+
+            // 2. Horizontal Flip Pass (in case pass is mirrored)
+            if (!code) {
+              ctx.clearRect(0, 0, canvas.width, canvas.height)
+              ctx.save()
+              ctx.translate(canvas.width, 0)
+              ctx.scale(-1, 1)
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+              ctx.restore()
+              const flippedH = ctx.getImageData(0, 0, canvas.width, canvas.height)
+              code = jsQR(flippedH.data, flippedH.width, flippedH.height, {
+                inversionAttempts: 'attemptBoth',
+              })
+            }
+
+            if (code && code.data && code.data.trim()) {
+              const detected = code.data.trim()
+              const now = Date.now()
+              if (detected !== lastScannedRef.current.code || now - lastScannedRef.current.time > 2500) {
+                lastScannedRef.current = { code: detected, time: now }
+                playScanBeep()
+                setLaserActive(true)
+                setTimeout(() => setLaserActive(false), 800)
+                handleProcessScan(detected)
+              }
+            }
+          }
+
+          animFrameRef.current = requestAnimationFrame(scanTick)
+        }
+
+        animFrameRef.current = requestAnimationFrame(scanTick)
+      } catch (err) {
+        setError(`Camera access error: ${err.message || 'Please allow camera permission or use manual/file upload input.'}`)
+        setCameraActive(false)
+      }
+    }
+
+    startCamera()
+
+    return () => {
+      isMounted = false
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(t => t.stop())
+        streamRef.current = null
+      }
+      if (animFrameRef.current) {
+        cancelAnimationFrame(animFrameRef.current)
+        animFrameRef.current = null
+      }
+    }
+  }, [cameraActive])
+
+  async function handleProcessScan(codeToScan) {
+    const rawCode = String(codeToScan || '').trim()
+    if (!rawCode) return
+
+    setLoading(true)
+    setError('')
+    setSuccessMessage('')
+
+    try {
+      const res = await adminApi.scanQrCode(rawCode)
+      setScanResult(res)
+
+      // Add to recent scans
+      const attendeeName = res.scanType === 'EVENT_PASS'
+        ? (res.registration?.user?.name || res.registration?.user?.memberId)
+        : (res.event?.title || 'Event')
+      const eventOrId = res.scanType === 'EVENT_PASS'
+        ? res.registration?.event?.title
+        : `Event · ${res.event?.venue || 'Campus'}`
+
+      setRecentScans(prev => [
+        {
+          id: Date.now(),
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          name: attendeeName,
+          type: res.scanType,
+          info: eventOrId,
+          alreadyCheckedIn: Boolean(res.registration?.attendanceMarked),
+        },
+        ...prev.slice(0, 9),
+      ])
+    } catch (err) {
+      const msg = err.message && err.message !== 'Request failed.'
+        ? err.message
+        : 'Unrecognized Event Pass QR. Please ensure this pass is for a registered event attendee.'
+      setError(msg)
+      setScanResult(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function handleManualSubmit(e) {
+    e.preventDefault()
+    if (!inputCode.trim()) return
+    handleProcessScan(inputCode.trim())
+    setInputCode('')
+  }
+
+  // Upload and decode QR from saved photo / screenshot
+  function handleFileUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setError('')
+    setSuccessMessage('')
+
+    const reader = new FileReader()
+    reader.onload = evt => {
+      const img = new Image()
+      img.onload = () => {
+        const c = document.createElement('canvas')
+        c.width = img.width
+        c.height = img.height
+        const cCtx = c.getContext('2d')
+        cCtx.drawImage(img, 0, 0)
+        const imgData = cCtx.getImageData(0, 0, c.width, c.height)
+        let decoded = jsQR(imgData.data, imgData.width, imgData.height, { inversionAttempts: 'attemptBoth' })
+
+        // If not found, try horizontal flip
+        if (!decoded) {
+          cCtx.save()
+          cCtx.translate(c.width, 0)
+          cCtx.scale(-1, 1)
+          cCtx.drawImage(img, 0, 0)
+          cCtx.restore()
+          const flippedData = cCtx.getImageData(0, 0, c.width, c.height)
+          decoded = jsQR(flippedData.data, flippedData.width, flippedData.height, { inversionAttempts: 'attemptBoth' })
+        }
+
+        if (decoded && decoded.data) {
+          playScanBeep()
+          handleProcessScan(decoded.data)
+        } else {
+          setError('No readable QR code detected in the uploaded image. Please ensure the QR code is clear and in focus.')
+        }
+      }
+      img.src = evt.target.result
+    }
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
+  async function handleGrantEntry(regId) {
+    if (!regId) return
+    setActionLoading(true)
+    setError('')
+    setSuccessMessage('')
+
+    try {
+      const res = await adminApi.grantEventEntry(regId)
+      setSuccessMessage(res.message || '✓ Entry granted & attendance verified successfully!')
+
+      // Update current scanResult state
+      setScanResult(curr => {
+        if (!curr) return null
+        if (curr.scanType === 'EVENT_PASS' && curr.registration?.id === regId) {
+          return {
+            ...curr,
+            registration: {
+              ...curr.registration,
+              attendanceMarked: true,
+              attendedAt: new Date().toISOString(),
+              attendanceVerifiedBy: user.memberId || user.name || 'Coordinator',
+            },
+          }
+        }
+        return curr
+      })
+    } catch (err) {
+      setError(err.message || 'Failed to grant entry.')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  return (
+    <LivePortal user={user} logout={logout} activeTab="admin-qr-scanner" onNavigate={onNavigate} title="EVENT PASS GATE SCANNER">
+      <section className="member-management">
+        <div className="member-heading">
+          <div>
+            <button className="back-button" type="button" onClick={() => onNavigate('admin-events')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+              ← BACK TO EVENT MANAGEMENT
+            </button>
+            <p className="eyebrow">EVENT TICKET VERIFICATION & GATE ENTRY</p>
+            <h1>Event Pass QR Scanner</h1>
+            <p>Scan attendee Event QR passes to verify registration credentials, confirm payment, and record entrance attendance.</p>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handleFileUpload}
+            />
+            <button
+              type="button"
+              className="outline"
+              onClick={() => fileInputRef.current?.click()}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '8px 14px' }}
+              title="Upload an image or screenshot of a QR pass"
+            >
+              <Icon8 name="document" size={16} /> UPLOAD PASS IMAGE
+            </button>
+            <button
+              type="button"
+              className={cameraActive ? 'primary' : 'outline'}
+              onClick={() => setCameraActive(a => !a)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '8px 14px' }}
+            >
+              <Icon8 name="irisScan" size={16} /> {cameraActive ? 'STOP CAMERA SCANNER' : 'START CAMERA SCANNER'}
+            </button>
+            <button
+              type="button"
+              className="outline"
+              onClick={() => onNavigate('admin-events')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '8px 14px' }}
+            >
+              <IconCalendar size={14} /> EVENTS CATALOG
+            </button>
+          </div>
+        </div>
+
+        {error && (
+          <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef444466', color: '#fca5a5', fontSize: '13px', margin: '0 0 16px' }}>
+            ⚠️ {error}
+          </div>
+        )}
+
+        {successMessage && (
+          <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b98166', color: '#6ee7b7', fontSize: '13px', margin: '0 0 16px', fontWeight: 600 }}>
+            {successMessage}
+          </div>
+        )}
+
+        <div className="member-management-grid" style={{ gridTemplateColumns: 'minmax(320px, 1fr) minmax(360px, 1.2fr)', gap: '24px' }}>
+          {/* Left Column: Scanner View & Manual Input */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* Camera Viewport */}
+            {cameraActive ? (
+              <article className="account-form-card" style={{ padding: '16px', textAlign: 'center', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block', boxShadow: '0 0 8px #10b981' }} />
+                    LIVE SCANNER ACTIVE (DEFAULT MIRROR)
+                  </span>
+                </div>
+
+                <div style={{ position: 'relative', width: '100%', height: '280px', background: '#000', borderRadius: '12px', overflow: 'hidden', border: laserActive ? '2px solid #10b981' : '2px solid var(--brand-primary)', boxShadow: laserActive ? '0 0 24px rgba(16, 185, 129, 0.5)' : 'none', transition: 'all 0.2s' }}>
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      transform: 'scaleX(-1)',
+                      transition: 'transform 0.2s ease',
+                    }}
+                  />
+                  {/* Cyber Target Overlay */}
+                  <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
+                    <div style={{ width: '190px', height: '190px', border: laserActive ? '2px solid #10b981' : '2px dashed #52bbf5', borderRadius: '12px', boxShadow: laserActive ? '0 0 25px #10b981' : '0 0 20px rgba(82, 187, 245, 0.3)' }} />
+                  </div>
+                  {/* Laser Scan line */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: '10%',
+                      right: '10%',
+                      height: '2px',
+                      background: laserActive ? '#10b981' : 'linear-gradient(90deg, transparent, #38bdf8, transparent)',
+                      boxShadow: laserActive ? '0 0 14px #10b981' : '0 0 12px #38bdf8',
+                      top: '50%',
+                      animation: 'scanline 2s ease-in-out infinite alternate',
+                    }}
+                  />
+                </div>
+                <small style={{ display: 'block', marginTop: '8px', color: 'var(--text-muted)', fontSize: '11px' }}>
+                  Point camera steadily at the Event Pass QR code · Auto-decoder is active
+                </small>
+              </article>
+            ) : null}
+
+            {/* Manual / USB Barcode Scanner Input */}
+            <article className="account-form-card">
+              <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Icon8 name="captcha" size={14} /> DIRECT PASS LOOKUP
+              </p>
+              <h3 style={{ margin: '4px 0 12px', color: 'var(--text-main)' }}>USB Barcode Scanner or Pass ID</h3>
+              <form onSubmit={handleManualSubmit}>
+                <div className="login-field-group">
+                  <label style={{ color: 'var(--text-dim)', fontSize: '11px' }}>
+                    Scan Event QR Code or Enter Pass ID / Member ID
+                  </label>
+                  <div className="login-input-wrapper">
+                    <span className="login-input-icon"><Icon8 name="irisScan" size={16} /></span>
+                    <input
+                      type="text"
+                      placeholder="e.g. EVENT_PASS:... or registration ID"
+                      value={inputCode}
+                      onChange={e => setInputCode(e.target.value)}
+                      autoFocus
+                      style={{ background: 'var(--bg-input)', color: 'var(--text-main)', fontSize: '13px' }}
+                    />
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+                  <button
+                    type="button"
+                    className="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{ flex: 1, height: '40px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                  >
+                    <Icon8 name="document" size={14} /> UPLOAD FILE
+                  </button>
+                  <button
+                    type="submit"
+                    className="primary"
+                    disabled={loading || !inputCode.trim()}
+                    style={{ flex: 2, height: '40px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                  >
+                    <Icon8 name="authentication" size={16} />
+                    {loading ? 'VERIFYING PASS…' : 'VERIFY EVENT PASS ➔'}
+                  </button>
+                </div>
+              </form>
+            </article>
+
+            {/* Recent Scans Session Feed */}
+            {recentScans.length > 0 && (
+              <article className="account-form-card" style={{ padding: '16px' }}>
+                <p className="eyebrow" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Icon8 name="realtime" size={14} /> LIVE GATE LOG
+                </p>
+                <h4 style={{ margin: '4px 0 12px', fontSize: '13px', color: 'var(--text-main)' }}>Recent Pass Scans in This Session</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '220px', overflowY: 'auto' }}>
+                  {recentScans.map(s => (
+                    <div
+                      key={s.id}
+                      style={{
+                        padding: '8px 12px',
+                        borderRadius: '8px',
+                        background: 'var(--panel-subtle)',
+                        border: '1px solid var(--line)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        fontSize: '11px',
+                      }}
+                    >
+                      <div>
+                        <b style={{ color: 'var(--text-main)' }}>{s.name}</b>
+                        <small style={{ display: 'block', color: 'var(--text-muted)' }}>{s.info}</small>
+                      </div>
+                      <span className="badge" style={{ background: s.alreadyCheckedIn ? '#78350f' : '#064e3b', color: s.alreadyCheckedIn ? '#fde68a' : '#6ee7b7', fontSize: '9px' }}>
+                        {s.time}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </article>
+            )}
+          </div>
+
+          {/* Right Column: Event Pass Scan Result & Entry Action */}
+          <div>
+            {scanResult ? (
+              <article
+                className="account-form-card"
+                style={{
+                  padding: '24px',
+                  border: scanResult.scanType === 'EVENT_PASS' && scanResult.registration?.attendanceMarked ? '2px solid #ef4444' : '2px solid var(--brand-primary)',
+                  boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
+                }}
+              >
+                {/* EVENT PASS SCAN RESULT */}
+                {scanResult.scanType === 'EVENT_PASS' && (
+                  <div>
+                    {/* Header Alert Banner */}
+                    {scanResult.registration.attendanceMarked ? (
+                      <div
+                        style={{
+                          padding: '14px',
+                          borderRadius: '10px',
+                          background: 'rgba(239, 68, 68, 0.15)',
+                          border: '1px solid #ef4444',
+                          color: '#fca5a5',
+                          marginBottom: '20px',
+                        }}
+                      >
+                        <b style={{ fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Icon8 name="protect" size={18} /> 🚫 DUPLICATE ENTRY PROHIBITED
+                        </b>
+                        <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#fecaca' }}>
+                          Attendance was <b>already granted</b> for this pass on{' '}
+                          {scanResult.registration.attendedAt ? new Date(scanResult.registration.attendedAt).toLocaleString() : 'earlier'}{' '}
+                          by <b>{scanResult.registration.attendanceVerifiedBy || 'Coordinator'}</b>.
+                        </p>
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          padding: '14px',
+                          borderRadius: '10px',
+                          background: 'rgba(16, 185, 129, 0.15)',
+                          border: '1px solid #10b981',
+                          color: '#6ee7b7',
+                          marginBottom: '20px',
+                        }}
+                      >
+                        <b style={{ fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <Icon8 name="authentication" size={18} /> ✓ VALID EVENT PASS — READY FOR ENTRY
+                        </b>
+                        <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#a7f3d0' }}>
+                          Registration verified in system records. Click below to admit attendee and record gate attendance.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Event Details Card */}
+                    <div style={{ padding: '16px', borderRadius: '12px', background: 'var(--panel-subtle)', border: '1px solid var(--line)', marginBottom: '20px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span className="badge" style={{ background: 'var(--brand-badge-bg)', color: 'var(--brand-badge-color)', fontSize: '10px' }}>
+                          {scanResult.registration.event.eventType}
+                        </span>
+                        <small style={{ color: 'var(--brand-primary)', font: '600 10px monospace' }}>
+                          EVENT ID: {scanResult.registration.event.id.slice(0, 8)}...
+                        </small>
+                      </div>
+
+                      <h2 style={{ margin: '4px 0 8px', font: '700 22px Syne', color: 'var(--text-main)' }}>
+                        {scanResult.registration.event.title}
+                      </h2>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '12px', marginTop: '12px', color: 'var(--text-muted)' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <IconCalendar size={14} /> {scanResult.registration.event.dateTime ? new Date(scanResult.registration.event.dateTime).toLocaleString() : 'TBA'}
+                        </span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <IconLocationPin size={14} /> {scanResult.registration.event.venue || 'Campus Auditorium'}
+                        </span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <IconCreditCard size={14} /> Payment: <b style={{ color: '#70ddb4', marginLeft: 4 }}>{scanResult.registration.paymentStatus}</b>
+                        </span>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                          <Icon8 name="access" size={14} /> Pass ID: {scanResult.registration.id.slice(0, 12)}...
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Attendee Ticket Details */}
+                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center', padding: '14px', borderRadius: '10px', background: 'var(--bg-input)', border: '1px solid var(--line)', marginBottom: '20px' }}>
+                      {scanResult.registration.user.profileImage ? (
+                        <img
+                          src={scanResult.registration.user.profileImage}
+                          alt="Attendee Avatar"
+                          style={{ width: '56px', height: '56px', borderRadius: '10px', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        <div style={{ width: '56px', height: '56px', borderRadius: '10px', background: 'var(--brand-gradient)', display: 'grid', placeItems: 'center' }}>
+                          <Icon8 name="user" size={26} />
+                        </div>
+                      )}
+                      <div>
+                        <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '16px' }}>{scanResult.registration.user.name}</h3>
+                        <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--brand-primary)', fontFamily: 'monospace' }}>
+                          Roll No / ID: {scanResult.registration.user.rollNumber || scanResult.registration.user.memberId}
+                        </p>
+                        <small style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
+                          {scanResult.registration.user.department || 'Engineering'} {scanResult.registration.user.year ? `· Year ${scanResult.registration.user.year}` : ''}
+                        </small>
+                      </div>
+                    </div>
+
+                    {/* Entry Action Button */}
+                    <button
+                      type="button"
+                      className="primary"
+                      disabled={actionLoading || scanResult.registration.attendanceMarked}
+                      onClick={() => handleGrantEntry(scanResult.registration.id)}
+                      style={{
+                        width: '100%',
+                        minHeight: '48px',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        background: scanResult.registration.attendanceMarked ? '#374151' : 'linear-gradient(135deg, #10b981, #059669)',
+                        borderColor: scanResult.registration.attendanceMarked ? '#4b5563' : '#10b981',
+                        cursor: scanResult.registration.attendanceMarked ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        marginBottom: '12px',
+                      }}
+                    >
+                      <Icon8 name={scanResult.registration.attendanceMarked ? 'protect' : 'faceId'} size={18} />
+                      {actionLoading ? 'RECORDING CHECK-IN…' : scanResult.registration.attendanceMarked ? 'ENTRY ALREADY GRANTED' : 'GRANT EVENT ENTRY & MARK ATTENDANCE'}
+                    </button>
+
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button
+                        type="button"
+                        className="outline"
+                        onClick={() => {
+                          setScanResult(null)
+                          setInputCode('')
+                        }}
+                        style={{ flex: 1, fontSize: '11px', height: '38px' }}
+                      >
+                        🔄 SCAN NEXT PASS
+                      </button>
+                      <button
+                        type="button"
+                        className="outline"
+                        onClick={() => onNavigate('admin-events')}
+                        style={{ flex: 1, fontSize: '11px', height: '38px' }}
+                      >
+                        📅 VIEW IN EVENT STUDIO →
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* DIRECT EVENT OVERVIEW */}
+                {scanResult.scanType === 'EVENT_DIRECT' && (
+                  <div style={{ textAlign: 'center', padding: '20px 10px' }}>
+                    <span className="badge" style={{ background: 'var(--brand-badge-bg)', color: 'var(--brand-badge-color)', fontSize: '10px' }}>
+                      {scanResult.event.eventType}
+                    </span>
+                    <h2 style={{ margin: '8px 0', font: '700 22px Syne', color: 'var(--text-main)' }}>
+                      {scanResult.event.title}
+                    </h2>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
+                      📍 {scanResult.event.venue} · 📅 {scanResult.event.dateTime ? new Date(scanResult.event.dateTime).toLocaleString() : 'TBA'}
+                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', margin: '20px 0' }}>
+                      <div className="stat" style={{ padding: '12px 20px', minWidth: '120px' }}>
+                        <p>REGISTERED</p>
+                        <h2>{scanResult.event.totalRegistrations}</h2>
+                      </div>
+                      <div className="stat green" style={{ padding: '12px 20px', minWidth: '120px' }}>
+                        <p>ATTENDED</p>
+                        <h2>{scanResult.event.attendedCount}</h2>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={() => onNavigate('admin-events')}
+                      style={{ width: '100%', height: '42px', fontSize: '12px' }}
+                    >
+                      OPEN EVENT IN STUDIO →
+                    </button>
+                  </div>
+                )}
+              </article>
+            ) : (
+              <article className="account-form-card" style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
+                <span style={{ display: 'block', marginBottom: '14px' }}>
+                  <Icon8 name="irisScan" size={48} />
+                </span>
+                <h3 style={{ color: 'var(--text-main)', margin: '0 0 6px' }}>Ready to Scan Event Pass</h3>
+                <p style={{ margin: 0, fontSize: '12px', lineHeight: 1.6 }}>
+                  Point the camera at an attendee's Event QR pass, or upload a pass image to verify registration and record gate attendance.
+                </p>
+              </article>
+            )}
+          </div>
+        </div>
       </section>
     </LivePortal>
   )
@@ -6704,16 +8268,21 @@ function LivePresidentDashboard({ user, logout, onNavigate }) {
           <h1>Welcome, {user.name}.</h1>
           <p>{getRoleLabel(user.role)} Command Center · Manage club activities, registrations, and access controls.</p>
         </div>
-        <button className="primary" type="button" onClick={() => onNavigate('admin-events')}>
-          ＋ &nbsp; CREATE EVENT
-        </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button className="outline" type="button" onClick={() => onNavigate('admin-qr-scanner')} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '9px 16px', fontSize: '11px', fontWeight: 700 }}>
+            <Icon8 name="faceId" size={17} /> QR ENTRY GATE SCANNER
+          </button>
+          <button className="primary" type="button" onClick={() => onNavigate('admin-events')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 16px', fontSize: '11px', fontWeight: 700 }}>
+            <span style={{ fontSize: '15px', lineHeight: 1 }}>+</span> CREATE EVENT
+          </button>
+        </div>
       </section>
 
       {/* Pending Subscriptions Alert */}
       {subStats.pendingVerification > 0 && (
         <div className="pending-alert-banner" style={{ marginTop: '20px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '20px' }}>⚠️</span>
+            <IconAlertTriangle size={22} style={{ color: '#f59e0b', flexShrink: 0 }} />
             <div>
               <b>{subStats.pendingVerification} student subscription payments waiting for verification</b>
               <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#ffecb3' }}>
@@ -6722,53 +8291,17 @@ function LivePresidentDashboard({ user, logout, onNavigate }) {
             </div>
           </div>
           <button type="button" onClick={() => onNavigate('admin-subscriptions')}>
-            REVIEW PAYMENTS →
+            REVIEW PAYMENTS &rarr;
           </button>
         </div>
       )}
 
       {/* Top Metrics Cards */}
       <section className="stats">
-        <div className="stat"><i>♙</i><div><p>MEMBERS</p><h2>{memberCount === null ? '...' : memberCount}</h2><small>Registered Accounts</small></div></div>
-        <div className="stat"><i>▢</i><div><p>EVENTS</p><h2>{eventCount === null ? '...' : eventCount}</h2><small>Club Catalog</small></div></div>
-        <div className="stat green"><i>💎</i><div><p>ACTIVE SUBSCRIPTIONS</p><h2>{subStats.activeSubscriptions || 0}</h2><small>Verified Members</small></div></div>
-        <div className="stat green"><i>✓</i><div><p>SYSTEM ROLE</p><h2>{user.isPrimaryAdmin ? 'PRIMARY' : user.role.slice(0, 7)}</h2><small>{getRoleLabel(user.role)}</small></div></div>
-      </section>
-
-      {/* Quick Action Hub */}
-      <section style={{ marginTop: '16px' }}>
-        <article className="quick">
-          <div><p className="eyebrow">EXECUTIVE TOOLS</p><h2>Club Management Hub</h2></div>
-          <section>
-            <button type="button" onClick={() => onNavigate('admin-members')}>
-              <i>♙</i><b>Members</b><small>Access & roles</small>
-            </button>
-            <button type="button" onClick={() => onNavigate('admin-events')}>
-              <i>▢</i><b>Event Studio</b><small>Workshops & passes</small>
-            </button>
-            <button type="button" onClick={() => onNavigate('admin-subscriptions')}>
-              <i>💎</i><b>Subscriptions</b><small>Verify payments</small>
-            </button>
-            <button type="button" onClick={() => onNavigate('admin-payments')}>
-              <i>💳</i><b>Event Payments</b><small>Track pass fees</small>
-            </button>
-            <button type="button" onClick={() => onNavigate('admin-support')}>
-              <i>💬</i><b>Helpdesk</b><small>Student doubts</small>
-            </button>
-            <button type="button" onClick={() => onNavigate('admin-gallery')}>
-              <i>▧</i><b>Gallery</b><small>Photos & albums</small>
-            </button>
-            <button type="button" onClick={() => onNavigate('admin-team')}>
-              <i>👥</i><b>Team Council</b><small>Leader profiles</small>
-            </button>
-            <button type="button" onClick={() => onNavigate('admin-settings')}>
-              <i>⚙</i><b>Club Settings</b><small>Site & video controls</small>
-            </button>
-            <button type="button" onClick={() => onNavigate('admin-audit')}>
-              <i>◫</i><b>Security Audit</b><small>Protected logs</small>
-            </button>
-          </section>
-        </article>
+        <div className="stat"><i><Icon8 name="idDocs" size={26} /></i><div><p>MEMBERS</p><h2>{memberCount === null ? '...' : memberCount}</h2><small>Registered Accounts</small></div></div>
+        <div className="stat"><i><Icon8 name="realtime" size={26} /></i><div><p>EVENTS</p><h2>{eventCount === null ? '...' : eventCount}</h2><small>Club Catalog</small></div></div>
+        <div className="stat green"><i><Icon8 name="access" size={26} /></i><div><p>ACTIVE SUBSCRIPTIONS</p><h2>{subStats.activeSubscriptions || 0}</h2><small>Verified Members</small></div></div>
+        <div className="stat green"><i><Icon8 name="protect" size={26} /></i><div><p>SYSTEM ROLE</p><h2>{user.isPrimaryAdmin ? 'PRIMARY' : user.role.slice(0, 7)}</h2><small>{getRoleLabel(user.role)}</small></div></div>
       </section>
     </LivePortal>
   )
@@ -6815,8 +8348,8 @@ function LiveStudentDashboard({ user, logout, onNavigate }) {
         </button>
       </section>
 
-      {/* Subscription Notice Banner */}
-      {needsSubscription && (
+      {/* Subscription Notice Banner - Only if enabled by Primary Admin */}
+      {subStatus?.subscriptionEnabled && needsSubscription && (
         <div className="pending-alert-banner" style={{ marginTop: '20px', background: '#2d1f05', borderColor: '#f59e0b', color: '#fef3c7' }}>
           <div>
             <b>{isMrdu ? 'Your student event pass is inactive' : 'Your student membership is inactive'}</b>
@@ -6831,17 +8364,28 @@ function LiveStudentDashboard({ user, logout, onNavigate }) {
       )}
 
       <section className="stats" style={{ margin: '28px 0' }}>
-        <div className="stat"><i>▢</i><div><p>{isMrdu ? 'UNIVERSITY EVENTS' : 'CLUB EVENTS'}</p><h2>{events.length}</h2><small>{isMrdu ? 'Fests & Workshops' : 'Workshops & CTFs'}</small></div></div>
-        <div className="stat"><i>▤</i><div><p>{isMrdu ? 'MY EVENT PASSES' : 'MY PASSES'}</p><h2>{events.filter(e => e.isRegistered).length}</h2><small>{isMrdu ? 'Confirmed Passes' : 'Confirmed registrations'}</small></div></div>
-        <div className={`stat ${subStatus?.hasActiveSubscription ? 'green' : 'amber'}`}>
-          <i>💎</i>
-          <div>
-            <p>{isMrdu ? 'STUDENT PASS' : 'MEMBERSHIP'}</p>
-            <h2>{subStatus?.hasActiveSubscription ? 'ACTIVE' : 'INACTIVE'}</h2>
-            <small>{subStatus?.hasActiveSubscription ? 'Verified' : 'Subscribe via UPI'}</small>
+        <div className="stat"><i><Icon8 name="realtime" size={26} /></i><div><p>{isMrdu ? 'UNIVERSITY EVENTS' : 'CLUB EVENTS'}</p><h2>{events.length}</h2><small>{isMrdu ? 'Fests & Workshops' : 'Workshops & CTFs'}</small></div></div>
+        <div className="stat"><i><Icon8 name="faceId" size={26} /></i><div><p>{isMrdu ? 'MY EVENT PASSES' : 'MY PASSES'}</p><h2>{events.filter(e => e.isRegistered).length}</h2><small>{isMrdu ? 'Confirmed Passes' : 'Confirmed registrations'}</small></div></div>
+        {subStatus?.subscriptionEnabled ? (
+          <div className={`stat ${subStatus?.hasActiveSubscription ? 'green' : 'amber'}`}>
+            <i><Icon8 name="access" size={26} /></i>
+            <div>
+              <p>{isMrdu ? 'STUDENT PASS' : 'MEMBERSHIP'}</p>
+              <h2>{subStatus?.hasActiveSubscription ? 'ACTIVE' : 'INACTIVE'}</h2>
+              <small>{subStatus?.hasActiveSubscription ? 'Verified' : 'Subscribe via UPI'}</small>
+            </div>
           </div>
-        </div>
-        <div className="stat green"><i>👤</i><div><p>{isMrdu ? 'STUDENT ID' : 'MEMBER ID'}</p><h2>{user.memberId}</h2><small>Authorized Account</small></div></div>
+        ) : (
+          <div className="stat green">
+            <i><Icon8 name="protect" size={26} /></i>
+            <div>
+              <p>DEPARTMENT</p>
+              <h2>{user.profile?.department || 'CSE'}</h2>
+              <small>{user.profile?.year ? `Year ${user.profile.year}` : 'Student Portal'}</small>
+            </div>
+          </div>
+        )}
+        <div className="stat green"><i><Icon8 name="fingerprint" size={26} /></i><div><p>{isMrdu ? 'STUDENT ID' : 'MEMBER ID'}</p><h2>{user.memberId}</h2><small>Authorized Account</small></div></div>
       </section>
 
       <div className="section-title">
@@ -6874,17 +8418,19 @@ function LiveStudentDashboard({ user, logout, onNavigate }) {
                 <h3>{evt.title}</h3>
                 <p>{evt.shortDescription || evt.description || (isMrdu ? 'MRDU University official event session.' : 'Department of Cyber Security official session.')}</p>
                 <div className="card-meta">
-                  <span>📅 {new Date(evt.dateTime).toLocaleDateString()}</span>
-                  <span>📍 {evt.venue || evt.location || 'Campus'}</span>
-                  <span>💳 {evt.requiresPayment ? `₹${evt.paymentAmount || 'Tiered'}` : 'FREE'}</span>
-                  <span>👥 {evt.registrationCount || 0} registered</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCalendar size={13} /> {new Date(evt.dateTime).toLocaleDateString()}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconLocationPin size={13} /> {evt.venue || evt.location || 'Campus'}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCreditCard size={13} /> {evt.requiresPayment ? `₹${evt.paymentAmount || 'Tiered'}` : 'FREE'}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconUserSvg size={13} /> {evt.registrationCount || 0} registered</span>
                 </div>
                 <div className="card-footer">
                   {evt.isRegistered ? (
-                    <span className="badge badge-registered">✓ REGISTERED</span>
+                    <span className="badge badge-registered" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <Icon8 name="authentication" size={12} /> REGISTERED
+                    </span>
                   ) : (
                     <button className="register-btn" type="button" onClick={() => onNavigate(`event-detail/${evt.id}`)}>
-                      VIEW & REGISTER
+                      VIEW & REGISTER &rarr;
                     </button>
                   )}
                 </div>
@@ -7139,10 +8685,10 @@ function AuditLogView({ user, logout, onNavigate }) {
               className="outline"
               onClick={handleDownloadAuditLogsCsv}
               disabled={filteredLogs.length === 0}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
               title="Download filtered audit logs as CSV"
             >
-              📥 DOWNLOAD AUDIT CSV
+              <IconDownload size={14} /> DOWNLOAD AUDIT CSV
             </button>
             {user.isPrimaryAdmin && (
               <button
@@ -7151,7 +8697,7 @@ function AuditLogView({ user, logout, onNavigate }) {
                 onClick={() => setClearModalOpen(true)}
                 style={{ padding: '7px 14px', fontSize: '11px', fontWeight: 'bold' }}
               >
-                🗑 CLEAR ALL AUDIT LOGS
+                CLEAR ALL AUDIT LOGS
               </button>
             )}
             <span className="president-lock">PROTECTED RECORDS</span>
@@ -7485,8 +9031,9 @@ function CouncilChatView({ user, logout, onNavigate }) {
                     )}
                     <div style={{ background: isMe ? 'var(--brand-badge-bg)' : 'var(--panel-elevated)', border: isPresident ? '1px solid #f59e0b' : isMe ? '1px solid var(--brand-border-subtle)' : '1px solid var(--line)', padding: '10px 14px', borderRadius: '12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                        <b style={{ color: isPresident ? '#d97706' : 'var(--brand-primary)', fontSize: '11px' }}>
-                          {isPresident ? '👑 ' : ''}{m.user?.profile?.name || m.user?.memberId}
+                        <b style={{ color: isPresident ? '#d97706' : 'var(--brand-primary)', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          {isPresident && <IconCrown size={12} />}
+                          {m.user?.profile?.name || m.user?.memberId}
                         </b>
                         <span className="badge" style={{ fontSize: '8px', padding: '1px 5px' }}>
                           {isPresident ? 'PRESIDENT' : getRoleLabel(m.user?.role)}
@@ -7604,6 +9151,7 @@ function App() {
     if (['profile', 'student-profile'].includes(path)) return 'student-profile'
     if (['security'].includes(path)) return 'security'
     if (['admin/members', 'admin-members'].includes(path)) return 'admin-members'
+    if (['admin/qr-scanner', 'admin-qr-scanner', 'qr-scanner', 'gate'].includes(path)) return 'admin-qr-scanner'
     if (['admin/events', 'admin-events'].includes(path)) return 'admin-events'
     if (['admin/payments', 'admin-payments'].includes(path)) return 'admin-payments'
     if (['admin/subscriptions', 'admin-subscriptions'].includes(path)) return 'admin-subscriptions'
@@ -7739,6 +9287,7 @@ function App() {
       // Admin Screens
       if (user.isAdminUser) {
         if (screen === 'admin-members') return <MemberManagement user={user} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-qr-scanner') return <AdminQrScanner user={user} logout={logout} onNavigate={navigateTo} />
         if (screen === 'admin-events') return <EventManagement user={user} logout={logout} onNavigate={navigateTo} />
         if (screen === 'admin-payments') return <PaymentManagement user={user} logout={logout} onNavigate={navigateTo} />
         if (screen === 'admin-subscriptions') return <SubscriptionManagement user={user} logout={logout} onNavigate={navigateTo} />
@@ -7761,7 +9310,6 @@ function App() {
       if (screen === 'student-team') return <OurTeamShowcase user={user} logout={logout} onNavigate={navigateTo} />
       if (screen === 'student-gallery') return <StudentGallery user={user} logout={logout} onNavigate={navigateTo} />
       if (screen === 'student-profile') return <UniversalProfileView user={user} logout={logout} onNavigate={navigateTo} onProfileUpdated={u => setUser(toPortalUser(u))} />
-      if (screen === 'security') return <AccountSecurity user={user} logout={logout} onNavigate={navigateTo} />
       return <LiveStudentDashboard user={user} logout={logout} onNavigate={navigateTo} />
     }
 

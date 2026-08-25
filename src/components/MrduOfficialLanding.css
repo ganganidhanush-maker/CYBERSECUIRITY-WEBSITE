@@ -1,0 +1,1635 @@
+/* ====================================================
+   MRDU OFFICIAL PORTAL - AUTHENTIC UNIVERSITY UI
+   Matches Official Malla Reddy Deemed to be University Site
+   ==================================================== */
+
+:root {
+  --mrdu-navy-dark: #07162c;
+  --mrdu-navy: #0b1e36;
+  --mrdu-navy-light: #0d2346;
+  --mrdu-navy-card: #112a4f;
+  --mrdu-orange: #ff5722;
+  --mrdu-orange-hover: #ea580c;
+  --mrdu-orange-light: #fff7ed;
+  --mrdu-crimson: #991b1b;
+  --mrdu-crimson-dark: #7f1d1d;
+  --mrdu-crimson-light: #dc2626;
+  --mrdu-gold: #f59e0b;
+  --mrdu-green: #16a34a;
+  --mrdu-blue: #0284c7;
+  --mrdu-text-dark: #0f172a;
+  --mrdu-text-muted: #475569;
+  --mrdu-text-light: #94a3b8;
+  --mrdu-bg-light: #f8fafc;
+  --mrdu-bg-card: #ffffff;
+  --mrdu-border: rgba(11, 30, 54, 0.08);
+  --mrdu-border-strong: rgba(11, 30, 54, 0.16);
+  --mrdu-shadow-sm: 0 2px 8px rgba(11, 30, 54, 0.05);
+  --mrdu-shadow-md: 0 8px 24px -4px rgba(11, 30, 54, 0.08);
+  --mrdu-shadow-lg: 0 16px 40px -8px rgba(11, 30, 54, 0.12);
+  --mrdu-shadow-glow: 0 0 30px rgba(255, 87, 34, 0.25);
+  --mrdu-font-heading: 'Plus Jakarta Sans', 'Outfit', 'Inter', -apple-system, sans-serif;
+  --mrdu-font-body: 'Inter', 'Manrope', -apple-system, sans-serif;
+  --mrdu-font-mono: 'DM Mono', monospace;
+}
+
+.mrdu-portal {
+  font-family: var(--mrdu-font-body);
+  color: var(--mrdu-text-dark);
+  background: #ffffff;
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ----------------------------------------------------
+   1. Utility Top Bar (Deep Navy)
+   ---------------------------------------------------- */
+.mrdu-topbar {
+  background: var(--mrdu-navy-dark);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 8px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mrdu-topbar-inner {
+  max-width: 1360px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.mrdu-topbar-links {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.mrdu-topbar-link {
+  color: #cbd5e1;
+  text-decoration: none;
+  transition: color 0.15s ease;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.mrdu-topbar-link:hover {
+  color: #ffffff;
+}
+
+.mrdu-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.mrdu-btn-apply-now {
+  background: linear-gradient(135deg, #ff5722, #dc2626);
+  color: #ffffff !important;
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 5px 16px;
+  border-radius: 999px;
+  text-decoration: none;
+  text-transform: uppercase;
+  box-shadow: 0 2px 10px rgba(255, 87, 34, 0.35);
+  transition: all 0.2s ease;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mrdu-btn-apply-now:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(255, 87, 34, 0.5);
+}
+
+.mrdu-social-icons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mrdu-social-link {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.mrdu-social-link:hover {
+  background: var(--mrdu-orange);
+  transform: translateY(-1px);
+}
+
+.mrdu-search-bar {
+  display: flex;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  overflow: hidden;
+  padding: 2px 4px 2px 10px;
+}
+
+.mrdu-search-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #ffffff;
+  font-size: 11px;
+  width: 100px;
+  transition: width 0.2s ease;
+}
+
+.mrdu-search-input:focus {
+  width: 140px;
+}
+
+.mrdu-search-btn {
+  background: var(--mrdu-orange);
+  border: none;
+  color: #ffffff;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 10px;
+}
+
+/* ----------------------------------------------------
+   2. Main Header / Navigation Bar (White & Clean)
+   ---------------------------------------------------- */
+.mrdu-header {
+  background: #ffffff;
+  border-bottom: 1px solid var(--mrdu-border);
+  box-shadow: var(--mrdu-shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  transition: all 0.2s ease;
+}
+
+.mrdu-header-inner {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding: 10px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+}
+
+.mrdu-brand-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.mrdu-brand-logo {
+  height: 54px;
+  width: auto;
+  object-fit: contain;
+}
+
+.mrdu-brand-titles {
+  display: flex;
+  flex-direction: column;
+}
+
+.mrdu-brand-uni {
+  font-family: var(--mrdu-font-heading);
+  font-weight: 800;
+  font-size: 17px;
+  color: var(--mrdu-navy);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.mrdu-brand-sub {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--mrdu-orange);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mrdu-brand-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 6px;
+  border-left: 1px solid rgba(11, 30, 54, 0.12);
+  padding-left: 12px;
+}
+
+.mrdu-nirf-badge {
+  display: flex;
+  flex-direction: column;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-align: center;
+  line-height: 1.1;
+}
+
+.mrdu-nirf-badge strong {
+  font-size: 10px;
+  color: #0284c7;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+}
+
+.mrdu-nirf-badge span {
+  font-size: 8px;
+  color: #475569;
+  font-weight: 600;
+}
+
+.mrdu-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mrdu-nav-item {
+  position: relative;
+}
+
+.mrdu-nav-link {
+  color: var(--mrdu-navy);
+  font-weight: 600;
+  font-size: 13px;
+  text-decoration: none;
+  padding: 6px 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.15s ease;
+}
+
+.mrdu-nav-link:hover {
+  color: var(--mrdu-orange);
+}
+
+.mrdu-header-auth-btn {
+  background: var(--mrdu-navy);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(11, 30, 54, 0.2);
+}
+
+.mrdu-header-auth-btn:hover {
+  background: var(--mrdu-orange);
+  transform: translateY(-1px);
+}
+
+/* ----------------------------------------------------
+   3. Notification Marquee Bar (Vibrant Orange)
+   ---------------------------------------------------- */
+.mrdu-ticker-bar {
+  background: linear-gradient(90deg, #ea580c, #ff5722);
+  color: #ffffff;
+  padding: 7px 24px;
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+}
+
+.mrdu-ticker-tag {
+  background: rgba(0, 0, 0, 0.2);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mrdu-ticker-content {
+  overflow: hidden;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.mrdu-ticker-text {
+  display: inline-block;
+  animation: ticker-scroll 35s linear infinite;
+  padding-left: 100%;
+}
+
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+
+/* ----------------------------------------------------
+   4. Hero Section ("Shape Your Future")
+   ---------------------------------------------------- */
+.mrdu-hero {
+  background: linear-gradient(135deg, #07162c 0%, #0b1e36 50%, #0d2346 100%);
+  color: #ffffff;
+  padding: 64px 24px 72px;
+  position: relative;
+  overflow: hidden;
+}
+
+.mrdu-hero::after {
+  content: '';
+  position: absolute;
+  top: -20%;
+  right: -10%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(255, 87, 34, 0.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.mrdu-hero-inner {
+  max-width: 1360px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 48px;
+  align-items: center;
+  position: relative;
+  z-index: 2;
+}
+
+.mrdu-accreditation-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.mrdu-acc-pill {
+  font-family: var(--mrdu-font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #e2e8f0;
+}
+
+.mrdu-hero-eyebrow {
+  color: var(--mrdu-orange);
+  font-weight: 800;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin: 0 0 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mrdu-hero-title {
+  font-family: var(--mrdu-font-heading);
+  font-size: clamp(38px, 4.5vw, 64px);
+  font-weight: 800;
+  line-height: 1.06;
+  letter-spacing: -0.03em;
+  margin: 0 0 18px 0;
+  color: #ffffff;
+}
+
+.mrdu-hero-desc {
+  font-size: 15px;
+  color: #cbd5e1;
+  line-height: 1.65;
+  max-width: 580px;
+  margin: 0 0 32px 0;
+}
+
+.mrdu-hero-buttons {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.mrdu-btn-hero-primary {
+  background: linear-gradient(135deg, #ff5722, #dc2626);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  padding: 13px 28px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(255, 87, 34, 0.35);
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.mrdu-btn-hero-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(255, 87, 34, 0.5);
+}
+
+.mrdu-btn-hero-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 13px 26px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.mrdu-btn-hero-secondary:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: #ffffff;
+}
+
+.mrdu-hero-visual {
+  position: relative;
+}
+
+.mrdu-hero-image-card {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.5);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  background: #0f172a;
+}
+
+.mrdu-hero-img {
+  width: 100%;
+  height: 380px;
+  object-fit: cover;
+  display: block;
+}
+
+.mrdu-hero-float-badge {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  background: rgba(11, 30, 54, 0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 12px 18px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #ffffff;
+}
+
+.mrdu-float-badge-icon {
+  font-size: 24px;
+}
+
+.mrdu-float-badge-text strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.mrdu-float-badge-text span {
+  font-size: 11px;
+  color: #cbd5e1;
+}
+
+/* ----------------------------------------------------
+   5. Section Header Component
+   ---------------------------------------------------- */
+.mrdu-section-header {
+  text-align: center;
+  max-width: 780px;
+  margin: 0 auto 48px;
+}
+
+.mrdu-section-tag {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: var(--mrdu-orange);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  display: inline-block;
+}
+
+.mrdu-section-title {
+  font-family: var(--mrdu-font-heading);
+  font-size: clamp(26px, 3.2vw, 38px);
+  font-weight: 800;
+  color: var(--mrdu-navy);
+  letter-spacing: -0.02em;
+  margin: 0 0 12px 0;
+  line-height: 1.18;
+}
+
+.mrdu-section-subtitle {
+  font-size: 14px;
+  color: var(--mrdu-text-muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* ----------------------------------------------------
+   6. "Why Choose Us?" Section
+   ---------------------------------------------------- */
+.mrdu-why-section {
+  padding: 80px 24px;
+  background: #ffffff;
+}
+
+.mrdu-why-container {
+  max-width: 1360px;
+  margin: 0 auto;
+}
+
+.mrdu-why-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+}
+
+.mrdu-why-card {
+  background: var(--mrdu-bg-light);
+  border: 1px solid var(--mrdu-border);
+  border-radius: 14px;
+  padding: 24px;
+  transition: all 0.25s ease;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.mrdu-why-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--mrdu-shadow-md);
+  border-color: rgba(255, 87, 34, 0.3);
+  background: #ffffff;
+}
+
+.mrdu-why-icon-box {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid rgba(2, 132, 199, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.mrdu-why-content h3 {
+  font-family: var(--mrdu-font-heading);
+  font-size: 16px;
+  font-weight: 700;
+  color: #0284c7;
+  margin: 0 0 6px 0;
+}
+
+.mrdu-why-content p {
+  font-size: 13px;
+  color: var(--mrdu-text-muted);
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ----------------------------------------------------
+   7. Campus Updates & Latest Announcements
+   ---------------------------------------------------- */
+.mrdu-updates-section {
+  padding: 80px 24px;
+  background: var(--mrdu-bg-light);
+}
+
+.mrdu-updates-container {
+  max-width: 1360px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 0.85fr 1.15fr;
+  gap: 32px;
+}
+
+.mrdu-updates-left-card {
+  background: linear-gradient(145deg, #0b1e36, #0d2346);
+  color: #ffffff;
+  border-radius: 18px;
+  padding: 36px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: var(--mrdu-shadow-lg);
+}
+
+.mrdu-updates-left-card h2 {
+  font-family: var(--mrdu-font-heading);
+  font-size: 32px;
+  font-weight: 800;
+  margin: 0 0 12px 0;
+  color: #ffffff;
+}
+
+.mrdu-updates-left-card p {
+  font-size: 14px;
+  color: #cbd5e1;
+  line-height: 1.6;
+  margin: 0 0 28px 0;
+}
+
+.mrdu-quick-action-tiles {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mrdu-quick-tile {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #ffffff;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.mrdu-quick-tile:hover {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: var(--mrdu-orange);
+  transform: translateX(4px);
+}
+
+.mrdu-quick-tile-text strong {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.mrdu-quick-tile-text span {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.mrdu-updates-right-card {
+  background: #ffffff;
+  border: 1px solid var(--mrdu-border);
+  border-radius: 18px;
+  padding: 36px;
+  box-shadow: var(--mrdu-shadow-sm);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.mrdu-notices-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--mrdu-border);
+}
+
+.mrdu-notices-header h3 {
+  font-family: var(--mrdu-font-heading);
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--mrdu-navy);
+  margin: 0;
+}
+
+.mrdu-notices-count-badge {
+  background: #fff7ed;
+  color: var(--mrdu-orange);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 87, 34, 0.2);
+}
+
+.mrdu-notice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.mrdu-notice-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  transition: background 0.15s ease;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.mrdu-notice-item:hover {
+  background: var(--mrdu-bg-light);
+}
+
+.mrdu-date-badge {
+  width: 52px;
+  height: 52px;
+  border-radius: 10px;
+  background: #fff7ed;
+  border: 1px solid rgba(255, 87, 34, 0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.mrdu-date-num {
+  font-family: var(--mrdu-font-heading);
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--mrdu-orange);
+}
+
+.mrdu-date-month {
+  font-size: 9px;
+  font-weight: 700;
+  color: #9a3412;
+  letter-spacing: 0.05em;
+  margin-top: 2px;
+}
+
+.mrdu-notice-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mrdu-text-dark);
+  flex: 1;
+  line-height: 1.4;
+}
+
+.mrdu-notice-arrow {
+  color: var(--mrdu-orange);
+  font-size: 16px;
+  transition: transform 0.15s ease;
+}
+
+.mrdu-notice-item:hover .mrdu-notice-arrow {
+  transform: translateX(4px);
+}
+
+.mrdu-btn-view-notices {
+  background: linear-gradient(135deg, #ff5722, #ea580c);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 10px 22px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  box-shadow: 0 2px 10px rgba(255, 87, 34, 0.3);
+}
+
+/* ----------------------------------------------------
+   8. "Our Schools" (Academics)
+   ---------------------------------------------------- */
+.mrdu-schools-section {
+  padding: 80px 24px;
+  background: #ffffff;
+}
+
+.mrdu-schools-container {
+  max-width: 1360px;
+  margin: 0 auto;
+}
+
+.mrdu-schools-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 28px;
+}
+
+.mrdu-school-card {
+  background: #ffffff;
+  border: 1px solid var(--mrdu-border);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: var(--mrdu-shadow-sm);
+  transition: all 0.25s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.mrdu-school-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--mrdu-shadow-lg);
+  border-color: rgba(11, 30, 54, 0.18);
+}
+
+.mrdu-school-banner {
+  height: 120px;
+  position: relative;
+  overflow: hidden;
+}
+
+.mrdu-school-banner-orange {
+  background: linear-gradient(135deg, #ff5722, #f59e0b);
+}
+
+.mrdu-school-banner-blue {
+  background: linear-gradient(135deg, #0284c7, #0b1e36);
+}
+
+.mrdu-school-banner-coral {
+  background: linear-gradient(135deg, #dc2626, #b91c1c);
+}
+
+.mrdu-school-body {
+  padding: 28px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  justify-content: space-between;
+}
+
+.mrdu-school-body h3 {
+  font-family: var(--mrdu-font-heading);
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--mrdu-navy);
+  margin: 0 0 10px 0;
+  line-height: 1.3;
+}
+
+.mrdu-school-body p {
+  font-size: 13px;
+  color: var(--mrdu-text-muted);
+  line-height: 1.55;
+  margin: 0 0 20px 0;
+}
+
+.mrdu-school-link {
+  color: var(--mrdu-orange);
+  font-weight: 700;
+  font-size: 13px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: gap 0.15s ease;
+}
+
+.mrdu-school-link:hover {
+  gap: 10px;
+}
+
+/* ----------------------------------------------------
+   9. Events & Video Gallery
+   ---------------------------------------------------- */
+.mrdu-events-section {
+  padding: 80px 24px;
+  background: var(--mrdu-bg-light);
+}
+
+.mrdu-events-container {
+  max-width: 1360px;
+  margin: 0 auto;
+}
+
+.mrdu-events-tabs-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 36px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.mrdu-events-tabs {
+  display: flex;
+  gap: 10px;
+}
+
+.mrdu-tab-btn {
+  padding: 8px 20px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid var(--mrdu-border);
+  background: #ffffff;
+  color: var(--mrdu-navy);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mrdu-tab-btn.active {
+  background: var(--mrdu-navy);
+  color: #ffffff;
+  border-color: var(--mrdu-navy);
+  box-shadow: 0 4px 12px rgba(11, 30, 54, 0.2);
+}
+
+.mrdu-btn-view-all-events {
+  background: var(--mrdu-navy);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 8px 20px;
+  border-radius: 999px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mrdu-events-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 28px;
+  margin-bottom: 60px;
+}
+
+.mrdu-event-card {
+  background: #ffffff;
+  border: 1px solid var(--mrdu-border);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--mrdu-shadow-sm);
+  transition: all 0.25s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.mrdu-event-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--mrdu-shadow-md);
+}
+
+.mrdu-event-img-wrap {
+  height: 180px;
+  position: relative;
+  background: #0b1e36;
+}
+
+.mrdu-event-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mrdu-event-date-pill {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  background: rgba(11, 30, 54, 0.9);
+  backdrop-filter: blur(8px);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  letter-spacing: 0.04em;
+}
+
+.mrdu-event-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  justify-content: space-between;
+}
+
+.mrdu-event-body h4 {
+  font-family: var(--mrdu-font-heading);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--mrdu-navy);
+  margin: 0 0 14px 0;
+  line-height: 1.4;
+}
+
+.mrdu-event-btn {
+  color: var(--mrdu-orange);
+  font-weight: 700;
+  font-size: 12px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Video Gallery Carousel Row */
+.mrdu-video-gallery-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.mrdu-video-card {
+  position: relative;
+  height: 160px;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: var(--mrdu-shadow-sm);
+  background: #07162c;
+  cursor: pointer;
+}
+
+.mrdu-video-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.mrdu-video-card:hover .mrdu-video-img {
+  transform: scale(1.05);
+}
+
+.mrdu-video-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.7) 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 12px;
+}
+
+.mrdu-video-play-icon {
+  align-self: center;
+  margin-top: auto;
+  margin-bottom: auto;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 87, 34, 0.9);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.mrdu-video-title {
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  margin: 0;
+}
+
+/* ----------------------------------------------------
+   10. Where Our Graduates Work & Crimson Stat Banner
+   ---------------------------------------------------- */
+.mrdu-placements-section {
+  padding: 80px 24px;
+  background: #ffffff;
+}
+
+.mrdu-placements-container {
+  max-width: 1360px;
+  margin: 0 auto;
+}
+
+.mrdu-placement-highlights-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 40px;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.mrdu-placement-stats-pills {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.mrdu-stat-pill {
+  display: flex;
+  flex-direction: column;
+}
+
+.mrdu-stat-pill strong {
+  font-family: var(--mrdu-font-heading);
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--mrdu-navy);
+  line-height: 1;
+}
+
+.mrdu-stat-pill span {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mrdu-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 4px;
+}
+
+/* Deep Crimson Placement Banner */
+.mrdu-crimson-banner {
+  background: linear-gradient(135deg, #b91c1c 0%, #991b1b 50%, #7f1d1d 100%);
+  color: #ffffff;
+  border-radius: 20px;
+  padding: 56px 40px;
+  box-shadow: 0 20px 50px -10px rgba(153, 27, 27, 0.4);
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 60px;
+}
+
+.mrdu-crimson-banner::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -20%;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.mrdu-crimson-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 32px;
+  text-align: center;
+  position: relative;
+  z-index: 2;
+  margin-bottom: 36px;
+}
+
+.mrdu-crimson-stat-item strong {
+  font-family: var(--mrdu-font-heading);
+  font-size: clamp(36px, 4.5vw, 56px);
+  font-weight: 800;
+  color: #ffffff;
+  display: block;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.mrdu-crimson-stat-item h4 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fecaca;
+  margin: 0 0 6px 0;
+}
+
+.mrdu-crimson-stat-item p {
+  font-size: 12px;
+  color: #fca5a5;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.mrdu-crimson-slogan {
+  text-align: center;
+  font-family: var(--mrdu-font-heading);
+  font-size: clamp(20px, 2.5vw, 30px);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+  margin: 0;
+  position: relative;
+  z-index: 2;
+}
+
+/* Recruiter Logos Grid */
+.mrdu-recruiters-grid {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.mrdu-recruiter-chip {
+  background: var(--mrdu-bg-light);
+  border: 1px solid var(--mrdu-border);
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--mrdu-navy);
+  letter-spacing: 0.02em;
+}
+
+/* ----------------------------------------------------
+   11. Message from Our Leaders
+   ---------------------------------------------------- */
+.mrdu-leadership-section {
+  padding: 80px 24px;
+  background: var(--mrdu-bg-light);
+}
+
+.mrdu-leadership-container {
+  max-width: 1360px;
+  margin: 0 auto;
+}
+
+.mrdu-leader-card {
+  background: #ffffff;
+  border: 1px solid var(--mrdu-border);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: var(--mrdu-shadow-md);
+  display: grid;
+  grid-template-columns: 0.85fr 1.15fr;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.mrdu-leader-photo-wrap {
+  background: linear-gradient(135deg, #0b1e36, #07162c);
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #ffffff;
+}
+
+.mrdu-leader-avatar {
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 4px solid rgba(255, 255, 255, 0.2);
+  object-fit: cover;
+  margin-bottom: 18px;
+}
+
+.mrdu-leader-photo-wrap h4 {
+  font-family: var(--mrdu-font-heading);
+  font-size: 17px;
+  font-weight: 800;
+  margin: 0 0 4px 0;
+  color: #ffffff;
+}
+
+.mrdu-leader-photo-wrap span {
+  font-size: 11px;
+  color: var(--mrdu-orange);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mrdu-leader-content {
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.mrdu-leader-content h3 {
+  font-family: var(--mrdu-font-heading);
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--mrdu-navy);
+  margin: 0 0 16px 0;
+}
+
+.mrdu-leader-content blockquote {
+  font-size: 14px;
+  color: var(--mrdu-text-muted);
+  line-height: 1.7;
+  margin: 0 0 24px 0;
+  font-style: italic;
+  position: relative;
+}
+
+.mrdu-leader-btn {
+  background: linear-gradient(135deg, #ff5722, #ea580c);
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 12px;
+  padding: 10px 22px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+}
+
+/* ----------------------------------------------------
+   12. Campus Life (8-Photo Interactive Grid)
+   ---------------------------------------------------- */
+.mrdu-campus-life-section {
+  padding: 80px 24px;
+  background: #ffffff;
+}
+
+.mrdu-campus-life-container {
+  max-width: 1360px;
+  margin: 0 auto;
+}
+
+.mrdu-campus-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-auto-rows: 200px;
+  gap: 16px;
+}
+
+.mrdu-campus-tile {
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: var(--mrdu-shadow-sm);
+  cursor: pointer;
+}
+
+.mrdu-campus-tile-large {
+  grid-column: span 2;
+  grid-row: span 2;
+}
+
+.mrdu-campus-tile-wide {
+  grid-column: span 2;
+}
+
+.mrdu-campus-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.mrdu-campus-tile:hover .mrdu-campus-img {
+  transform: scale(1.06);
+}
+
+.mrdu-campus-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 40%, rgba(7, 22, 44, 0.9) 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 18px;
+  color: #ffffff;
+}
+
+.mrdu-campus-overlay span {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--mrdu-orange);
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.mrdu-campus-overlay h4 {
+  font-family: var(--mrdu-font-heading);
+  font-size: 16px;
+  font-weight: 800;
+  margin: 0;
+}
+
+/* ----------------------------------------------------
+   13. Official MRDU Footer (Deep Navy)
+   ---------------------------------------------------- */
+.mrdu-footer {
+  background: var(--mrdu-navy-dark);
+  color: #cbd5e1;
+  padding: 72px 24px 32px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mrdu-footer-inner {
+  max-width: 1360px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1.2fr 0.9fr 0.9fr 1fr;
+  gap: 40px;
+  margin-bottom: 48px;
+}
+
+.mrdu-footer-col h4 {
+  font-family: var(--mrdu-font-heading);
+  font-size: 14px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0 0 20px 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--mrdu-orange);
+  display: inline-block;
+}
+
+.mrdu-footer-brand-logo {
+  height: 48px;
+  width: auto;
+  margin-bottom: 16px;
+}
+
+.mrdu-footer-address {
+  font-size: 12px;
+  line-height: 1.6;
+  color: #94a3b8;
+  margin-bottom: 16px;
+}
+
+.mrdu-footer-contact-item {
+  font-size: 12px;
+  color: #cbd5e1;
+  margin-bottom: 6px;
+}
+
+.mrdu-footer-contact-item strong {
+  color: #ffffff;
+}
+
+.mrdu-footer-links-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mrdu-footer-link {
+  color: #94a3b8;
+  text-decoration: none;
+  font-size: 12px;
+  transition: color 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mrdu-footer-link:hover {
+  color: var(--mrdu-orange);
+  transform: translateX(2px);
+}
+
+.mrdu-map-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 14px;
+}
+
+.mrdu-map-card p {
+  font-size: 11px;
+  color: #94a3b8;
+  margin: 0 0 10px 0;
+}
+
+.mrdu-map-link {
+  color: var(--mrdu-orange);
+  font-weight: 700;
+  font-size: 11px;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mrdu-footer-bottom {
+  max-width: 1360px;
+  margin: 0 auto;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+/* ----------------------------------------------------
+   Responsive Adjustments
+   ---------------------------------------------------- */
+@media (max-width: 1024px) {
+  .mrdu-hero-inner {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+  .mrdu-hero-desc {
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .mrdu-hero-buttons {
+    justify-content: center;
+  }
+  .mrdu-accreditation-row {
+    justify-content: center;
+  }
+  .mrdu-updates-container {
+    grid-template-columns: 1fr;
+  }
+  .mrdu-crimson-stats-row {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .mrdu-leader-card {
+    grid-template-columns: 1fr;
+  }
+  .mrdu-campus-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .mrdu-footer-inner {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .mrdu-topbar-inner {
+    justify-content: center;
+  }
+  .mrdu-nav-links {
+    display: none;
+  }
+  .mrdu-campus-grid {
+    grid-template-columns: 1fr;
+  }
+  .mrdu-campus-tile-large,
+  .mrdu-campus-tile-wide {
+    grid-column: span 1;
+    grid-row: span 1;
+  }
+  .mrdu-footer-inner {
+    grid-template-columns: 1fr;
+  }
+}
