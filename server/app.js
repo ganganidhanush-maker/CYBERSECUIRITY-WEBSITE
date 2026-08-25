@@ -57,7 +57,7 @@ export function createApp() {
     strictTransportSecurity: env.isProduction ? { maxAge: 31_536_000, includeSubDomains: true, preload: true } : false,
   }))
   app.use((request, response, next) => {
-    response.set('Permissions-Policy', 'camera=(), geolocation=(), microphone=(), payment=(), usb=()')
+    response.set('Permissions-Policy', 'camera=(self), geolocation=(), microphone=(), payment=(), usb=()')
     return next()
   })
   app.use(cors(corsOptions()))
