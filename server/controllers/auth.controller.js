@@ -77,13 +77,60 @@ export async function login(request, response) {
 
   const memberId = parsed.data.memberId.toUpperCase()
   const user = await prisma.user.findUnique({ where: { memberId }, include: userInclude })
-  if (!user || user.accountStatus !== 'ACTIVE') {
-    if (user) await tryWriteAuditLog({ actorUserId: user.id, action: 'LOGIN_BLOCKED', metadata: { reason: 'ACCOUNT_DISABLED' }, ...auditRequest(request) })
+  if (!user) {
     return response.status(401).json(invalidCredentials)
   }
+
+  // 1. Auto-disable check for accounts inactive for > 3 days (72 hours)
+  // Primary President is protected from auto-disabling
+  if (!user.isPrimaryAdmin && user.accountStatus === 'ACTIVE') {
+    const lastActive = user.lastLogin || user.createdAt
+    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000
+    const inactiveDurationMs = Date.now() - new Date(lastActive).getTime()
+
+    if (inactiveDurationMs > THREE_DAYS_MS) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { accountStatus: 'DISABLED' },
+      })
+      user.accountStatus = 'DISABLED'
+      await tryWriteAuditLog({
+        actorUserId: user.id,
+        action: 'ACCOUNT_AUTO_DISABLED_INACTIVITY',
+        metadata: {
+          memberId: user.memberId,
+          name: user.profile?.name || user.name,
+          reason: 'INACTIVE_OVER_3_DAYS',
+          daysInactive: Math.floor(inactiveDurationMs / (24 * 60 * 60 * 1000)),
+          lastActiveAt: lastActive,
+        },
+        ...auditRequest(request),
+      })
+    }
+  }
+
+  // 2. Specific Disabled Account Check
+  if (user.accountStatus !== 'ACTIVE') {
+    await tryWriteAuditLog({
+      actorUserId: user.id,
+      action: 'LOGIN_BLOCKED',
+      metadata: { reason: 'ACCOUNT_DISABLED', accountStatus: user.accountStatus, memberId: user.memberId },
+      ...auditRequest(request),
+    })
+    return response.status(403).json({
+      error: 'ACCOUNT_DISABLED',
+      code: 'ACCOUNT_DISABLED',
+      message: 'Account Disabled: Your account is disabled due to inactivity (no login for over 3 days) or administrative policy. You cannot log in without Technical Team permission. Please contact the Cyber Security Club Technical Team / Helpdesk to request account reactivation.',
+    })
+  }
+
   if (user.lockedUntil && user.lockedUntil > new Date()) {
     await tryWriteAuditLog({ actorUserId: user.id, action: 'LOGIN_BLOCKED', metadata: { reason: 'ACCOUNT_LOCKED' }, ...auditRequest(request) })
-    return response.status(401).json(invalidCredentials)
+    return response.status(401).json({
+      error: 'ACCOUNT_LOCKED',
+      code: 'ACCOUNT_LOCKED',
+      message: 'Account is temporarily locked due to repeated failed login attempts. Please try again later or reset your password.',
+    })
   }
 
   const validPassword = await bcrypt.compare(parsed.data.password, user.passwordHash)

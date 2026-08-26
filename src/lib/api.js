@@ -168,6 +168,9 @@ export const adminApi = {
   disableMemberTwoFactor: id => request(`/admin/members/${id}/disable-2fa`, { method: 'POST' }),
   transferPresidentRole: (targetUserId, authenticationCode) => request('/admin/members/transfer-president', { method: 'POST', body: JSON.stringify({ targetUserId, authenticationCode }) }),
   setPresidentMasterPin: (pin, password) => request('/admin/president/master-pin', { method: 'POST', body: JSON.stringify({ pin, password }) }),
+  getPresidentDirectives: () => request('/admin/president-directives'),
+  updatePresidentDirectives: data => request('/admin/president-directives', { method: 'PUT', body: JSON.stringify(data) }),
+  togglePresidentDirectiveTodo: (todoId, completed) => request(`/admin/president-directives/todos/${todoId}/toggle`, { method: 'PATCH', body: JSON.stringify({ completed }) }),
 
   // Events
   listEvents: () => request('/admin/events'),
@@ -218,8 +221,12 @@ export const adminApi = {
   listAuditLogs: () => request('/admin/audit-logs'),
   clearAuditLogs: authCode => request('/admin/audit-logs/clear', { method: 'POST', body: JSON.stringify({ authCode }) }),
 
-  // Full Database Backup (.sql) — Primary President Protected Action
-  exportDatabaseSql: password => request('/admin/database/export-sql', { method: 'POST', body: JSON.stringify({ password }) }),
+  // Campus & Event Reels Studio
+  listReels: () => request('/admin/reels'),
+  createReel: reelData => request('/admin/reels', { method: 'POST', body: JSON.stringify(reelData) }),
+  importProfileReels: profileData => request('/admin/reels/import-profile', { method: 'POST', body: JSON.stringify(profileData) }),
+  updateReel: (id, reelData) => request(`/admin/reels/${id}`, { method: 'PUT', body: JSON.stringify(reelData) }),
+  deleteReel: id => request(`/admin/reels/${id}`, { method: 'DELETE' }),
 
   // QR Code Scanner & Event Entry
   scanQrCode: async code => {
@@ -246,6 +253,11 @@ export const adminApi = {
       throw err
     }
   },
+  listAllPasses: (params = {}) => {
+    const q = new URLSearchParams(params).toString()
+    return request(`/admin/passes${q ? '?' + q : ''}`)
+  },
+  verifyPassPayment: registrationId => request(`/admin/passes/${registrationId}/verify-payment`, { method: 'POST' }),
 }
 
 export const memberApi = {
@@ -265,6 +277,13 @@ export const memberApi = {
   getSubscriptionStatus: () => request('/member/subscription/status'),
   submitSubscription: data => request('/member/subscription/submit', { method: 'POST', body: JSON.stringify(data) }),
 
+  // Team Participation & Formation
+  lookupMember: memberId => request(`/member/members/lookup/${encodeURIComponent(memberId)}`),
+  createEventTeam: (eventId, data) => request(`/member/events/${eventId}/teams`, { method: 'POST', body: JSON.stringify(data) }),
+  respondTeamInvite: (inviteId, accept) => request(`/member/teams/invites/${inviteId}/respond`, { method: 'POST', body: JSON.stringify({ accept }) }),
+  removeTeamMember: (teamId, memberId) => request(`/member/teams/${teamId}/members/${memberId}`, { method: 'DELETE' }),
+  listMyTeamInvites: () => request('/member/teams/my-invites'),
+
   // Helpdesk & Doubts
   listSupportTickets: () => request('/member/support'),
   createSupportTicket: ticket => request('/member/support', { method: 'POST', body: JSON.stringify(ticket) }),
@@ -274,4 +293,12 @@ export const memberApi = {
   listNotifications: () => request('/member/notifications'),
   markNotificationRead: id => request(`/member/notifications/${id}/read`, { method: 'POST' }),
   markAllNotificationsRead: () => request('/member/notifications/read-all', { method: 'POST' }),
+
+  // Campus Reels Stream
+  listReels: (params = {}) => {
+    const q = new URLSearchParams(params).toString()
+    return request(`/member/reels${q ? '?' + q : ''}`)
+  },
+  likeReel: id => request(`/member/reels/${id}/like`, { method: 'POST' }),
+  recordReelView: id => request(`/member/reels/${id}/view`, { method: 'POST' }),
 }

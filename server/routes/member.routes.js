@@ -12,6 +12,9 @@ import {
   listGallery,
   listMyRegistrations,
   listNotifications,
+  listPublicReels,
+  likeReel,
+  recordReelView,
   listPublishedEvents,
   listStudentSupportTickets,
   markAllNotificationsRead,
@@ -19,6 +22,11 @@ import {
   registerForEvent,
   replyStudentSupportTicket,
   updateProfile,
+  lookupMemberForTeam,
+  createEventTeam,
+  respondTeamInvite,
+  removeTeamMember,
+  listMyTeamInvites,
 } from '../controllers/member.controller.js'
 import {
   scanQrCode,
@@ -59,6 +67,13 @@ memberRouter.get('/events/:eventId', requirePermission('EVENTS_VIEW'), getEventD
 memberRouter.post('/events/:eventId/register', requirePermission('EVENT_REGISTER'), requireActiveSubscription, registerForEvent)
 memberRouter.get('/registrations', requirePermission('REGISTRATIONS_VIEW'), listMyRegistrations)
 
+// Team Participation & Formation
+memberRouter.get('/members/lookup/:memberId', lookupMemberForTeam)
+memberRouter.post('/events/:eventId/teams', requirePermission('EVENT_REGISTER'), createEventTeam)
+memberRouter.post('/teams/invites/:inviteId/respond', respondTeamInvite)
+memberRouter.delete('/teams/:teamId/members/:memberId', removeTeamMember)
+memberRouter.get('/teams/my-invites', listMyTeamInvites)
+
 // Member Profile (Universal for all authenticated roles)
 memberRouter.put('/profile', updateProfile)
 memberRouter.post('/complaints', requirePermission('FEEDBACK_CREATE'), requireActiveSubscription, createComplaint)
@@ -78,7 +93,13 @@ memberRouter.get('/gallery', requirePermission('GALLERY_VIEW'), listGallery)
 memberRouter.get('/gallery/:albumId', requirePermission('GALLERY_VIEW'), getGalleryAlbum)
 memberRouter.get('/team', listClubTeam)
 
+// Campus & Event Reels Stream
+memberRouter.get('/reels', listPublicReels)
+memberRouter.post('/reels/:id/like', likeReel)
+memberRouter.post('/reels/:id/view', recordReelView)
+
 // QR Event Pass Scanner & Gate Entry
 memberRouter.get('/qr/scan', scanQrCode)
 memberRouter.post('/qr/scan', scanQrCode)
 memberRouter.post('/qr/grant-entry', grantEventEntry)
+

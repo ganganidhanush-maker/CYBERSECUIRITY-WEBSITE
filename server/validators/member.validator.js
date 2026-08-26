@@ -28,6 +28,15 @@ export const profileUpdateSchema = z.object({
     const num = Number(val)
     return Number.isFinite(num) && num >= 1 && num <= 8 ? num : null
   }),
+  gender: z.union([z.enum(['MALE', 'FEMALE', 'OTHER']), z.string(), z.null(), z.undefined()]).transform(val => {
+    if (typeof val === 'string' && val.trim()) return val.trim().toUpperCase()
+    return null
+  }),
+  age: z.union([z.string(), z.number(), z.null(), z.undefined()]).transform(val => {
+    if (!val) return null
+    const num = Number(val)
+    return Number.isFinite(num) && num >= 14 && num <= 99 ? num : null
+  }),
   email: optionalEmail(),
   phone: optionalText(32),
   profileImage: z.union([z.string(), z.null(), z.undefined()]).transform(value => normalizeImageUrl(value)),
@@ -114,6 +123,16 @@ export const eventInputSchema = z.object({
   paymentDeadline: z.union([z.string(), z.null(), z.undefined()]).transform(val => val && !Number.isNaN(new Date(val).getTime()) ? new Date(val) : null),
   requirePaymentProof: z.boolean().optional().default(false),
   allowMultipleActivities: z.boolean().optional().default(false),
+  isTeamEvent: z.boolean().optional().default(false),
+  minTeamSize: z.union([z.string(), z.number(), z.null(), z.undefined()]).transform(val => {
+    const num = Number(val || 1)
+    return Number.isFinite(num) && num >= 1 ? num : 1
+  }),
+  maxTeamSize: z.union([z.string(), z.number(), z.null(), z.undefined()]).transform(val => {
+    const num = Number(val || 1)
+    return Number.isFinite(num) && num >= 1 ? num : 1
+  }),
+  teamRules: optionalText(10000),
   activities: z.array(eventActivityInputSchema).optional(),
   formFields: z.array(eventFormFieldInputSchema).optional(),
 })
@@ -129,8 +148,32 @@ export const eventRegistrationSchema = z.object({
     const num = Number(val)
     return Number.isFinite(num) ? num : null
   }),
+  gender: z.union([z.enum(['MALE', 'FEMALE', 'OTHER']), z.string(), z.null(), z.undefined()]).transform(val => {
+    if (typeof val === 'string' && val.trim()) return val.trim().toUpperCase()
+    return null
+  }),
+  age: z.union([z.string(), z.number(), z.null(), z.undefined()]).transform(val => {
+    if (!val) return null
+    const num = Number(val)
+    return Number.isFinite(num) && num >= 14 && num <= 99 ? num : null
+  }),
+  residencyType: z.union([z.enum(['DAY_SCHOLAR', 'HOSTELLER']), z.string(), z.null(), z.undefined()]).transform(val => {
+    if (typeof val === 'string' && val.trim()) return val.trim().toUpperCase()
+    return null
+  }),
+  transportMode: z.union([z.enum(['COLLEGE_BUS', 'PUBLIC_BUS', 'OWN_TRANSPORT']), z.string(), z.null(), z.undefined()]).transform(val => {
+    if (typeof val === 'string' && val.trim()) return val.trim().toUpperCase()
+    return null
+  }),
+  hostelType: z.union([z.enum(['COLLEGE_HOSTEL', 'PRIVATE_HOSTEL']), z.string(), z.null(), z.undefined()]).transform(val => {
+    if (typeof val === 'string' && val.trim()) return val.trim().toUpperCase()
+    return null
+  }),
   emergencyContact: optionalText(32),
   teamName: optionalText(120),
+  teamId: optionalText(191),
+  isTeamLeader: z.boolean().optional().default(false),
+  invitedMemberIds: z.array(z.string()).optional(),
   github: optionalText(120),
   formData: z.record(z.any()).optional(),
 })
@@ -195,6 +238,7 @@ export const clubSettingsSchema = z.object({
   subscriptionMonthlyAmount: z.union([z.string(), z.number()]).optional(),
   subscriptionUpiId: optionalText(120),
   subscriptionQrUrl: z.union([z.string(), z.null(), z.undefined()]).transform(value => normalizeImageUrl(value)),
+  reelsEnabled: z.boolean().optional(),
   introVideoEnabled: z.boolean().optional(),
   introVideoUrl: optionalText(5000),
   introVideoRequireTwoMinutes: z.boolean().optional(),
@@ -203,6 +247,8 @@ export const clubSettingsSchema = z.object({
   clubName: optionalText(120),
   contactEmail: optionalEmail(),
   contactPhone: optionalText(32),
+  technicalSupportEmail: optionalEmail(),
+  technicalSupportPhone: optionalText(32),
   instagramUrl: optionalText(255),
   githubUrl: optionalText(255),
   linkedinUrl: optionalText(255),
@@ -223,6 +269,20 @@ export const guestRegisterSchema = z.object({
   college: z.string().trim().min(2, 'College name is required.').max(120),
   branch: z.string().trim().min(2, 'Branch is required.').max(50),
   specialization: optionalText(50),
+  year: z.union([z.string(), z.number(), z.null(), z.undefined()]).transform(val => {
+    if (!val) return null
+    const num = Number(val)
+    return Number.isFinite(num) && num >= 1 && num <= 8 ? num : null
+  }),
+  gender: z.union([z.enum(['MALE', 'FEMALE', 'OTHER']), z.string(), z.null(), z.undefined()]).transform(val => {
+    if (typeof val === 'string' && val.trim()) return val.trim().toUpperCase()
+    return null
+  }),
+  age: z.union([z.string(), z.number(), z.null(), z.undefined()]).transform(val => {
+    if (!val) return null
+    const num = Number(val)
+    return Number.isFinite(num) && num >= 14 && num <= 99 ? num : null
+  }),
   phone: optionalText(32),
 })
 

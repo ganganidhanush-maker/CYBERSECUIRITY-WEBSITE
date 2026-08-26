@@ -4,6 +4,7 @@ import { prisma } from './db/prisma.js'
 import { bootstrapDatabase } from './db/bootstrap.js'
 import { verifyMailConfiguration } from './services/mailer.service.js'
 import { startAuditRetentionJob } from './services/audit-retention.service.js'
+import { startInactivityMonitorJob } from './services/inactivity.service.js'
 import { ensureLocalDatabase } from '../scripts/ensure-local-db.js'
 
 assertRuntimeConfiguration()
@@ -55,6 +56,7 @@ try {
 
 const app = createApp()
 const auditRetentionTimer = startAuditRetentionJob()
+const inactivityMonitorTimer = startInactivityMonitorJob()
 const server = app.listen(env.port, () => console.log(`CSC API listening on port ${env.port}`))
 const sockets = new Set()
 let shuttingDown = false
@@ -69,6 +71,7 @@ async function shutdown(signal) {
   shuttingDown = true
   console.info(`Received ${signal}; draining active connections.`)
   clearInterval(auditRetentionTimer)
+  clearInterval(inactivityMonitorTimer)
   const forcedShutdown = setTimeout(() => {
     for (const socket of sockets) socket.destroy()
   }, 30_000)

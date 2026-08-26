@@ -12,6 +12,7 @@ enum Role {
   TREASURER
   EVENT_MANAGEMENT
   MEDIA_LEAD
+  SOCIAL_MEDIA_LEAD
   TECH_TEAM
   PR_TEAM
   CULTURAL
@@ -44,6 +45,7 @@ enum UserPermission {
   QR_PASSES_VIEW
   GALLERY_VIEW
   GALLERY_MANAGE
+  REELS_MANAGE
   TEAM_MANAGE
   SETTINGS_MANAGE
   AUDIT_VIEW
@@ -84,6 +86,8 @@ model User {
   supportReplies         SupportReply[]         @relation("UserTicketReplies")
   notifications          Notification[]
   councilMessages        CouncilMessage[]       @relation("CouncilUserMessages")
+  ledTeams               EventTeam[]            @relation("TeamLeader")
+  teamMemberships        EventTeamMember[]
 
   @@map("users")
 }
@@ -109,6 +113,8 @@ model Profile {
   year         Int?
   email        String?  @unique @db.VarChar(191)
   phone        String?  @db.VarChar(32)
+  gender       String?  @db.VarChar(20)
+  age          Int?
   profileImage String?  @map("profile_image") @db.LongText
   bio          String?  @db.VarChar(500)
   instagramUrl String?  @map("instagram_url") @db.VarChar(255)
@@ -180,10 +186,15 @@ model Event {
   paymentDeadline         DateTime?           @map("payment_deadline")
   requirePaymentProof     Boolean             @default(false) @map("require_payment_proof")
   allowMultipleActivities Boolean             @default(false) @map("allow_multiple_activities")
+  isTeamEvent             Boolean             @default(false) @map("is_team_event")
+  minTeamSize             Int                 @default(1) @map("min_team_size")
+  maxTeamSize             Int                 @default(1) @map("max_team_size")
+  teamRules               String?             @map("team_rules") @db.LongText
   createdBy               String              @map("created_by") @db.VarChar(191)
   createdAt               DateTime            @default(now()) @map("created_at")
   updatedAt               DateTime            @updatedAt @map("updated_at")
   registrations           EventRegistration[]
+  teams                   EventTeam[]
   formFields              EventFormField[]
   activities              EventActivity[]
 
@@ -222,37 +233,78 @@ model EventFormField {
 }
 
 model EventRegistration {
-  id                 String    @id @default(cuid()) @db.VarChar(191)
-  eventId            String    @map("event_id") @db.VarChar(191)
-  userId             String    @map("user_id") @db.VarChar(191)
-  registeredAt       DateTime  @default(now()) @map("registered_at")
-  formData           Json?     @map("form_data")
-  selectedActivities Json?     @map("selected_activities")
-  totalAmount        Decimal   @default(0.00) @map("total_amount") @db.Decimal(10, 2)
-  paymentStatus      String    @default("FREE") @map("payment_status") @db.VarChar(50)
-  paymentReference   String?   @map("payment_reference") @db.VarChar(120)
-  paymentProofUrl    String?   @map("payment_proof_url") @db.LongText
-  paymentVerifiedAt  DateTime? @map("payment_verified_at")
-  paymentVerifiedBy  String?   @map("payment_verified_by") @db.VarChar(191)
-  paymentNotes       String?   @map("payment_notes") @db.VarChar(500)
-  branch             String?   @db.VarChar(120)
-  section            String?   @db.VarChar(64)
-  year               Int?
-  emergencyContact   String?   @map("emergency_contact") @db.VarChar(32)
-  teamName           String?   @map("team_name") @db.VarChar(120)
-  github             String?   @db.VarChar(120)
-  status             String    @default("REGISTERED") @db.VarChar(50)
-  attendanceMarked   Boolean   @default(false) @map("attendance_marked")
-  attendedAt         DateTime? @map("attended_at")
-  attendanceVerifiedBy String? @map("attendance_verified_by") @db.VarChar(191)
-  qrCodeData         String?   @map("qr_code_data") @db.LongText
-  createdAt          DateTime  @default(now()) @map("created_at")
-  event              Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  id                   String    @id @default(cuid()) @db.VarChar(191)
+  eventId              String    @map("event_id") @db.VarChar(191)
+  userId               String    @map("user_id") @db.VarChar(191)
+  registeredAt         DateTime  @default(now()) @map("registered_at")
+  formData             Json?     @map("form_data")
+  selectedActivities   Json?     @map("selected_activities")
+  totalAmount          Decimal   @default(0.00) @map("total_amount") @db.Decimal(10, 2)
+  paymentStatus        String    @default("FREE") @map("payment_status") @db.VarChar(50)
+  paymentReference     String?   @map("payment_reference") @db.VarChar(120)
+  paymentProofUrl      String?   @map("payment_proof_url") @db.LongText
+  paymentVerifiedAt    DateTime? @map("payment_verified_at")
+  paymentVerifiedBy    String?   @map("payment_verified_by") @db.VarChar(191)
+  paymentNotes         String?   @map("payment_notes") @db.VarChar(500)
+  branch               String?   @db.VarChar(120)
+  section              String?   @db.VarChar(64)
+  year                 Int?
+  gender               String?   @db.VarChar(20)
+  age                  Int?
+  residencyType        String?   @map("residency_type") @db.VarChar(32)
+  transportMode        String?   @map("transport_mode") @db.VarChar(32)
+  hostelType           String?   @map("hostel_type") @db.VarChar(32)
+  emergencyContact     String?   @map("emergency_contact") @db.VarChar(32)
+  teamName             String?   @map("team_name") @db.VarChar(120)
+  teamId               String?   @map("team_id") @db.VarChar(191)
+  isTeamLeader         Boolean   @default(false) @map("is_team_leader")
+  github               String?   @db.VarChar(120)
+  status               String    @default("REGISTERED") @db.VarChar(50)
+  attendanceMarked     Boolean   @default(false) @map("attendance_marked")
+  attendedAt           DateTime? @map("attended_at")
+  attendanceVerifiedBy String?   @map("attendance_verified_by") @db.VarChar(191)
+  qrCodeData           String?   @map("qr_code_data") @db.LongText
+  createdAt            DateTime  @default(now()) @map("created_at")
+  event                Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@unique([eventId, userId])
   @@index([eventId])
   @@index([userId])
+  @@index([teamId])
   @@map("event_registrations")
+}
+
+model EventTeam {
+  id          String              @id @default(cuid()) @db.VarChar(191)
+  eventId     String              @map("event_id") @db.VarChar(191)
+  leaderId    String              @map("leader_id") @db.VarChar(191)
+  teamName    String              @map("team_name") @db.VarChar(120)
+  status      String              @default("FORMING") @db.VarChar(50)
+  createdAt   DateTime            @default(now()) @map("created_at")
+  updatedAt   DateTime            @updatedAt @map("updated_at")
+  event       Event               @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  leader      User                @relation("TeamLeader", fields: [leaderId], references: [id], onDelete: Cascade)
+  members     EventTeamMember[]
+
+  @@index([eventId])
+  @@index([leaderId])
+  @@map("event_teams")
+}
+
+model EventTeamMember {
+  id           String    @id @default(cuid()) @db.VarChar(191)
+  teamId       String    @map("team_id") @db.VarChar(191)
+  userId       String    @map("user_id") @db.VarChar(191)
+  status       String    @default("INVITED") @db.VarChar(50)
+  invitedAt    DateTime  @default(now()) @map("invited_at")
+  respondedAt  DateTime? @map("responded_at")
+  team         EventTeam @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@index([teamId])
+  @@index([userId])
+  @@map("event_team_members")
 }
 
 model GalleryAlbum {
@@ -414,4 +466,60 @@ model CouncilMessage {
   @@index([createdAt])
   @@map("council_messages")
 }
+
+model CampusReel {
+  id              String   @id @default(cuid()) @db.VarChar(191)
+  title           String   @db.VarChar(255)
+  description     String?  @db.LongText
+  url             String   @db.LongText
+  embedType       String   @default("EXTERNAL") @map("embed_type") @db.VarChar(50)
+  thumbnailUrl    String?  @map("thumbnail_url") @db.LongText
+  authorHandle    String?  @map("author_handle") @db.VarChar(120)
+  authorAvatar    String?  @map("author_avatar") @db.LongText
+  audioTitle      String?  @map("audio_title") @db.VarChar(255)
+  isAdminUpload   Boolean  @default(false) @map("is_admin_upload")
+  externalPostUrl String?  @map("external_post_url") @db.LongText
+  category        String   @default("CAMPUS_LIFE") @db.VarChar(100)
+  platformMode    String   @default("ALL") @map("platform_mode") @db.VarChar(50)
+  likesCount      Int      @default(0) @map("likes_count")
+  viewsCount      Int      @default(0) @map("views_count")
+  isActive        Boolean  @default(true) @map("is_active")
+  isFeatured      Boolean  @default(false) @map("is_featured")
+  postedBy        String   @map("posted_by") @db.VarChar(120)
+  authorRole      String   @map("author_role") @db.VarChar(60)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@index([platformMode])
+  @@index([isActive])
+  @@index([isAdminUpload])
+  @@index([createdAt])
+  @@map("campus_reels")
+}
+
+model ReelView {
+  id        String   @id @default(cuid()) @db.VarChar(191)
+  reelId    String   @map("reel_id") @db.VarChar(191)
+  userId    String   @map("user_id") @db.VarChar(191)
+  viewedAt  DateTime @default(now()) @map("viewed_at")
+
+  @@unique([reelId, userId])
+  @@index([userId])
+  @@index([reelId])
+  @@map("reel_views")
+}
+
+model ReelLike {
+  id        String   @id @default(cuid()) @db.VarChar(191)
+  reelId    String   @map("reel_id") @db.VarChar(191)
+  userId    String   @map("user_id") @db.VarChar(191)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([reelId, userId])
+  @@index([userId])
+  @@index([reelId])
+  @@map("reel_likes")
+}
+
 

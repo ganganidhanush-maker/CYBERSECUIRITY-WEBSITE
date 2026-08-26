@@ -32,6 +32,11 @@ import {
   listGalleryAlbums,
   listMembers,
   listPayments,
+  listReelsAdmin,
+  createReel,
+  importProfileReels,
+  updateReel,
+  deleteReel,
   reorderClubTeam,
   replyAdminSupportTicket,
   scanQrCode,
@@ -45,6 +50,11 @@ import {
   updateEvent,
   updateSupportTicketStatus,
   verifyPayment,
+  listAllEventPasses,
+  verifyRegistrationPaymentFast,
+  getPresidentDirectives,
+  updatePresidentDirectives,
+  togglePresidentDirectiveTodo,
 } from '../controllers/admin.controller.js'
 import {
   listAdminSubscriptions,
@@ -57,6 +67,7 @@ import {
   requirePermission,
   requirePresident,
   requirePrimaryPresident,
+  requireReelsManager,
 } from '../middleware/auth.js'
 import { adminWriteRateLimiter, authenticatedRateLimiter } from '../middleware/rate-limit.js'
 import { validateUserIdParam } from '../middleware/validate.js'
@@ -80,6 +91,11 @@ adminRouter.post('/members/:id/disable-2fa', requirePermission('ACCOUNT_MANAGEME
 adminRouter.post('/members/transfer-president', requirePrimaryPresident, adminWriteRateLimiter, asyncHandler(transferPresidentRole))
 adminRouter.post('/president/master-pin', requirePrimaryPresident, adminWriteRateLimiter, asyncHandler(setPresidentMasterPin))
 
+// Primary President Command Instructions & Directives (To-Dos)
+adminRouter.get('/president-directives', asyncHandler(getPresidentDirectives))
+adminRouter.put('/president-directives', requirePresident, adminWriteRateLimiter, asyncHandler(updatePresidentDirectives))
+adminRouter.patch('/president-directives/todos/:todoId/toggle', adminWriteRateLimiter, asyncHandler(togglePresidentDirectiveTodo))
+
 // Event Management & Studio
 adminRouter.get('/events', requirePermission('EVENTS_VIEW'), asyncHandler(listEvents))
 adminRouter.post('/events', requirePermission('EVENT_MANAGE'), adminWriteRateLimiter, asyncHandler(createEvent))
@@ -88,6 +104,10 @@ adminRouter.delete('/events/:eventId', requirePermission('EVENT_MANAGE'), adminW
 adminRouter.get('/events/:eventId/details', requirePermission('EVENT_MANAGE'), asyncHandler(getEventDetailsWithStats))
 adminRouter.get('/events/:eventId/export-csv', requirePermission('EVENT_MANAGE'), asyncHandler(exportEventRegistrationsCsv))
 adminRouter.get('/events/:eventId/registrations', requirePermission('REGISTRATIONS_VIEW'), asyncHandler(listEventRegistrations))
+
+// Event Passes & Attendance Roster
+adminRouter.get('/passes', requirePermission('REGISTRATIONS_VIEW'), asyncHandler(listAllEventPasses))
+adminRouter.post('/passes/:registrationId/verify-payment', requirePermission('PAYMENTS_VERIFY'), adminWriteRateLimiter, asyncHandler(verifyRegistrationPaymentFast))
 
 // Payment & Subscription Management
 adminRouter.get('/payments', requirePermission('PAYMENTS_VIEW'), asyncHandler(listPayments))
@@ -102,6 +122,13 @@ adminRouter.post('/gallery/albums', requirePermission('GALLERY_MANAGE'), adminWr
 adminRouter.post('/gallery/albums/:albumId/photos', requirePermission('GALLERY_MANAGE'), adminWriteRateLimiter, asyncHandler(addGalleryPhoto))
 adminRouter.delete('/gallery/albums/:albumId/photos/:photoId', requirePermission('GALLERY_MANAGE'), adminWriteRateLimiter, asyncHandler(deleteGalleryPhoto))
 adminRouter.delete('/gallery/albums/:albumId', requirePermission('GALLERY_MANAGE'), adminWriteRateLimiter, asyncHandler(deleteGalleryAlbum))
+
+// Campus & Event Reels Studio (President, VP, PR Team, Event Management, Media Lead, Admin)
+adminRouter.get('/reels', requireReelsManager, asyncHandler(listReelsAdmin))
+adminRouter.post('/reels', requireReelsManager, adminWriteRateLimiter, asyncHandler(createReel))
+adminRouter.post('/reels/import-profile', requireReelsManager, adminWriteRateLimiter, asyncHandler(importProfileReels))
+adminRouter.put('/reels/:id', requireReelsManager, adminWriteRateLimiter, asyncHandler(updateReel))
+adminRouter.delete('/reels/:id', requireReelsManager, adminWriteRateLimiter, asyncHandler(deleteReel))
 
 // Club Team & Leadership Management
 adminRouter.get('/team', requirePermission('TEAM_MANAGE'), asyncHandler(listClubTeam))

@@ -1,5 +1,5 @@
 import { prisma } from '../db/prisma.js'
-import { hasPermission, isAdmin, isPresident, isPrimaryPresident } from '../utils/safe-user.js'
+import { canManageReels, hasPermission, isAdmin, isPresident, isPrimaryPresident } from '../utils/safe-user.js'
 import { getActivePlatformMode, resolveUserPlatformRole } from '../services/platform-role.service.js'
 
 export async function requireAuth(request, response, next) {
@@ -59,4 +59,9 @@ export function requireRole(...allowedRoles) {
     if (isPrimaryPresident(request.user) || allowedRoles.includes(request.user?.role)) return next()
     return response.status(403).json({ message: 'Access denied: Unauthorized role.' })
   }
+}
+
+export function requireReelsManager(request, response, next) {
+  if (canManageReels(request.user)) return next()
+  return response.status(403).json({ message: 'Access denied: President, Vice President, PR Team, Event Management, Media Lead, or Admin role required to manage reels.' })
 }

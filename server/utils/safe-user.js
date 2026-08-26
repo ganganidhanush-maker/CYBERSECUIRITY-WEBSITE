@@ -1,9 +1,70 @@
+export const ROLE_DEFAULT_PERMISSIONS = {
+  PRESIDENT: [
+    'ACCOUNT_MANAGEMENT', 'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE',
+    'EVENT_REGISTER', 'REGISTRATIONS_VIEW', 'PAYMENTS_VIEW', 'PAYMENTS_VERIFY',
+    'QR_PASSES_VIEW', 'GALLERY_VIEW', 'GALLERY_MANAGE', 'REELS_MANAGE',
+    'TEAM_MANAGE', 'SETTINGS_MANAGE', 'AUDIT_VIEW', 'CHAT_USE',
+    'SUGGESTIONS_CREATE', 'FEEDBACK_CREATE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  ADMIN: [
+    'ACCOUNT_MANAGEMENT', 'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE',
+    'EVENT_REGISTER', 'REGISTRATIONS_VIEW', 'PAYMENTS_VIEW', 'PAYMENTS_VERIFY',
+    'QR_PASSES_VIEW', 'GALLERY_VIEW', 'GALLERY_MANAGE', 'REELS_MANAGE',
+    'TEAM_MANAGE', 'SETTINGS_MANAGE', 'AUDIT_VIEW', 'CHAT_USE',
+    'SUGGESTIONS_CREATE', 'FEEDBACK_CREATE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  VICE_PRESIDENT: [
+    'ACCOUNT_MANAGEMENT', 'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE',
+    'EVENT_REGISTER', 'REGISTRATIONS_VIEW', 'QR_PASSES_VIEW', 'GALLERY_VIEW',
+    'GALLERY_MANAGE', 'REELS_MANAGE', 'TEAM_MANAGE', 'CHAT_USE',
+    'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  EVENT_MANAGEMENT: [
+    'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE', 'EVENT_REGISTER',
+    'REGISTRATIONS_VIEW', 'QR_PASSES_VIEW', 'REELS_MANAGE', 'CHAT_USE',
+    'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  MEDIA_LEAD: [
+    'DASHBOARD_VIEW', 'GALLERY_VIEW', 'GALLERY_MANAGE', 'REELS_MANAGE',
+    'EVENTS_VIEW', 'CHAT_USE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  PR_TEAM: [
+    'DASHBOARD_VIEW', 'REELS_MANAGE', 'GALLERY_VIEW', 'EVENTS_VIEW',
+    'CHAT_USE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  TREASURER: [
+    'DASHBOARD_VIEW', 'PAYMENTS_VIEW', 'PAYMENTS_VERIFY', 'REGISTRATIONS_VIEW',
+    'EVENTS_VIEW', 'CHAT_USE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  TECH_TEAM: [
+    'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE', 'SETTINGS_MANAGE',
+    'AUDIT_VIEW', 'CHAT_USE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  CULTURAL: [
+    'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE', 'GALLERY_VIEW',
+    'REELS_MANAGE', 'CHAT_USE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  SECRETARY: [
+    'DASHBOARD_VIEW', 'EVENTS_VIEW', 'REGISTRATIONS_VIEW', 'ACCOUNT_MANAGEMENT',
+    'CHAT_USE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  STUDENT: [
+    'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_REGISTER', 'QR_PASSES_VIEW',
+    'GALLERY_VIEW', 'SUGGESTIONS_CREATE', 'FEEDBACK_CREATE', 'NOTIFICATIONS_VIEW',
+    'PROFILE_EDIT',
+  ],
+}
+
 export function toSafeUser(user, platformMode = 'CYBER_SECURITY_CLUB') {
   const isMrdu = platformMode === 'MRDU_EVENTS'
   const isPrimary = Boolean(user?.isPrimaryAdmin)
   const cscRole = user?.cscRole || user?.role || 'STUDENT'
   const mrduRole = user?.mrduRole || (isPrimary ? 'PRESIDENT' : 'STUDENT')
   const effectiveRole = isPrimary ? 'PRESIDENT' : (isMrdu ? mrduRole : cscRole)
+
+  const explicitPerms = user?.permissions?.map(p => (typeof p === 'string' ? p : p.permission)) || []
+  const defaultPerms = ROLE_DEFAULT_PERMISSIONS[effectiveRole] || []
+  const allPermissions = Array.from(new Set([...defaultPerms, ...explicitPerms]))
 
   return {
     id: user.id,
@@ -14,12 +75,14 @@ export function toSafeUser(user, platformMode = 'CYBER_SECURITY_CLUB') {
     isPrimaryAdmin: isPrimary,
     accountStatus: user.accountStatus,
     twoFactorEnabled: user.totpEnabled || false,
-    permissions: user.permissions?.map(({ permission }) => permission) || [],
+    permissions: allPermissions,
     profile: user.profile ? {
       name: user.profile.name,
       rollNumber: user.profile.rollNumber,
       department: user.profile.department,
       year: user.profile.year,
+      gender: user.profile.gender || null,
+      age: user.profile.age || null,
       email: user.profile.email,
       phone: user.profile.phone,
       profileImage: user.profile.profileImage,
@@ -50,7 +113,24 @@ export function isAdmin(user) {
   return isClubAdmin(user)
 }
 
-export function hasPermission(user, permission) {
+export function canManageReels(user) {
+  if (!user) return false
   if (isPrimaryPresident(user)) return true
-  return Boolean(user?.permissions?.some(assignment => assignment.permission === permission))
+  const role = user.role || user.effectiveRole
+  return ['PRESIDENT', 'VICE_PRESIDENT', 'PR_TEAM', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'ADMIN'].includes(role) || hasPermission(user, 'REELS_MANAGE') || hasPermission(user, 'GALLERY_MANAGE')
+}
+
+export function hasPermission(user, permission) {
+  if (!user) return false
+  if (isPrimaryPresident(user)) return true
+  if (user?.role === 'PRESIDENT' || user?.role === 'ADMIN') return true
+
+  const defaultPerms = ROLE_DEFAULT_PERMISSIONS[user?.role] || []
+  if (defaultPerms.includes(permission)) return true
+
+  const explicitPerms = user?.permissions || []
+  return explicitPerms.some(p => {
+    const name = typeof p === 'string' ? p : p.permission
+    return name === permission
+  })
 }

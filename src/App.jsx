@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import clubLogo from './assets/branding/cyber-security-club-neon.jpg'
 import clubLogoDark from './assets/branding/cyber-security-club-logo.jpg'
 import mrduBanner from './assets/branding/mrdu-header-banner.png'
@@ -16,9 +16,13 @@ import './App.css'
 export const PlatformThemeContext = createContext({
   platformMode: 'CYBER_SECURITY_CLUB',
   setPlatformMode: () => {},
-  themeMode: 'system',
+  themeMode: 'light',
   setThemeMode: () => {},
-  resolvedTheme: 'dark',
+  resolvedTheme: 'light',
+  clubSettings: null,
+  setClubSettings: () => {},
+  reelsEnabled: true,
+  subEnabled: false,
 })
 
 export function usePlatformTheme() {
@@ -32,19 +36,341 @@ const CLUB_ROLES = [
   { id: 'TREASURER', label: 'Treasurer', roleType: 'admin' },
   { id: 'EVENT_MANAGEMENT', label: 'Event Management', roleType: 'admin' },
   { id: 'MEDIA_LEAD', label: 'Media Lead', roleType: 'admin' },
+  { id: 'SOCIAL_MEDIA_LEAD', label: 'Social Media Lead', roleType: 'admin' },
   { id: 'TECH_TEAM', label: 'Tech Team', roleType: 'admin' },
   { id: 'PR_TEAM', label: 'PR Team', roleType: 'admin' },
   { id: 'CULTURAL', label: 'Cultural', roleType: 'admin' },
   { id: 'SECRETARY', label: 'Secretary', roleType: 'admin' },
+  { id: 'ADMIN', label: 'Administrator', roleType: 'admin' },
+]
+
+const OFFICIAL_COLLEGES_LIST = [
+  'ACE Engineering College, Ghatkesar, Hyderabad',
+  'Adikavi Nannaya University, Rajahmundry',
+  'Aditya College of Engineering & Technology, Surampalem',
+  'Aditya Engineering College, Surampalem',
+  'Aditya University, Surampalem',
+  'AIIMS Bibinagar (All India Institute of Medical Sciences)',
+  'AIIMS Mangalagiri',
+  'AIIMS New Delhi',
+  'Amity University, Hyderabad / National Campuses',
+  'Amrita Vishwa Vidyapeetham (Amrita University)',
+  'Andhra Loyola Institute of Engineering and Technology, Vijayawada',
+  'Andhra University College of Engineering (AUCE), Visakhapatnam',
+  'Annamacharya Institute of Technology and Sciences (AITS), Rajampet',
+  'Annamacharya Institute of Technology and Sciences (AITS), Tirupati',
+  'Annamacharya University, Rajampet',
+  'Anurag College of Engineering, Aushapur, Ghatkesar',
+  'Anurag Engineering College, Kodad',
+  'Anurag University, Venkatapur, Hyderabad',
+  'Ashoka Institute of Engineering and Technology, Yadadri',
+  'Audisankara College of Engineering & Technology, Gudur',
+  'Aurora\'s Degree & PG College, Chikkadpally, Hyderabad',
+  'Aurora\'s Engineering College, Bhongir',
+  'Aurora\'s Scientific, Technological & Research Academy, Bandlaguda, Hyderabad',
+  'AVN Institute of Engineering and Technology (AVNIET), Ibrahimpatnam',
+  'B.E.S.T Innovation University, Andhra Pradesh',
+  'B.V. Raju Institute of Technology (BVRIT Autonomous), Narsapur, Medak',
+  'Bapatla Engineering College, Guntur',
+  'Bharat Institute of Engineering and Technology (BIET), Ibrahimpatnam',
+  'Bhaskar Engineering College, Yenkapally, Moinabad',
+  'BITS Pilani, Goa Campus',
+  'BITS Pilani, Hyderabad Campus, Shamirpet',
+  'BITS Pilani, Pilani Campus',
+  'BMS College of Engineering, Bengaluru',
+  'Brilliant Grammar School Educational Society\'s Group of Institutions, Abdullapurmet',
+  'Brilliant Institute of Engineering & Technology, Hayathnagar',
+  'BVRIT Hyderabad College of Engineering for Women (Autonomous), Bachupally',
+  'Central University of Andhra Pradesh (CUAP), Anantapur',
+  'Centurion University of Technology and Management, Vizianagaram',
+  'Chaitanya (Deemed to be University), Hanamkonda, Warangal',
+  'Chaitanya Bharathi Institute of Technology (CBIT Autonomous), Gandipet, Hyderabad',
+  'Christ University, Bengaluru / NCR / Lavasa',
+  'CMR College of Engineering & Technology (CMRCET Autonomous), Kandlakoya, Medchal',
+  'CMR Engineering College (CMREC Autonomous), Kandlakoya, Medchal',
+  'CMR Institute of Technology (CMRIT Autonomous), Kandlakoya, Medchal',
+  'CMR Technical Campus (CMRTC Autonomous), Kandlakoya, Medchal',
+  'College of Engineering Guindy, Anna University, Chennai',
+  'College of Engineering, Pune (COEP Technological University)',
+  'CVR College of Engineering (Autonomous), Mangalpalli, Ibrahimpatnam',
+  'D.Y. Patil International University, Pune',
+  'Damodaram Sanjivayya National Law University (DSNLU), Visakhapatnam',
+  'Delhi Technological University (DTU), New Delhi',
+  'Dhanekula Institute of Engineering and Technology, Ganguru, Vijayawada',
+  'Dr. B.R. Ambedkar Open University, Jubilee Hills, Hyderabad',
+  'Dr. B.R. Ambedkar University, Srikakulam',
+  'Dr. K.V. Subba Reddy Institute of Technology, Kurnool',
+  'Dr. YSR Architecture and Fine Arts University, Kadapa',
+  'Dravidian University, Srinivasavanam, Kuppam',
+  'Ellanki College of Engineering and Technology, Patancheru',
+  'English and Foreign Languages University (EFLU), Tarnaka, Hyderabad',
+  'G. Narayanamma Institute of Technology and Science for Women (GNITS Autonomous), Shaikpet',
+  'G. Pulla Reddy Engineering College (GPREC Autonomous), Kurnool',
+  'G. Pullaiah College of Engineering and Technology, Kurnool',
+  'Gayatri Vidya Parishad College of Engineering (GVPCE Autonomous), Visakhapatnam',
+  'Geethanjali College of Engineering and Technology (GCET Autonomous), Keesara, Hyderabad',
+  'GITAM Deemed to be University, Hyderabad Campus, Rudraram',
+  'GITAM Deemed to be University, Visakhapatnam Campus',
+  'Global Institute of Engineering and Technology, Chilkur, Moinabad',
+  'GMR Institute of Technology (GMRIT Autonomous), Rajam',
+  'Gokaraju Rangaraju Institute of Engineering and Technology (GRIET Autonomous), Bachupally',
+  'Gudlavalleru Engineering College (Seshadri Rao Gudlavalleru), Krishna District',
+  'Guru Nanak Institute of Technology (GNIT Autonomous), Ibrahimpatnam',
+  'Guru Nanak Institutions Technical Campus (GNITC Autonomous), Ibrahimpatnam',
+  'Gurunanak University, Ibrahimpatnam, Hyderabad',
+  'Hindustan Institute of Technology and Science (HITS), Padur, Chennai',
+  'Holy Mary Institute of Technology & Science (Autonomous), Bogaram, Keesara',
+  'Hyderabad Institute of Technology and Management (HITAM Autonomous), Medchal',
+  'ICFAI Foundation for Higher Education (IFHE / IBS / FST), Shankarpally, Hyderabad',
+  'IIIT Allahabad (Indian Institute of Information Technology)',
+  'IIIT Bangalore (International Institute of Information Technology)',
+  'IIIT Delhi (Indraprastha Institute of Information Technology)',
+  'IIIT Gwalior (ABV-IIITM)',
+  'IIIT Hyderabad (International Institute of Information Technology), Gachibowli',
+  'IIIT Jabalpur (PDPM IIITDM)',
+  'IIIT Kancheepuram (IIITDM)',
+  'IIIT Kottayam, Kerala',
+  'IIIT Kurnool (Indian Institute of Information Technology Design & Manufacturing)',
+  'IIIT Lucknow, Uttar Pradesh',
+  'IIIT Nagpur, Maharashtra',
+  'IIIT Pune, Maharashtra',
+  'IIIT Sri City, Chittoor, Andhra Pradesh',
+  'IIIT Vadodara, Gujarat',
+  'IIM Ahmedabad',
+  'IIM Bangalore',
+  'IIM Calcutta',
+  'IIM Visakhapatnam',
+  'IISc Bangalore (Indian Institute of Science)',
+  'IIT Bhubaneswar (Indian Institute of Technology)',
+  'IIT Bombay (Indian Institute of Technology Bombay, Powai)',
+  'IIT Delhi (Indian Institute of Technology Delhi, Hauz Khas)',
+  'IIT Gandhinagar (Indian Institute of Technology)',
+  'IIT Guwahati (Indian Institute of Technology)',
+  'IIT Hyderabad (Indian Institute of Technology Hyderabad, Kandi, Sangareddy)',
+  'IIT Indore (Indian Institute of Technology)',
+  'IIT Jodhpur (Indian Institute of Technology)',
+  'IIT Kanpur (Indian Institute of Technology Kanpur)',
+  'IIT Kharagpur (Indian Institute of Technology)',
+  'IIT Madras (Indian Institute of Technology Madras, Chennai)',
+  'IIT Mandi (Indian Institute of Technology)',
+  'IIT Palakkad (Indian Institute of Technology)',
+  'IIT Patna (Indian Institute of Technology)',
+  'IIT Roorkee (Indian Institute of Technology Roorkee)',
+  'IIT Ropar (Indian Institute of Technology)',
+  'IIT Tirupati (Indian Institute of Technology Tirupati, Yerpedu)',
+  'IIT Varanasi (BHU - Indian Institute of Technology)',
+  'Indian Statistical Institute (ISI), Kolkata / Delhi / Bengaluru / Hyderabad',
+  'Indur Institute of Engineering and Technology, Ponnal, Siddipet',
+  'Institute of Aeronautical Engineering (IARE Autonomous), Dundigal, Hyderabad',
+  'ISL Engineering College, Bandlaguda, Chandrayangutta, Hyderabad',
+  'J.B. Institute of Engineering and Technology (JBIET Autonomous), Moinabad, Hyderabad',
+  'Jadavpur University, Kolkata',
+  'Jamia Millia Islamia, New Delhi',
+  'Jawaharlal Nehru Architecture and Fine Arts University (JNAFAU), Masab Tank, Hyderabad',
+  'Jawaharlal Nehru Technological University Anantapur (JNTUA)',
+  'Jawaharlal Nehru Technological University Gurajada Vizianagaram (JNTUGV)',
+  'Jawaharlal Nehru Technological University Kakinada (JNTUK)',
+  'JNTU College of Engineering, Anantapur (JNTUACEA Autonomous)',
+  'JNTU College of Engineering, Hyderabad (JNTUH UCEH Autonomous), Kukatpally',
+  'JNTU College of Engineering, Jagtial (JNTUH UCEJ), Nachupally',
+  'JNTU College of Engineering, Kakinada (JNTUCEK Autonomous)',
+  'JNTU College of Engineering, Manthani (JNTUH UCEM), Centenary Colony',
+  'JNTU College of Engineering, Narasaraopet (JNTUK UCEN)',
+  'JNTU College of Engineering, Rajanna Sircilla (JNTUH UCES)',
+  'JNTU College of Engineering, Sultanpur (JNTUH UCESP), Sangareddy',
+  'JNTU College of Engineering, Vizianagaram (JNTUCEV Autonomous)',
+  'JNTU College of Engineering, Wanaparthy (JNTUH UCEW)',
+  'Joginpally B.R. Engineering College (JBREC), Yenkapally, Moinabad',
+  'Jyothishmathi Institute of Technology and Science, Nustulapur, Karimnagar',
+  'K L Deemed to be University, Bowrampet / Aziznagar, Hyderabad Campus',
+  'K L Deemed to be University, Vaddeswaram, Guntur / Vijayawada Campus',
+  'Kakatiya Institute of Technology and Science (KITS Autonomous), Yerragattu, Warangal',
+  'Kakatiya University College of Engineering and Technology (KUCE&T), Warangal',
+  'Kalasalingam Academy of Research and Education, Krishnankoil, Tamil Nadu',
+  'Kaloji Narayana Rao University of Health Sciences (KNRUHS), Warangal',
+  'Kamala Institute of Technology and Science (KITS), Singapuram, Huzurabad',
+  'Kasireddy Narayanreddy College of Engineering & Research, Abdullapurmet',
+  'Kaveri University, Hyderabad',
+  'Keshav Memorial Engineering College (KMEC), Kandlakoya',
+  'Keshav Memorial Institute of Technology (KMIT Autonomous), Narayanguda, Hyderabad',
+  'KG Reddy College of Engineering and Technology (KGRCET Autonomous), Moinabad',
+  'KKR & KSR Institute of Technology and Sciences (KITS Autonomous), Vinjanampadu, Guntur',
+  'Kshatriya College of Engineering (KCEA), Armoor, Nizamabad',
+  'Lakireddy Bali Reddy College of Engineering (LBRCE Autonomous), Mylavaram, Krishna District',
+  'Lords Institute of Engineering and Technology (LIET Autonomous), Himayat Sagar, Hyderabad',
+  'Loyola Academy Degree and PG College (Autonomous), Old Alwal, Secunderabad',
+  'Madanapalle Institute of Technology and Science (MITS Autonomous), Madanapalle',
+  'Madira Institute of Technology and Science, Kodad',
+  'Mahatma Gandhi Institute of Technology (MGIT Autonomous), Gandipet, Hyderabad',
+  'Mahatma Gandhi University, Anneparthy, Nalgonda',
+  'Mahindra University, Bahadurpally, Jeedimetla, Hyderabad',
+  'Malla Reddy College of Engineering & Technology (MRCET Autonomous), Maisammaguda, Secunderabad',
+  'Malla Reddy College of Engineering (MRCE), Maisammaguda, Secunderabad',
+  'Malla Reddy College of Engineering for Women (MRCW), Maisammaguda, Secunderabad',
+  'Malla Reddy (MR) Deemed to be University, Maisammaguda, Hyderabad',
+  'Malla Reddy Engineering College (MREC Autonomous), Maisammaguda, Secunderabad',
+  'Malla Reddy Engineering College for Women (MRECW Autonomous), Maisammaguda, Secunderabad',
+  'Malla Reddy Institute of Engineering & Technology (MRIET), Maisammaguda, Secunderabad',
+  'Malla Reddy Institute of Medical Sciences (MRIMS), Suraram, Hyderabad',
+  'Malla Reddy Institute of Pharmaceutical Sciences, Maisammaguda',
+  'Malla Reddy Institute of Technology & Science (MRITS), Maisammaguda, Secunderabad',
+  'Malla Reddy Pharmacy College, Maisammaguda',
+  'Malla Reddy University (MRU Private University), Maisammaguda, Hyderabad',
+  'Malla Reddy Women\'s College, Maisammaguda',
+  'Manipal Academy of Higher Education (MAHE - Manipal University), Manipal / Bengaluru',
+  'Manipal University, Jaipur',
+  'Matrusri Engineering College (MECS Autonomous), Saidabad, Hyderabad',
+  'Maulana Azad National Institute of Technology (MANIT), Bhopal',
+  'Maulana Azad National Urdu University (MANUU), Gachibowli, Hyderabad',
+  'Methodist College of Engineering and Technology (MCET Autonomous), Abids, Hyderabad',
+  'MLR Institute of Technology (MLRIT Autonomous), Dundigal, Hyderabad',
+  'MNR University / Medical College, Sangareddy',
+  'Muffakham Jah College of Engineering and Technology (MJCET), Banjara Hills, Hyderabad',
+  'MVGR College of Engineering (Autonomous), Chintalavalasa, Vizianagaram',
+  'MVSR Engineering College (Maturi Venkata Subba Rao Autonomous), Nadergul, Hyderabad',
+  'NALSAR University of Law, Justice City, Shamirpet, Hyderabad',
+  'Nalla Malla Reddy Engineering College (NMREC Autonomous), Divyanagar, Ghatkesar',
+  'Nalla Narasimha Reddy Education Society\'s Group of Institutions (NNRG Autonomous), Chowdariguda, Ghatkesar',
+  'Narasaraopeta Engineering College (NEC Autonomous), Narasaraopet',
+  'National Institute of Design (NID), Ahmedabad / Andhra Pradesh',
+  'National Institute of Fashion Technology (NIFT), Madhapur, Hyderabad',
+  'National Institute of Technology Calicut (NITC)',
+  'National Institute of Technology Karnataka (NITK Surathkal)',
+  'National Institute of Technology Rourkela (NIT Rourkela)',
+  'National Institute of Technology Tiruchirappalli (NIT Trichy)',
+  'National Institute of Technology Warangal (NIT Warangal / NITW)',
+  'National Institute of Technology, Andhra Pradesh (NIT Tadepalligudem)',
+  'Nawab Shah Alam Khan College of Engineering and Technology, New Malakpet, Hyderabad',
+  'Neil Gogte Institute of Technology (NGIT), Peerzadiguda, Uppal, Hyderabad',
+  'Netaji Subhas University of Technology (NSUT), New Delhi',
+  'NICMAR University, Shamirpet, Hyderabad',
+  'NMIMS Deemed to be University, Jadcherla / Tarnaka, Hyderabad Campus',
+  'Osmania University College of Engineering (OUCE Autonomous), University Campus, Hyderabad',
+  'Osmania University College of Technology (OUCT Autonomous), University Campus, Hyderabad',
+  'Osmania University (Main Campus), Tarnaka, Hyderabad',
+  'Palamuru University, Bandameedipally, Mahabubnagar',
+  'PES University, Ring Road / Electronic City, Bengaluru',
+  'Pragati Engineering College (Autonomous), Surampalem, Kakinada',
+  'Prasad V. Potluri Siddhartha Institute of Technology (PVPSIT Autonomous), Kanuru, Vijayawada',
+  'Princeton Institute of Engineering and Technology for Women, Chowdaryguda, Ghatkesar',
+  'Professor Jayashankar Telangana State Agricultural University (PJTSAU), Rajendranagar, Hyderabad',
+  'PSG College of Technology, Peelamedu, Coimbatore',
+  'R.V. College of Engineering (RVCE), Bengaluru',
+  'Rajiv Gandhi University of Knowledge Technologies (RGUKT - IIIT Basar), Nirmal, Telangana',
+  'Rajiv Gandhi University of Knowledge Technologies (RGUKT - IIIT Nuzvid), Andhra Pradesh',
+  'Rajiv Gandhi University of Knowledge Technologies (RGUKT - IIIT RK Valley / Idupulapaya), Kadapa',
+  'Rajiv Gandhi University of Knowledge Technologies (RGUKT - IIIT Srikakulam), Andhra Pradesh',
+  'Rajiv Gandhi University of Knowledge Technologies (RGUKT - IIIT Ongole), Andhra Pradesh',
+  'Rashtriya Sanskrit Vidyapeetha (National Sanskrit University), Tirupati',
+  'RGM College of Engineering and Technology (RGMCET Autonomous), Nandyal',
+  'S.R. International Institute of Technology (SRIIT), Rampally, Keesara',
+  'Sai Spurthi Institute of Technology, B. Gangaram, Sathupally, Khammam',
+  'Sammakka Sarakka Central Tribal University, Mulugu, Telangana',
+  'Samskruti College of Engineering and Technology, Kondapur, Ghatkesar',
+  'Santhiram Engineering College, Nandyal',
+  'Sardar Vallabhbhai National Institute of Technology (SVNIT), Surat',
+  'Satavahana University, Malkapur Road, Karimnagar',
+  'Scient Institute of Technology, Ibrahimpatnam',
+  'Seshadri Rao Gudlavalleru Engineering College (SRGEC Autonomous), Gudlavalleru',
+  'Shadan College of Engineering and Technology, Peerancheru, Himayat Sagar Road, Hyderabad',
+  'Shadan Women\'s College of Engineering and Technology, Khairatabad, Hyderabad',
+  'Shiv Nadar University, Greater Noida, Delhi-NCR / Chennai',
+  'Shri Ramdeobaba College of Engineering and Management (RCOEM), Nagpur',
+  'Siddhartha Academy of Higher Education, Vijayawada',
+  'Siddhartha Institute of Engineering and Technology, Vinobha Nagar, Ibrahimpatnam',
+  'Siddhartha Institute of Technology and Sciences, Narapally, Korremula, Ghatkesar',
+  'Sphoorthy Engineering College (Autonomous), Nadergul, Sagar Road, Hyderabad',
+  'SR University (SRU Private University), Ananthasagar, Hasanparthy, Warangal',
+  'Sree Chaitanya College of Engineering, LMD Colony, Karimnagar',
+  'Sree Dattha Group of Educational Institutions, Sheriguda, Ibrahimpatnam',
+  'Sree Dattha Institute of Engineering and Science, Sheriguda, Ibrahimpatnam',
+  'Sree Rama Engineering College, Rami Reddy Nagar, Tirupati',
+  'Sree Vahini Institute of Science and Technology, Tiruvuru, Krishna District',
+  'Sree Venkateswara College of Engineering, Golden Nagar, Kodavalur, Nellore',
+  'Sree Vidyanikethan Engineering College (Mohan Babu University), Sree Sainath Nagar, Tirupati',
+  'Sreenidhi Institute of Science and Technology (SNIST Autonomous), Yamnampet, Ghatkesar',
+  'Sreenidhi University, Ghatkesar, Hyderabad',
+  'Sreyas Institute of Engineering and Technology (Autonomous), Bandlaguda, Nagole, Hyderabad',
+  'Sri Chandrasekharendra Saraswathi Viswa Mahavidyalaya (SCSVMV University), Kanchipuram',
+  'Sri Indu College of Engineering and Technology (Autonomous), Sheriguda, Ibrahimpatnam',
+  'Sri Indu Institute of Engineering and Technology, Sheriguda, Ibrahimpatnam',
+  'Sri Konda Laxman Telangana State Horticultural University, Mulugu, Siddipet',
+  'Sri Padmavati Mahila Visvavidyalayam (Women\'s University), Padmavathi Nagar, Tirupati',
+  'Sri Sai Jyothi Engineering College, Vattinagulapally, Gandipet',
+  'Sri Sairam Engineering College, West Tambaram, Chennai',
+  'Sri Sathya Sai Institute of Higher Learning, Prasanthi Nilayam, Puttaparthi',
+  'Sri Sivani College of Engineering, Chilakapalem, Srikakulam',
+  'Sri Vasavi Engineering College (Autonomous), Pedatadepalli, Tadepalligudem',
+  'Sri Venkateswara College of Engineering and Technology (SVCET Autonomous), R.V.S. Nagar, Chittoor',
+  'Sri Venkateswara College of Engineering, Karakambadi Road, Tirupati',
+  'Sri Venkateswara University College of Engineering (SVUCE Autonomous), Tirupati',
+  'Sri Venkateswara University (SVU), Tirupati',
+  'Sri Venkateswara Veterinary University, Tirupati',
+  'SRM Institute of Science and Technology (SRM University - Kattankulathur / Ramapuram), Chennai',
+  'SRM University AP, Neerukonda, Mangalagiri, Amaravati, Andhra Pradesh',
+  'SSN College of Engineering, Kalavakkam, Chennai',
+  'St. Ann\'s College of Engineering & Technology, Nayunipalli, Chirala',
+  'St. Joseph\'s Degree & PG College, King Koti, Hyderabad',
+  'St. Martin\'s Engineering College (SMEC Autonomous), Dhulapally, Secunderabad',
+  'St. Mary\'s Engineering College, Deshmukhi, Pochampally',
+  'St. Mary\'s Group of Institutions, Chebrolu, Guntur / Deshmukhi, Hyderabad',
+  'St. Peter\'s Engineering College (Autonomous), Maisammaguda, Medchal',
+  'Stanley College of Engineering and Technology for Women (Autonomous), Chapel Road, Abids, Hyderabad',
+  'Sumathi Reddy Institute of Technology for Women, Ananthasagar, Hasanparthy, Warangal',
+  'Suravaram Prathapa Reddy Telugu University, Public Gardens, Hyderabad',
+  'Symbiosis International University (SIU), Mamidipally, Hyderabad / Pune',
+  'Talla Padmavathi College of Engineering, Somidi, Kazipet, Warangal',
+  'Teegala Krishna Reddy Engineering College (TKREC), Medbowli, Meerpet, Hyderabad',
+  'Telangana University, Dichpally, Nizamabad',
+  'Thapar Institute of Engineering and Technology (TIET), Patiala, Punjab',
+  'TKR College of Engineering and Technology (TKRCET Autonomous), Medbowli, Meerpet, Hyderabad',
+  'Trinity College of Engineering and Technology, Bandarikunta, Peddapalli / Karimnagar',
+  'University College of Engineering, Kakatiya University, Kothagudem',
+  'University College of Engineering, Osmania University (UCEOU Autonomous), Hyderabad',
+  'University College of Technology, Osmania University (OUCT Autonomous), Hyderabad',
+  'University of Delhi (DU), New Delhi',
+  'University of Hyderabad (UoH / HCU Central University), Gachibowli, Hyderabad',
+  'Usha Rama College of Engineering and Technology, Telaprolu, Unguturu, Krishna District',
+  'Vaagdevi College of Engineering (Autonomous), Bollikunta, Warangal',
+  'Vaagdevi Engineering College, Bollikunta, Warangal',
+  'Vageshwari College of Engineering, Ramakrishna Colony, Karimnagar',
+  'Vardhaman College of Engineering (Autonomous), Kacharam, Shamshabad, Hyderabad',
+  'Vasavi College of Engineering (VCE Autonomous), Ibrahimbagh, Hyderabad',
+  'Veera Naari Chakali Ilamma Women\'s University (TMV), Koti, Hyderabad',
+  'Vel Tech Rangarajan Dr. Sagunthala R&D Institute of Science and Technology, Avadi, Chennai',
+  'Vellore Institute of Technology (VIT Bhopal University), Kothri Kalan, Madhya Pradesh',
+  'Vellore Institute of Technology (VIT University), Katpadi, Vellore / Chennai',
+  'Vellore Institute of Technology (VIT-AP University), Inavolu, Beside AP Secretariat, Amaravati',
+  'Vidya Jyothi Institute of Technology (VJIT Autonomous), Aziznagar Gate, C.B. Post, Hyderabad',
+  'Vignan Institute of Technology and Science (VITS Autonomous), Deshmukhi, Pochampally',
+  'Vignan\'s Foundation for Science, Technology and Research (Vignan University), Vadlamudi, Guntur',
+  'Vignan\'s Institute of Information Technology (VIIT Autonomous), Duvvada, Visakhapatnam',
+  'Vignan\'s Institute of Management and Technology for Women (VMTW), Kondapur, Ghatkesar',
+  'Vignana Bharathi Institute of Technology (VBIT Autonomous), Aushapur, Ghatkesar',
+  'Vijaya Krishna Institute of Technology & Sciences, Palamakula, Shamshabad',
+  'Vikas College of Engineering and Technology, Nunna, Vijayawada',
+  'Vikrama Simhapuri University, Kakutur, Nellore',
+  'Vishwa Vishwani Institute of Systems and Management, Boston House, Thumkunta',
+  'Vishnu Institute of Technology (VITB Autonomous), Vishnupur, Kovvada, Bhimavaram',
+  'Visvesvaraya National Institute of Technology (VNIT), South Ambazari Road, Nagpur',
+  'Vivekanandha College of Engineering for Women (Autonomous), Elayampalayam, Tiruchengode',
+  'VNR Vignana Jyothi Institute of Engineering and Technology (VNR VJIET Autonomous), Bachupally, Hyderabad',
+  'VR Siddhartha Engineering College (VRSEC Autonomous), Kanuru, Vijayawada',
+  'Woxsen University, Kamkole, Sadasivpet, Sangareddy, Telangana',
+  'Yogi Vemana University (YVU), Vemanapuram, Kadapa',
+  'Young India Skill University (YISU), Hyderabad',
+  'Other / External University (Specify Below)',
 ]
 
 const BRANCH_OPTIONS = ['CSE', 'ECE', 'EEE', 'CE', 'ME', 'IT', 'BBA', 'MBA', 'IoT']
 const CSE_SPECIALIZATIONS = ['AIML', 'CS', 'DS', 'General', 'IT', 'IOT', 'AIDS']
 const ACADEMIC_YEARS = [
-  { value: 1, label: '1st Year' },
-  { value: 2, label: '2nd Year' },
-  { value: 3, label: '3rd Year' },
-  { value: 4, label: '4th Year' },
+  { value: 1, label: '1st Year (Freshman / UG)' },
+  { value: 2, label: '2nd Year (Sophomore / UG)' },
+  { value: 3, label: '3rd Year (Junior / UG)' },
+  { value: 4, label: '4th Year (Senior / UG)' },
+  { value: 5, label: 'Postgraduate (M.Tech / MCA / MS / MBA)' },
+  { value: 6, label: 'PhD / Research Scholar' },
 ]
 
 function getRoleLabel(roleId) {
@@ -268,7 +594,7 @@ function IntroVideoExperience({ onComplete }) {
                 letterSpacing: '.08em',
                 display: 'block',
               }}>
-                {canProceed ? '✓ 2:00 COMPLETED' : `⏱️ ${Math.floor(secondsWatched / 60)}:${String(secondsWatched % 60).padStart(2, '0')} / 2:00`}
+                {canProceed ? '✓ 2:00 COMPLETED' : `TIME: ${Math.floor(secondsWatched / 60)}:${String(secondsWatched % 60).padStart(2, '0')} / 2:00`}
               </span>
               <small style={{ color: 'var(--text-muted)', fontSize: '9px', font: '500 9px "DM Mono", monospace' }}>
                 {canProceed ? 'REQUIREMENT SATISFIED' : `${remainingSeconds}s REMAINING (${progressPercent}%)`}
@@ -304,7 +630,9 @@ function IntroVideoExperience({ onComplete }) {
         {/* Footer with Live Instructions and Entry Action */}
         <div style={{ padding: '18px 24px', background: 'var(--bg-input)', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '18px' }}>{canProceed ? '🎉' : '⏳'}</span>
+            <span style={{ display: 'inline-flex', padding: '6px', borderRadius: '50%', background: canProceed ? 'rgba(16, 185, 129, 0.15)' : 'var(--brand-badge-bg)', color: canProceed ? '#10b981' : 'var(--brand-primary)' }}>
+              {canProceed ? <IconCheckCircle size={18} /> : <IconSparkles size={18} />}
+            </span>
             <div>
               <p style={{ margin: 0, color: 'var(--text-main)', fontSize: '12px', fontWeight: 600 }}>
                 {canProceed
@@ -338,7 +666,7 @@ function IntroVideoExperience({ onComplete }) {
               ? 'PREPARING DASHBOARD…'
               : canProceed
               ? 'ENTER PORTAL DASHBOARD →'
-              : `🔒 COMPLETE VIDEO (WAIT ${remainingSeconds}s)`}
+              : `COMPLETE VIDEO (${remainingSeconds}s)`}
           </button>
         </div>
       </div>
@@ -423,7 +751,9 @@ function HibernationScreen({ onAdminLogin }) {
       <div className="grid-overlay" />
       <div className="hibernation-card">
         <Crest />
-        <span className="hibernation-badge">💤 SITE STATUS · HIBERNATING</span>
+        <span className="hibernation-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <IconAlertTriangle size={13} /> SITE STATUS · HIBERNATION ACTIVE
+        </span>
         <h1 className="hibernation-title">PORTAL IN HIBERNATION</h1>
         <p className="hibernation-desc">
           The Cyber Security Club website is temporarily in hibernation mode for scheduled community maintenance.
@@ -605,39 +935,212 @@ function IconUserSvg({ size = 13, style = {} }) {
   )
 }
 
+function IconHeart({ size = 18, filled = false, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? '#ef4444' : 'none'} stroke={filled ? '#ef4444' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)', ...style }}>
+      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+    </svg>
+  )
+}
+
+function IconLink({ size = 16, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </svg>
+  )
+}
+
+function IconChevronUp({ size = 16, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <polyline points="18 15 12 9 6 15" />
+    </svg>
+  )
+}
+
+function IconChevronDown({ size = 16, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  )
+}
+
+function IconTrash({ size = 14, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    </svg>
+  )
+}
+
+function IconRefresh({ size = 14, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+    </svg>
+  )
+}
+
+function IconInstagram({ size = 16, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <rect x="2" y="2" width="20" height="20" rx="5" ry="5" /><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" /><line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
+    </svg>
+  )
+}
+
+function IconYouTube({ size = 16, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z" /><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02" />
+    </svg>
+  )
+}
+
+function IconLinkedIn({ size = 16, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" /><rect x="2" y="9" width="4" height="12" /><circle cx="4" cy="4" r="2" />
+    </svg>
+  )
+}
+
+function IconGitHub({ size = 16, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
+    </svg>
+  )
+}
+
+function IconDiscord({ size = 16, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <path d="M18 6h0a14.5 14.5 0 0 0-4-1.5l-.2.5a12.5 12.5 0 0 0-3.6 0l-.2-.5A14.5 14.5 0 0 0 6 6a15.8 15.8 0 0 0-2 10c2 1.5 4 1.5 4 1.5l.6-.8a9.4 9.4 0 0 1-2.4-1.2l.2-.2c3.4 1.6 7.2 1.6 10.6 0l.2.2a9.4 9.4 0 0 1-2.4 1.2l.6.8s2 0 4-1.5a15.8 15.8 0 0 0-2-10z" /><circle cx="9" cy="12" r="1" fill="currentColor" /><circle cx="15" cy="12" r="1" fill="currentColor" />
+    </svg>
+  )
+}
+
+function IconWhatsApp({ size = 16, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+    </svg>
+  )
+}
+
+function IconGlobe({ size = 16, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
+  )
+}
+
+function IconMail({ size = 16, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" />
+    </svg>
+  )
+}
+
+function IconQrCode({ size = 16, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" />
+      <line x1="7" y1="7" x2="7.01" y2="7" strokeWidth="3" /><line x1="17" y1="7" x2="17.01" y2="7" strokeWidth="3" /><line x1="7" y1="17" x2="7.01" y2="17" strokeWidth="3" />
+    </svg>
+  )
+}
+
+function IconUsers({ size = 16, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  )
+}
+
+function IconUpload({ size = 16, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  )
+}
+
+function IconHeadset({ size = 16, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <path d="M3 18v-6a9 9 0 0 1 18 0v6" /><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
+    </svg>
+  )
+}
+
+function IconFlame({ size = 14, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3.5z" />
+    </svg>
+  )
+}
+
+function IconVideo({ size = 16, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
+    </svg>
+  )
+}
+
+function IconExternalLink({ size = 13, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
+    </svg>
+  )
+}
+
+function IconShieldCheck({ size = 16, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><polyline points="9 12 11 14 15 10" />
+    </svg>
+  )
+}
+
+function IconSparkles({ size = 16, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z" />
+    </svg>
+  )
+}
+
 // ----------------------------------------------------
 // Navigation, Header & LivePortal Frame
 // ----------------------------------------------------
 function Sidebar({ user, logout, activeTab, onNavigate, isOpen, onClose }) {
-  const { platformMode } = usePlatformTheme()
+  const { platformMode, reelsEnabled, subEnabled } = usePlatformTheme()
   const isMrdu = platformMode === 'MRDU_EVENTS'
   const perms = user.permissions || []
   const has = perm => user.isPrimaryAdmin || perms.includes(perm)
-  const [subEnabled, setSubEnabled] = useState(false)
-
-  useEffect(() => {
-    let mounted = true
-    memberApi.getPublicClubSettings()
-      .then(({ settings }) => {
-        if (!mounted) return
-        const isEnabled = settings?.subscriptionEnabled === true || settings?.subscriptionEnabled === 'true'
-        setSubEnabled(isEnabled)
-      })
-      .catch(() => {})
-    return () => { mounted = false }
-  }, [])
 
   const navItems = user.isAdminUser
     ? [
         [<Icon8 name="protect" size={17} />, isMrdu ? 'Portal Home' : 'Dashboard', 'admin-dashboard', true],
         [<Icon8 name="faceId" size={17} />, 'QR Entry Gate', 'admin-qr-scanner', has('EVENTS_VIEW') || has('EVENT_MANAGE') || user.isAdminUser],
-        [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Participants' : 'Members', 'admin-members', has('ACCOUNT_MANAGEMENT')],
+        [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Participants' : 'Members', 'admin-members', has('ACCOUNT_MANAGEMENT') || user.isPrimaryAdmin || ['PRESIDENT', 'VICE_PRESIDENT', 'ADMIN', 'SECRETARY'].includes(user.role)],
         [<Icon8 name="realtime" size={17} />, 'Event Studio', 'admin-events', has('EVENTS_VIEW') || has('EVENT_MANAGE')],
         [<Icon8 name="access" size={17} />, isMrdu ? 'Pass Subscriptions' : 'Subscriptions', 'admin-subscriptions', has('PAYMENTS_VIEW') || user.role === 'TREASURER' || user.role === 'PRESIDENT'],
-        [<Icon8 name="authentication" size={17} />, isMrdu ? 'Registrations & Pay' : 'Event Payments', 'admin-payments', has('PAYMENTS_VIEW')],
+        [<Icon8 name="authentication" size={17} />, isMrdu ? 'Passes & Payments' : 'Passes & Check-in', 'admin-passes', has('PAYMENTS_VIEW') || has('EVENTS_VIEW') || user.isAdminUser],
         [<Icon8 name="captcha" size={17} />, 'Helpdesk & Doubts', 'admin-support', true],
         [<Icon8 name="protect" size={17} />, 'Council Room', 'admin-chat', true],
         [<Icon8 name="irisScan" size={17} />, isMrdu ? 'Event Gallery' : 'Gallery', 'admin-gallery', has('GALLERY_VIEW') || has('GALLERY_MANAGE')],
+        [<Icon8 name="realtime" size={17} />, isMrdu ? 'MRDU Reels Studio' : 'Reels Studio', 'admin-reels', has('REELS_MANAGE') || has('GALLERY_MANAGE') || user.isPrimaryAdmin || ['PRESIDENT', 'VICE_PRESIDENT', 'PR_TEAM', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'ADMIN'].includes(user.role)],
         [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Organizing Team' : 'Team / Leaders', 'admin-team', has('TEAM_MANAGE')],
         [<Icon8 name="keySecurity" size={17} />, 'Settings & Links', 'admin-settings', has('SETTINGS_MANAGE')],
         [<Icon8 name="showPassword" size={17} />, 'Audit Log', 'admin-audit', has('AUDIT_VIEW')],
@@ -647,7 +1150,8 @@ function Sidebar({ user, logout, activeTab, onNavigate, isOpen, onClose }) {
     : [
         [<Icon8 name="protect" size={17} />, isMrdu ? 'Events Home' : 'Dashboard', 'student-dashboard', true],
         [<Icon8 name="realtime" size={17} />, 'Events Catalog', 'student-events', true],
-        [<Icon8 name="faceId" size={17} />, isMrdu ? 'My Event Passes' : 'My Passes', 'student-registrations', true],
+        [<Icon8 name="faceId" size={17} />, isMrdu ? 'My Event Passes' : 'My Passes', 'student-passes', true],
+        [<Icon8 name="realtime" size={17} />, isMrdu ? 'MRDU Reels' : 'Campus Reels', 'student-reels', reelsEnabled],
         [<Icon8 name="access" size={17} />, isMrdu ? 'Student Pass' : 'Membership', 'student-membership', subEnabled],
         [<Icon8 name="captcha" size={17} />, 'Helpdesk & Doubts', 'student-support', true],
         [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Organizing Team' : 'Our Team', 'student-team', true],
@@ -695,17 +1199,8 @@ function Sidebar({ user, logout, activeTab, onNavigate, isOpen, onClose }) {
 }
 
 function Header({ user, title, onProfile, onToggleNav, onOpenNotifications, unreadCount }) {
-  const { platformMode, themeMode, setThemeMode } = usePlatformTheme()
+  const { platformMode } = usePlatformTheme()
   const isMrdu = platformMode === 'MRDU_EVENTS'
-
-  function cycleTheme() {
-    if (themeMode === 'dark') setThemeMode('light')
-    else if (themeMode === 'light') setThemeMode('system')
-    else setThemeMode('dark')
-  }
-
-  const ThemeIconComponent = themeMode === 'light' ? IconSun : themeMode === 'dark' ? IconMoon : IconMonitor
-  const themeLabel = themeMode === 'light' ? 'Light' : themeMode === 'dark' ? 'Dark' : 'System'
 
   return (
     <header className="header">
@@ -719,18 +1214,6 @@ function Header({ user, title, onProfile, onToggleNav, onOpenNotifications, unre
         </div>
       </div>
       <div className="header-tools" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-        {/* Quick Theme Toggle */}
-        <button
-          type="button"
-          className="quick-theme-toggle"
-          onClick={cycleTheme}
-          title={`Theme: ${themeMode.toUpperCase()} (Click to toggle)`}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
-        >
-          <ThemeIconComponent size={14} />
-          <span>{themeLabel}</span>
-        </button>
-
         {/* In-App Notifications Bell */}
         <button
           type="button"
@@ -812,7 +1295,9 @@ function NotificationsModal({ isOpen, onClose, onNavigate }) {
       <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px', width: '100%', background: 'var(--bg-modal)', padding: '24px', borderRadius: '14px', border: '1px solid var(--line)', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '12px', marginBottom: '14px' }}>
           <div>
-            <h3 style={{ margin: 0, font: '700 18px Syne', color: 'var(--text-main)' }}>🔔 Notifications & Alerts</h3>
+            <h3 style={{ margin: 0, font: '700 18px Syne', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Icon8 name="idDocs" size={16} /> Notifications & Alerts
+            </h3>
             <small style={{ color: 'var(--text-muted)' }}>Updates on events, subscriptions, and support replies</small>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -911,7 +1396,10 @@ function LivePortal({ user, logout, activeTab, onNavigate, title, onUserUpdated,
 function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
-  const [collegeChoice, setCollegeChoice] = useState('Malla Reddy (MR) Deemed to be University')
+  const [gender, setGender] = useState('MALE')
+  const [age, setAge] = useState(19)
+  const [year, setYear] = useState(1)
+  const [collegeChoice, setCollegeChoice] = useState('Malla Reddy (MR) Deemed to be University, Maisammaguda, Hyderabad')
   const [customCollege, setCustomCollege] = useState('')
   const [branch, setBranch] = useState('CSE')
   const [specialization, setSpecialization] = useState('AIML')
@@ -920,7 +1408,8 @@ function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
 
   if (!isOpen) return null
 
-  const effectiveCollege = collegeChoice === 'Other' ? customCollege.trim() : collegeChoice
+  const isCustomCollege = collegeChoice === 'Other / External University (Specify Below)' || collegeChoice === 'Other'
+  const effectiveCollege = isCustomCollege ? customCollege.trim() : collegeChoice
 
   async function handleRegister(e) {
     e.preventDefault()
@@ -934,7 +1423,7 @@ function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
       setError('Please enter a valid email address.')
       return
     }
-    if (collegeChoice === 'Other' && !customCollege.trim()) {
+    if (isCustomCollege && !customCollege.trim()) {
       setError('Please enter your college name.')
       return
     }
@@ -944,6 +1433,9 @@ function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
       const payload = {
         name: name.trim(),
         email: email.trim(),
+        gender,
+        age: age ? Number(age) : null,
+        year: year ? Number(year) : 1,
         college: effectiveCollege,
         branch,
         specialization: branch === 'CSE' ? specialization : null,
@@ -955,6 +1447,7 @@ function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
         name: payload.name,
         college: payload.college,
         branch: payload.branch,
+        year: payload.year,
         specialization: payload.specialization,
         memberId: res.memberId,
         password: res.password,
@@ -964,6 +1457,7 @@ function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
         name: payload.name,
         college: payload.college,
         branch: payload.branch,
+        year: payload.year,
         specialization: payload.specialization,
         memberId: res.memberId,
         password: res.password,
@@ -980,12 +1474,12 @@ function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
       <div className="guest-modal-content" onClick={e => e.stopPropagation()}>
         <button className="lightbox-close" onClick={onClose}>✕</button>
         
-        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <Crest small />
-          <span className="badge badge-registered" style={{ marginTop: '10px', display: 'inline-block' }}>
+          <span className="badge badge-registered" style={{ margin: '12px auto 6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
             STUDENT PORTAL REGISTRATION
           </span>
-          <h2 style={{ font: '700 22px Syne', color: 'var(--text-main)', margin: '8px 0 4px' }}>
+          <h2 style={{ font: '700 22px Syne', color: 'var(--text-main)', margin: '4px 0 4px' }}>
             Create Student Account
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>
@@ -994,8 +1488,8 @@ function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
         </div>
 
         {error && (
-          <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid #ef444455', color: '#fca5a5', fontSize: '12px', marginBottom: '16px' }} role="alert">
-            ⚠️ {error}
+          <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid #ef444455', color: '#fca5a5', fontSize: '12px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }} role="alert">
+            <IconAlertTriangle size={14} /> {error}
           </div>
         )}
 
@@ -1021,20 +1515,47 @@ function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
             />
           </div>
 
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px', marginBottom: '14px' }}>
+            <div className="guest-field-group" style={{ margin: 0 }}>
+              <label>Gender *</label>
+              <select
+                value={gender}
+                onChange={e => setGender(e.target.value)}
+              >
+                <option value="MALE">Male</option>
+                <option value="FEMALE">Female</option>
+                <option value="OTHER">Other / Non-Binary</option>
+              </select>
+            </div>
+            <div className="guest-field-group" style={{ margin: 0 }}>
+              <label>Age *</label>
+              <input
+                type="number"
+                min="15"
+                max="60"
+                required
+                placeholder="19"
+                value={age}
+                onChange={e => setAge(e.target.value)}
+              />
+            </div>
+          </div>
+
           <div className="guest-field-group">
             <label>College / Institution Name *</label>
             <select
               value={collegeChoice}
               onChange={e => setCollegeChoice(e.target.value)}
             >
-              <option value="Malla Reddy (MR) Deemed to be University">Malla Reddy (MR) Deemed to be University</option>
-              <option value="Other">Other (Enter Manually)</option>
+              {OFFICIAL_COLLEGES_LIST.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
             </select>
           </div>
 
-          {collegeChoice === 'Other' && (
+          {isCustomCollege && (
             <div className="guest-field-group">
-              <label>Enter College Name *</label>
+              <label>Enter College / University Name *</label>
               <input
                 required
                 placeholder="e.g. JNTU Hyderabad / Osmania University"
@@ -1044,16 +1565,30 @@ function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
             </div>
           )}
 
-          <div className="guest-field-group">
-            <label>Branch / Department *</label>
-            <select
-              value={branch}
-              onChange={e => setBranch(e.target.value)}
-            >
-              {BRANCH_OPTIONS.map(b => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </select>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '12px', marginBottom: '14px' }}>
+            <div className="guest-field-group" style={{ margin: 0 }}>
+              <label>Academic Year *</label>
+              <select
+                value={year}
+                onChange={e => setYear(Number(e.target.value))}
+              >
+                {ACADEMIC_YEARS.map(y => (
+                  <option key={y.value} value={y.value}>{y.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="guest-field-group" style={{ margin: 0 }}>
+              <label>Branch / Department *</label>
+              <select
+                value={branch}
+                onChange={e => setBranch(e.target.value)}
+              >
+                {BRANCH_OPTIONS.map(b => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {branch === 'CSE' && (
@@ -1071,7 +1606,9 @@ function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
           )}
 
           <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '8px', padding: '12px', margin: '16px 0', fontSize: '11px', color: 'var(--brand-primary)' }}>
-            🔒 <b>Automated Credentials & ID Pass Generation:</b>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
+              <IconShieldCheck size={14} /> Automated Credentials & ID Pass Generation:
+            </span>
             <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', lineHeight: '1.5' }}>
               Your unique <b>Guest Member ID</b> (e.g. <code>GUEST2026001</code>) and a <b>14-character secure password</b> will be automatically generated. An official <b>ID Pass.png</b> will be downloaded directly to your device.
             </p>
@@ -1090,9 +1627,9 @@ function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
               type="submit"
               className="primary"
               disabled={submitting}
-              style={{ flex: 2, height: '42px', fontSize: '11px' }}
+              style={{ flex: 2, height: '42px', fontSize: '11px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
             >
-              {submitting ? 'GENERATING ID PASS…' : '⚡ CREATE ACCOUNT & DOWNLOAD PASS'}
+              {submitting ? 'GENERATING ID PASS…' : <><IconSparkles size={13} /> CREATE ACCOUNT & DOWNLOAD PASS</>}
             </button>
           </div>
         </form>
@@ -1107,7 +1644,9 @@ function GuestCredentialsSuccessModal({ data, onClose, onProceedToLogin }) {
   return (
     <div className="photo-lightbox">
       <div className="guest-modal-content" style={{ textAlign: 'center', maxWidth: '520px' }}>
-        <span style={{ fontSize: '42px', display: 'block', marginBottom: '8px' }}>🎉</span>
+        <span style={{ display: 'inline-flex', padding: '14px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', marginBottom: '12px' }}>
+          <IconShieldCheck size={36} />
+        </span>
         <h2 style={{ color: 'var(--text-main)', font: '700 22px Syne', margin: '0 0 4px' }}>
           Account Created Successfully!
         </h2>
@@ -1121,8 +1660,14 @@ function GuestCredentialsSuccessModal({ data, onClose, onProceedToLogin }) {
             <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>{data.name}</span>
           </div>
           <div className="cred-row">
-            <span className="cred-label">COLLEGE</span>
+            <span className="cred-label">COLLEGE / INSTITUTION</span>
             <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{data.college}</span>
+          </div>
+          <div className="cred-row">
+            <span className="cred-label">ACADEMIC YEAR</span>
+            <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+              {ACADEMIC_YEARS.find(y => y.value === Number(data.year))?.label || `Year ${data.year || 1}`}
+            </span>
           </div>
           <div className="cred-row">
             <span className="cred-label">BRANCH</span>
@@ -1147,9 +1692,9 @@ function GuestCredentialsSuccessModal({ data, onClose, onProceedToLogin }) {
             type="button"
             className="action-btn"
             onClick={() => downloadIdPass(data)}
-            style={{ width: '100%', height: '40px', background: 'var(--panel-elevated)', color: 'var(--brand-primary)', border: '1px solid var(--brand-border-subtle)', fontSize: '11px', fontWeight: 600 }}
+            style={{ width: '100%', height: '40px', background: 'var(--panel-elevated)', color: 'var(--brand-primary)', border: '1px solid var(--brand-border-subtle)', fontSize: '11px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
           >
-            ⬇ DOWNLOAD ID PASS.PNG AGAIN
+            <IconDownload size={13} /> DOWNLOAD ID PASS.PNG AGAIN
           </button>
           <button
             type="button"
@@ -1169,45 +1714,50 @@ function ForgotPasswordModal({ isOpen, onClose }) {
   const [copied, setCopied] = useState(false)
   if (!isOpen) return null
 
-  function copyEmail() {
-    navigator.clipboard?.writeText('cyberclubmrdu2025@gmail.com')
-    setCopied(true)
-    setTimeout(() => setCopied(false), 3000)
+  function handleCopy() {
+    navigator.clipboard?.writeText('cybersecurityclub@mrdu.edu').then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2200)
+    }).catch(() => {})
   }
 
   return (
     <div className="photo-lightbox" onClick={onClose}>
       <div className="guest-modal-content" onClick={e => e.stopPropagation()} style={{ textAlign: 'center', maxWidth: '480px' }}>
         <button className="lightbox-close" onClick={onClose}>✕</button>
-        <span style={{ fontSize: '38px', display: 'block', marginBottom: '12px' }}>🔐</span>
-        <h3 style={{ color: 'var(--text-main)', margin: '0 0 8px', font: '700 20px Syne' }}>Password Assistance & Recovery</h3>
-        <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.6', margin: '0 0 20px' }}>
-          To reset your password or for student/leadership account assistance, please contact the official Cyber Security Club administration directly:
+        <span style={{ display: 'inline-flex', padding: '14px', borderRadius: '50%', background: 'var(--brand-badge-bg)', color: 'var(--brand-primary)', marginBottom: '12px' }}>
+          <IconHeadset size={32} />
+        </span>
+        <h2 style={{ color: 'var(--text-main)', font: '700 20px Syne', margin: '0 0 6px' }}>
+          Account Recovery & Support
+        </h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: '1.6', margin: '0 0 20px' }}>
+          For account recovery, password reset, or credential lookup, please reach out to the Club Executive Team or visit the Department Office with your College ID.
         </p>
-        
-        <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '8px', padding: '16px', marginBottom: '18px' }}>
-          <small style={{ color: 'var(--text-dim)', font: '600 10px "DM Mono", monospace', display: 'block', marginBottom: '6px' }}>
-            OFFICIAL CLUB SUPPORT DESK
-          </small>
-          <a href="mailto:cyberclubmrdu2025@gmail.com" style={{ color: 'var(--brand-primary)', fontSize: '16px', fontWeight: 700, textDecoration: 'none', display: 'block', marginBottom: '10px' }}>
-            cyberclubmrdu2025@gmail.com
-          </a>
-          <button
-            type="button"
-            onClick={copyEmail}
-            style={{ background: 'var(--bg-card)', border: '1px solid var(--brand-border-subtle)', color: 'var(--brand-primary)', padding: '6px 14px', borderRadius: '6px', fontSize: '10px', cursor: 'pointer', font: '600 10px "DM Mono", monospace' }}
-          >
-            {copied ? '✓ COPIED TO CLIPBOARD' : '📋 COPY EMAIL ADDRESS'}
-          </button>
+
+        <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '10px', padding: '14px', marginBottom: '20px', textAlign: 'left' }}>
+          <small style={{ color: 'var(--text-dim)', fontSize: '10px', fontWeight: 700, display: 'block', textTransform: 'uppercase' }}>OFFICIAL HELPDESK EMAIL</small>
+          <code style={{ fontSize: '13px', color: 'var(--brand-primary)', display: 'block', marginTop: '4px', wordBreak: 'break-all' }}>cybersecurityclub@mrdu.edu</code>
         </div>
 
-        <p style={{ color: 'var(--text-muted)', fontSize: '11px', lineHeight: '1.5', margin: '0 0 20px' }}>
-          When emailing, please provide your <b>Full Name</b>, <b>College Roll Number / Member ID</b>, and <b>College Name</b> so the admin team can verify your profile.
-        </p>
-
-        <button className="primary" type="button" onClick={onClose} style={{ width: '100%', height: '42px', fontSize: '11px' }}>
-          CLOSE
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            type="button"
+            className="action-btn"
+            onClick={handleCopy}
+            style={{ flex: 1, height: '42px', background: 'var(--panel-elevated)', color: 'var(--brand-primary)', border: '1px solid var(--brand-border-subtle)', fontSize: '11px', fontWeight: 600 }}
+          >
+            {copied ? '✓ COPIED TO CLIPBOARD' : 'COPY EMAIL ADDRESS'}
+          </button>
+          <button
+            type="button"
+            className="primary"
+            onClick={onClose}
+            style={{ flex: 1, height: '42px', fontSize: '11px' }}
+          >
+            CLOSE
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -1215,6 +1765,7 @@ function ForgotPasswordModal({ isOpen, onClose }) {
 
 function FinalLogin({ onSignIn, onForgotPassword }) {
   const [error, setError] = useState('')
+  const [errorCode, setErrorCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [memberIdVal, setMemberIdVal] = useState('')
@@ -1226,6 +1777,53 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
 
   const { platformMode, themeMode, setThemeMode } = usePlatformTheme()
   const isMrdu = platformMode === 'MRDU_EVENTS'
+
+  // Cursor-reactive grid
+  const showcaseRef = useRef(null)
+  const handleShowcaseMouseMove = useCallback((e) => {
+    const el = showcaseRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    const pctX = (x / rect.width) * 100
+    const pctY = (y / rect.height) * 100
+    // Grid parallax offset (subtle, ±8px)
+    const ox = ((x / rect.width) - 0.5) * 16
+    const oy = ((y / rect.height) - 0.5) * 16
+    el.style.setProperty('--gx', `${pctX}%`)
+    el.style.setProperty('--gy', `${pctY}%`)
+    el.style.setProperty('--ox', `${ox}px`)
+    el.style.setProperty('--oy', `${oy}px`)
+  }, [])
+  const handleShowcaseMouseLeave = useCallback(() => {
+    const el = showcaseRef.current
+    if (!el) return
+    el.style.setProperty('--gx', '50%')
+    el.style.setProperty('--gy', '40%')
+    el.style.setProperty('--ox', '0px')
+    el.style.setProperty('--oy', '0px')
+  }, [])
+
+  // Interactive Login Card Dynamic Spotlight
+  const loginCardRef = useRef(null)
+  const handleCardMouseMove = useCallback((e) => {
+    const el = loginCardRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    const pctX = (x / rect.width) * 100
+    const pctY = (y / rect.height) * 100
+    el.style.setProperty('--card-x', `${pctX}%`)
+    el.style.setProperty('--card-y', `${pctY}%`)
+  }, [])
+  const handleCardMouseLeave = useCallback(() => {
+    const el = loginCardRef.current
+    if (!el) return
+    el.style.setProperty('--card-x', '50%')
+    el.style.setProperty('--card-y', '30%')
+  }, [])
 
   useEffect(() => {
     if (isMrdu) {
@@ -1242,18 +1840,23 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
     const password = String(form.get('password') || '')
     if (!/^[A-Z0-9]{5,32}$/.test(memberId) || password.length < 12) {
       setError('Enter a valid Member ID and password (12+ characters).')
+      setErrorCode('')
       return
     }
     setError('')
+    setErrorCode('')
     setLoading(true)
     try {
       await onSignIn(memberId, password)
     } catch (requestError) {
       setError(requestError.message || 'Unable to sign in.')
+      setErrorCode(requestError.code || '')
     } finally {
       setLoading(false)
     }
   }
+
+  const isAccountDisabled = errorCode === 'ACCOUNT_DISABLED' || error.toLowerCase().includes('disabled') || error.toLowerCase().includes('technical team')
 
   if (isMrdu) {
     return (
@@ -1315,9 +1918,9 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
                 ✕
               </button>
 
-              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+              <div style={{ textAlign: 'center', marginBottom: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <Crest platformMode={platformMode} small />
-                <span className="badge badge-president" style={{ marginTop: '12px', display: 'inline-block', background: '#fff7ed', color: '#ea580c', border: '1px solid rgba(234, 88, 12, 0.2)' }}>
+                <span className="badge badge-president" style={{ marginTop: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', background: '#fff7ed', color: '#ea580c', border: '1px solid rgba(234, 88, 12, 0.2)' }}>
                   OFFICIAL UNIVERSITY ACCESS
                 </span>
                 <h2 style={{ font: '800 24px "Plus Jakarta Sans", sans-serif', color: '#0b1e36', margin: '10px 0 4px' }}>Sign in to Portal</h2>
@@ -1330,7 +1933,7 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
                 <div className="login-field-group">
                   <label htmlFor="modal-member-id" style={{ color: '#0b1e36', fontWeight: 600 }}>Member / Student ID</label>
                   <div className="login-input-wrapper">
-                    <span className="login-input-icon">👤</span>
+                    <span className="login-input-icon" style={{ color: '#64748b' }}><IconUserSvg size={14} /></span>
                     <input
                       id="modal-member-id"
                       name="memberId"
@@ -1349,7 +1952,7 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
                 <div className="login-field-group">
                   <label htmlFor="modal-password" style={{ color: '#0b1e36', fontWeight: 600 }}>Account Password</label>
                   <div className="login-input-wrapper">
-                    <span className="login-input-icon">🔒</span>
+                    <span className="login-input-icon" style={{ color: '#64748b' }}><Icon8 name="password" size={14} /></span>
                     <input
                       id="modal-password"
                       name="password"
@@ -1368,14 +1971,60 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
                       aria-label={showPassword ? 'Hide password' : 'Show password'}
                       title={showPassword ? 'Hide password' : 'Show password'}
                     >
-                      {showPassword ? '🙈' : '👁'}
+                      <Icon8 name="showPassword" size={15} />
                     </button>
                   </div>
                 </div>
 
                 {error && (
-                  <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid #ef444455', color: '#b91c1c', fontSize: '12px', marginBottom: '16px' }} role="alert">
-                    ⚠️ {error}
+                  <div
+                    style={{
+                      padding: '14px 16px',
+                      borderRadius: '10px',
+                      background: isAccountDisabled ? '#fef2f2' : 'rgba(239, 68, 68, 0.12)',
+                      border: isAccountDisabled ? '1.5px solid #f87171' : '1px solid #ef444455',
+                      color: isAccountDisabled ? '#991b1b' : '#b91c1c',
+                      fontSize: '12px',
+                      marginBottom: '16px',
+                      lineHeight: '1.55',
+                    }}
+                    role="alert"
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <span style={{ color: '#dc2626', flexShrink: 0, marginTop: '2px' }}><IconAlertTriangle size={18} /></span>
+                      <div>
+                        <b style={{ color: '#dc2626', display: 'block', fontSize: '13px', fontWeight: 800, marginBottom: '3px', letterSpacing: '0.02em' }}>
+                          {isAccountDisabled ? 'ACCOUNT ACCESS DISABLED' : 'AUTHENTICATION FAILED'}
+                        </b>
+                        <span>{error}</span>
+                        {isAccountDisabled && (
+                          <div style={{ marginTop: '10px' }}>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowLoginModal(false)
+                                setShowForgotModal(true)
+                              }}
+                              style={{
+                                background: '#dc2626',
+                                color: '#ffffff',
+                                border: 'none',
+                                padding: '6px 12px',
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                              }}
+                            >
+                              <IconLifebuoy size={13} /> Contact Technical Helpdesk ➔
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -1406,7 +2055,7 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
                   }}
                   style={{ margin: 0, fontSize: '12px', color: '#ff5722', fontWeight: 700 }}
                 >
-                  ⚡ Register as Guest
+                  Register as Guest
                 </button>
                 <span style={{ color: '#cbd5e1', fontSize: '12px' }}>|</span>
                 <button
@@ -1463,8 +2112,20 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
 
   return (
     <main className="login-page">
-      <section className="login-showcase">
+      <section
+        className="login-showcase"
+        ref={showcaseRef}
+        onMouseMove={handleShowcaseMouseMove}
+        onMouseLeave={handleShowcaseMouseLeave}
+        style={{
+          '--gx': '50%',
+          '--gy': '40%',
+          '--ox': '0px',
+          '--oy': '0px',
+        }}
+      >
         <div className="grid-overlay" />
+        <div className="login-showcase-spotlight" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--brand-eyebrow)', font: '600 10px "DM Mono", monospace', letterSpacing: '.12em', zIndex: 2 }}>
           <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--brand-accent)', boxShadow: '0 0 10px var(--brand-accent)', display: 'inline-block' }} />
           {isMrdu ? 'MALLA REDDY (DEEMED TO BE UNIVERSITY) · NAAC A++' : 'OFFICIAL STUDENT COMMUNITY · MRDU'}
@@ -1496,7 +2157,7 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
         </div>
 
         <div style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '10px', width: 'fit-content' }}>
-          <span style={{ color: 'var(--brand-accent)', fontSize: '14px' }}>{isMrdu ? '🎓' : '🔒'}</span>
+          <span style={{ color: 'var(--brand-accent)', display: 'inline-flex' }}>{isMrdu ? <IconSparkles size={16} /> : <IconShieldCheck size={16} />}</span>
           <div>
             <b style={{ color: 'var(--text-main)', fontSize: '11px', display: 'block' }}>{isMrdu ? 'MRDU EVENTS CENTRAL PORTAL' : 'CYBER SECURITY CLUB PORTAL'}</b>
             <small style={{ color: 'var(--text-dim)', font: '500 9px "DM Mono", monospace' }}>{isMrdu ? 'OFFICIAL UNIVERSITY EVENT SYSTEM · ALL CAMPUSES' : 'OFFICIAL STUDENT & FACULTY ACCESS · MRDU'}</small>
@@ -1505,13 +2166,25 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
       </section>
 
       <section className="login-panel">
-        <div className="login-card">
-          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <Crest platformMode={platformMode} small />
-            <span className="badge badge-president" style={{ marginTop: '12px', display: 'inline-block' }}>
+        <div
+          className="login-card"
+          ref={loginCardRef}
+          onMouseMove={handleCardMouseMove}
+          onMouseLeave={handleCardMouseLeave}
+          style={{
+            '--card-x': '50%',
+            '--card-y': '30%',
+          }}
+        >
+          <div className="login-card-spotlight" />
+          <div className="login-card-header">
+            <div className="login-card-mobile-crest">
+              <Crest platformMode={platformMode} small />
+            </div>
+            <span className="badge badge-president" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px auto' }}>
               {isMrdu ? 'SECURE PARTICIPANT ACCESS' : 'SECURE MEMBER ACCESS'}
             </span>
-            <h2 style={{ font: '700 24px Syne', color: 'var(--text-main)', margin: '10px 0 4px' }}>Sign in to Portal</h2>
+            <h2 style={{ font: '700 24px Syne', color: 'var(--text-main)', margin: '0 0 6px 0' }}>Sign in to Portal</h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>
               Enter your authorized Member ID and password.
             </p>
@@ -1521,7 +2194,7 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
             <div className="login-field-group">
               <label htmlFor="final-member-id">Member ID</label>
               <div className="login-input-wrapper">
-                <span className="login-input-icon">👤</span>
+                <span className="login-input-icon"><IconUserSvg size={14} /></span>
                 <input
                   id="final-member-id"
                   name="memberId"
@@ -1539,7 +2212,7 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
             <div className="login-field-group">
               <label htmlFor="final-password">Account Password</label>
               <div className="login-input-wrapper">
-                <span className="login-input-icon">🔒</span>
+                <span className="login-input-icon"><Icon8 name="password" size={14} /></span>
                 <input
                   id="final-password"
                   name="password"
@@ -1557,14 +2230,57 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
                   aria-label={showPassword ? 'Hide password' : 'Show password'}
                   title={showPassword ? 'Hide password' : 'Show password'}
                 >
-                  {showPassword ? '🙈' : '👁'}
+                  <Icon8 name="showPassword" size={15} />
                 </button>
               </div>
             </div>
 
             {error && (
-              <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid #ef444455', color: '#fca5a5', fontSize: '12px', marginBottom: '16px' }} role="alert">
-                ⚠️ {error}
+              <div
+                style={{
+                  padding: '14px 16px',
+                  borderRadius: '10px',
+                  background: isAccountDisabled ? 'rgba(239, 68, 68, 0.16)' : 'rgba(239, 68, 68, 0.12)',
+                  border: isAccountDisabled ? '1.5px solid rgba(239, 68, 68, 0.5)' : '1px solid #ef444455',
+                  color: '#fca5a5',
+                  fontSize: '12px',
+                  marginBottom: '16px',
+                  lineHeight: '1.55',
+                }}
+                role="alert"
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                  <span style={{ color: '#ef4444', flexShrink: 0, marginTop: '2px' }}><IconAlertTriangle size={18} /></span>
+                  <div>
+                    <b style={{ color: '#ef4444', display: 'block', fontSize: '13px', fontWeight: 800, marginBottom: '3px', letterSpacing: '0.02em' }}>
+                      {isAccountDisabled ? 'ACCOUNT ACCESS DISABLED' : 'AUTHENTICATION FAILED'}
+                    </b>
+                    <span>{error}</span>
+                    {isAccountDisabled && (
+                      <div style={{ marginTop: '10px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setShowForgotModal(true)}
+                          style={{
+                            background: '#dc2626',
+                            color: '#ffffff',
+                            border: 'none',
+                            padding: '6px 12px',
+                            borderRadius: '6px',
+                            fontSize: '11px',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                          }}
+                        >
+                          <IconLifebuoy size={13} /> Contact Technical Helpdesk ➔
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -1580,7 +2296,7 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
               onClick={() => setShowRegisterModal(true)}
               style={{ margin: 0, fontSize: '11px', color: '#85d7ff', fontWeight: 600 }}
             >
-              ⚡ Create Account
+              Create Account
             </button>
             <span style={{ color: '#334b60', fontSize: '12px' }}>|</span>
             <button
@@ -1665,7 +2381,7 @@ function TwoFactorLogin({ onVerify, onBack }) {
           <div className="login-field-group" style={{ textAlign: 'left' }}>
             <label htmlFor="two-factor-code">6-Digit Security Code / PIN</label>
             <div className="login-input-wrapper">
-              <span className="login-input-icon">🔑</span>
+              <span className="login-input-icon"><Icon8 name="keySecurity" size={14} /></span>
               <input
                 id="two-factor-code"
                 value={code}
@@ -1681,7 +2397,7 @@ function TwoFactorLogin({ onVerify, onBack }) {
 
           {error && (
             <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid #ef444455', color: '#fca5a5', fontSize: '12px', marginBottom: '16px' }} role="alert">
-              ⚠️ {error}
+              {error}
             </div>
           )}
 
@@ -1722,9 +2438,9 @@ function PasswordResetRequest({ onBack }) {
     <main className="hibernation-page">
       <div className="grid-overlay" />
       <section className="login-card" style={{ maxWidth: '440px' }}>
-        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <Crest small />
-          <span className="badge badge-president" style={{ margin: '12px 0 6px', display: 'inline-block' }}>
+          <span className="badge badge-president" style={{ margin: '12px auto 6px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
             PASSWORD RECOVERY
           </span>
           <h2 style={{ font: '700 24px Syne', color: 'var(--text-main)', margin: '4px 0 6px' }}>Reset Your Password</h2>
@@ -1737,13 +2453,13 @@ function PasswordResetRequest({ onBack }) {
           <div className="login-field-group">
             <label htmlFor="recovery-member-id">Member ID</label>
             <div className="login-input-wrapper">
-              <span className="login-input-icon">👤</span>
+              <span className="login-input-icon"><Icon8 name="idDocs" size={14} /></span>
               <input id="recovery-member-id" name="memberId" required maxLength={32} pattern="[A-Za-z0-9]+" autoComplete="username" placeholder="e.g. CSC2026M01" />
             </div>
           </div>
 
-          {error && <p className="member-form-error">⚠️ {error}</p>}
-          {message && <p className="member-form-success">✓ {message}</p>}
+          {error && <p className="member-form-error">{error}</p>}
+          {message && <p className="member-form-success">{message}</p>}
 
           <button className="primary" disabled={loading} style={{ width: '100%', minHeight: '44px', marginTop: '10px' }}>
             {loading ? 'SENDING INSTRUCTIONS…' : 'SEND RESET INSTRUCTIONS'}
@@ -1788,7 +2504,7 @@ function PasswordReset({ token, onComplete }) {
     <main className="hibernation-page">
       <div className="grid-overlay" />
       <section className="login-card" style={{ maxWidth: '440px' }}>
-        <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <Crest small />
           <h2 style={{ font: '700 24px Syne', color: 'var(--text-main)', margin: '10px 0 6px' }}>Set New Password</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>
@@ -1810,7 +2526,7 @@ function PasswordReset({ token, onComplete }) {
             </div>
           </div>
 
-          {error && <p className="member-form-error">⚠️ {error}</p>}
+          {error && <p className="member-form-error">{error}</p>}
 
           <button className="primary" disabled={loading} style={{ width: '100%', minHeight: '44px', marginTop: '10px' }}>
             {loading ? 'UPDATING…' : 'UPDATE PASSWORD & SIGN IN'}
@@ -1964,8 +2680,8 @@ function AccountSecurity({ user, logout, onNavigate }) {
                   />
                 </label>
               </div>
-              {pinError && <p className="member-form-error">⚠️ {pinError}</p>}
-              {pinMessage && <p className="member-form-success">✓ {pinMessage}</p>}
+              {pinError && <p className="member-form-error">{pinError}</p>}
+              {pinMessage && <p className="member-form-success">{pinMessage}</p>}
               <button className="primary member-submit" disabled={masterPin.length !== 6 || !masterPinPassword} style={{ marginTop: '14px', background: 'linear-gradient(105deg,#f59e0b,#d97706)' }}>
                 SET 6-DIGIT MASTER SECURITY PIN
               </button>
@@ -2041,6 +2757,8 @@ function MemberManagement({ user, logout, onNavigate }) {
   const isMrdu = platformMode === 'MRDU_EVENTS'
   const [members, setMembers] = useState([])
   const [role, setRole] = useState('STUDENT')
+  const [passwordInput, setPasswordInput] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [message, setMessage] = useState('')
@@ -2048,7 +2766,9 @@ function MemberManagement({ user, logout, onNavigate }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [editData, setEditData] = useState({})
-  const [passwordInput, setPasswordInput] = useState('')
+  // View Mode: 'ROSTER' (Active Directory) vs 'CREATE' (Account Provisioning Studio)
+  const [managementView, setManagementView] = useState('ROSTER')
+  const [roleFilter, setRoleFilter] = useState('ALL')
 
   // Bulk Account Creation States
   const [accountMode, setAccountMode] = useState('single')
@@ -2165,12 +2885,15 @@ function MemberManagement({ user, logout, onNavigate }) {
     setError('')
 
     const rawYear = String(form.get('year') || '').trim()
+    const rawAge = String(form.get('age') || '').trim()
     const account = {
       memberId: String(form.get('memberId') || '').trim().toUpperCase(),
       password: passwordInput,
       role,
       profile: {
         name: String(form.get('name') || '').trim(),
+        gender: String(form.get('gender') || 'MALE'),
+        age: rawAge ? Number(rawAge) : null,
         rollNumber: String(form.get('rollNumber') || '').trim() || null,
         department: String(form.get('department') || '').trim() || null,
         year: rawYear ? Number(rawYear) : null,
@@ -2342,12 +3065,19 @@ function MemberManagement({ user, logout, onNavigate }) {
   }
 
   const filteredMembers = members.filter(m => {
+    if (roleFilter === 'STUDENT' && m.role !== 'STUDENT') return false
+    if (roleFilter === 'ADMIN' && m.role === 'STUDENT') return false
+    if (roleFilter === '2FA' && !m.twoFactorEnabled) return false
     const q = searchQuery.toLowerCase()
     return (
       m.memberId?.toLowerCase().includes(q) ||
       m.name?.toLowerCase().includes(q) ||
       m.email?.toLowerCase().includes(q) ||
-      m.role?.toLowerCase().includes(q)
+      m.role?.toLowerCase().includes(q) ||
+      m.rollNumber?.toLowerCase().includes(q) ||
+      m.profile?.rollNumber?.toLowerCase().includes(q) ||
+      m.department?.toLowerCase().includes(q) ||
+      m.profile?.department?.toLowerCase().includes(q)
     )
   })
 
@@ -2403,63 +3133,101 @@ function MemberManagement({ user, logout, onNavigate }) {
         {message && <p className="member-form-success">{message}</p>}
         {error && <p className="member-form-error">{error}</p>}
 
-        <div className="member-management-grid">
-          {/* Account Creation Card */}
-          <article className="account-form-card">
+        <div className="member-view-switcher" style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className={managementView === 'ROSTER' ? 'primary' : 'outline'}
+            onClick={() => setManagementView('ROSTER')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '8px 18px', fontWeight: 700 }}
+          >
+            <Icon8 name="idDocs" size={14} /> ACTIVE MEMBER DIRECTORY ({members.length})
+          </button>
+          <button
+            type="button"
+            className={managementView === 'CREATE' ? 'primary' : 'outline'}
+            onClick={() => setManagementView('CREATE')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '8px 18px', fontWeight: 700 }}
+          >
+            <IconUserSvg size={14} /> ＋ PROVISION NEW ACCOUNT
+          </button>
+        </div>
+
+        {managementView === 'CREATE' ? (
+          /* Full-Width Account Creation Studio */
+          <article className="account-form-card" style={{ maxWidth: '960px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <p className="eyebrow">{accountMode === 'single' ? 'PROVISION MEMBER ACCOUNT' : 'BATCH STUDENT PROVISIONING'}</p>
+                <h2>{accountMode === 'single' ? 'Create New Member Account' : 'Bulk Student Accounts Provisioning'}</h2>
+              </div>
+              <button
+                type="button"
+                className="outline"
+                onClick={() => setManagementView('ROSTER')}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}
+              >
+                ← BACK TO MEMBER DIRECTORY
+              </button>
+            </div>
+
             {/* Tab Switcher: Individual Account vs Bulk Accounts */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', borderBottom: '1px solid var(--line)', paddingBottom: '10px' }}>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid var(--line)', paddingBottom: '12px' }}>
               <button
                 type="button"
                 className={`tab-btn ${accountMode === 'single' ? 'active' : ''}`}
                 onClick={() => setAccountMode('single')}
                 style={{
-                  background: accountMode === 'single' ? '#14304c' : 'transparent',
-                  color: accountMode === 'single' ? '#85d7ff' : '#688296',
-                  border: accountMode === 'single' ? '1px solid #52bbf555' : '1px solid transparent',
-                  padding: '6px 14px',
+                  background: accountMode === 'single' ? 'var(--brand-glow)' : 'transparent',
+                  color: accountMode === 'single' ? 'var(--brand-primary)' : 'var(--text-muted)',
+                  border: accountMode === 'single' ? '1px solid var(--brand-primary)' : '1px solid transparent',
+                  padding: '8px 16px',
                   borderRadius: '6px',
-                  fontSize: '11px',
-                  fontWeight: 600,
+                  fontSize: '12px',
+                  fontWeight: 700,
                   cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
                 }}
               >
-                👤 Individual Account
+                <IconUserSvg size={14} /> Individual Account
               </button>
               <button
                 type="button"
                 className={`tab-btn ${accountMode === 'bulk' ? 'active' : ''}`}
                 onClick={() => setAccountMode('bulk')}
                 style={{
-                  background: accountMode === 'bulk' ? '#14304c' : 'transparent',
-                  color: accountMode === 'bulk' ? '#85d7ff' : '#688296',
-                  border: accountMode === 'bulk' ? '1px solid #52bbf555' : '1px solid transparent',
-                  padding: '6px 14px',
+                  background: accountMode === 'bulk' ? 'var(--brand-glow)' : 'transparent',
+                  color: accountMode === 'bulk' ? 'var(--brand-primary)' : 'var(--text-muted)',
+                  border: accountMode === 'bulk' ? '1px solid var(--brand-primary)' : '1px solid transparent',
+                  padding: '8px 16px',
                   borderRadius: '6px',
-                  fontSize: '11px',
-                  fontWeight: 600,
+                  fontSize: '12px',
+                  fontWeight: 700,
                   cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
                 }}
               >
-                📑 Bulk Accounts
+                <IconDownload size={14} /> Bulk Accounts (Excel / CSV Batch)
               </button>
             </div>
 
             {accountMode === 'single' ? (
               <>
-                <p className="eyebrow">PROVISION MEMBER</p>
-                <h2>Create Club Account</h2>
-                <p style={{ color: '#7e95a7', fontSize: '11px', margin: '4px 0 16px' }}>
-                  Provisioning account as: <b style={{ color: '#85d7ff' }}>{user.name} ({user.memberId})</b>
+                <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '0 0 16px' }}>
+                  Provisioning authorized account as: <b style={{ color: 'var(--brand-primary)' }}>{user.name} ({user.memberId})</b>
                 </p>
 
                 <form onSubmit={createAccount}>
-                  <div className="member-form-grid">
+                  <div className="member-form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
                     <label>
-                      Member ID (Unique)
+                      Member ID (Unique) *
                       <input name="memberId" required placeholder="e.g. CSC2026M01" />
                     </label>
                     <label>
-                      Assigned Club Role
+                      Assigned Club Role *
                       <select
                         className="member-select"
                         value={role}
@@ -2473,20 +3241,36 @@ function MemberManagement({ user, logout, onNavigate }) {
                       </select>
                     </label>
                     <label>
-                      Full Name
+                      Full Name *
                       <input name="name" required placeholder="Full Name" />
                     </label>
                     <label>
-                      College Roll Number
-                      <input name="rollNumber" placeholder="Roll Number" />
+                      Gender
+                      <select className="member-select" name="gender" defaultValue="MALE">
+                        <option value="MALE">Male</option>
+                        <option value="FEMALE">Female</option>
+                        <option value="OTHER">Other</option>
+                      </select>
                     </label>
                     <label>
-                      Department
+                      Age
+                      <input name="age" type="number" min={15} max={65} placeholder="Age (e.g. 20)" />
+                    </label>
+                    <label>
+                      College Roll Number
+                      <input name="rollNumber" placeholder="e.g. 25EU07R0015" />
+                    </label>
+                    <label>
+                      Department / Branch
                       <input name="department" placeholder="e.g. Cyber Security" />
                     </label>
                     <label>
                       Academic Year
-                      <input name="year" type="number" min={1} max={5} placeholder="1 - 4" />
+                      <select className="member-select" name="year" defaultValue="1">
+                        {ACADEMIC_YEARS.map(y => (
+                          <option key={y.value} value={y.value}>{y.label}</option>
+                        ))}
+                      </select>
                     </label>
                     <label>
                       Official Email
@@ -2496,19 +3280,53 @@ function MemberManagement({ user, logout, onNavigate }) {
                       Phone Number
                       <input name="phone" placeholder="Phone number" />
                     </label>
-                    <label className="form-wide">
-                      Account Password
-                      <input
-                        type="password"
-                        value={passwordInput}
-                        onChange={e => setPasswordInput(e.target.value)}
-                        required
-                        placeholder="Min 12 chars (Upper, Lower, Number, Symbol)"
-                      />
+                    <label className="form-wide" style={{ gridColumn: '1 / -1' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                        <span>Account Password *</span>
+                        <button
+                          type="button"
+                          className="outline"
+                          onClick={() => {
+                            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*'
+                            let pwd = 'A' + 'a' + '9' + '@'
+                            for (let i = 0; i < 10; i++) pwd += chars[Math.floor(Math.random() * chars.length)]
+                            setPasswordInput(pwd.split('').sort(() => 0.5 - Math.random()).join(''))
+                            setShowPassword(true)
+                          }}
+                          style={{ padding: '2px 8px', fontSize: '10px', fontWeight: 600 }}
+                        >
+                          ⚡ Generate Strong Password
+                        </button>
+                      </div>
+                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          value={passwordInput}
+                          onChange={e => setPasswordInput(e.target.value)}
+                          required
+                          placeholder="Min 12 chars (Upper, Lower, Number, Symbol)"
+                          style={{ width: '100%', paddingRight: '40px' }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(p => !p)}
+                          style={{
+                            position: 'absolute',
+                            right: '8px',
+                            background: 'none',
+                            border: 0,
+                            color: 'var(--text-muted)',
+                            cursor: 'pointer',
+                            padding: '4px',
+                          }}
+                        >
+                          {showPassword ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+                        </button>
+                      </div>
                     </label>
                   </div>
 
-                  <div className="pwd-rules">
+                  <div className="pwd-rules" style={{ margin: '14px 0' }}>
                     <span className={`pwd-rule ${hasLength ? 'valid' : ''}`}><i>{hasLength ? '✓' : '○'}</i> 12+ Characters</span>
                     <span className={`pwd-rule ${hasUpper ? 'valid' : ''}`}><i>{hasUpper ? '✓' : '○'}</i> Uppercase Letter</span>
                     <span className={`pwd-rule ${hasLower ? 'valid' : ''}`}><i>{hasLower ? '✓' : '○'}</i> Lowercase Letter</span>
@@ -2516,21 +3334,20 @@ function MemberManagement({ user, logout, onNavigate }) {
                     <span className={`pwd-rule ${hasSymbol ? 'valid' : ''}`}><i>{hasSymbol ? '✓' : '○'}</i> Symbol (!@#$)</span>
                   </div>
 
-                  <button className="primary member-submit" disabled={submitting || !hasLength || !hasLower || !hasUpper || !hasNumber || !hasSymbol}>
-                    {submitting ? 'PROVISIONING…' : '＋ &nbsp; CREATE MEMBER ACCOUNT'}
-                  </button>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <button className="primary member-submit" disabled={submitting || !hasLength || !hasLower || !hasUpper || !hasNumber || !hasSymbol} style={{ padding: '12px 24px', fontWeight: 700 }}>
+                      {submitting ? 'PROVISIONING…' : '＋ CREATE MEMBER ACCOUNT'}
+                    </button>
+                    <button type="button" className="outline" onClick={() => setManagementView('ROSTER')}>Cancel</button>
+                  </div>
                 </form>
               </>
             ) : (
               /* Bulk Account Creation Interface */
               <div className="bulk-accounts-container">
-                <div>
-                  <p className="eyebrow">BATCH STUDENT PROVISIONING</p>
-                  <h2>Bulk Student Accounts</h2>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '11px', margin: '4px 0 12px' }}>
-                    Paste data for multiple students at once. Roll Number will be assigned as the unique Member ID.
-                  </p>
-                </div>
+                <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '0 0 16px' }}>
+                  Paste rows directly from Excel or CSV. Roll Number is automatically assigned as the Member ID.
+                </p>
 
                 <form onSubmit={handleBulkSubmit}>
                   <div style={{ marginBottom: '14px' }}>
@@ -2547,21 +3364,22 @@ function MemberManagement({ user, logout, onNavigate }) {
                       placeholder={`Paste rows from Excel or text editor:\nStudent 1\t25EU07R0001\tPassword1!\nStudent 2\t25EU07R0002\tPassword2!\nStudent 3\t25EU07R0003\tPassword3!`}
                       value={bulkText}
                       onChange={e => setBulkText(e.target.value)}
+                      style={{ minHeight: '140px' }}
                     />
                   </div>
 
                   {/* Common Information Settings */}
-                  <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '8px', padding: '14px', marginBottom: '16px' }}>
+                  <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
                     <label style={{ color: 'var(--brand-primary)', font: '700 11px "DM Mono", monospace', display: 'block', marginBottom: '10px' }}>
                       2. Common Batch Information (Applies to All Uploaded Accounts)
                     </label>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
                       <div>
                         <label style={{ color: 'var(--text-dim)', fontSize: '10px', display: 'block', marginBottom: '4px' }}>ACADEMIC YEAR</label>
                         <select
                           value={bulkYear}
                           onChange={e => setBulkYear(Number(e.target.value))}
-                          style={{ width: '100%', height: '36px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 8px', fontSize: '11px' }}
+                          style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 8px', fontSize: '11px' }}
                         >
                           {ACADEMIC_YEARS.map(y => (
                             <option key={y.value} value={y.value}>{y.label}</option>
@@ -2574,7 +3392,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                         <select
                           value={bulkCollegeChoice}
                           onChange={e => setBulkCollegeChoice(e.target.value)}
-                          style={{ width: '100%', height: '36px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 8px', fontSize: '11px' }}
+                          style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 8px', fontSize: '11px' }}
                         >
                           <option value="Malla Reddy (MR) Deemed to be University">Malla Reddy (MR) Deemed to be University</option>
                           <option value="Other">Other</option>
@@ -2588,7 +3406,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                             placeholder="Enter College Name"
                             value={bulkCollegeCustom}
                             onChange={e => setBulkCollegeCustom(e.target.value)}
-                            style={{ width: '100%', height: '36px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '11px' }}
+                            style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '11px' }}
                           />
                         </div>
                       )}
@@ -2598,7 +3416,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                         <select
                           value={bulkBranch}
                           onChange={e => setBulkBranch(e.target.value)}
-                          style={{ width: '100%', height: '36px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 8px', fontSize: '11px' }}
+                          style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 8px', fontSize: '11px' }}
                         >
                           {BRANCH_OPTIONS.map(b => (
                             <option key={b} value={b}>{b}</option>
@@ -2612,7 +3430,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                           <select
                             value={bulkSpecialization}
                             onChange={e => setBulkSpecialization(e.target.value)}
-                            style={{ width: '100%', height: '36px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 8px', fontSize: '11px' }}
+                            style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 8px', fontSize: '11px' }}
                           >
                             {CSE_SPECIALIZATIONS.map(s => (
                               <option key={s} value={s}>{s}</option>
@@ -2631,7 +3449,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                           3. Batch Preview & Validation ({parsedBulkStudents.length} Students)
                         </label>
                         <span className={invalidBulkCount === 0 ? 'bulk-badge-valid' : 'bulk-badge-invalid'}>
-                          {invalidBulkCount === 0 ? `✓ ALL ${validBulkCount} VALID` : `⚠️ ${validBulkCount} VALID · ${invalidBulkCount} ISSUES`}
+                          {invalidBulkCount === 0 ? `ALL ${validBulkCount} VALID` : `${validBulkCount} VALID · ${invalidBulkCount} ISSUES`}
                         </span>
                       </div>
 
@@ -2655,9 +3473,9 @@ function MemberManagement({ user, logout, onNavigate }) {
                                 <td style={{ padding: '6px 10px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{s.password ? '••••••••' : '<Empty>'}</td>
                                 <td style={{ padding: '6px 10px' }}>
                                   {s.isValid ? (
-                                    <span style={{ color: '#059669', fontWeight: 600 }}>✓ Valid</span>
+                                    <span style={{ color: '#059669', fontWeight: 600 }}>Valid</span>
                                   ) : (
-                                    <span style={{ color: '#dc2626', fontWeight: 500 }}>⚠️ {s.errors.join(', ')}</span>
+                                    <span style={{ color: '#dc2626', fontWeight: 500 }}>{s.errors.join(', ')}</span>
                                   )}
                                 </td>
                               </tr>
@@ -2672,63 +3490,113 @@ function MemberManagement({ user, logout, onNavigate }) {
                     type="submit"
                     className="primary"
                     disabled={bulkSubmitting || validBulkCount === 0}
-                    style={{ width: '100%', minHeight: '44px', fontSize: '11px' }}
+                    style={{ width: '100%', minHeight: '44px', fontSize: '11px', fontWeight: 700 }}
                   >
-                    {bulkSubmitting ? 'CREATING STUDENT ACCOUNTS…' : `⚡ CREATE ${validBulkCount} STUDENT ACCOUNTS`}
+                    {bulkSubmitting ? 'CREATING STUDENT ACCOUNTS…' : `CREATE ${validBulkCount} STUDENT ACCOUNTS`}
                   </button>
                 </form>
               </div>
             )}
           </article>
-
-          {/* Member List Directory Card */}
-          <article className="member-list-card">
-            <div className="card-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+        ) : (
+          /* Full-Width Member List Directory Card */
+          <article className="member-list-card" style={{ width: '100%' }}>
+            <div className="card-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
               <div>
                 <p className="eyebrow">ROSTER DIRECTORY</p>
-                <h2>Active Accounts ({members.length})</h2>
+                <h2>Active Member Accounts ({members.length})</h2>
               </div>
-              <button
-                type="button"
-                className="outline"
-                onClick={handleDownloadMembersCsv}
-                disabled={filteredMembers.length === 0}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
-                title="Download filtered members list as CSV"
-              >
-                <IconDownload size={14} /> DOWNLOAD MEMBERS CSV
-              </button>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => setManagementView('CREATE')}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px' }}
+                >
+                  <IconUserSvg size={14} /> ＋ ADD MEMBER
+                </button>
+                <button
+                  type="button"
+                  className="outline"
+                  onClick={handleDownloadMembersCsv}
+                  disabled={filteredMembers.length === 0}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+                  title="Download filtered members list as CSV"
+                >
+                  <IconDownload size={14} /> DOWNLOAD CSV
+                </button>
+              </div>
             </div>
 
-            <div style={{ marginTop: '14px' }}>
-              <input
-                style={{ width: '100%', height: '38px', padding: '0 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', fontSize: '11px' }}
-                placeholder="Search by Member ID, Name, Role, or Email..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-              />
+            {/* Filter and Search Bar Row */}
+            <div style={{ marginTop: '16px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 280px' }}>
+                <input
+                  style={{ width: '100%', height: '40px', padding: '0 14px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '12px' }}
+                  placeholder="Search by Member ID, Roll Number, Name, Role, Dept, or Email..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                />
+              </div>
+
+              {/* Role Filter Chips */}
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className={`tab-btn ${roleFilter === 'ALL' ? 'active' : ''}`}
+                  onClick={() => setRoleFilter('ALL')}
+                  style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '6px', background: roleFilter === 'ALL' ? 'var(--brand-glow)' : 'transparent', color: roleFilter === 'ALL' ? 'var(--brand-primary)' : 'var(--text-muted)', border: roleFilter === 'ALL' ? '1px solid var(--brand-primary)' : '1px solid var(--line)' }}
+                >
+                  All ({members.length})
+                </button>
+                <button
+                  type="button"
+                  className={`tab-btn ${roleFilter === 'STUDENT' ? 'active' : ''}`}
+                  onClick={() => setRoleFilter('STUDENT')}
+                  style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '6px', background: roleFilter === 'STUDENT' ? 'var(--brand-glow)' : 'transparent', color: roleFilter === 'STUDENT' ? 'var(--brand-primary)' : 'var(--text-muted)', border: roleFilter === 'STUDENT' ? '1px solid var(--brand-primary)' : '1px solid var(--line)' }}
+                >
+                  Students ({members.filter(m => m.role === 'STUDENT').length})
+                </button>
+                <button
+                  type="button"
+                  className={`tab-btn ${roleFilter === 'ADMIN' ? 'active' : ''}`}
+                  onClick={() => setRoleFilter('ADMIN')}
+                  style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '6px', background: roleFilter === 'ADMIN' ? 'var(--brand-glow)' : 'transparent', color: roleFilter === 'ADMIN' ? 'var(--brand-primary)' : 'var(--text-muted)', border: roleFilter === 'ADMIN' ? '1px solid var(--brand-primary)' : '1px solid var(--line)' }}
+                >
+                  Leaders & Admins ({members.filter(m => m.role !== 'STUDENT').length})
+                </button>
+                <button
+                  type="button"
+                  className={`tab-btn ${roleFilter === '2FA' ? 'active' : ''}`}
+                  onClick={() => setRoleFilter('2FA')}
+                  style={{ padding: '6px 12px', fontSize: '11px', borderRadius: '6px', background: roleFilter === '2FA' ? 'var(--brand-glow)' : 'transparent', color: roleFilter === '2FA' ? 'var(--brand-primary)' : 'var(--text-muted)', border: roleFilter === '2FA' ? '1px solid var(--brand-primary)' : '1px solid var(--line)' }}
+                >
+                  2FA Active ({members.filter(m => m.twoFactorEnabled).length})
+                </button>
+              </div>
             </div>
 
             {loading ? (
-              <p className="directory-state">Loading accounts...</p>
+              <p className="directory-state" style={{ marginTop: '24px' }}>Loading accounts...</p>
             ) : filteredMembers.length === 0 ? (
-              <p className="directory-state">No matching members found.</p>
+              <p className="directory-state" style={{ marginTop: '24px' }}>No matching members found.</p>
             ) : (
-              <div className="table-scroll-container">
+              <div className="table-scroll-container" style={{ marginTop: '16px' }}>
                 <div className="members-table">
-                  <div className="table-header">
-                    <span>MEMBER</span>
+                  <div className="table-header" style={{ gridTemplateColumns: '1.4fr 1.3fr 1.2fr 1.5fr 1.3fr', gap: '14px' }}>
+                    <span>MEMBER &amp; ROLL NO</span>
                     <span>{isMrdu ? 'MRDU ROLE & 2FA' : 'CLUB ROLE & 2FA'}</span>
+                    <span>DEPARTMENT &amp; YEAR</span>
                     <span>CONTACT INFO</span>
                     <span>ACTIONS</span>
                   </div>
                   {filteredMembers.map(m => {
                     const isEditing = editingId === m.id
                     return (
-                      <div className={`table-row ${isEditing ? 'editing' : ''}`} key={m.id}>
+                      <div className={`table-row ${isEditing ? 'editing' : ''}`} key={m.id} style={{ gridTemplateColumns: isEditing ? '1fr' : '1.4fr 1.3fr 1.2fr 1.5fr 1.3fr', gap: '14px' }}>
                         {isEditing ? (
                           <div>
-                            <div className="edit-fields-grid">
+                            <div className="edit-fields-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
                               <input
                                 placeholder="Name"
                                 defaultValue={m.name}
@@ -2754,62 +3622,88 @@ function MemberManagement({ user, logout, onNavigate }) {
                                 ))}
                               </select>
                             </div>
-                            <div className="action-buttons" style={{ marginTop: '8px' }}>
+                            <div className="action-buttons" style={{ marginTop: '10px' }}>
                               <button className="action-btn save-btn" onClick={() => updateMember(m.id)}>Save {isMrdu ? 'MRDU Role' : 'Club Role'}</button>
                               <button className="action-btn cancel-btn" onClick={() => { setEditingId(null); setEditData({}) }}>Cancel</button>
                             </div>
                           </div>
                         ) : (
                           <>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            {/* Member & Roll No */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                               {m.profileImage ? (
-                                <img src={m.profileImage} alt={m.name} style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--brand-border-subtle)' }} />
+                                <img src={m.profileImage} alt={m.name} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--brand-border-subtle)', flexShrink: 0 }} />
                               ) : (
-                                <span style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--panel-subtle)', display: 'grid', placeItems: 'center', color: 'var(--brand-primary)', font: '700 10px Syne' }}>
+                                <span style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--panel-subtle)', display: 'grid', placeItems: 'center', color: 'var(--brand-primary)', font: '700 11px Syne', border: '1px solid var(--line)', flexShrink: 0 }}>
                                   {m.initials}
                                 </span>
                               )}
-                              <div>
-                                <b>{m.name}</b>
-                                <small style={{ color: 'var(--brand-primary)', display: 'block' }}>{m.memberId}</small>
+                              <div style={{ minWidth: 0 }}>
+                                <b style={{ color: 'var(--text-main)', fontSize: '13px', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.name}</b>
+                                <span style={{ color: 'var(--brand-primary)', font: '600 11px "DM Mono", monospace', display: 'block' }}>{m.memberId}</span>
+                                {(m.rollNumber || m.profile?.rollNumber) && (
+                                  <small style={{ color: 'var(--text-dim)', fontSize: '10px', display: 'block' }}>Roll: {m.rollNumber || m.profile?.rollNumber}</small>
+                                )}
                               </div>
                             </div>
+
+                            {/* Role & 2FA */}
                             <div>
-                              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
                                 <span className={`badge ${m.isPrimaryAdmin ? 'badge-president' : m.role === 'STUDENT' ? 'badge-student' : 'badge-admin'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                                   {m.isPrimaryAdmin ? <><IconCrown size={12} /> PRESIDENT</> : getRoleLabel(m.role)}
                                 </span>
                                 {m.twoFactorEnabled && (
-                                  <span className="badge badge-active" style={{ fontSize: '8px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                  <span className="badge badge-active" style={{ fontSize: '9px', display: 'inline-flex', alignItems: 'center', gap: '3px', background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.3)' }}>
                                     <Icon8 name="authentication" size={10} /> 2FA ON
                                   </span>
                                 )}
                               </div>
                               {!m.isPrimaryAdmin && (
-                                <small style={{ color: 'var(--text-dim)', fontSize: '9px', display: 'block', marginTop: '3px' }}>
+                                <small style={{ color: 'var(--text-dim)', fontSize: '10px', display: 'block', marginTop: '4px' }}>
                                   {isMrdu
                                     ? `CSC Club Role: ${getRoleLabel(m.cscRole || 'STUDENT')}`
                                     : `MRDU Mode: ${getRoleLabel(m.mrduRole || 'STUDENT')}`}
                                 </small>
                               )}
                             </div>
+
+                            {/* Department & Academic Year */}
                             <div>
-                              <small>{m.email || 'No email'}</small>
-                              <small>{m.phone || 'No phone'}</small>
+                              <span style={{ color: 'var(--text-main)', fontSize: '12px', fontWeight: 600, display: 'block' }}>
+                                {m.department || m.profile?.department || 'General'}
+                              </span>
+                              <small style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block', marginTop: '2px' }}>
+                                {m.year || m.profile?.year ? `Year ${m.year || m.profile?.year}` : 'Undergraduate'}
+                              </small>
                             </div>
-                            <div className="action-buttons">
-                              <button className="action-btn edit-btn" onClick={() => { setEditingId(m.id); setEditData({}) }}>Edit</button>
-                              <button className="action-btn toggle-status-btn" onClick={() => toggleStatus(m)} disabled={m.isPrimaryAdmin}>
+
+                            {/* Contact Info (Properly separated, never squished!) */}
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: m.email ? 'var(--text-main)' : 'var(--text-dim)', fontSize: '11.5px' }}>
+                                <IconMail size={12} style={{ flexShrink: 0, color: 'var(--brand-primary)' }} />
+                                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.email || 'No email provided'}</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: m.phone ? 'var(--text-muted)' : 'var(--text-dim)', fontSize: '11px', marginTop: '4px' }}>
+                                <IconHeadset size={12} style={{ flexShrink: 0, color: 'var(--text-dim)' }} />
+                                <span>{m.phone || 'No phone provided'}</span>
+                              </div>
+                            </div>
+
+                            {/* Actions */}
+                            <div className="action-buttons" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                              <button className="action-btn edit-btn" onClick={() => { setEditingId(m.id); setEditData({}) }} title="Edit profile information">Edit</button>
+                              <button className="action-btn toggle-status-btn" onClick={() => toggleStatus(m)} disabled={m.isPrimaryAdmin} title="Toggle account activation">
                                 {m.accountStatus === 'ACTIVE' ? 'Active' : 'Disabled'}
                               </button>
-                              <button className="action-btn edit-btn" onClick={() => setResetModalUser(m)}>Password</button>
+                              <button className="action-btn edit-btn" onClick={() => setResetModalUser(m)} title="Reset member password">Password</button>
                               {m.twoFactorEnabled && (
                                 <button className="action-btn cancel-btn" onClick={() => handleDisable2FA(m)} title="Disable 2FA if member is locked out">
                                   Reset 2FA
                                 </button>
                               )}
                               {!m.isPrimaryAdmin && (
-                                <button className="action-btn delete-btn" onClick={() => removeMember(m)}>Delete</button>
+                                <button className="action-btn delete-btn" onClick={() => removeMember(m)} title="Permanently delete account">Delete</button>
                               )}
                             </div>
                           </>
@@ -2821,7 +3715,7 @@ function MemberManagement({ user, logout, onNavigate }) {
               </div>
             )}
           </article>
-        </div>
+        )}
 
         {/* Reset Password Modal */}
         {resetModalUser && (
@@ -2852,10 +3746,10 @@ function MemberManagement({ user, logout, onNavigate }) {
                   <button
                     type="button"
                     onClick={() => setShowResetPassword(!showResetPassword)}
-                    style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--brand-primary)', cursor: 'pointer', fontSize: '14px', padding: '4px' }}
+                    style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', color: 'var(--brand-primary)', cursor: 'pointer', fontSize: '11px', padding: '4px' }}
                     title={showResetPassword ? 'Hide password' : 'Show password'}
                   >
-                    {showResetPassword ? '🙈' : '👁️'}
+                    {showResetPassword ? 'Hide' : 'Show'}
                   </button>
                 </div>
 
@@ -2866,7 +3760,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                     onClick={handleGenerateAdminPassword}
                     style={{ fontSize: '11px', padding: '5px 10px', display: 'flex', alignItems: 'center', gap: '4px' }}
                   >
-                    🎲 Generate Strong Password
+                    <Icon8 name="keySecurity" size={13} /> Generate Strong Password
                   </button>
                   {newPasswordInput && (
                     <button
@@ -2875,7 +3769,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                       onClick={handleCopyResetPassword}
                       style={{ fontSize: '11px', padding: '5px 10px', color: resetCopied ? '#059669' : 'var(--brand-primary)', borderColor: resetCopied ? '#059669' : 'var(--line)' }}
                     >
-                      {resetCopied ? '✓ Copied!' : '📋 Copy'}
+                      <IconCopy size={11} /> {resetCopied ? 'Copied!' : 'Copy'}
                     </button>
                   )}
                 </div>
@@ -3009,7 +3903,6 @@ function MemberManagement({ user, logout, onNavigate }) {
 // Universal Member Profile Management (Students & Admins)
 // ----------------------------------------------------
 function UniversalProfileView({ user, logout, onNavigate, onProfileUpdated }) {
-  const { themeMode, setThemeMode } = usePlatformTheme()
   const [profile, setProfile] = useState(user.profile || {})
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -3022,8 +3915,11 @@ function UniversalProfileView({ user, logout, onNavigate, onProfileUpdated }) {
     setMessage('')
     setError('')
 
+    const rawAge = String(form.get('age') || '').trim()
     const payload = {
       name: String(form.get('name') || '').trim() || undefined,
+      gender: String(form.get('gender') || 'MALE'),
+      age: rawAge ? Number(rawAge) : null,
       phone: String(form.get('phone') || '').trim() || null,
       bio: String(form.get('bio') || '').trim() || null,
       instagramUrl: String(form.get('instagramUrl') || '').trim() || null,
@@ -3108,6 +4004,18 @@ function UniversalProfileView({ user, logout, onNavigate, onProfileUpdated }) {
                   Phone Number
                   <input name="phone" defaultValue={profile.phone || ''} placeholder="Phone number" />
                 </label>
+                <label>
+                  Gender
+                  <select className="member-select" name="gender" defaultValue={profile.gender || 'MALE'}>
+                    <option value="MALE">Male</option>
+                    <option value="FEMALE">Female</option>
+                    <option value="OTHER">Other</option>
+                  </select>
+                </label>
+                <label>
+                  Age
+                  <input name="age" type="number" min={15} max={65} defaultValue={profile.age || ''} placeholder="Age (e.g. 20)" />
+                </label>
                 <label className="form-wide">
                   Short Bio
                   <input name="bio" defaultValue={profile.bio || ''} placeholder="e.g. Reverse engineering & CTF enthusiast" />
@@ -3155,42 +4063,6 @@ function UniversalProfileView({ user, logout, onNavigate, onProfileUpdated }) {
                 <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: '1.6', margin: '0 0 14px' }}>
                   {profile.bio || 'Authorized member · Malla Reddy (MR) Deemed to be University.'}
                 </p>
-              </div>
-            </article>
-
-            {/* Appearance Preference Card */}
-            <article className="account-form-card">
-              <p className="eyebrow">THEME PREFERENCE</p>
-              <h2>Interface Appearance</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '0 0 14px' }}>Choose your personal display theme for this browser.</p>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-                <button
-                  type="button"
-                  className={`theme-mode-card ${themeMode === 'system' ? 'active' : ''}`}
-                  onClick={() => setThemeMode('system')}
-                  style={{ padding: '10px 8px', textAlign: 'center' }}
-                >
-                  <b style={{ fontSize: '11px', justifyContent: 'center' }}>🖥️ Auto</b>
-                  <p style={{ fontSize: '9px', textAlign: 'center' }}>System</p>
-                </button>
-                <button
-                  type="button"
-                  className={`theme-mode-card ${themeMode === 'light' ? 'active' : ''}`}
-                  onClick={() => setThemeMode('light')}
-                  style={{ padding: '10px 8px', textAlign: 'center' }}
-                >
-                  <b style={{ fontSize: '11px', justifyContent: 'center' }}>☀️ Light</b>
-                  <p style={{ fontSize: '9px', textAlign: 'center' }}>Daylight</p>
-                </button>
-                <button
-                  type="button"
-                  className={`theme-mode-card ${themeMode === 'dark' ? 'active' : ''}`}
-                  onClick={() => setThemeMode('dark')}
-                  style={{ padding: '10px 8px', textAlign: 'center' }}
-                >
-                  <b style={{ fontSize: '11px', justifyContent: 'center' }}>🌙 Dark</b>
-                  <p style={{ fontSize: '9px', textAlign: 'center' }}>Cyber</p>
-                </button>
               </div>
             </article>
           </div>
@@ -3442,7 +4314,7 @@ function SupportDeskView({ user, logout, onNavigate }) {
                       <div style={{ display: 'flex', gap: '6px' }}>
                         {selectedTicket.status !== 'RESOLVED' ? (
                           <button type="button" className="action-btn save-btn" onClick={() => handleToggleStatus(selectedTicket, 'RESOLVED')}>
-                            ✓ Mark Resolved
+                            Mark Resolved
                           </button>
                         ) : (
                           <button type="button" className="action-btn cancel-btn" onClick={() => handleToggleStatus(selectedTicket, 'OPEN')}>
@@ -3514,7 +4386,7 @@ function SupportDeskView({ user, logout, onNavigate }) {
                   </form>
                 ) : (
                   <div style={{ padding: '10px 14px', borderRadius: '8px', background: '#fee2e2', border: '1px solid #fca5a5', color: '#b91c1c', fontSize: '11px', textAlign: 'center' }}>
-                    🔒 Role Restriction: Only members of <b>@{selectedTicket.taggedRole}</b> or the President are authorized to reply to this query.
+                    Role Restriction: Only members of <b>@{selectedTicket.taggedRole}</b> or the President are authorized to reply to this query.
                   </div>
                 )}
               </>
@@ -3781,7 +4653,7 @@ function SubscriptionManagement({ user, logout, onNavigate }) {
         {stats.pendingVerification > 0 && (
           <div className="pending-alert-banner">
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontSize: '20px' }}>⚠️</span>
+              <IconAlertTriangle size={20} />
               <div>
                 <b>{stats.pendingVerification} payments waiting for verification</b>
                 <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#ffecb3' }}>
@@ -4063,7 +4935,7 @@ function StudentMembership({ user, logout, onNavigate }) {
               <div className="membership-status-box active-box">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
                   <div>
-                    <span className="badge badge-active" style={{ marginBottom: '8px' }}>{isMrdu ? '✓ ACTIVE STUDENT PASS' : '✓ ACTIVE MEMBERSHIP'}</span>
+                    <span className="badge badge-active" style={{ marginBottom: '8px' }}>{isMrdu ? 'ACTIVE STUDENT PASS' : 'ACTIVE MEMBERSHIP'}</span>
                     <h2 style={{ font: '700 24px Syne', color: 'var(--text-main)', margin: '4px 0' }}>{isMrdu ? 'You have an Active Student Pass' : 'You are an Active Member'}</h2>
                     <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '4px 0' }}>
                       Your {isMrdu ? 'event pass' : 'membership'} is active and valid until <b style={{ color: 'var(--brand-primary)' }}>{new Date(activeSub.expiresAt).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })} at 23:59</b>.
@@ -4076,15 +4948,15 @@ function StudentMembership({ user, logout, onNavigate }) {
                 </div>
 
                 <div className="membership-benefits-list">
-                  <div className="benefit-item"><i>✓</i> Official Event Pass Registrations</div>
-                  <div className="benefit-item"><i>✓</i> Technical Team Support & Queries</div>
-                  <div className="benefit-item"><i>✓</i> Full Club Gallery Access</div>
-                  <div className="benefit-item"><i>✓</i> Hands-on CTF Defense Labs</div>
+                  <div className="benefit-item"><i>•</i> Official Event Pass Registrations</div>
+                  <div className="benefit-item"><i>•</i> Technical Team Support & Queries</div>
+                  <div className="benefit-item"><i>•</i> Full Club Gallery Access</div>
+                  <div className="benefit-item"><i>•</i> Hands-on CTF Defense Labs</div>
                 </div>
               </div>
             ) : pendingSub ? (
               <div className="membership-status-box" style={{ borderColor: '#f59e0b55', background: 'radial-gradient(circle at 100% 0, rgba(245, 158, 11, 0.08), transparent 60%), var(--bg-card)' }}>
-                <span className="badge badge-pending" style={{ marginBottom: '8px' }}>⏳ VERIFICATION PENDING</span>
+                <span className="badge badge-pending" style={{ marginBottom: '8px' }}>VERIFICATION PENDING</span>
                 <h2 style={{ font: '700 22px Syne', color: '#d97706', margin: '4px 0 8px' }}>Payment Verification in Progress</h2>
                 <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '0 0 14px' }}>
                   Your UPI subscription payment of <b style={{ color: 'var(--text-main)' }}>₹{Number(pendingSub.amount).toFixed(2)}</b> (Ref: {pendingSub.transactionRef}) was submitted on {new Date(pendingSub.submittedAt).toLocaleDateString()}. An administrator will verify and activate your membership shortly.
@@ -4092,15 +4964,15 @@ function StudentMembership({ user, logout, onNavigate }) {
               </div>
             ) : (
               <div className="membership-status-box inactive-box">
-                <span className="badge badge-disabled" style={{ marginBottom: '8px' }}>✕ MEMBERSHIP INACTIVE</span>
+                <span className="badge badge-disabled" style={{ marginBottom: '8px' }}>MEMBERSHIP INACTIVE</span>
                 <h2 style={{ font: '700 24px Syne', color: 'var(--text-main)', margin: '4px 0 8px' }}>Your membership is inactive.</h2>
                 <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '0 0 16px' }}>
                   Subscribe via UPI to unlock official event passes, technical support, and member-only club activities.
                 </p>
                 <div className="membership-benefits-list">
-                  <div className="benefit-item"><i>🔒</i> Event Pass Registrations (Subscription Required)</div>
-                  <div className="benefit-item"><i>🔒</i> Technical Team Support (Subscription Required)</div>
-                  <div className="benefit-item"><i>🔒</i> Member-Only Gallery (Subscription Required)</div>
+                  <div className="benefit-item"><i>•</i> Event Pass Registrations (Subscription Required)</div>
+                  <div className="benefit-item"><i>•</i> Technical Team Support (Subscription Required)</div>
+                  <div className="benefit-item"><i>•</i> Member-Only Gallery (Subscription Required)</div>
                 </div>
               </div>
             )}
@@ -4241,6 +5113,9 @@ function StudentMembership({ user, logout, onNavigate }) {
 // ----------------------------------------------------
 // Event Management & Studio
 // ----------------------------------------------------
+// ----------------------------------------------------
+// Event Management & Studio
+// ----------------------------------------------------
 const initialEventForm = {
   title: '',
   eventType: 'Workshop',
@@ -4256,6 +5131,10 @@ const initialEventForm = {
   coordinatorName: '',
   coordinatorContact: '',
   organizingTeam: '',
+  isTeamEvent: false,
+  minTeamSize: 2,
+  maxTeamSize: 4,
+  teamRules: '',
   isPaid: false,
   paymentAmount: '',
   paymentUpiId: '',
@@ -4270,6 +5149,8 @@ function EventManagement({ user, logout, onNavigate }) {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState('basic')
+  // View Mode: 'CATALOG' (Published Events Catalog) vs 'BUILDER' (Create / Edit Studio)
+  const [eventView, setEventView] = useState('CATALOG')
 
   const [formData, setFormData] = useState(initialEventForm)
   const [activities, setActivities] = useState([])
@@ -4281,6 +5162,8 @@ function EventManagement({ user, logout, onNavigate }) {
   const [analyticsModalEvent, setAnalyticsModalEvent] = useState(null)
   const [analyticsData, setAnalyticsData] = useState(null)
   const [loadingAnalytics, setLoadingAnalytics] = useState(false)
+  const [rosterSearch, setRosterSearch] = useState('')
+  const [selectedRosterPass, setSelectedRosterPass] = useState(null)
 
   useEffect(() => {
     let mounted = true
@@ -4332,7 +5215,11 @@ function EventManagement({ user, logout, onNavigate }) {
       coordinatorName: ev.coordinatorName || '',
       coordinatorContact: ev.coordinatorContact || '',
       organizingTeam: ev.organizingTeam || '',
-      isPaid: Boolean(ev.requiresPayment),
+      isTeamEvent: Boolean(ev.isTeamEvent),
+      minTeamSize: ev.minTeamSize || 2,
+      maxTeamSize: ev.maxTeamSize || 4,
+      teamRules: ev.teamRules || '',
+      isPaid: Boolean(ev.requiresPayment || (ev.paymentAmount && ev.paymentAmount > 0)),
       paymentAmount: ev.paymentAmount != null ? String(ev.paymentAmount) : '',
       paymentUpiId: ev.paymentUpiId || '',
       paymentInstructions: ev.paymentInstructions || '',
@@ -4345,6 +5232,7 @@ function EventManagement({ user, logout, onNavigate }) {
     setActiveTab('basic')
     setMessage('')
     setError('')
+    setEventView('BUILDER')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -4358,6 +5246,7 @@ function EventManagement({ user, logout, onNavigate }) {
     setActiveTab('basic')
     setMessage('')
     setError('')
+    setEventView('CATALOG')
   }
 
   async function handleEventSubmit(e) {
@@ -4385,6 +5274,12 @@ function EventManagement({ user, logout, onNavigate }) {
       return
     }
 
+    if (formData.isPaid && !formData.paymentAmount && !activities.length) {
+      setActiveTab('pricing')
+      setError('Please specify the registration fee for this paid event.')
+      return
+    }
+
     const payload = {
       title,
       eventType,
@@ -4401,6 +5296,10 @@ function EventManagement({ user, logout, onNavigate }) {
       organizingTeam: String(formData.organizingTeam || '').trim() || null,
       rules: String(formData.rules || '').trim() || null,
       agenda: String(formData.agenda || '').trim() || null,
+      isTeamEvent: Boolean(formData.isTeamEvent),
+      minTeamSize: formData.isTeamEvent ? Number(formData.minTeamSize || 2) : 1,
+      maxTeamSize: formData.isTeamEvent ? Number(formData.maxTeamSize || 4) : 1,
+      teamRules: formData.isTeamEvent ? String(formData.teamRules || '').trim() || null : null,
       requiresPayment: Boolean(formData.isPaid),
       paymentAmount: formData.isPaid && formData.paymentAmount ? Number(formData.paymentAmount) : null,
       paymentQrUrl: formData.isPaid ? qrPreview || null : null,
@@ -4418,18 +5317,19 @@ function EventManagement({ user, logout, onNavigate }) {
       if (editingEventId) {
         const { event: updated } = await adminApi.updateEvent(editingEventId, payload)
         setEvents(c => c.map(ev => (ev.id === editingEventId ? updated : ev)))
-        setMessage(`✓ Event "${updated.title}" updated successfully.`)
+        setMessage(`Event "${updated.title}" updated successfully.`)
         cancelEdit()
       } else {
         const { event: created } = await adminApi.createEvent(payload)
         setEvents(c => [created, ...c])
-        setMessage(`✓ Event "${created.title}" published! Created by ${user.name} (${user.memberId}).`)
+        setMessage(`Event "${created.title}" published! Created by ${user.name} (${user.memberId}).`)
         setFormData(initialEventForm)
         setPosterPreview('')
         setQrPreview('')
         setActivities([])
         setFormFields([])
         setActiveTab('basic')
+        setEventView('CATALOG')
       }
     } catch (err) {
       setError(err.message)
@@ -4452,6 +5352,8 @@ function EventManagement({ user, logout, onNavigate }) {
 
   async function openAnalytics(event) {
     setAnalyticsModalEvent(event)
+    setRosterSearch('')
+    setSelectedRosterPass(null)
     setLoadingAnalytics(true)
     try {
       const data = await adminApi.getEventDetailsWithStats(event.id)
@@ -4463,24 +5365,69 @@ function EventManagement({ user, logout, onNavigate }) {
     }
   }
 
+  async function handleVerifyRosterUTR(regId) {
+    try {
+      await adminApi.verifyPassPayment(regId)
+      setAnalyticsData(prev => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          registrations: (prev.registrations || []).map(r => (r.id === regId ? { ...r, paymentStatus: 'VERIFIED', status: 'REGISTERED' } : r)),
+        }
+      })
+      if (selectedRosterPass && selectedRosterPass.id === regId) {
+        setSelectedRosterPass(p => ({ ...p, paymentStatus: 'VERIFIED', status: 'REGISTERED' }))
+      }
+      setMessage('Payment verified successfully! Digital pass activated.')
+    } catch (err) {
+      setError(err.message || 'Failed to verify payment.')
+    }
+  }
+
+  async function handleCheckInRoster(regId) {
+    try {
+      await adminApi.grantEventEntry(regId)
+      const nowIso = new Date().toISOString()
+      setAnalyticsData(prev => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          registrations: (prev.registrations || []).map(r => (r.id === regId ? { ...r, attendanceMarked: true, attendedAt: nowIso } : r)),
+        }
+      })
+      if (selectedRosterPass && selectedRosterPass.id === regId) {
+        setSelectedRosterPass(p => ({ ...p, attendanceMarked: true, attendedAt: nowIso }))
+      }
+      setMessage('Attendee admitted and gate attendance recorded!')
+    } catch (err) {
+      setError(err.message || 'Failed to mark gate entry.')
+    }
+  }
+
   function handleDownloadEventsList() {
     const headers = [
       'Event ID',
       'Event Title',
       'Category',
+      'Mode',
+      'Min Team',
+      'Max Team',
       'Status',
       'Date & Time',
       'Venue / Lab',
       'Capacity',
       'Registered Count',
       'Coordinator Name',
-      'Base Price (₹)',
+      'Price (₹)',
       'Short Description',
     ]
     const rows = events.map(ev => [
       ev.id,
       ev.title,
       ev.eventType,
+      ev.isTeamEvent ? 'Team' : 'Individual',
+      ev.minTeamSize || 1,
+      ev.maxTeamSize || 1,
       ev.status,
       ev.dateTime ? new Date(ev.dateTime).toLocaleString() : null,
       ev.venue || ev.location,
@@ -4499,31 +5446,51 @@ function EventManagement({ user, logout, onNavigate }) {
       'Event Title',
       'Member ID',
       'Full Name',
-      'College Roll Number',
+      'College / Institution',
       'Department / Branch',
       'Academic Year',
-      'Email',
-      'Phone',
-      'Selected Activities',
-      'Amount (₹)',
+      'College Roll Number',
+      'Gender',
+      'Age',
+      'Official Email',
+      'Phone Number',
+      'Emergency Contact',
+      'Residency Type',
+      'Commute / Hostel Mode',
+      'Participation Mode',
+      'Team Name',
+      'Is Team Leader',
+      'Registration Fee (₹)',
       'Payment Status',
-      'Payment UTR / Ref',
+      'Payment UTR Reference',
+      'Gate Attendance',
+      'Check-in Timestamp',
       'Registration Date',
     ]
     const rows = (regs || []).map(r => [
       r.id,
       ev?.title,
-      r.user?.memberId,
-      r.user?.profile?.name || r.user?.name,
-      r.user?.profile?.rollNumber || r.formData?.rollNumber,
-      r.branch || r.user?.profile?.department,
+      r.memberId || r.user?.memberId,
+      r.name || r.memberName || r.user?.profile?.name || r.user?.name,
+      r.department || r.user?.profile?.department,
+      r.branch || r.department || r.user?.profile?.department,
       r.year || r.user?.profile?.year,
-      r.user?.profile?.email || r.user?.email,
-      r.user?.profile?.phone || r.user?.phone,
-      Array.isArray(r.selectedActivities) ? r.selectedActivities.map(a => a.name).join('; ') : null,
+      r.rollNumber || r.user?.profile?.rollNumber || r.formData?.rollNumber,
+      r.gender || r.user?.profile?.gender || 'UNSPECIFIED',
+      r.age || r.user?.profile?.age || null,
+      r.email || r.user?.profile?.email,
+      r.phone || r.user?.profile?.phone,
+      r.emergencyContact,
+      r.residencyType || 'DAY_SCHOLAR',
+      r.residencyType === 'HOSTELLER' ? (r.hostelType || 'COLLEGE_HOSTEL') : (r.transportMode || 'OWN_TRANSPORT'),
+      r.teamName ? 'Team' : 'Individual',
+      r.teamName || 'N/A',
+      r.isTeamLeader ? 'Yes' : 'No',
       Number(r.totalAmount) || 0,
       r.paymentStatus,
-      r.paymentReference,
+      r.paymentReference || 'N/A',
+      r.attendanceMarked ? 'Admitted / Present' : 'Not Admitted',
+      r.attendedAt ? new Date(r.attendedAt).toLocaleString() : 'N/A',
       r.registeredAt ? new Date(r.registeredAt).toLocaleString() : null,
     ])
     downloadCsv(`event_${ev.id}_registrations.csv`, headers, rows)
@@ -4539,17 +5506,26 @@ function EventManagement({ user, logout, onNavigate }) {
             </button>
             <p className="eyebrow">COMPREHENSIVE WORKFLOW STUDIO</p>
             <h1>Club Events & Master Studio</h1>
-            <p>Publish workshops, CTF competitions, seminars, and custom-tiered activity events.</p>
+            <p>Publish workshops, CTF competitions, seminars, and team hackathons with clean pricing & pass tracking.</p>
           </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <button
               type="button"
               className="primary"
+              onClick={() => onNavigate('admin-passes')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px' }}
+              title="View all registered student passes and UTR records"
+            >
+              <IconCreditCard size={16} /> PASSES & CHECK-IN ROSTER
+            </button>
+            <button
+              type="button"
+              className="outline"
               onClick={() => onNavigate('admin-qr-scanner')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px' }}
               title="Scan attendee event passes and verify tickets"
             >
-              <Icon8 name="irisScan" size={16} /> SCAN EVENT PASSES (ENTRY GATE)
+              <Icon8 name="irisScan" size={16} /> SCAN AT ENTRY GATE
             </button>
             <button
               type="button"
@@ -4561,37 +5537,67 @@ function EventManagement({ user, logout, onNavigate }) {
             >
               <IconDownload size={14} /> DOWNLOAD EVENTS CSV
             </button>
-            <div className="event-hero-stats">
-              <span><b>{events.length}</b><small>Total Events</small></span>
-              <span><b>{events.filter(e => e.status === 'UPCOMING').length}</b><small>Upcoming</small></span>
-            </div>
           </div>
         </div>
 
         {message && <p className="member-form-success">{message}</p>}
         {error && <p className="member-form-error">{error}</p>}
 
-        <div className="event-management-grid">
-          {/* Event Builder Studio Card */}
-          <article className="account-form-card">
-            <p className="eyebrow">{editingEventId ? 'EDITING EVENT' : 'EVENT BUILDER'}</p>
-            <h2>{editingEventId ? 'Update Event Details' : 'Create & Publish New Event'}</h2>
-            <p style={{ color: '#7e95a7', fontSize: '11px', margin: '4px 0 16px' }}>
-              Coordinator: <b style={{ color: '#85d7ff' }}>{user.name} ({user.memberId})</b>
+        <div className="event-view-switcher" style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className={eventView === 'CATALOG' ? 'primary' : 'outline'}
+            onClick={() => setEventView('CATALOG')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '8px 18px', fontWeight: 700 }}
+          >
+            <IconSparkles size={14} /> PUBLISHED EVENTS CATALOG ({events.length})
+          </button>
+          <button
+            type="button"
+            className={eventView === 'BUILDER' ? 'primary' : 'outline'}
+            onClick={() => {
+              if (!editingEventId) setFormData(initialEventForm)
+              setEventView('BUILDER')
+            }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '8px 18px', fontWeight: 700 }}
+          >
+            <Icon8 name="customForms" size={14} /> {editingEventId ? 'EDITING EVENT' : '＋ CREATE & PUBLISH EVENT'}
+          </button>
+        </div>
+
+        {eventView === 'BUILDER' ? (
+          /* Full-Width Event Builder Studio Card */
+          <article className="account-form-card" style={{ maxWidth: '960px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+              <div>
+                <p className="eyebrow">{editingEventId ? 'EDITING EVENT' : 'EVENT BUILDER STUDIO'}</p>
+                <h2>{editingEventId ? 'Update Event Details' : 'Create & Publish New Event'}</h2>
+              </div>
+              <button
+                type="button"
+                className="outline"
+                onClick={cancelEdit}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}
+              >
+                ← BACK TO EVENTS CATALOG
+              </button>
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '0 0 16px' }}>
+              Coordinator: <b style={{ color: 'var(--brand-primary)' }}>{user.name} ({user.memberId})</b>
             </p>
 
-            <div className="audit-tabs">
-              <button type="button" className={`audit-tab-btn ${activeTab === 'basic' ? 'active' : ''}`} onClick={() => setActiveTab('basic')}>1. Basic Info</button>
-              <button type="button" className={`audit-tab-btn ${activeTab === 'details' ? 'active' : ''}`} onClick={() => setActiveTab('details')}>2. Agenda & Rules</button>
-              <button type="button" className={`audit-tab-btn ${activeTab === 'pricing' ? 'active' : ''}`} onClick={() => setActiveTab('pricing')}>3. Pricing & Tracks</button>
-              <button type="button" className={`audit-tab-btn ${activeTab === 'fields' ? 'active' : ''}`} onClick={() => setActiveTab('fields')}>4. Registration Fields</button>
+            <div className="audit-tabs" style={{ marginBottom: '20px' }}>
+              <button type="button" className={`audit-tab-btn ${activeTab === 'basic' ? 'active' : ''}`} onClick={() => setActiveTab('basic')}>1. Basic & Schedule</button>
+              <button type="button" className={`audit-tab-btn ${activeTab === 'teams' ? 'active' : ''}`} onClick={() => setActiveTab('teams')}>2. Participation & Teams</button>
+              <button type="button" className={`audit-tab-btn ${activeTab === 'pricing' ? 'active' : ''}`} onClick={() => setActiveTab('pricing')}>3. Pricing & UPI</button>
+              <button type="button" className={`audit-tab-btn ${activeTab === 'fields' ? 'active' : ''}`} onClick={() => setActiveTab('fields')}>4. Custom Fields</button>
             </div>
 
             <form onSubmit={handleEventSubmit}>
-              {/* Tab 1: Basic Info */}
+              {/* Tab 1: Basic Info & Schedule */}
               {activeTab === 'basic' && (
-                <div className="member-form-grid">
-                  <label className="form-wide">
+                <div className="member-form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+                  <label className="form-wide" style={{ gridColumn: '1 / -1' }}>
                     Event Title *
                     <input
                       name="title"
@@ -4614,6 +5620,8 @@ function EventManagement({ user, logout, onNavigate }) {
                       <option value="Seminar">Guest Seminar</option>
                       <option value="Bootcamp">Security Bootcamp</option>
                       <option value="Hackathon">Cyber Hackathon</option>
+                      <option value="Summit">Security Summit</option>
+                      <option value="Cultural">Cultural / Campus Event</option>
                     </select>
                   </label>
                   <label>
@@ -4625,7 +5633,6 @@ function EventManagement({ user, logout, onNavigate }) {
                       onChange={e => updateFormField('status', e.target.value)}
                     >
                       <option value="UPCOMING">Upcoming</option>
-                      <option value="OPEN">Open for Registration</option>
                       <option value="LIVE">Live Now</option>
                       <option value="COMPLETED">Completed</option>
                     </select>
@@ -4633,168 +5640,260 @@ function EventManagement({ user, logout, onNavigate }) {
                   <label>
                     Date & Time *
                     <input
-                      name="dateTime"
                       type="datetime-local"
+                      name="dateTime"
                       required
                       value={formData.dateTime}
                       onChange={e => updateFormField('dateTime', e.target.value)}
                     />
                   </label>
                   <label>
-                    Venue / Lab
+                    Venue / Campus Location
                     <input
                       name="venue"
-                      placeholder="e.g. Cyber Defense Lab 304"
+                      placeholder="e.g. Cyber Defense Lab 304 / Main Auditorium"
                       value={formData.venue}
                       onChange={e => updateFormField('venue', e.target.value)}
                     />
                   </label>
                   <label>
-                    Max Capacity (Optional)
+                    Max Seat Capacity (Optional)
                     <input
-                      name="capacity"
                       type="number"
-                      placeholder="e.g. 100 (leave blank for unlimited)"
+                      name="capacity"
+                      min="1"
+                      placeholder="Leave blank for unlimited"
                       value={formData.capacity}
                       onChange={e => updateFormField('capacity', e.target.value)}
                     />
                   </label>
-                  <label className="form-wide">
-                    Short Synopsis
+                  <label className="form-wide" style={{ gridColumn: '1 / -1' }}>
+                    Short Synopsis (Catalog Banner)
                     <input
                       name="shortDescription"
-                      placeholder="One-line summary for event catalog"
+                      placeholder="One-line summary shown on event catalog and cards"
                       value={formData.shortDescription}
                       onChange={e => updateFormField('shortDescription', e.target.value)}
                     />
                   </label>
-                  <label className="form-wide">
-                    Event Poster / Banner
-                    <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) readImageFile(f, setPosterPreview) }} />
+                  <label className="form-wide" style={{ gridColumn: '1 / -1' }}>
+                    Event Poster / Banner Image (Optional)
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={e => { const f = e.target.files?.[0]; if (f) readImageFile(f, setPosterPreview) }}
+                    />
                   </label>
                   {posterPreview && (
-                    <div className="event-upload-preview form-wide">
-                      <img src={posterPreview} alt="Poster" />
-                      <button type="button" className="preview-remove" onClick={() => setPosterPreview('')}>✕</button>
+                    <div style={{ gridColumn: '1 / -1', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+                      <img src={posterPreview} alt="Event Poster Preview" style={{ width: '120px', height: '68px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--brand-border-subtle)' }} />
+                      <button type="button" className="action-btn cancel-btn" onClick={() => setPosterPreview('')}>Remove Poster</button>
                     </div>
                   )}
-
-                  <div className="form-wide" style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
-                    <button type="button" className="action-btn save-btn" onClick={() => setActiveTab('details')}>
-                      Next: Agenda & Rules →
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Tab 2: Agenda & Rules */}
-              {activeTab === 'details' && (
-                <div className="member-form-grid">
-                  <label className="form-wide">
-                    Full Description & Objectives
+                  <label className="form-wide" style={{ gridColumn: '1 / -1' }}>
+                    Detailed Event Description & Overview
                     <textarea
-                      name="description"
                       rows={4}
-                      placeholder="Detailed event scope and outcomes..."
+                      name="description"
+                      placeholder="Comprehensive details, what students will learn, takeaways, and prerequisites."
                       value={formData.description}
                       onChange={e => updateFormField('description', e.target.value)}
-                      style={{ width: '100%', padding: '10px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', fontSize: '11px' }}
+                      style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '12px' }}
                     />
                   </label>
-                  <label className="form-wide">
-                    Prerequisites & Rules
-                    <textarea
-                      name="rules"
-                      rows={3}
-                      placeholder="Requirements (e.g. Kali Linux VM installed, laptop required)..."
-                      value={formData.rules}
-                      onChange={e => updateFormField('rules', e.target.value)}
-                      style={{ width: '100%', padding: '10px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', fontSize: '11px' }}
-                    />
-                  </label>
-                  <div className="form-wide" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
-                    <button type="button" className="action-btn cancel-btn" onClick={() => setActiveTab('basic')}>← Back</button>
-                    <button type="button" className="action-btn save-btn" onClick={() => setActiveTab('pricing')}>Next: Pricing & Tracks →</button>
+                  <div className="form-wide" style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+                    <button type="button" className="action-btn save-btn" onClick={() => setActiveTab('teams')}>Next: Participation & Teams →</button>
                   </div>
                 </div>
               )}
 
-              {/* Tab 3: Pricing & Multi-Track Activities */}
+              {/* Tab 2: Participation & Teams */}
+              {activeTab === 'teams' && (
+                <div className="member-form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px' }}>
+                  <label>
+                    Participation Type
+                    <select
+                      className="member-select"
+                      value={formData.isTeamEvent ? 'TEAM' : 'INDIVIDUAL'}
+                      onChange={e => updateFormField('isTeamEvent', e.target.value === 'TEAM')}
+                    >
+                      <option value="INDIVIDUAL">Individual Participation</option>
+                      <option value="TEAM">Team / Group Participation</option>
+                    </select>
+                  </label>
+
+                  {formData.isTeamEvent && (
+                    <>
+                      <label>
+                        Min Team Members
+                        <input
+                          type="number"
+                          min="1"
+                          max="20"
+                          value={formData.minTeamSize}
+                          onChange={e => updateFormField('minTeamSize', e.target.value)}
+                        />
+                      </label>
+                      <label>
+                        Max Team Members
+                        <input
+                          type="number"
+                          min="1"
+                          max="30"
+                          value={formData.maxTeamSize}
+                          onChange={e => updateFormField('maxTeamSize', e.target.value)}
+                        />
+                      </label>
+                      <label className="form-wide" style={{ gridColumn: '1 / -1' }}>
+                        Team Formation Rules / Guidelines
+                        <textarea
+                          rows={3}
+                          placeholder="e.g. Cross-department teams are allowed. Team leader must submit registration for all members."
+                          value={formData.teamRules}
+                          onChange={e => updateFormField('teamRules', e.target.value)}
+                          style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '12px' }}
+                        />
+                      </label>
+                    </>
+                  )}
+
+                  <label className="form-wide" style={{ gridColumn: '1 / -1' }}>
+                    Event Agenda / Schedule Breakdown
+                    <textarea
+                      rows={3}
+                      placeholder="e.g. 10:00 AM - Opening Keynote | 11:30 AM - Live Sandbox | 02:00 PM - Final Showdown"
+                      value={formData.agenda}
+                      onChange={e => updateFormField('agenda', e.target.value)}
+                      style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '12px' }}
+                    />
+                  </label>
+                  <label className="form-wide" style={{ gridColumn: '1 / -1' }}>
+                    Competition Rules / Eligibility Criteria
+                    <textarea
+                      rows={3}
+                      placeholder="e.g. Open to all MRDU engineering and management students. Laptops required."
+                      value={formData.rules}
+                      onChange={e => updateFormField('rules', e.target.value)}
+                      style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '12px' }}
+                    />
+                  </label>
+                  <div className="form-wide" style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
+                    <button type="button" className="action-btn cancel-btn" onClick={() => setActiveTab('basic')}>← Back</button>
+                    <button type="button" className="action-btn save-btn" onClick={() => setActiveTab('pricing')}>Next: Pricing & UPI →</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab 3: Pricing & UPI Gateway */}
               {activeTab === 'pricing' && (
                 <div>
-                  <div className="member-form-grid" style={{ marginBottom: '14px' }}>
-                    <label>
-                      Base Entry Fee (₹)
-                      <input
-                        type="number"
-                        placeholder="0 for free"
-                        value={formData.paymentAmount}
-                        onChange={e => updateFormField('paymentAmount', e.target.value)}
-                      />
-                    </label>
-                    <label>
-                      UPI ID for Event Payments
-                      <input
-                        placeholder="club@okaxis"
-                        value={formData.paymentUpiId}
-                        onChange={e => updateFormField('paymentUpiId', e.target.value)}
-                      />
-                    </label>
-                    <label className="form-wide">
-                      Payment QR Code Image
-                      <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) readImageFile(f, setQrPreview) }} />
-                    </label>
-                  </div>
-
-                  {/* Multi-Track Custom Activities List */}
-                  <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '8px', padding: '14px', marginBottom: '14px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <b style={{ color: 'var(--brand-primary)', fontSize: '12px' }}>Event Activities & Add-on Tracks</b>
-                      <button type="button" className="action-btn save-btn" onClick={addActivity}>＋ Add Activity Track</button>
+                  <div className="event-builder-box">
+                    <div className="event-builder-box-title">
+                      <IconCreditCard size={14} /> EVENT PRICING & PAYMENT GATEWAY
                     </div>
-                    {activities.length === 0 ? (
-                      <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '8px 0' }}>No separate sub-activities added. Event will use standard single registration.</p>
-                    ) : (
-                      activities.map((act, idx) => (
-                        <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
-                          <input placeholder="Activity Name (e.g. Hardware Hacking Track)" value={act.name} onChange={e => updateActivity(idx, 'name', e.target.value)} />
-                          <input type="number" placeholder="Additional ₹" value={act.price} onChange={e => updateActivity(idx, 'price', e.target.value)} />
-                          <input type="number" placeholder="Cap" value={act.capacity} onChange={e => updateActivity(idx, 'capacity', e.target.value)} />
-                          <button type="button" className="action-btn delete-btn" onClick={() => removeActivity(idx)}>✕</button>
+                    <div className="event-mode-grid">
+                      <div
+                        className={`event-mode-card ${!formData.isPaid ? 'selected selected-free' : ''}`}
+                        onClick={() => updateFormField('isPaid', false)}
+                      >
+                        <div className="event-mode-card-header">
+                          <span className="event-mode-card-icon">
+                            <IconSparkles size={16} />
+                          </span>
+                          <div className="event-mode-radio">
+                            {!formData.isPaid && <div className="event-mode-radio-dot" />}
+                          </div>
                         </div>
-                      ))
+                        <h4 className="event-mode-title">Free Event (₹0)</h4>
+                        <p className="event-mode-desc">Open registration. Passes are issued immediately upon sign-up with instant QR generation.</p>
+                      </div>
+
+                      <div
+                        className={`event-mode-card ${formData.isPaid ? 'selected' : ''}`}
+                        onClick={() => updateFormField('isPaid', true)}
+                      >
+                        <div className="event-mode-card-header">
+                          <span className="event-mode-card-icon">
+                            <IconQrCode size={16} />
+                          </span>
+                          <div className="event-mode-radio">
+                            {formData.isPaid && <div className="event-mode-radio-dot" />}
+                          </div>
+                        </div>
+                        <h4 className="event-mode-title">Paid Event (UPI / Cash)</h4>
+                        <p className="event-mode-desc">Requires students to submit a 12-digit UPI UTR transaction ID for admin verification before entry.</p>
+                      </div>
+                    </div>
+
+                    {formData.isPaid && (
+                      <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--line)' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px', marginBottom: '14px' }}>
+                          <label>
+                            Registration Fee (₹) *
+                            <input
+                              type="number"
+                              min="1"
+                              placeholder="e.g. 150"
+                              value={formData.paymentAmount}
+                              onChange={e => updateFormField('paymentAmount', e.target.value)}
+                            />
+                          </label>
+                          <label>
+                            Club UPI ID for Payments
+                            <input
+                              placeholder="e.g. mrduclub@okaxis"
+                              value={formData.paymentUpiId}
+                              onChange={e => updateFormField('paymentUpiId', e.target.value)}
+                            />
+                          </label>
+                        </div>
+                        <label className="form-wide">
+                          Payment Instructions
+                          <input
+                            placeholder="e.g. Scan QR using PhonePe/GPay, pay the fee, and enter your 12-digit UTR number below."
+                            value={formData.paymentInstructions}
+                            onChange={e => updateFormField('paymentInstructions', e.target.value)}
+                          />
+                        </label>
+                      </div>
                     )}
                   </div>
 
                   <div className="form-wide" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
-                    <button type="button" className="action-btn cancel-btn" onClick={() => setActiveTab('details')}>← Back</button>
-                    <button type="button" className="action-btn save-btn" onClick={() => setActiveTab('fields')}>Next: Registration Fields →</button>
+                    <button type="button" className="action-btn cancel-btn" onClick={() => setActiveTab('teams')}>← Back</button>
+                    <button type="button" className="action-btn save-btn" onClick={() => setActiveTab('fields')}>Next: Custom Questions →</button>
                   </div>
                 </div>
               )}
 
-              {/* Tab 4: Dynamic Custom Registration Form Builder */}
+              {/* Tab 4: Custom Questions */}
               {activeTab === 'fields' && (
                 <div>
-                  <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '8px', padding: '14px', marginBottom: '14px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <b style={{ color: 'var(--brand-primary)', fontSize: '12px' }}>Custom Registration Questions</b>
-                      <button type="button" className="action-btn save-btn" onClick={addCustomField}>＋ Add Question</button>
+                  <div className="event-builder-box">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                      <div className="event-builder-box-title" style={{ margin: 0 }}>
+                        <Icon8 name="customForms" size={14} /> CUSTOM REGISTRATION QUESTIONS
+                      </div>
+                      <button type="button" className="action-btn save-btn" onClick={addCustomField} style={{ fontSize: '11px', padding: '6px 12px' }}>
+                        ＋ Add Question
+                      </button>
                     </div>
                     {formFields.length === 0 ? (
-                      <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '8px 0' }}>No custom questions added. Default member fields (Name, Member ID, Email) will be used.</p>
+                      <div style={{ padding: '24px 16px', textAlign: 'center', background: 'var(--bg-input)', borderRadius: '8px', border: '1px dashed var(--line)' }}>
+                        <p style={{ color: 'var(--text-main)', fontSize: '13px', fontWeight: 600, margin: '0 0 4px' }}>Standard Student Profile Form Only</p>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '11.5px', margin: 0 }}>Default fields (Full Name, Member ID, Roll Number, Gender, Age, Department & College) are captured automatically. Click "Add Question" to ask custom event-specific queries.</p>
+                      </div>
                     ) : (
                       formFields.map((ff, i) => (
-                        <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr auto auto', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
-                          <input placeholder="Question prompt" value={ff.fieldName} onChange={e => updateCustomField(i, 'fieldName', e.target.value)} />
-                          <select value={ff.fieldType} onChange={e => updateCustomField(i, 'fieldType', e.target.value)} className="member-select" style={{ marginTop: 0 }}>
+                        <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr auto auto', gap: '10px', marginBottom: '10px', alignItems: 'center', padding: '10px', background: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--line)' }}>
+                          <input placeholder="Question prompt (e.g. GitHub URL / Dietary Preference)" value={ff.fieldName} onChange={e => updateCustomField(i, 'fieldName', e.target.value)} />
+                          <select value={ff.fieldType} onChange={e => updateCustomField(i, 'fieldType', e.target.value)}>
                             <option value="text">Short Text</option>
-                            <option value="textarea">Paragraph</option>
-                            <option value="select">Dropdown</option>
+                            <option value="textarea">Long Text</option>
+                            <option value="select">Dropdown Choice</option>
                           </select>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', color: '#829bb0' }}>
-                            <input type="checkbox" checked={ff.isRequired} onChange={e => updateCustomField(i, 'isRequired', e.target.checked)} />
-                            Req
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', cursor: 'pointer' }}>
+                            <input type="checkbox" checked={ff.isRequired} onChange={e => updateCustomField(i, 'isRequired', e.target.checked)} /> Required
                           </label>
                           <button type="button" className="action-btn delete-btn" onClick={() => removeCustomField(i)}>✕</button>
                         </div>
@@ -4804,79 +5903,109 @@ function EventManagement({ user, logout, onNavigate }) {
 
                   <div className="form-wide" style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '10px' }}>
                     <button type="button" className="action-btn cancel-btn" onClick={() => setActiveTab('pricing')}>
-                      ← Back to Pricing & Tracks
+                      ← Back to Pricing & UPI
                     </button>
                   </div>
                 </div>
               )}
 
               <div className="event-actions" style={{ marginTop: '22px', display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <button type="submit" className="primary member-submit" disabled={submitting}>
-                  {submitting ? 'SAVING EVENT…' : editingEventId ? '✓ &nbsp; UPDATE EVENT' : '＋ &nbsp; PUBLISH EVENT'}
+                <button type="submit" className="primary member-submit" disabled={submitting} style={{ padding: '12px 24px', fontWeight: 700 }}>
+                  {submitting ? 'SAVING EVENT…' : editingEventId ? '✓ UPDATE EVENT' : '＋ PUBLISH EVENT'}
                 </button>
-                {editingEventId && (
-                  <button type="button" className="action-btn cancel-btn" onClick={cancelEdit}>
-                    Cancel Editing
-                  </button>
-                )}
+                <button type="button" className="action-btn cancel-btn" onClick={cancelEdit}>
+                  Cancel
+                </button>
               </div>
             </form>
           </article>
-
-          {/* Events Directory Card */}
-          <article className="member-list-card">
-            <div className="card-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+        ) : (
+          /* Full-Width Published Events Catalog Card */
+          <article className="member-list-card" style={{ width: '100%' }}>
+            <div className="card-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
               <div>
-                <p className="eyebrow">EVENT CATALOG</p>
-                <h2>Published Events ({events.length})</h2>
+                <p className="eyebrow">EVENT CATALOG & PASSES</p>
+                <h2>Published Events & Sessions ({events.length})</h2>
               </div>
-              <button
-                type="button"
-                className="outline"
-                onClick={handleDownloadEventsList}
-                disabled={events.length === 0}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
-                title="Download events catalog as CSV"
-              >
-                <IconDownload size={14} /> DOWNLOAD EVENTS CSV
-              </button>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => {
+                    if (!editingEventId) setFormData(initialEventForm)
+                    setEventView('BUILDER')
+                  }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px' }}
+                >
+                  <Icon8 name="customForms" size={14} /> ＋ CREATE NEW EVENT
+                </button>
+                <button
+                  type="button"
+                  className="outline"
+                  onClick={handleDownloadEventsList}
+                  disabled={events.length === 0}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+                  title="Download events catalog as CSV"
+                >
+                  <IconDownload size={14} /> DOWNLOAD EVENTS CSV
+                </button>
+              </div>
             </div>
 
             {loading ? (
-              <p className="directory-state">Loading events...</p>
+              <p className="directory-state" style={{ marginTop: '24px' }}>Loading events...</p>
             ) : events.length === 0 ? (
-              <p className="directory-state">No events published yet.</p>
+              <p className="directory-state" style={{ marginTop: '24px' }}>No events published yet. Click "Create New Event" above to publish your first session.</p>
             ) : (
-              <div className="table-scroll-container">
+              <div className="table-scroll-container" style={{ marginTop: '16px' }}>
                 <div className="events-table">
-                  <div className="table-header">
-                    <span>EVENT TITLE</span>
-                    <span>DATE</span>
-                    <span>VENUE</span>
-                    <span>PASSES</span>
+                  <div className="table-header" style={{ gridTemplateColumns: '1.8fr 1.2fr 1.2fr 1fr 1.2fr', gap: '14px' }}>
+                    <span>EVENT TITLE & DETAILS</span>
+                    <span>SCHEDULE & TIMING</span>
+                    <span>VENUE / LOCATION</span>
+                    <span>PASSES & SEATS</span>
                     <span>ACTIONS</span>
                   </div>
                   {events.map(ev => (
-                    <div className="table-row" key={ev.id}>
-                      <div>
-                        <b>{ev.title}</b>
-                        <small style={{ color: '#85d7ff', display: 'block' }}>{ev.eventType} {ev.coordinatorName ? `· Coord: ${ev.coordinatorName}` : ''}</small>
+                    <div className="table-row" key={ev.id} style={{ gridTemplateColumns: '1.8fr 1.2fr 1.2fr 1fr 1.2fr', gap: '14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        {ev.photoUrl ? (
+                          <img src={ev.photoUrl} alt={ev.title} style={{ width: '48px', height: '36px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--brand-border-subtle)', flexShrink: 0 }} />
+                        ) : (
+                          <div style={{ width: '48px', height: '36px', borderRadius: '6px', background: 'var(--panel-subtle)', display: 'grid', placeItems: 'center', color: 'var(--brand-primary)', border: '1px solid var(--line)', flexShrink: 0 }}>
+                            <IconSparkles size={16} />
+                          </div>
+                        )}
+                        <div style={{ minWidth: 0 }}>
+                          <b style={{ color: 'var(--text-main)', fontSize: '13px', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ev.title}</b>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
+                            <span className="badge" style={{ background: 'var(--brand-badge-bg)', color: 'var(--brand-primary)', fontSize: '9px' }}>{ev.eventType}</span>
+                            {ev.requiresPayment || (ev.paymentAmount && ev.paymentAmount > 0) ? (
+                              <span className="badge badge-admin" style={{ fontSize: '9px' }}>₹{ev.paymentAmount}</span>
+                            ) : (
+                              <span className="badge badge-student" style={{ fontSize: '9px' }}>FREE</span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                       <div>
-                        <small>{new Date(ev.dateTime).toLocaleDateString()}</small>
-                        <small style={{ color: '#688296', display: 'block' }}>{new Date(ev.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
+                        <span style={{ color: 'var(--text-main)', fontSize: '12px', fontWeight: 600, display: 'block' }}>{new Date(ev.dateTime).toLocaleDateString()}</span>
+                        <small style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block', marginTop: '2px' }}>{new Date(ev.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</small>
                       </div>
                       <div>
-                        <small>{ev.venue || ev.location || 'Campus'}</small>
+                        <span style={{ color: 'var(--text-main)', fontSize: '12px', display: 'block' }}>{ev.venue || ev.location || 'Campus / Online'}</span>
+                        {ev.coordinatorName && (
+                          <small style={{ color: 'var(--text-dim)', fontSize: '10.5px', display: 'block', marginTop: '2px' }}>Coord: {ev.coordinatorName}</small>
+                        )}
                       </div>
                       <div>
-                        <strong style={{ color: '#85d7ff' }}>{ev.registrationCount ?? ev._count?.registrations ?? 0}</strong>
-                        <small> / {ev.capacity || '∞'}</small>
+                        <strong style={{ color: 'var(--brand-primary)', fontSize: '13px' }}>{ev.registrationCount ?? ev._count?.registrations ?? 0}</strong>
+                        <small style={{ color: 'var(--text-dim)', fontSize: '11px' }}> / {ev.capacity || '∞'}</small>
                       </div>
-                      <div className="action-buttons">
-                        <button className="action-btn" onClick={() => startEditEvent(ev)} style={{ background: '#193854', color: '#85d7ff', border: '1px solid #52bbf544' }}>Edit</button>
-                        <button className="action-btn save-btn" onClick={() => openAnalytics(ev)}>Passes</button>
-                        <button className="action-btn delete-btn" onClick={() => removeEvent(ev.id)}>Delete</button>
+                      <div className="action-buttons" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                        <button className="action-btn edit-btn" onClick={() => startEditEvent(ev)} title="Edit event settings">Edit</button>
+                        <button className="action-btn save-btn" onClick={() => openAnalytics(ev)} title="View attendee passes and check-in roster">Passes</button>
+                        <button className="action-btn delete-btn" onClick={() => removeEvent(ev.id)} title="Delete event">Delete</button>
                       </div>
                     </div>
                   ))}
@@ -4884,25 +6013,30 @@ function EventManagement({ user, logout, onNavigate }) {
               </div>
             )}
           </article>
-        </div>
+        )}
 
         {/* Analytics & Passes Modal */}
         {analyticsModalEvent && (
           <div className="photo-lightbox" onClick={() => setAnalyticsModalEvent(null)}>
-            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-modal)', padding: '28px', borderRadius: '12px', border: '1px solid var(--line)', maxWidth: '720px', maxHeight: '85vh', overflowY: 'auto' }}>
+            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-modal)', padding: '24px', borderRadius: '16px', border: '1px solid var(--line)', maxWidth: '1100px', width: '96vw', maxHeight: '90vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
                 <div>
-                  <b style={{ color: 'var(--brand-primary)', fontSize: '16px' }}>{analyticsModalEvent.title}</b>
-                  <small style={{ display: 'block', color: 'var(--text-muted)' }}>Registration & Attendee Roster</small>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <b style={{ color: 'var(--brand-primary)', fontSize: '18px' }}>{analyticsModalEvent.title}</b>
+                    <span className="badge badge-president" style={{ fontSize: '10px' }}>{analyticsModalEvent.eventType}</span>
+                  </div>
+                  <small style={{ display: 'block', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    Comprehensive Attendee Pass Roster · {analyticsModalEvent.venue || analyticsModalEvent.location || 'Campus'}
+                  </small>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
                   <button
                     type="button"
                     className="outline"
                     onClick={() => handleDownloadEventRegistrations(analyticsModalEvent, analyticsData?.registrations)}
                     disabled={!analyticsData?.registrations || analyticsData.registrations.length === 0}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '5px 10px' }}
-                    title="Download event registrations roster as CSV"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+                    title="Download complete event registrations roster as CSV"
                   >
                     <IconDownload size={13} /> DOWNLOAD ROSTER CSV
                   </button>
@@ -4910,39 +6044,354 @@ function EventManagement({ user, logout, onNavigate }) {
                 </div>
               </div>
 
-              {loadingAnalytics ? (
-                <p className="directory-state">Loading registrations...</p>
-              ) : !analyticsData?.registrations || analyticsData.registrations.length === 0 ? (
-                <p className="directory-state">No student registrations for this event yet.</p>
-              ) : (
-                <div className="table-scroll-container">
-                  <div className="members-table">
-                    <div className="table-header">
-                      <span>STUDENT</span>
-                      <span>REGISTERED AT</span>
-                      <span>PASS STATUS</span>
-                      <span>PAYMENT</span>
-                    </div>
-                    {analyticsData.registrations.map(r => (
-                      <div className="table-row" key={r.id}>
-                        <div>
-                          <b>{r.user?.profile?.name || r.user?.memberId}</b>
-                          <small style={{ color: 'var(--brand-primary)', display: 'block' }}>{r.user?.memberId}</small>
-                        </div>
-                        <div>
-                          <small>{new Date(r.registeredAt).toLocaleString()}</small>
-                        </div>
-                        <div>
-                          <span className="badge badge-registered">{r.status}</span>
-                        </div>
-                        <div>
-                          <strong style={{ color: '#059669' }}>{r.paymentStatus}</strong>
-                        </div>
-                      </div>
-                    ))}
+              {/* Stats Summary Bar */}
+              {analyticsData?.stats && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', marginBottom: '16px' }}>
+                  <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
+                    <small style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10px' }}>TOTAL REGISTERED</small>
+                    <strong style={{ color: 'var(--brand-primary)', fontSize: '16px' }}>{analyticsData.stats.totalRegistrations}</strong>
+                  </div>
+                  <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
+                    <small style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10px' }}>CONFIRMED / PAID</small>
+                    <strong style={{ color: '#10b981', fontSize: '16px' }}>{analyticsData.stats.confirmed}</strong>
+                  </div>
+                  <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
+                    <small style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10px' }}>PENDING UTR</small>
+                    <strong style={{ color: '#f59e0b', fontSize: '16px' }}>{analyticsData.stats.pending}</strong>
+                  </div>
+                  <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
+                    <small style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10px' }}>VERIFIED REVENUE</small>
+                    <strong style={{ color: '#70ddb4', fontSize: '16px' }}>₹{analyticsData.stats.totalVerifiedRevenue}</strong>
+                  </div>
+                  <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
+                    <small style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10px' }}>SEATS REMAINING</small>
+                    <strong style={{ color: 'var(--text-main)', fontSize: '16px' }}>{analyticsData.stats.seatsRemaining ?? '∞'}</strong>
                   </div>
                 </div>
               )}
+
+              {/* Roster Search Bar */}
+              <div style={{ marginBottom: '14px' }}>
+                <input
+                  placeholder="Search by student name, member ID, college, roll number, email, phone, UTR, team..."
+                  value={rosterSearch}
+                  onChange={e => setRosterSearch(e.target.value)}
+                  style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)', padding: '0 12px', fontSize: '12px' }}
+                />
+              </div>
+
+              {loadingAnalytics ? (
+                <p className="directory-state">Loading complete registration details...</p>
+              ) : !analyticsData?.registrations || analyticsData.registrations.length === 0 ? (
+                <p className="directory-state">No student registrations for this event yet.</p>
+              ) : (
+                (() => {
+                  const q = rosterSearch.trim().toLowerCase()
+                  const list = (analyticsData.registrations || []).filter(r => {
+                    if (!q) return true
+                    return (
+                      (r.name && r.name.toLowerCase().includes(q)) ||
+                      (r.memberName && r.memberName.toLowerCase().includes(q)) ||
+                      (r.memberId && r.memberId.toLowerCase().includes(q)) ||
+                      (r.rollNumber && r.rollNumber.toLowerCase().includes(q)) ||
+                      (r.department && r.department.toLowerCase().includes(q)) ||
+                      (r.email && r.email.toLowerCase().includes(q)) ||
+                      (r.phone && r.phone.toLowerCase().includes(q)) ||
+                      (r.teamName && r.teamName.toLowerCase().includes(q)) ||
+                      (r.paymentReference && r.paymentReference.toLowerCase().includes(q)) ||
+                      (r.paymentStatus && r.paymentStatus.toLowerCase().includes(q))
+                    )
+                  })
+
+                  if (list.length === 0) {
+                    return <p className="directory-state">No attendees match your search "{rosterSearch}".</p>
+                  }
+
+                  return (
+                    <div className="table-scroll-container">
+                      <div className="sub-table" style={{ minWidth: '980px' }}>
+                        <div className="sub-table-header" style={{ gridTemplateColumns: '1.4fr 1.2fr 1fr 1.2fr 1fr 1.1fr' }}>
+                          <span>STUDENT & ACADEMICS</span>
+                          <span>CONTACT & LOGISTICS</span>
+                          <span>SQUAD / MODE</span>
+                          <span>PAYMENT & UTR</span>
+                          <span>GATE ENTRY</span>
+                          <span>ACTIONS</span>
+                        </div>
+                        {list.map(r => (
+                          <div className="sub-table-row" key={r.id} style={{ gridTemplateColumns: '1.4fr 1.2fr 1fr 1.2fr 1fr 1.1fr', alignItems: 'center' }}>
+                            {/* Student Column */}
+                            <div>
+                              <b style={{ color: 'var(--text-main)', fontSize: '13px' }}>{r.name || r.memberName || r.user?.profile?.name || r.memberId}</b>
+                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
+                                <span style={{ color: 'var(--brand-primary)', fontFamily: 'monospace', fontSize: '11px', fontWeight: 600 }}>
+                                  {r.memberId || r.user?.memberId}
+                                </span>
+                                <span className="badge" style={{ fontSize: '9px', padding: '1px 6px', background: 'var(--panel-subtle)', color: 'var(--text-muted)' }}>
+                                  {r.gender || r.user?.profile?.gender || 'MALE'} {r.age || r.user?.profile?.age ? `· ${r.age || r.user?.profile?.age}y` : ''}
+                                </span>
+                              </div>
+                              <small style={{ color: 'var(--text-muted)', display: 'block', marginTop: '2px', lineHeight: '1.3' }}>
+                                {r.department || r.user?.profile?.department || r.branch || 'CSE'} {r.year || r.user?.profile?.year ? `· Year ${r.year || r.user?.profile?.year}` : ''}
+                              </small>
+                              {r.rollNumber && (
+                                <small style={{ color: 'var(--text-dim)', display: 'block', fontSize: '10px' }}>
+                                  Roll: {r.rollNumber}
+                                </small>
+                              )}
+                            </div>
+
+                            {/* Contact & Logistics */}
+                            <div>
+                              <small style={{ color: 'var(--text-main)', display: 'block', wordBreak: 'break-all' }}>
+                                {r.email || r.user?.profile?.email || 'No email'}
+                              </small>
+                              <small style={{ color: 'var(--brand-primary)', display: 'block', marginTop: '2px' }}>
+                                {r.phone || r.user?.profile?.phone || 'No phone'}
+                              </small>
+                              <span className="badge" style={{ marginTop: '4px', fontSize: '9px', display: 'inline-block', background: 'var(--panel-subtle)', color: 'var(--text-muted)' }}>
+                                {r.residencyType === 'HOSTELLER'
+                                  ? (r.hostelType === 'PRIVATE_HOSTEL' ? 'Private PG' : 'College Hostel')
+                                  : (r.transportMode === 'COLLEGE_BUS' ? 'College Bus' : r.transportMode === 'PUBLIC_BUS' ? 'Public Bus' : 'Day Scholar')}
+                              </span>
+                            </div>
+
+                            {/* Squad / Mode */}
+                            <div>
+                              {r.teamName ? (
+                                <div>
+                                  <span className="badge" style={{ fontSize: '10px', background: r.isTeamLeader ? 'var(--brand-glow)' : 'var(--panel-subtle)', color: r.isTeamLeader ? 'var(--brand-primary)' : 'var(--text-main)', border: '1px solid var(--line)' }}>
+                                    {r.teamName} {r.isTeamLeader ? '(Leader)' : ''}
+                                  </span>
+                                </div>
+                              ) : (
+                                <small style={{ color: 'var(--text-muted)', display: 'block' }}>Individual</small>
+                              )}
+                              {Array.isArray(r.selectedActivities) && r.selectedActivities.length > 0 && (
+                                <small style={{ color: '#70ddb4', display: 'block', fontSize: '10px', marginTop: '2px' }}>
+                                  {r.selectedActivities.map(a => a.name).join(', ')}
+                                </small>
+                              )}
+                            </div>
+
+                            {/* Payment & UTR */}
+                            <div>
+                              <strong style={{ color: '#70ddb4', fontSize: '13px' }}>
+                                {r.totalAmount > 0 ? `₹${r.totalAmount}` : 'Free Entry'}
+                              </strong>
+                              {r.paymentReference && (
+                                <small style={{ color: 'var(--brand-primary)', display: 'block', fontFamily: 'monospace', fontSize: '10px', marginTop: '2px' }}>
+                                  UTR: {r.paymentReference}
+                                </small>
+                              )}
+                              <span className={`badge badge-${(r.paymentStatus || 'free').toLowerCase()}`} style={{ marginTop: '3px', display: 'inline-block', fontSize: '9px' }}>
+                                {r.paymentStatus}
+                              </span>
+                            </div>
+
+                            {/* Gate Entry */}
+                            <div>
+                              {r.attendanceMarked ? (
+                                <div>
+                                  <span className="badge" style={{ background: '#064e3b', color: '#6ee7b7', border: '1px solid #10b981', fontSize: '10px' }}>
+                                    ✓ ADMITTED
+                                  </span>
+                                  {r.attendedAt && (
+                                    <small style={{ color: 'var(--text-dim)', display: 'block', fontSize: '9px', marginTop: '2px' }}>
+                                      {new Date(r.attendedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </small>
+                                  )}
+                                </div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="action-btn"
+                                  onClick={() => handleCheckInRoster(r.id)}
+                                  style={{ fontSize: '10px', padding: '4px 8px', background: 'var(--panel-subtle)', color: 'var(--text-main)', border: '1px solid var(--line)' }}
+                                >
+                                  Check-in
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Actions */}
+                            <div className="action-buttons" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                              {(r.paymentStatus === 'SUBMITTED' || r.paymentStatus === 'PENDING') && r.totalAmount > 0 && (
+                                <button
+                                  className="action-btn save-btn"
+                                  onClick={() => handleVerifyRosterUTR(r.id)}
+                                  style={{ fontSize: '10px', padding: '4px 8px' }}
+                                >
+                                  Verify UTR
+                                </button>
+                              )}
+                              <button
+                                className="action-btn"
+                                onClick={() => setSelectedRosterPass(r)}
+                                style={{ fontSize: '10px', padding: '4px 8px', background: 'var(--brand-glow)', color: 'var(--brand-primary)', border: '1px solid var(--line)' }}
+                              >
+                                Full Details
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Attendee Full Detail Card Modal */}
+        {selectedRosterPass && (
+          <div className="photo-lightbox" onClick={() => setSelectedRosterPass(null)}>
+            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-modal)', padding: '28px', borderRadius: '16px', border: '1px solid var(--line)', maxWidth: '620px', width: '95vw', maxHeight: '88vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <span className="badge badge-president">{selectedRosterPass.eventTitle || analyticsModalEvent?.title || 'ATTENDEE PASS'}</span>
+                <button className="lightbox-close" onClick={() => setSelectedRosterPass(null)} style={{ position: 'static' }}>✕</button>
+              </div>
+
+              {selectedRosterPass.qrCodeData && (
+                <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                  <div style={{ background: '#fff', padding: '12px', borderRadius: '12px', display: 'inline-block' }}>
+                    <img src={selectedRosterPass.qrCodeData} alt="Pass QR" style={{ width: '150px', height: '150px', imageRendering: 'pixelated' }} />
+                  </div>
+                </div>
+              )}
+
+              <h2 style={{ font: '700 20px Syne', color: 'var(--text-main)', margin: '0 0 4px', textAlign: 'center' }}>
+                {selectedRosterPass.name || selectedRosterPass.memberName || selectedRosterPass.user?.profile?.name || selectedRosterPass.memberId}
+              </h2>
+              <p style={{ color: 'var(--brand-primary)', fontFamily: 'monospace', fontSize: '12px', margin: '0 0 16px', textAlign: 'center' }}>
+                PASS ID: {selectedRosterPass.id} · MEMBER: {selectedRosterPass.memberId || selectedRosterPass.user?.memberId}
+              </p>
+
+              {/* Full Details Grid */}
+              <div style={{ background: 'var(--panel-subtle)', borderRadius: '12px', padding: '16px', fontSize: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', color: 'var(--text-muted)', border: '1px solid var(--line)' }}>
+                <div>
+                  <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>COLLEGE / INSTITUTION</span>
+                  <b style={{ color: 'var(--text-main)', display: 'block', marginTop: '2px' }}>
+                    {selectedRosterPass.department || selectedRosterPass.user?.profile?.department || 'Malla Reddy (MR) Deemed to be University'}
+                  </b>
+                </div>
+                <div>
+                  <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ACADEMIC YEAR & ROLL</span>
+                  <b style={{ color: 'var(--text-main)', display: 'block', marginTop: '2px' }}>
+                    Year {selectedRosterPass.year || selectedRosterPass.user?.profile?.year || '1'} · Roll: {selectedRosterPass.rollNumber || selectedRosterPass.user?.profile?.rollNumber || '---'}
+                  </b>
+                </div>
+                <div>
+                  <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>EMAIL ADDRESS</span>
+                  <b style={{ color: 'var(--text-main)', display: 'block', marginTop: '2px', wordBreak: 'break-all' }}>
+                    {selectedRosterPass.email || selectedRosterPass.user?.profile?.email || '---'}
+                  </b>
+                </div>
+                <div>
+                  <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PHONE & EMERGENCY</span>
+                  <b style={{ color: 'var(--text-main)', display: 'block', marginTop: '2px' }}>
+                    {selectedRosterPass.phone || selectedRosterPass.user?.profile?.phone || '---'} {selectedRosterPass.emergencyContact ? `(Emerg: ${selectedRosterPass.emergencyContact})` : ''}
+                  </b>
+                </div>
+                <div>
+                  <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>GENDER & AGE</span>
+                  <b style={{ color: 'var(--text-main)', display: 'block', marginTop: '2px' }}>
+                    {selectedRosterPass.gender || selectedRosterPass.user?.profile?.gender || 'MALE'} · {selectedRosterPass.age || selectedRosterPass.user?.profile?.age || '---'} yrs
+                  </b>
+                </div>
+                <div>
+                  <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>RESIDENCY & COMMUTE</span>
+                  <b style={{ color: 'var(--text-main)', display: 'block', marginTop: '2px' }}>
+                    {selectedRosterPass.residencyType === 'HOSTELLER'
+                      ? (selectedRosterPass.hostelType === 'PRIVATE_HOSTEL' ? 'Private PG / Hostel' : 'College Hostel')
+                      : (selectedRosterPass.transportMode === 'COLLEGE_BUS' ? 'College Bus Commuter' : selectedRosterPass.transportMode === 'PUBLIC_BUS' ? 'Public Bus' : 'Day Scholar')}
+                  </b>
+                </div>
+                {selectedRosterPass.teamName && (
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>TEAM SQUAD</span>
+                    <b style={{ color: 'var(--brand-primary)', display: 'block', marginTop: '2px' }}>
+                      {selectedRosterPass.teamName} {selectedRosterPass.isTeamLeader ? '★ Squad Leader' : '· Squad Member'}
+                    </b>
+                  </div>
+                )}
+                <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--line)', paddingTop: '10px', marginTop: '4px' }}>
+                  <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PAYMENT & UTR</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', flexWrap: 'wrap', gap: '8px' }}>
+                    <div>
+                      <strong style={{ color: '#70ddb4', fontSize: '14px' }}>
+                        {selectedRosterPass.totalAmount > 0 ? `₹${selectedRosterPass.totalAmount}` : 'Free Entry'}
+                      </strong>
+                      <span className={`badge badge-${(selectedRosterPass.paymentStatus || 'free').toLowerCase()}`} style={{ marginLeft: '8px' }}>
+                        {selectedRosterPass.paymentStatus}
+                      </span>
+                      {selectedRosterPass.paymentReference && (
+                        <span style={{ display: 'block', color: 'var(--brand-primary)', fontFamily: 'monospace', fontSize: '11px', marginTop: '2px' }}>
+                          UTR: {selectedRosterPass.paymentReference}
+                        </span>
+                      )}
+                    </div>
+                    {selectedRosterPass.paymentProofUrl && (
+                      <a
+                        href={selectedRosterPass.paymentProofUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="action-btn"
+                        style={{ fontSize: '10px', padding: '4px 10px', background: 'var(--panel-elevated)', color: 'var(--brand-primary)', border: '1px solid var(--line)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        VIEW PAYMENT PROOF ↗
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* Custom Form Data (if any) */}
+                {selectedRosterPass.formData && typeof selectedRosterPass.formData === 'object' && Object.keys(selectedRosterPass.formData).length > 0 && (
+                  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--line)', paddingTop: '10px', marginTop: '4px' }}>
+                    <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>CUSTOM FORM RESPONSES</span>
+                    <div style={{ marginTop: '6px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      {Object.entries(selectedRosterPass.formData).map(([k, v]) => (
+                        <div key={k} style={{ background: 'var(--bg-input)', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--line)' }}>
+                          <small style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10px' }}>{k}</small>
+                          <span style={{ color: 'var(--text-main)', fontSize: '11px', fontWeight: 600 }}>{String(v)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                {(selectedRosterPass.paymentStatus === 'SUBMITTED' || selectedRosterPass.paymentStatus === 'PENDING') && selectedRosterPass.totalAmount > 0 && (
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => handleVerifyRosterUTR(selectedRosterPass.id)}
+                    style={{ flex: 1, height: '38px', fontSize: '11px' }}
+                  >
+                    VERIFY UTR & ACTIVATE
+                  </button>
+                )}
+                {!selectedRosterPass.attendanceMarked && (
+                  <button
+                    type="button"
+                    className="action-btn save-btn"
+                    onClick={() => handleCheckInRoster(selectedRosterPass.id)}
+                    style={{ flex: 1, height: '38px', fontSize: '11px' }}
+                  >
+                    RECORD GATE ENTRY
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="action-btn"
+                  onClick={() => setSelectedRosterPass(null)}
+                  style={{ height: '38px', padding: '0 16px', background: 'var(--panel-elevated)', color: 'var(--text-main)', border: '1px solid var(--line)', fontSize: '11px' }}
+                >
+                  CLOSE
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -4951,6 +6400,9 @@ function EventManagement({ user, logout, onNavigate }) {
   )
 }
 
+// ----------------------------------------------------
+// Event Detail & Registration Page (Student)
+// ----------------------------------------------------
 // ----------------------------------------------------
 // Event Detail & Registration Page (Student)
 // ----------------------------------------------------
@@ -4964,13 +6416,47 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
   const [proofPreview, setProofPreview] = useState('')
   const [subRequired, setSubRequired] = useState(false)
 
-  useEffect(() => {
+  // Logistics & Demographics State
+  const [gender, setGender] = useState(user.profile?.gender || 'MALE')
+  const [age, setAge] = useState(user.profile?.age || 19)
+  const [residencyType, setResidencyType] = useState('DAY_SCHOLAR')
+  const [transportMode, setTransportMode] = useState('COLLEGE_BUS')
+  const [hostelType, setHostelType] = useState('COLLEGE_HOSTEL')
+  const [emergencyContact, setEmergencyContact] = useState('')
+  const [paymentReference, setPaymentReference] = useState('')
+
+  // Team Formation State
+  const [teamNameInput, setTeamNameInput] = useState('')
+  const [memberLookupInput, setMemberLookupInput] = useState('')
+  const [lookupLoading, setLookupLoading] = useState(false)
+  const [lookupError, setLookupError] = useState('')
+  const [draftMembers, setDraftMembers] = useState([])
+  const [teamSubmitting, setTeamSubmitting] = useState(false)
+
+  // My Invites State
+  const [pendingInvites, setPendingInvites] = useState([])
+  const [respondingInviteId, setRespondingInviteId] = useState(null)
+
+  function loadEventAndInvites() {
     let mounted = true
-    memberApi.getEventDetails(eventId)
-      .then(res => { if (mounted) setEvent(res.event) })
+    setLoading(true)
+    Promise.all([
+      memberApi.getEventDetails(eventId),
+      memberApi.listMyTeamInvites().catch(() => ({ invites: [] })),
+    ])
+      .then(([evRes, invRes]) => {
+        if (!mounted) return
+        setEvent(evRes.event)
+        const relevantInvites = (invRes.invites || []).filter(i => i.eventId === eventId)
+        setPendingInvites(relevantInvites)
+      })
       .catch(err => { if (mounted) setError(err.message) })
       .finally(() => { if (mounted) setLoading(false) })
     return () => { mounted = false }
+  }
+
+  useEffect(() => {
+    return loadEventAndInvites()
   }, [eventId])
 
   function toggleActivity(actId) {
@@ -4981,26 +6467,149 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
     }
   }
 
+  async function handleLookupMember() {
+    const q = memberLookupInput.trim().toUpperCase()
+    if (!q || q.length < 3) {
+      setLookupError('Enter at least 3 characters of Member ID.')
+      return
+    }
+    if (q === user.memberId?.toUpperCase()) {
+      setLookupError('You are already the team leader.')
+      return
+    }
+    if (draftMembers.some(m => m.memberId?.toUpperCase() === q)) {
+      setLookupError('Member already added to team draft.')
+      return
+    }
+
+    setLookupLoading(true)
+    setLookupError('')
+    try {
+      const res = await memberApi.lookupMember(q)
+      setDraftMembers(c => [...c, res.member])
+      setMemberLookupInput('')
+    } catch (err) {
+      setLookupError(err.message || 'Student not found.')
+    } finally {
+      setLookupLoading(false)
+    }
+  }
+
+  function removeDraftMember(mId) {
+    setDraftMembers(c => c.filter(m => m.id !== mId))
+  }
+
+  async function handleCreateTeam() {
+    if (!teamNameInput.trim()) {
+      setError('Please provide a team name.')
+      return
+    }
+    setTeamSubmitting(true)
+    setError('')
+    setMessage('')
+    try {
+      await memberApi.createEventTeam(eventId, {
+        teamName: teamNameInput.trim(),
+        invitedMemberIds: draftMembers.map(m => m.id),
+      })
+      setMessage(`Team "${teamNameInput.trim()}" created! Invitations dispatched to team members.`)
+      setTeamNameInput('')
+      setDraftMembers([])
+      loadEventAndInvites()
+    } catch (err) {
+      setError(err.message || 'Unable to create team.')
+    } finally {
+      setTeamSubmitting(false)
+    }
+  }
+
+  async function handleRespondInvite(inviteId, accept) {
+    setRespondingInviteId(inviteId)
+    setError('')
+    setMessage('')
+    try {
+      const res = await memberApi.respondTeamInvite(inviteId, accept)
+      setMessage(res.message)
+      loadEventAndInvites()
+    } catch (err) {
+      setError(err.message || 'Failed to respond to team invite.')
+    } finally {
+      setRespondingInviteId(null)
+    }
+  }
+
+  async function handleRemoveTeamMember(teamId, memberUserId) {
+    if (!confirm('Are you sure you want to remove this member from your team?')) return
+    setError('')
+    try {
+      await memberApi.removeTeamMember(teamId, memberUserId)
+      setMessage('Member removed from team.')
+      loadEventAndInvites()
+    } catch (err) {
+      setError(err.message)
+    }
+  }
+
   async function handleRegister(e) {
     e.preventDefault()
-    const form = new FormData(e.currentTarget)
     setError('')
     setMessage('')
     setSubRequired(false)
 
+    // Team validation
+    if (event.isTeamEvent) {
+      if (!event.userTeam) {
+        setError('Please create or join a team first before registering.')
+        return
+      }
+      if (!event.userTeam.isLeader) {
+        setError('Only the team leader can submit the final team registration & payment.')
+        return
+      }
+      const acceptedCount = (event.userTeam.members || []).filter(m => m.status === 'ACCEPTED').length
+      const minReq = event.minTeamSize || 2
+      if (acceptedCount < minReq) {
+        setError(`Your team requires at least ${minReq} accepted members to register (currently ${acceptedCount} accepted).`)
+        return
+      }
+
+      // If team rules mention female / girl requirement
+      if (event.teamRules && /female|girl|woman/i.test(event.teamRules)) {
+        const hasFemale = (event.userTeam.members || []).some(m => m.gender === 'FEMALE') || gender === 'FEMALE'
+        if (!hasFemale) {
+          setError('Event rules require at least 1 female team member. Please invite a female participant to join your team.')
+          return
+        }
+      }
+    }
+
+    if (totalPrice > 0 && !paymentReference.trim()) {
+      setError('Please enter your 12-digit UPI UTR / Transaction Reference ID for payment verification.')
+      return
+    }
+
     const payload = {
       selectedActivityIds: selectedActivities,
-      paymentReference: String(form.get('paymentReference') || '').trim() || null,
+      paymentReference: paymentReference.trim() || null,
       paymentProofUrl: proofPreview || null,
-      teamName: String(form.get('teamName') || '').trim() || null,
-      emergencyContact: String(form.get('emergencyContact') || '').trim() || null,
+      gender,
+      age: age ? Number(age) : null,
+      residencyType,
+      transportMode: residencyType === 'DAY_SCHOLAR' ? transportMode : null,
+      hostelType: residencyType === 'HOSTELLER' ? hostelType : null,
+      emergencyContact: emergencyContact.trim() || null,
+      teamName: event.userTeam?.teamName || null,
+      teamId: event.userTeam?.id || null,
+      isTeamLeader: Boolean(event.userTeam?.isLeader),
     }
 
     setSubmitting(true)
     try {
       await memberApi.registerForEvent(eventId, payload)
-      setMessage('Registration confirmed! Your QR Pass is available in "My Passes".')
-      setEvent(ev => ({ ...ev, isRegistered: true }))
+      setMessage(totalPrice > 0
+        ? 'Registration & UPI reference submitted! Your digital pass is pending payment verification.'
+        : 'Registration confirmed! Digital passes generated for all team members.')
+      loadEventAndInvites()
     } catch (err) {
       if (err.code === 'SUBSCRIPTION_REQUIRED' || err.message?.includes('membership is inactive')) {
         setSubRequired(true)
@@ -5034,16 +6643,23 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
     .reduce((sum, a) => sum + (Number(a.price) || 0), 0)
   const totalPrice = basePrice + activityPrice
 
+  const userTeam = event.userTeam
+  const isLeader = userTeam?.isLeader
+  const acceptedMembersCount = userTeam ? userTeam.members.filter(m => m.status === 'ACCEPTED').length : 0
+  const satisfiesMinTeam = !event.isTeamEvent || (userTeam && acceptedMembersCount >= (event.minTeamSize || 2))
+  const ruleRequiresFemale = event.isTeamEvent && event.teamRules && /female|girl|woman/i.test(event.teamRules)
+  const hasFemaleMember = userTeam && (userTeam.members.some(m => m.gender === 'FEMALE') || gender === 'FEMALE')
+
   return (
     <LivePortal user={user} logout={logout} activeTab="student-events" onNavigate={onNavigate} title="EVENT DETAILS">
       <section className="event-detail-page">
         <button className="back-button" onClick={() => onNavigate('student-events')}>← BACK TO EVENTS CATALOG</button>
 
-        {message && <p className="member-form-success">{message}</p>}
-        {error && <p className="member-form-error">{error}</p>}
+        {message && <p className="member-form-success" style={{ marginTop: '10px' }}>{message}</p>}
+        {error && <p className="member-form-error" style={{ marginTop: '10px' }}>{error}</p>}
 
         {subRequired && (
-          <div className="pending-alert-banner" style={{ background: '#3a1818', borderColor: '#ef4444', color: '#ffcdd2' }}>
+          <div className="pending-alert-banner" style={{ background: '#3a1818', borderColor: '#ef4444', color: '#ffcdd2', marginTop: '14px' }}>
             <div>
               <b>Active Student Membership Required</b>
               <p style={{ margin: '2px 0 0', fontSize: '11px' }}>
@@ -5056,7 +6672,7 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
           </div>
         )}
 
-        <div className="event-detail-hero">
+        <div className="event-detail-hero" style={{ marginTop: '16px' }}>
           <div className="event-detail-main">
             <div className="event-detail-banner">
               {event.photoUrl ? (
@@ -5069,35 +6685,67 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
             </div>
 
             <div className="event-info-box">
-              <span className="badge badge-president">{event.eventType}</span>
-              <h1 style={{ font: '700 clamp(24px, 3vw, 36px) Syne', color: 'var(--text-main)', margin: '12px 0 8px' }}>{event.title}</h1>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <span className="badge badge-president">{event.eventType}</span>
+                {event.isTeamEvent ? (
+                  <span className="badge" style={{ background: 'var(--brand-badge-bg)', color: 'var(--brand-badge-color)' }}>
+                    TEAM EVENT ({event.minTeamSize} - {event.maxTeamSize} Members)
+                  </span>
+                ) : (
+                  <span className="badge" style={{ background: 'var(--panel-subtle)', color: 'var(--text-muted)' }}>
+                    INDIVIDUAL ENTRY
+                  </span>
+                )}
+                {event.requiresPayment ? (
+                  <span className="badge" style={{ background: 'rgba(234, 179, 8, 0.15)', color: '#fef08a', border: '1px solid #eab30866' }}>
+                    PAID · ₹{event.paymentAmount}
+                  </span>
+                ) : (
+                  <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#6ee7b7', border: '1px solid #10b98166' }}>
+                    FREE ENTRY
+                  </span>
+                )}
+              </div>
+
+              <h1 style={{ font: '700 clamp(24px, 3vw, 36px) Syne', color: 'var(--text-main)', margin: '14px 0 8px' }}>{event.title}</h1>
               <p style={{ color: 'var(--text-muted)', fontSize: '14px', lineHeight: '1.7' }}>{event.description || event.shortDescription}</p>
+
+              {event.teamRules && (
+                <div style={{ marginTop: '20px', padding: '14px', borderRadius: '8px', background: 'var(--panel-subtle)', border: '1px solid var(--line)' }}>
+                  <b style={{ color: 'var(--brand-primary)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <IconShieldCheck size={14} /> TEAM COMPOSITION & GUIDELINES:
+                  </b>
+                  <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.5' }}>
+                    {event.teamRules}
+                  </p>
+                </div>
+              )}
 
               {event.agenda && (
                 <div style={{ marginTop: '24px' }}>
                   <b style={{ color: 'var(--brand-primary)', fontSize: '13px' }}>AGENDA & SCHEDULE</b>
-                  <pre style={{ color: 'var(--text-main)', font: '12px Manrope', whiteSpace: 'pre-wrap', marginTop: '8px' }}>{event.agenda}</pre>
+                  <pre style={{ color: 'var(--text-main)', font: '12px Manrope', whiteSpace: 'pre-wrap', marginTop: '8px', padding: '14px', background: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--line)' }}>{event.agenda}</pre>
                 </div>
               )}
 
               {event.rules && (
                 <div style={{ marginTop: '24px' }}>
                   <b style={{ color: 'var(--brand-primary)', fontSize: '13px' }}>RULES & ETHICS</b>
-                  <pre style={{ color: 'var(--text-main)', font: '12px Manrope', whiteSpace: 'pre-wrap', marginTop: '8px' }}>{event.rules}</pre>
+                  <pre style={{ color: 'var(--text-main)', font: '12px Manrope', whiteSpace: 'pre-wrap', marginTop: '8px', padding: '14px', background: 'var(--bg-input)', borderRadius: '8px', border: '1px solid var(--line)' }}>{event.rules}</pre>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Registration Form Sidebar */}
+          {/* Registration Form & Team Squad Sidebar */}
           <div>
             <article className="account-form-card" style={{ position: 'sticky', top: '20px' }}>
-              <p className="eyebrow">REGISTRATION PASS</p>
+              <p className="eyebrow">REGISTRATION & PASS</p>
               <h2>{event.isRegistered ? 'Registration Confirmed' : 'Reserve Your Slot'}</h2>
 
               <div style={{ margin: '14px 0', padding: '12px', background: 'var(--panel-subtle)', borderRadius: '8px', border: '1px solid var(--line)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                  <span>Date & Time:</span>
+                  <span>Date:</span>
                   <b style={{ color: 'var(--text-main)' }}>{new Date(event.dateTime).toLocaleDateString()}</b>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>
@@ -5112,62 +6760,368 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
 
               {event.isRegistered ? (
                 <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                  <span className="badge badge-registered" style={{ fontSize: '12px', padding: '6px 14px' }}>✓ PASS ACTIVE</span>
+                  {event.paymentStatus === 'SUBMITTED' ? (
+                    <span className="badge" style={{ fontSize: '12px', padding: '6px 14px', background: '#78350f', color: '#fef08a', border: '1px solid #eab308' }}>
+                      PENDING VERIFICATION (UTR SUBMITTED)
+                    </span>
+                  ) : (
+                    <span className="badge badge-registered" style={{ fontSize: '12px', padding: '6px 14px' }}>
+                      PASS ACTIVE & VERIFIED
+                    </span>
+                  )}
                   <p style={{ color: '#829bb0', fontSize: '12px', marginTop: '10px' }}>
-                    You have reserved a slot for this event. View your QR Pass under "My Passes".
+                    {event.userRegistration?.teamName ? `Team: ${event.userRegistration.teamName} · ` : ''}
+                    Your digital pass QR is available in your Pass Wallet.
                   </p>
-                  <button className="outline" type="button" onClick={() => onNavigate('student-registrations')}>
+                  <button className="outline" type="button" onClick={() => onNavigate('student-registrations')} style={{ marginTop: '12px' }}>
                     VIEW MY PASSES →
                   </button>
                 </div>
               ) : (
-                <form onSubmit={handleRegister}>
-                  {event.activities && event.activities.length > 0 && (
-                    <div style={{ margin: '14px 0' }}>
-                      <b style={{ color: '#85d7ff', fontSize: '12px' }}>Select Activity / Track:</b>
-                      <div className="activity-selector-list">
-                        {event.activities.map(act => (
-                          <div
-                            key={act.id}
-                            className={`activity-option ${selectedActivities.includes(act.id) ? 'selected' : ''}`}
-                            onClick={() => toggleActivity(act.id)}
-                          >
-                            <div>
-                              <b>{act.name}</b>
-                              {act.description && <small style={{ display: 'block', color: '#7e95a7' }}>{act.description}</small>}
-                            </div>
-                            <span className="activity-price">{act.price > 0 ? `₹${act.price}` : 'INCLUDED'}</span>
+                <div>
+                  {/* Pending Team Invitations for this event */}
+                  {pendingInvites.length > 0 && !userTeam && (
+                    <div style={{ background: 'var(--brand-glow)', border: '1px solid var(--brand-primary)', borderRadius: '10px', padding: '14px', marginBottom: '16px' }}>
+                      <b style={{ color: 'var(--brand-primary)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <IconSparkles size={14} /> PENDING TEAM INVITATION
+                      </b>
+                      {pendingInvites.map(inv => (
+                        <div key={inv.inviteId} style={{ marginTop: '10px', fontSize: '12px', color: 'var(--text-main)' }}>
+                          <p style={{ margin: '0 0 8px' }}>
+                            <b>{inv.leaderName}</b> ({inv.leaderMemberId}) invited you to join <b>"{inv.teamName}"</b>.
+                          </p>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button
+                              type="button"
+                              className="primary"
+                              disabled={respondingInviteId === inv.inviteId}
+                              onClick={() => handleRespondInvite(inv.inviteId, true)}
+                              style={{ padding: '6px 12px', fontSize: '11px', flex: 1 }}
+                            >
+                              ACCEPT
+                            </button>
+                            <button
+                              type="button"
+                              className="action-btn cancel-btn"
+                              disabled={respondingInviteId === inv.inviteId}
+                              onClick={() => handleRespondInvite(inv.inviteId, false)}
+                              style={{ padding: '6px 12px', fontSize: '11px', flex: 1 }}
+                            >
+                              DECLINE
+                            </button>
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      ))}
                     </div>
                   )}
 
-                  {event.requiresPayment && (
-                    <div style={{ margin: '14px 0' }}>
-                      <div className="total-price-badge">
-                        <span>Total Entry Fee:</span>
-                        <span>₹{totalPrice.toFixed(2)}</span>
+                  {/* Team Participation Flow */}
+                  {event.isTeamEvent && (
+                    <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '10px', padding: '14px', marginBottom: '16px' }}>
+                      <b style={{ color: 'var(--brand-primary)', fontSize: '12px', display: 'block', marginBottom: '8px' }}>
+                        TEAM FORMATION ({event.minTeamSize} - {event.maxTeamSize} MEMBERS)
+                      </b>
+
+                      {userTeam ? (
+                        <div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>
+                              Team: {userTeam.teamName}
+                            </span>
+                            <span className="badge" style={{ fontSize: '10px', background: isLeader ? 'var(--brand-badge-bg)' : 'var(--panel-elevated)', color: isLeader ? 'var(--brand-primary)' : 'var(--text-muted)' }}>
+                              {isLeader ? 'LEADER' : 'MEMBER'}
+                            </span>
+                          </div>
+
+                          {/* Member List */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', margin: '10px 0' }}>
+                            {userTeam.members.map(m => (
+                              <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: 'var(--bg-input)', borderRadius: '6px', border: '1px solid var(--line)', fontSize: '11px' }}>
+                                <div>
+                                  <b style={{ color: 'var(--text-main)' }}>{m.name}</b>
+                                  <small style={{ color: 'var(--text-muted)', display: 'block' }}>
+                                    {m.memberId} {m.gender ? `· ${m.gender}` : ''}
+                                  </small>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span className="badge" style={{
+                                    fontSize: '9px',
+                                    background: m.status === 'ACCEPTED' ? '#064e3b' : m.status === 'REJECTED' ? '#7f1d1d' : '#78350f',
+                                    color: m.status === 'ACCEPTED' ? '#6ee7b7' : m.status === 'REJECTED' ? '#fca5a5' : '#fde68a',
+                                  }}>
+                                    {m.status}
+                                  </span>
+                                  {isLeader && m.userId !== user.id && (
+                                    <button type="button" onClick={() => handleRemoveTeamMember(userTeam.id, m.userId)} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '12px' }} title="Remove member">
+                                      ✕
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Team Rules Live Checklist */}
+                          <div style={{ padding: '8px 10px', background: 'var(--bg-card)', borderRadius: '6px', fontSize: '11px', margin: '10px 0' }}>
+                            <div style={{ color: satisfiesMinTeam ? '#10b981' : '#f59e0b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>{satisfiesMinTeam ? '✓' : '○'}</span>
+                              <span>Minimum {event.minTeamSize} accepted members: <b>{acceptedMembersCount} / {event.minTeamSize}</b></span>
+                            </div>
+                            {ruleRequiresFemale && (
+                              <div style={{ color: hasFemaleMember ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                                <span>{hasFemaleMember ? '✓' : '○'}</span>
+                                <span>Gender Rule: {hasFemaleMember ? 'Female participant included' : 'Requires at least 1 female team member'}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {!isLeader && (
+                            <p style={{ margin: '8px 0 0', fontSize: '11px', color: 'var(--text-muted)' }}>
+                              Your team leader ({userTeam.members.find(m => m.userId === userTeam.leaderId)?.name || 'Leader'}) will submit the final registration pass.
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                            Team Name *
+                          </label>
+                          <input
+                            placeholder="e.g. CyberVanguard"
+                            value={teamNameInput}
+                            onChange={e => setTeamNameInput(e.target.value)}
+                            style={{ width: '100%', height: '36px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px' }}
+                          />
+
+                          <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', margin: '10px 0 4px' }}>
+                            Invite Team Members by Member ID
+                          </label>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <input
+                              placeholder="e.g. CSC2026M02 or Roll No"
+                              value={memberLookupInput}
+                              onChange={e => setMemberLookupInput(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleLookupMember() } }}
+                              style={{ flex: 1, height: '36px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px' }}
+                            />
+                            <button
+                              type="button"
+                              className="outline"
+                              onClick={handleLookupMember}
+                              disabled={lookupLoading}
+                              style={{ height: '36px', padding: '0 12px', fontSize: '11px' }}
+                            >
+                              {lookupLoading ? '...' : '＋ ADD'}
+                            </button>
+                          </div>
+                          {lookupError && <small style={{ color: '#fca5a5', display: 'block', marginTop: '4px', fontSize: '11px' }}>{lookupError}</small>}
+
+                          {draftMembers.length > 0 && (
+                            <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                              <b style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Members to Invite:</b>
+                              {draftMembers.map(m => (
+                                <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'var(--bg-input)', borderRadius: '6px', fontSize: '11px' }}>
+                                  <span><b>{m.name}</b> ({m.memberId}) · {m.gender}</span>
+                                  <button type="button" onClick={() => removeDraftMember(m.id)} style={{ color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer' }}>✕</button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <button
+                            type="button"
+                            className="primary"
+                            disabled={teamSubmitting || !teamNameInput.trim()}
+                            onClick={handleCreateTeam}
+                            style={{ width: '100%', height: '36px', marginTop: '12px', fontSize: '11px' }}
+                          >
+                            {teamSubmitting ? 'CREATING SQUAD…' : 'CREATE TEAM & SEND INVITES'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Main Event Registration Form */}
+                  <form onSubmit={handleRegister}>
+                    {/* Mandatory Demographic & Logistics Section */}
+                    <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '10px', padding: '14px', marginBottom: '16px' }}>
+                      <b style={{ color: 'var(--brand-primary)', fontSize: '12px', display: 'block', marginBottom: '10px' }}>
+                        ATTENDEE LOGISTICS & DETAILS
+                      </b>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '10px', marginBottom: '12px' }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>Gender *</label>
+                          <select
+                            value={gender}
+                            onChange={e => setGender(e.target.value)}
+                            className="member-select"
+                            style={{ width: '100%', height: '36px', marginTop: 0 }}
+                          >
+                            <option value="MALE">Male</option>
+                            <option value="FEMALE">Female</option>
+                            <option value="OTHER">Other</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>Age *</label>
+                          <input
+                            type="number"
+                            min="15"
+                            max="60"
+                            required
+                            value={age}
+                            onChange={e => setAge(e.target.value)}
+                            style={{ width: '100%', height: '36px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px' }}
+                          />
+                        </div>
                       </div>
 
-                      {event.paymentQrUrl && (
-                        <div style={{ textAlign: 'center', margin: '10px 0' }}>
-                          <img src={event.paymentQrUrl} alt="QR Code" style={{ maxWidth: '140px', borderRadius: '8px', border: '1px solid #52bbf544' }} />
-                          {event.paymentUpiId && <small style={{ display: 'block', color: '#85d7ff', marginTop: '4px' }}>UPI: {event.paymentUpiId}</small>}
+                      {/* Residency Selector */}
+                      <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                        Residency Type *
+                      </label>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setResidencyType('DAY_SCHOLAR')}
+                          style={{
+                            padding: '8px',
+                            borderRadius: '6px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            border: residencyType === 'DAY_SCHOLAR' ? '1px solid var(--brand-primary)' : '1px solid var(--line)',
+                            background: residencyType === 'DAY_SCHOLAR' ? 'var(--brand-glow)' : 'var(--bg-input)',
+                            color: residencyType === 'DAY_SCHOLAR' ? 'var(--brand-primary)' : 'var(--text-muted)',
+                          }}
+                        >
+                          Day Scholar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setResidencyType('HOSTELLER')}
+                          style={{
+                            padding: '8px',
+                            borderRadius: '6px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            border: residencyType === 'HOSTELLER' ? '1px solid var(--brand-primary)' : '1px solid var(--line)',
+                            background: residencyType === 'HOSTELLER' ? 'var(--brand-glow)' : 'var(--bg-input)',
+                            color: residencyType === 'HOSTELLER' ? 'var(--brand-primary)' : 'var(--text-muted)',
+                          }}
+                        >
+                          Hosteller
+                        </button>
+                      </div>
+
+                      {/* If Day Scholar: Commute mode */}
+                      {residencyType === 'DAY_SCHOLAR' && (
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                            Daily Commute Mode *
+                          </label>
+                          <select
+                            value={transportMode}
+                            onChange={e => setTransportMode(e.target.value)}
+                            className="member-select"
+                            style={{ width: '100%', height: '36px', marginTop: 0 }}
+                          >
+                            <option value="COLLEGE_BUS">College Bus</option>
+                            <option value="PUBLIC_BUS">Public Bus / RTC</option>
+                            <option value="OWN_TRANSPORT">Own Transport / Personal Vehicle</option>
+                          </select>
                         </div>
                       )}
 
-                      <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                        Transaction / UTR Reference ID
-                        <input name="paymentReference" required placeholder="UPI Reference or Bank Txn ID" style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', marginTop: '4px' }} />
-                      </label>
+                      {/* If Hosteller: Hostel type */}
+                      {residencyType === 'HOSTELLER' && (
+                        <div>
+                          <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                            Hostel Accommodation *
+                          </label>
+                          <select
+                            value={hostelType}
+                            onChange={e => setHostelType(e.target.value)}
+                            className="member-select"
+                            style={{ width: '100%', height: '36px', marginTop: 0 }}
+                          >
+                            <option value="COLLEGE_HOSTEL">College Campus Hostel</option>
+                            <option value="PRIVATE_HOSTEL">Private Hostel / PG</option>
+                          </select>
+                        </div>
+                      )}
                     </div>
-                  )}
 
-                  <button className="primary" disabled={submitting} style={{ width: '100%', minHeight: '44px', marginTop: '12px' }}>
-                    {submitting ? 'CONFIRMING…' : 'CONFIRM REGISTRATION'}
-                  </button>
-                </form>
+                    {/* Multi-Track Sub-Activities */}
+                    {event.activities && event.activities.length > 0 && (
+                      <div style={{ margin: '14px 0' }}>
+                        <b style={{ color: 'var(--brand-primary)', fontSize: '12px' }}>Select Optional Track:</b>
+                        <div className="activity-selector-list" style={{ marginTop: '8px' }}>
+                          {event.activities.map(act => (
+                            <div
+                              key={act.id}
+                              className={`activity-option ${selectedActivities.includes(act.id) ? 'selected' : ''}`}
+                              onClick={() => toggleActivity(act.id)}
+                            >
+                              <div>
+                                <b>{act.name}</b>
+                                {act.description && <small style={{ display: 'block', color: '#7e95a7' }}>{act.description}</small>}
+                              </div>
+                              <span className="activity-price">{act.price > 0 ? `₹${act.price}` : 'INCLUDED'}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Paid Event Payment Gateway */}
+                    {event.requiresPayment && (
+                      <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '10px', padding: '14px', margin: '16px 0' }}>
+                        <div className="total-price-badge">
+                          <span>Total Registration Fee:</span>
+                          <span>₹{totalPrice.toFixed(2)}</span>
+                        </div>
+
+                        {event.paymentQrUrl && (
+                          <div style={{ textAlign: 'center', margin: '14px 0' }}>
+                            <img src={event.paymentQrUrl} alt="Payment QR" style={{ maxWidth: '140px', borderRadius: '8px', border: '1px solid var(--line)', background: '#fff', padding: '6px' }} />
+                            {event.paymentUpiId && (
+                              <p style={{ margin: '6px 0 0', color: 'var(--brand-primary)', fontSize: '12px', fontWeight: 600 }}>
+                                UPI ID: {event.paymentUpiId}
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                          12-Digit UPI Reference / UTR Number *
+                        </label>
+                        <input
+                          required
+                          value={paymentReference}
+                          onChange={e => setPaymentReference(e.target.value)}
+                          placeholder="e.g. 523412984512 (from PhonePe / GPay / Paytm)"
+                          style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px' }}
+                        />
+                        <small style={{ display: 'block', marginTop: '4px', color: 'var(--text-muted)', fontSize: '10px' }}>
+                          Payment reference will be verified by the club coordinators.
+                        </small>
+                      </div>
+                    )}
+
+                    <button
+                      className="primary"
+                      type="submit"
+                      disabled={submitting || (event.isTeamEvent && !isLeader)}
+                      style={{ width: '100%', minHeight: '44px', marginTop: '12px', fontSize: '12px', fontWeight: 700 }}
+                    >
+                      {submitting ? 'CONFIRMING PASS…' : event.isTeamEvent ? 'CONFIRM & ISSUE TEAM PASSES' : 'CONFIRM REGISTRATION & GET PASS'}
+                    </button>
+                  </form>
+                </div>
               )}
             </article>
           </div>
@@ -5178,82 +7132,181 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
 }
 
 // ----------------------------------------------------
-// Payment Management (Admin - Event Payments)
+// Admin Passes & Gate Attendance Management
 // ----------------------------------------------------
 function PaymentManagement({ user, logout, onNavigate }) {
-  const [payments, setPayments] = useState([])
+  const [passes, setPasses] = useState([])
   const [loading, setLoading] = useState(true)
+  const [events, setEvents] = useState([])
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
-  useEffect(() => {
+  // Filter States
+  const [searchQuery, setSearchQuery] = useState('')
+  const [eventFilter, setEventFilter] = useState('ALL')
+  const [paymentFilter, setPaymentFilter] = useState('ALL')
+  const [attendanceFilter, setAttendanceFilter] = useState('ALL')
+  const [modeFilter, setModeFilter] = useState('ALL')
+
+  // Selected Pass for Full Detail Modal
+  const [selectedPass, setSelectedPass] = useState(null)
+
+  function loadPasses() {
     let mounted = true
-    adminApi.listPayments()
-      .then(({ registrations }) => { if (mounted) setPayments(registrations || []) })
+    setLoading(true)
+    Promise.all([
+      adminApi.listAllPasses({
+        eventId: eventFilter,
+        paymentStatus: paymentFilter,
+        attendanceStatus: attendanceFilter,
+      }),
+      adminApi.listEvents().catch(() => ({ events: [] })),
+    ])
+      .then(([passRes, evRes]) => {
+        if (!mounted) return
+        setPasses(passRes.passes || [])
+        setEvents(evRes.events || [])
+      })
       .catch(err => { if (mounted) setError(err.message) })
       .finally(() => { if (mounted) setLoading(false) })
     return () => { mounted = false }
-  }, [])
+  }
 
-  async function handleVerify(regId, status) {
+  useEffect(() => {
+    return loadPasses()
+  }, [eventFilter, paymentFilter, attendanceFilter])
+
+  async function handleVerifyUTR(passId) {
+    setError('')
+    setMessage('')
     try {
-      await adminApi.verifyPayment(regId, status)
-      setPayments(c => c.map(p => (p.id === regId ? { ...p, paymentStatus: status } : p)))
-      setMessage(`Payment updated to ${status}.`)
+      await adminApi.verifyPassPayment(passId)
+      setPasses(c => c.map(p => (p.id === passId ? { ...p, paymentStatus: 'VERIFIED', status: 'REGISTERED' } : p)))
+      setMessage('Payment verified! Digital pass activated.')
     } catch (err) {
-      setError(err.message)
+      setError(err.message || 'Failed to verify payment.')
     }
   }
 
-  function handleDownloadPaymentsCsv() {
+  async function handleGrantGateEntry(regId) {
+    setError('')
+    setMessage('')
+    try {
+      await adminApi.grantEventEntry(regId)
+      setPasses(c => c.map(p => (p.id === regId ? { ...p, attendanceMarked: true, attendedAt: new Date().toISOString() } : p)))
+      setMessage('Attendee admitted and attendance recorded.')
+    } catch (err) {
+      setError(err.message || 'Failed to record attendance.')
+    }
+  }
+
+  const filteredPasses = passes.filter(p => {
+    if (modeFilter === 'TEAM' && !p.isTeamEvent && !p.teamName) return false
+    if (modeFilter === 'INDIVIDUAL' && (p.isTeamEvent || p.teamName)) return false
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase()
+      const match =
+        (p.name && p.name.toLowerCase().includes(q)) ||
+        (p.memberId && p.memberId.toLowerCase().includes(q)) ||
+        (p.rollNumber && p.rollNumber.toLowerCase().includes(q)) ||
+        (p.id && p.id.toLowerCase().includes(q)) ||
+        (p.eventTitle && p.eventTitle.toLowerCase().includes(q)) ||
+        (p.teamName && p.teamName.toLowerCase().includes(q)) ||
+        (p.paymentReference && p.paymentReference.toLowerCase().includes(q))
+      if (!match) return false
+    }
+    return true
+  })
+
+  function handleDownloadPassesCsv() {
     const headers = [
-      'Registration ID',
+      'Pass ID',
       'Student Name',
       'Member ID',
+      'College / Institution',
+      'Department / Branch',
+      'Academic Year',
+      'College Roll Number',
+      'Gender',
+      'Age',
+      'Official Email',
+      'Phone Number',
+      'Emergency Contact',
+      'Residency Type',
+      'Commute / Hostel Mode',
       'Event Title',
-      'Amount (₹)',
+      'Event Date',
+      'Participation Mode',
+      'Team Name',
+      'Team Leader',
+      'Registration Fee (₹)',
       'Payment Status',
-      'Payment Reference / UTR',
-      'Registration Date',
+      'UPI UTR Reference',
+      'Attendance Marked',
+      'Check-in Timestamp',
+      'Registered At',
     ]
-    const rows = payments.map(p => [
+    const rows = filteredPasses.map(p => [
       p.id,
-      p.user?.profile?.name || p.user?.name,
-      p.user?.memberId,
-      p.event?.title,
-      Number(p.totalAmount || 0),
+      p.name || p.memberName || p.user?.profile?.name || p.memberId,
+      p.memberId || p.user?.memberId,
+      p.department || p.user?.profile?.department,
+      p.department || p.user?.profile?.department,
+      p.year || p.user?.profile?.year,
+      p.rollNumber || p.user?.profile?.rollNumber,
+      p.gender || p.user?.profile?.gender || 'UNSPECIFIED',
+      p.age || p.user?.profile?.age || null,
+      p.email || p.user?.profile?.email,
+      p.phone || p.user?.profile?.phone,
+      p.emergencyContact,
+      p.residencyType,
+      p.residencyType === 'HOSTELLER' ? p.hostelType : p.transportMode,
+      p.eventTitle,
+      p.eventDate ? new Date(p.eventDate).toLocaleDateString() : null,
+      p.teamName ? 'Team' : 'Individual',
+      p.teamName || 'N/A',
+      p.isTeamLeader ? 'Yes' : 'No',
+      p.totalAmount,
       p.paymentStatus,
-      p.paymentReference,
+      p.paymentReference || 'N/A',
+      p.attendanceMarked ? 'Yes' : 'No',
+      p.attendedAt ? new Date(p.attendedAt).toLocaleString() : 'N/A',
       p.registeredAt ? new Date(p.registeredAt).toLocaleString() : null,
     ])
-    downloadCsv('event_payments_report.csv', headers, rows)
+    downloadCsv('event_passes_roster.csv', headers, rows)
   }
 
   return (
-    <LivePortal user={user} logout={logout} activeTab="admin-payments" onNavigate={onNavigate} title="EVENT PAYMENTS">
+    <LivePortal user={user} logout={logout} activeTab="admin-payments" onNavigate={onNavigate} title="EVENT PASSES & GATE ROSTER">
       <section className="member-management">
         <div className="member-heading">
           <div>
             <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
               ← COMMAND CENTER
             </button>
-            <p className="eyebrow">FINANCIAL AUDIT</p>
-            <h1>Event Registration Payments</h1>
-            <p>Verify bank reference proofs and manage attendee payment states.</p>
+            <p className="eyebrow">ATTENDEE ROSTER & PASS VERIFICATION</p>
+            <h1>Event Passes & Attendee Roster</h1>
+            <p>Inspect student passes, verify UPI UTR transactions, check residency & commute logistics, and track gate attendance.</p>
           </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => onNavigate('admin-qr-scanner')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px' }}
+            >
+              <Icon8 name="irisScan" size={16} /> GATE QR SCANNER
+            </button>
             <button
               type="button"
               className="outline"
-              onClick={handleDownloadPaymentsCsv}
-              disabled={payments.length === 0}
+              onClick={handleDownloadPassesCsv}
+              disabled={filteredPasses.length === 0}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
-              title="Download event payments as CSV"
+              title="Download event passes as CSV"
             >
-              <IconDownload size={14} /> DOWNLOAD PAYMENTS CSV
-            </button>
-            <button className="outline" type="button" onClick={() => onNavigate('admin-subscriptions')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}>
-              <Icon8 name="access" size={14} /> VIEW STUDENT MEMBERSHIP SUBSCRIPTIONS &rarr;
+              <IconDownload size={14} /> DOWNLOAD PASSES CSV
             </button>
           </div>
         </div>
@@ -5261,44 +7314,166 @@ function PaymentManagement({ user, logout, onNavigate }) {
         {message && <p className="member-form-success">{message}</p>}
         {error && <p className="member-form-error">{error}</p>}
 
+        {/* Search & Filter Command Strip */}
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1fr 1fr 1fr', gap: '10px', margin: '16px 0', alignItems: 'center' }}>
+          <div>
+            <input
+              placeholder="Search by student, member ID, pass ID, UTR, team..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)', padding: '0 12px', fontSize: '12px' }}
+            />
+          </div>
+          <div>
+            <select
+              value={eventFilter}
+              onChange={e => setEventFilter(e.target.value)}
+              className="member-select"
+              style={{ width: '100%', height: '38px', marginTop: 0 }}
+            >
+              <option value="ALL">All Events ({events.length})</option>
+              {events.map(ev => (
+                <option key={ev.id} value={ev.id}>{ev.title}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <select
+              value={paymentFilter}
+              onChange={e => setPaymentFilter(e.target.value)}
+              className="member-select"
+              style={{ width: '100%', height: '38px', marginTop: 0 }}
+            >
+              <option value="ALL">All Payments</option>
+              <option value="PAID">Verified / Paid</option>
+              <option value="PENDING">Pending UTR</option>
+              <option value="FREE">Free Passes</option>
+            </select>
+          </div>
+          <div>
+            <select
+              value={attendanceFilter}
+              onChange={e => setAttendanceFilter(e.target.value)}
+              className="member-select"
+              style={{ width: '100%', height: '38px', marginTop: 0 }}
+            >
+              <option value="ALL">All Attendance</option>
+              <option value="ATTENDED">Admitted / Present</option>
+              <option value="ABSENT">Not Yet Admitted</option>
+            </select>
+          </div>
+          <div>
+            <select
+              value={modeFilter}
+              onChange={e => setModeFilter(e.target.value)}
+              className="member-select"
+              style={{ width: '100%', height: '38px', marginTop: 0 }}
+            >
+              <option value="ALL">All Modes</option>
+              <option value="INDIVIDUAL">Individual</option>
+              <option value="TEAM">Teams</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Pass Roster Table */}
         <article className="member-list-card">
           {loading ? (
-            <p className="directory-state">Loading payments...</p>
-          ) : payments.length === 0 ? (
-            <p className="directory-state">No event payments submitted yet.</p>
+            <p className="directory-state">Loading passes & attendee records...</p>
+          ) : filteredPasses.length === 0 ? (
+            <p className="directory-state">No matching passes found.</p>
           ) : (
             <div className="table-scroll-container">
               <div className="sub-table">
-                <div className="sub-table-header" style={{ gridTemplateColumns: '1.2fr 1.2fr 1fr 1fr 1fr' }}>
-                  <span>STUDENT</span>
-                  <span>EVENT</span>
-                  <span>AMOUNT / REF</span>
-                  <span>STATUS</span>
+                <div className="sub-table-header" style={{ gridTemplateColumns: '1.4fr 1.3fr 1.1fr 1.2fr 1fr 1fr' }}>
+                  <span>STUDENT & DEMOGRAPHICS</span>
+                  <span>EVENT & TEAM</span>
+                  <span>RESIDENCY / COMMUTE</span>
+                  <span>PAYMENT & UTR</span>
+                  <span>GATE ENTRY</span>
                   <span>ACTIONS</span>
                 </div>
-                {payments.map(p => (
-                  <div className="sub-table-row" key={p.id} style={{ gridTemplateColumns: '1.2fr 1.2fr 1fr 1fr 1fr' }}>
+                {filteredPasses.map(p => (
+                  <div className="sub-table-row" key={p.id} style={{ gridTemplateColumns: '1.4fr 1.3fr 1.1fr 1.2fr 1fr 1fr', alignItems: 'center' }}>
+                    {/* Student Info */}
                     <div>
-                      <b>{p.user?.profile?.name || p.user?.memberId}</b>
-                      <small style={{ color: '#85d7ff', display: 'block' }}>{p.user?.memberId}</small>
+                      <b style={{ color: 'var(--text-main)', fontSize: '13px' }}>{p.name}</b>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '2px' }}>
+                        <small style={{ color: 'var(--brand-primary)', fontFamily: 'monospace' }}>{p.memberId}</small>
+                        <span className="badge" style={{ fontSize: '9px', padding: '1px 6px', background: 'var(--panel-subtle)', color: 'var(--text-muted)' }}>
+                          {p.gender} {p.age ? `· ${p.age}y` : ''}
+                        </span>
+                      </div>
+                      <small style={{ color: 'var(--text-dim)', display: 'block' }}>{p.department} {p.year ? `· Y${p.year}` : ''}</small>
                     </div>
+
+                    {/* Event & Team */}
                     <div>
-                      <b>{p.event?.title}</b>
-                    </div>
-                    <div>
-                      <strong style={{ color: '#70ddb4' }}>₹{Number(p.totalAmount || 0).toFixed(2)}</strong>
-                      <small style={{ color: '#8aa2b4', display: 'block' }}>Ref: {p.paymentReference || 'None'}</small>
-                    </div>
-                    <div>
-                      <span className={`badge badge-${p.paymentStatus.toLowerCase()}`}>{p.paymentStatus}</span>
-                    </div>
-                    <div className="action-buttons">
-                      {p.paymentStatus !== 'VERIFIED' && (
-                        <button className="action-btn save-btn" onClick={() => handleVerify(p.id, 'VERIFIED')}>Verify</button>
+                      <b style={{ color: 'var(--text-main)', fontSize: '12px' }}>{p.eventTitle}</b>
+                      {p.teamName ? (
+                        <span className="badge" style={{ display: 'inline-block', marginTop: '4px', fontSize: '10px', background: p.isTeamLeader ? 'var(--brand-glow)' : 'var(--panel-subtle)', color: p.isTeamLeader ? 'var(--brand-primary)' : 'var(--text-main)', border: '1px solid var(--line)' }}>
+                          {p.teamName} {p.isTeamLeader ? '(Leader)' : '(Member)'}
+                        </span>
+                      ) : (
+                        <small style={{ color: 'var(--text-muted)', display: 'block' }}>Individual Participant</small>
                       )}
-                      {p.paymentStatus !== 'REJECTED' && (
-                        <button className="action-btn delete-btn" onClick={() => handleVerify(p.id, 'REJECTED')}>Reject</button>
+                    </div>
+
+                    {/* Residency & Commute */}
+                    <div>
+                      <b style={{ color: 'var(--text-main)', fontSize: '11px', display: 'block' }}>
+                        {p.residencyType === 'HOSTELLER' ? 'Hosteller' : 'Day Scholar'}
+                      </b>
+                      <small style={{ color: 'var(--brand-primary)', display: 'block' }}>
+                        {p.residencyType === 'HOSTELLER'
+                          ? (p.hostelType === 'PRIVATE_HOSTEL' ? 'Private PG' : 'College Hostel')
+                          : (p.transportMode === 'COLLEGE_BUS' ? 'College Bus' : p.transportMode === 'PUBLIC_BUS' ? 'Public Bus' : 'Own Transport')}
+                      </small>
+                    </div>
+
+                    {/* Payment & UTR */}
+                    <div>
+                      <strong style={{ color: '#70ddb4', fontSize: '13px' }}>
+                        {p.totalAmount > 0 ? `₹${p.totalAmount}` : 'Free Entry'}
+                      </strong>
+                      {p.paymentReference && (
+                        <small style={{ color: 'var(--text-dim)', display: 'block', fontFamily: 'monospace' }}>
+                          UTR: {p.paymentReference}
+                        </small>
                       )}
+                      <span className={`badge badge-${(p.paymentStatus || 'free').toLowerCase()}`} style={{ marginTop: '3px', display: 'inline-block', fontSize: '9px' }}>
+                        {p.paymentStatus}
+                      </span>
+                    </div>
+
+                    {/* Gate Attendance */}
+                    <div>
+                      {p.attendanceMarked ? (
+                        <span className="badge" style={{ background: '#064e3b', color: '#6ee7b7', border: '1px solid #10b981', fontSize: '10px' }}>
+                          ✓ PRESENT
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="action-btn"
+                          onClick={() => handleGrantGateEntry(p.id)}
+                          style={{ fontSize: '10px', padding: '4px 8px', background: 'var(--panel-subtle)', color: 'var(--text-main)', border: '1px solid var(--line)' }}
+                        >
+                          Check-in
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    <div className="action-buttons" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      {p.paymentStatus === 'SUBMITTED' && (
+                        <button className="action-btn save-btn" onClick={() => handleVerifyUTR(p.id)} style={{ fontSize: '10px', padding: '4px 8px' }}>
+                          Verify UTR
+                        </button>
+                      )}
+                      <button className="action-btn" onClick={() => setSelectedPass(p)} style={{ fontSize: '10px', padding: '4px 8px', background: 'var(--brand-glow)', color: 'var(--brand-primary)', border: '1px solid var(--line)' }}>
+                        Pass QR
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -5306,6 +7481,157 @@ function PaymentManagement({ user, logout, onNavigate }) {
             </div>
           )}
         </article>
+
+        {/* Selected Pass Details & QR Modal */}
+        {selectedPass && (
+          <div className="photo-lightbox" onClick={() => setSelectedPass(null)}>
+            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-modal)', padding: '28px', borderRadius: '16px', border: '1px solid var(--line)', maxWidth: '620px', width: '95vw', maxHeight: '88vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <span className="badge badge-president">{selectedPass.eventType || 'EVENT PASS'}</span>
+                <button className="lightbox-close" onClick={() => setSelectedPass(null)} style={{ position: 'static' }}>✕</button>
+              </div>
+
+              {selectedPass.qrCodeData && (
+                <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                  <div style={{ background: '#fff', padding: '12px', borderRadius: '12px', display: 'inline-block' }}>
+                    <img src={selectedPass.qrCodeData} alt="Pass QR" style={{ width: '150px', height: '150px', imageRendering: 'pixelated' }} />
+                  </div>
+                </div>
+              )}
+
+              <h2 style={{ font: '700 20px Syne', color: 'var(--text-main)', margin: '0 0 4px', textAlign: 'center' }}>
+                {selectedPass.name || selectedPass.memberName || selectedPass.user?.profile?.name || selectedPass.memberId}
+              </h2>
+              <p style={{ color: 'var(--brand-primary)', fontFamily: 'monospace', fontSize: '12px', margin: '0 0 16px', textAlign: 'center' }}>
+                PASS ID: {selectedPass.id} · MEMBER: {selectedPass.memberId || selectedPass.user?.memberId}
+              </p>
+
+              <div style={{ background: 'var(--panel-subtle)', borderRadius: '12px', padding: '16px', fontSize: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', color: 'var(--text-muted)', border: '1px solid var(--line)' }}>
+                <div>
+                  <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>COLLEGE / INSTITUTION</span>
+                  <b style={{ color: 'var(--text-main)', display: 'block', marginTop: '2px' }}>
+                    {selectedPass.department || selectedPass.user?.profile?.department || 'Malla Reddy (MR) Deemed to be University'}
+                  </b>
+                </div>
+                <div>
+                  <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ACADEMIC YEAR & ROLL</span>
+                  <b style={{ color: 'var(--text-main)', display: 'block', marginTop: '2px' }}>
+                    Year {selectedPass.year || selectedPass.user?.profile?.year || '1'} · Roll: {selectedPass.rollNumber || selectedPass.user?.profile?.rollNumber || '---'}
+                  </b>
+                </div>
+                <div>
+                  <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>EMAIL ADDRESS</span>
+                  <b style={{ color: 'var(--text-main)', display: 'block', marginTop: '2px', wordBreak: 'break-all' }}>
+                    {selectedPass.email || selectedPass.user?.profile?.email || '---'}
+                  </b>
+                </div>
+                <div>
+                  <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PHONE & EMERGENCY</span>
+                  <b style={{ color: 'var(--text-main)', display: 'block', marginTop: '2px' }}>
+                    {selectedPass.phone || selectedPass.user?.profile?.phone || '---'} {selectedPass.emergencyContact ? `(Emerg: ${selectedPass.emergencyContact})` : ''}
+                  </b>
+                </div>
+                <div>
+                  <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>GENDER & AGE</span>
+                  <b style={{ color: 'var(--text-main)', display: 'block', marginTop: '2px' }}>
+                    {selectedPass.gender || selectedPass.user?.profile?.gender || 'MALE'} · {selectedPass.age || selectedPass.user?.profile?.age || '---'} yrs
+                  </b>
+                </div>
+                <div>
+                  <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>RESIDENCY & COMMUTE</span>
+                  <b style={{ color: 'var(--text-main)', display: 'block', marginTop: '2px' }}>
+                    {selectedPass.residencyType === 'HOSTELLER'
+                      ? (selectedPass.hostelType === 'PRIVATE_HOSTEL' ? 'Private PG / Hostel' : 'College Hostel')
+                      : (selectedPass.transportMode === 'COLLEGE_BUS' ? 'College Bus Commuter' : selectedPass.transportMode === 'PUBLIC_BUS' ? 'Public Bus' : 'Day Scholar')}
+                  </b>
+                </div>
+                {selectedPass.teamName && (
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>TEAM SQUAD</span>
+                    <b style={{ color: 'var(--brand-primary)', display: 'block', marginTop: '2px' }}>
+                      {selectedPass.teamName} {selectedPass.isTeamLeader ? '★ Squad Leader' : '· Squad Member'}
+                    </b>
+                  </div>
+                )}
+                <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--line)', paddingTop: '10px', marginTop: '4px' }}>
+                  <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>PAYMENT & UTR</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', flexWrap: 'wrap', gap: '8px' }}>
+                    <div>
+                      <strong style={{ color: '#70ddb4', fontSize: '14px' }}>
+                        {selectedPass.totalAmount > 0 ? `₹${selectedPass.totalAmount}` : 'Free Entry'}
+                      </strong>
+                      <span className={`badge badge-${(selectedPass.paymentStatus || 'free').toLowerCase()}`} style={{ marginLeft: '8px' }}>
+                        {selectedPass.paymentStatus}
+                      </span>
+                      {selectedPass.paymentReference && (
+                        <span style={{ display: 'block', color: 'var(--brand-primary)', fontFamily: 'monospace', fontSize: '11px', marginTop: '2px' }}>
+                          UTR: {selectedPass.paymentReference}
+                        </span>
+                      )}
+                    </div>
+                    {selectedPass.paymentProofUrl && (
+                      <a
+                        href={selectedPass.paymentProofUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="action-btn"
+                        style={{ fontSize: '10px', padding: '4px 10px', background: 'var(--panel-elevated)', color: 'var(--brand-primary)', border: '1px solid var(--line)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                      >
+                        VIEW PAYMENT PROOF ↗
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* Custom Form Data (if any) */}
+                {selectedPass.formData && typeof selectedPass.formData === 'object' && Object.keys(selectedPass.formData).length > 0 && (
+                  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--line)', paddingTop: '10px', marginTop: '4px' }}>
+                    <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>CUSTOM FORM RESPONSES</span>
+                    <div style={{ marginTop: '6px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                      {Object.entries(selectedPass.formData).map(([k, v]) => (
+                        <div key={k} style={{ background: 'var(--bg-input)', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--line)' }}>
+                          <small style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10px' }}>{k}</small>
+                          <span style={{ color: 'var(--text-main)', fontSize: '11px', fontWeight: 600 }}>{String(v)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                {(selectedPass.paymentStatus === 'SUBMITTED' || selectedPass.paymentStatus === 'PENDING') && selectedPass.totalAmount > 0 && (
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => { handleVerifyUTR(selectedPass.id); setSelectedPass(null) }}
+                    style={{ flex: 1, height: '38px', fontSize: '11px' }}
+                  >
+                    VERIFY UTR & ACTIVATE
+                  </button>
+                )}
+                {!selectedPass.attendanceMarked && (
+                  <button
+                    type="button"
+                    className="action-btn save-btn"
+                    onClick={() => { handleGrantGateEntry(selectedPass.id); setSelectedPass(null) }}
+                    style={{ flex: 1, height: '38px', fontSize: '11px' }}
+                  >
+                    RECORD GATE ENTRY
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="action-btn"
+                  onClick={() => setSelectedPass(null)}
+                  style={{ height: '38px', padding: '0 16px', background: 'var(--panel-elevated)', color: 'var(--text-main)', border: '1px solid var(--line)', fontSize: '11px' }}
+                >
+                  CLOSE
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
     </LivePortal>
   )
@@ -5369,7 +7695,7 @@ function GalleryLightbox({ photos = [], activePhoto, onClose, onSelectPhoto, onD
         {/* Header Bar */}
         <div className="lightbox-header-bar">
           <span className="lightbox-counter-badge">
-            📸 PHOTO {totalCount > 0 ? currentIndex + 1 : 1} OF {totalCount}
+            PHOTO {totalCount > 0 ? currentIndex + 1 : 1} OF {totalCount}
           </span>
           <button className="lightbox-close" onClick={onClose} title="Close (Esc)">✕</button>
         </div>
@@ -5421,7 +7747,7 @@ function GalleryLightbox({ photos = [], activePhoto, onClose, onSelectPhoto, onD
               onClick={e => onDeletePhoto(currentPhoto.id, e)}
               style={{ padding: '5px 12px', fontSize: '11px' }}
             >
-              🗑 Delete Photo
+              Delete Photo
             </button>
           )}
         </div>
@@ -5474,24 +7800,47 @@ function GalleryManagement({ user, logout, onNavigate }) {
     return () => { mounted = false }
   }, [])
 
+  const [albumName, setAlbumName] = useState('')
+  const [albumDescription, setAlbumDescription] = useState('')
+  const [creatingAlbum, setCreatingAlbum] = useState(false)
+  const coverInputRef = useRef(null)
+
+  useEffect(() => {
+    let mounted = true
+    adminApi.listGalleryAlbums()
+      .then(({ albums: list }) => { if (mounted) setAlbums(list || []) })
+      .catch(err => { if (mounted) setError(err.message) })
+      .finally(() => { if (mounted) setLoading(false) })
+    return () => { mounted = false }
+  }, [])
+
   async function createAlbum(e) {
     e.preventDefault()
-    const form = new FormData(e.currentTarget)
+    if (!albumName.trim()) {
+      setError('Please enter an album name.')
+      return
+    }
+    setCreatingAlbum(true)
     setMessage('')
     setError('')
     try {
       const { album } = await adminApi.createGalleryAlbum({
-        name: String(form.get('name') || '').trim(),
-        description: String(form.get('description') || '').trim() || null,
+        name: albumName.trim(),
+        description: albumDescription.trim() || null,
         coverImage: albumCoverPreview || null,
       })
       setAlbums(c => [album, ...c])
       setSelectedAlbum(album)
-      e.currentTarget.reset()
+      setAlbumName('')
+      setAlbumDescription('')
       setAlbumCoverPreview('')
-      setMessage(`Album "${album.name}" created successfully.`)
+      if (coverInputRef.current) coverInputRef.current.value = ''
+      setMessage(`Album "${album.name}" created successfully. You can now add photos to it.`)
+      setTimeout(() => setMessage(''), 4000)
     } catch (err) {
-      setError(err.message)
+      setError(err.message || 'Failed to create album.')
+    } finally {
+      setCreatingAlbum(false)
     }
   }
 
@@ -5566,6 +7915,7 @@ function GalleryManagement({ user, logout, onNavigate }) {
 
       clearStagedPhotos()
       setMessage(`✓ ${addedPhotos.length} photo${addedPhotos.length > 1 ? 's' : ''} uploaded successfully to "${selectedAlbum.name}".`)
+      setTimeout(() => setMessage(''), 4000)
     } catch (err) {
       setError(err.message || 'Failed to upload photos.')
     } finally {
@@ -5581,6 +7931,7 @@ function GalleryManagement({ user, logout, onNavigate }) {
       setAlbums(c => c.filter(a => a.id !== albumId))
       if (selectedAlbum?.id === albumId) setSelectedAlbum(null)
       setMessage('Album deleted.')
+      setTimeout(() => setMessage(''), 3000)
     } catch (err) {
       setError(err.message)
     }
@@ -5595,6 +7946,7 @@ function GalleryManagement({ user, logout, onNavigate }) {
       setAlbums(c => c.map(a => (a.id === albumId ? { ...a, photos: a.photos.filter(p => p.id !== photoId) } : a)))
       if (activeLightbox?.id === photoId) setActiveLightbox(null)
       setMessage('Photo deleted.')
+      setTimeout(() => setMessage(''), 3000)
     } catch (err) {
       setError(err.message)
     }
@@ -5608,208 +7960,373 @@ function GalleryManagement({ user, logout, onNavigate }) {
             <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
               ← COMMAND CENTER
             </button>
-            <p className="eyebrow">VISUAL REPOSITORY</p>
+            <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Icon8 name="irisScan" size={14} /> VISUAL MEDIA REPOSITORY
+            </p>
             <h1>Media & Gallery Studio</h1>
-            <p>Create albums, upload multiple event photos at once, and manage club memories.</p>
+            <p>Create event photo albums, stage high-resolution batch uploads, and curate official club memories.</p>
           </div>
         </div>
 
-        {message && <p className="member-form-success">{message}</p>}
-        {error && <p className="member-form-error">{error}</p>}
+        {message && <p className="member-form-success" style={{ marginBottom: '16px' }}>{message}</p>}
+        {error && <p className="member-form-error" style={{ marginBottom: '16px' }}>{error}</p>}
 
-        <div className="member-management-grid">
-          {/* Create Album Card */}
-          <article className="account-form-card">
-            <p className="eyebrow">NEW ALBUM</p>
-            <h2>Create Photo Album</h2>
-            <form onSubmit={createAlbum}>
-              <label>
-                Album Name *
-                <input name="name" required placeholder="e.g. Hackathon 2026 Highlights" />
-              </label>
-              <label>
-                Description
-                <input name="description" placeholder="Short summary..." />
-              </label>
-              <label>
-                Cover Photo (Optional)
-                <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) readImageFile(f, setAlbumCoverPreview) }} />
-              </label>
-              {albumCoverPreview && (
-                <div style={{ margin: '8px 0' }}>
-                  <img src={albumCoverPreview} alt="Cover Preview" style={{ maxHeight: '90px', borderRadius: '6px', border: '1px solid var(--line)' }} />
-                </div>
-              )}
-              <button className="primary member-submit" style={{ marginTop: '12px' }}>
-                ＋ &nbsp; CREATE ALBUM
-              </button>
+        {/* Studio Command Grid (Create Album & Batch Uploader) */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '20px', marginBottom: '32px' }}>
+          
+          {/* Card 1: Professional Create Photo Album Form */}
+          <article className="account-form-card" style={{ padding: '24px', background: 'var(--panel-bg)', borderRadius: '16px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+              <span style={{ display: 'inline-flex', padding: '8px', borderRadius: '10px', background: 'var(--brand-glow)', color: 'var(--brand-primary)' }}>
+                <Icon8 name="irisScan" size={18} />
+              </span>
+              <div>
+                <p className="eyebrow" style={{ margin: 0, fontSize: '10px', color: 'var(--brand-primary)', letterSpacing: '0.06em' }}>
+                  NEW ALBUM
+                </p>
+                <h2 style={{ font: '700 18px Syne', color: 'var(--text-main)', margin: '2px 0 0' }}>
+                  Create Photo Album
+                </h2>
+              </div>
+            </div>
+
+            <form onSubmit={createAlbum} style={{ display: 'flex', flexDirection: 'column', gap: '14px', flex: 1 }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px', letterSpacing: '0.02em' }}>
+                  Album Name *
+                </label>
+                <input
+                  required
+                  placeholder="e.g. National Cyber Hackathon 2026 / Orientation Fest"
+                  value={albumName}
+                  onChange={e => setAlbumName(e.target.value)}
+                  style={{ width: '100%', height: '40px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)', padding: '0 12px', fontSize: '12px' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px', letterSpacing: '0.02em' }}>
+                  Description / Event Context
+                </label>
+                <input
+                  placeholder="e.g. Keynote speeches, live CTF rounds, and award ceremony..."
+                  value={albumDescription}
+                  onChange={e => setAlbumDescription(e.target.value)}
+                  style={{ width: '100%', height: '40px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)', padding: '0 12px', fontSize: '12px' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px', letterSpacing: '0.02em' }}>
+                  Album Cover Image (Optional)
+                </label>
+                
+                {albumCoverPreview ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 12px', background: 'var(--bg-input)', borderRadius: '10px', border: '1px solid var(--brand-border-subtle)' }}>
+                    <img
+                      src={albumCoverPreview}
+                      alt="Cover Preview"
+                      style={{ width: '64px', height: '64px', borderRadius: '8px', objectFit: 'cover', border: '1px solid var(--line)', flexShrink: 0 }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <b style={{ fontSize: '12px', color: 'var(--text-main)', display: 'block' }}>Cover Image Selected</b>
+                      <small style={{ color: '#10b981', fontSize: '11px', display: 'block' }}>Ready to set as album hero thumbnail</small>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setAlbumCoverPreview(''); if (coverInputRef.current) coverInputRef.current.value = '' }}
+                      style={{ background: 'transparent', border: '1px solid rgba(239, 68, 68, 0.4)', color: '#f87171', borderRadius: '6px', padding: '4px 8px', fontSize: '10px', cursor: 'pointer' }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => coverInputRef.current?.click()}
+                    style={{
+                      border: '1px dashed var(--line)',
+                      borderRadius: '10px',
+                      padding: '16px',
+                      textAlign: 'center',
+                      background: 'var(--bg-input)',
+                      cursor: 'pointer',
+                      transition: 'border-color 0.2s ease',
+                    }}
+                  >
+                    <Icon8 name="irisScan" size={24} style={{ color: 'var(--brand-primary)', opacity: 0.8, marginBottom: '6px' }} />
+                    <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-main)', fontWeight: 600 }}>Click to browse album cover</p>
+                    <small style={{ color: 'var(--text-dim)', fontSize: '10px', display: 'block', marginTop: '2px' }}>PNG, JPG, or WEBP (Recommended ratio 16:9 or 4:3)</small>
+                  </div>
+                )}
+                <input
+                  ref={coverInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) readImageFile(f, setAlbumCoverPreview) }}
+                  style={{ display: 'none' }}
+                />
+              </div>
+
+              <div style={{ marginTop: 'auto', paddingTop: '8px' }}>
+                <button
+                  type="submit"
+                  className="primary member-submit"
+                  disabled={creatingAlbum}
+                  style={{ width: '100%', height: '42px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em' }}
+                >
+                  {creatingAlbum ? 'CREATING ALBUM…' : '+ CREATE PHOTO ALBUM'}
+                </button>
+              </div>
             </form>
           </article>
 
-          {/* Upload Multiple Photos to Selected Album */}
-          {selectedAlbum ? (
-            <article className="account-form-card">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <div>
-                  <p className="eyebrow">MULTIPLE UPLOAD</p>
-                  <h2>Add Photos to "{selectedAlbum.name}"</h2>
+          {/* Card 2: Professional Multiple Photo Uploader */}
+          <article className="account-form-card" style={{ padding: '24px', background: 'var(--panel-bg)', borderRadius: '16px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column' }}>
+            {selectedAlbum ? (
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', flexWrap: 'wrap', gap: '8px' }}>
+                  <div>
+                    <p className="eyebrow" style={{ margin: 0, fontSize: '10px', color: 'var(--brand-primary)', letterSpacing: '0.06em' }}>
+                      BATCH PHOTO UPLOADER
+                    </p>
+                    <h2 style={{ font: '700 18px Syne', color: 'var(--text-main)', margin: '2px 0 0' }}>
+                      Add Photos to "{selectedAlbum.name}"
+                    </h2>
+                  </div>
+                  <span className="badge" style={{ background: 'var(--panel-subtle)', color: 'var(--brand-primary)', border: '1px solid var(--line)', padding: '3px 9px', fontSize: '11px' }}>
+                    {selectedAlbum.photos?.length || 0} in album
+                  </span>
                 </div>
-                <span className="badge" style={{ background: '#0e2439', color: '#85d7ff', border: '1px solid #52bbf544' }}>
-                  📸 {selectedAlbum.photos?.length || 0} in album
-                </span>
-              </div>
 
-              <form onSubmit={uploadStagedPhotos}>
-                <label>
-                  Choose Images (Select Single or Multiple) *
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handlePhotosSelected}
-                    style={{ marginTop: '4px' }}
-                  />
-                </label>
+                <form onSubmit={uploadStagedPhotos} style={{ display: 'flex', flexDirection: 'column', gap: '14px', flex: 1 }}>
+                  {/* Multi-Photo Dropzone */}
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      border: '1px dashed var(--brand-primary)',
+                      borderRadius: '12px',
+                      padding: '18px',
+                      textAlign: 'center',
+                      background: 'var(--brand-badge-bg)',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <Icon8 name="irisScan" size={28} style={{ color: 'var(--brand-primary)', marginBottom: '6px' }} />
+                    <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-main)', fontWeight: 700 }}>
+                      Click to choose photos (Select Single or Multiple)
+                    </p>
+                    <small style={{ color: 'var(--brand-primary)', fontSize: '10px', display: 'block', marginTop: '2px' }}>
+                      JPG, PNG, WebP · High resolution supported
+                    </small>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handlePhotosSelected}
+                      style={{ display: 'none' }}
+                    />
+                  </div>
 
-                <label style={{ marginTop: '8px', display: 'block' }}>
-                  Caption for this batch (Optional)
-                  <input
-                    placeholder="e.g. Workshop hands-on session / Finals"
-                    value={batchCaption}
-                    onChange={e => setBatchCaption(e.target.value)}
-                  />
-                </label>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px', letterSpacing: '0.02em' }}>
+                      Batch Caption (Optional)
+                    </label>
+                    <input
+                      placeholder="e.g. Stage presentations, coding round, and award ceremony..."
+                      value={batchCaption}
+                      onChange={e => setBatchCaption(e.target.value)}
+                      style={{ width: '100%', height: '40px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)', padding: '0 12px', fontSize: '12px' }}
+                    />
+                  </div>
 
-                {/* Staged Photos Preview Grid */}
-                {stagedPhotos.length > 0 && (
-                  <div style={{ marginTop: '14px', background: '#07101b', border: '1px solid #52bbf544', borderRadius: '8px', padding: '12px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                      <b style={{ color: '#85d7ff', fontSize: '11px' }}>
-                        📁 {stagedPhotos.length} Photo{stagedPhotos.length > 1 ? 's' : ''} Ready to Upload
-                      </b>
-                      <button
-                        type="button"
-                        onClick={clearStagedPhotos}
-                        style={{ background: 'transparent', border: 0, color: '#f87171', fontSize: '11px', cursor: 'pointer', fontWeight: 600 }}
-                      >
-                        ✕ Clear All
-                      </button>
+                  {/* Staged Photos Preview Grid */}
+                  {stagedPhotos.length > 0 && (
+                    <div style={{ background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '10px', padding: '12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <b style={{ color: 'var(--brand-primary)', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          ✓ {stagedPhotos.length} Photo{stagedPhotos.length > 1 ? 's' : ''} Staged for Upload
+                        </b>
+                        <button
+                          type="button"
+                          onClick={clearStagedPhotos}
+                          style={{ background: 'transparent', border: 0, color: '#f87171', fontSize: '10px', cursor: 'pointer', fontWeight: 600 }}
+                        >
+                          ✕ Clear All
+                        </button>
+                      </div>
+
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))', gap: '8px', maxHeight: '160px', overflowY: 'auto', paddingRight: '4px' }}>
+                        {stagedPhotos.map(p => (
+                          <div key={p.id} style={{ position: 'relative', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--line)', background: '#000' }}>
+                            <img src={p.dataUrl} alt={p.name} style={{ width: '100%', height: '56px', objectFit: 'cover', display: 'block' }} />
+                            <button
+                              type="button"
+                              onClick={() => removeStagedPhoto(p.id)}
+                              title="Remove photo"
+                              style={{
+                                position: 'absolute',
+                                top: '2px',
+                                right: '2px',
+                                width: '16px',
+                                height: '16px',
+                                borderRadius: '50%',
+                                background: 'rgba(239, 68, 68, 0.9)',
+                                color: '#fff',
+                                border: 0,
+                                fontSize: '9px',
+                                display: 'grid',
+                                placeItems: 'center',
+                                cursor: 'pointer',
+                                padding: 0,
+                              }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     </div>
+                  )}
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: '8px', maxHeight: '200px', overflowY: 'auto', paddingRight: '4px' }}>
-                      {stagedPhotos.map(p => (
-                        <div key={p.id} style={{ position: 'relative', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--line)', background: '#0c1826' }}>
-                          <img src={p.dataUrl} alt={p.name} style={{ width: '100%', height: '65px', objectFit: 'cover', display: 'block' }} />
-                          <button
-                            type="button"
-                            onClick={() => removeStagedPhoto(p.id)}
-                            title="Remove photo"
-                            style={{
-                              position: 'absolute',
-                              top: '2px',
-                              right: '2px',
-                              width: '18px',
-                              height: '18px',
-                              borderRadius: '50%',
-                              background: 'rgba(239, 68, 68, 0.9)',
-                              color: '#fff',
-                              border: 0,
-                              fontSize: '10px',
-                              display: 'grid',
-                              placeItems: 'center',
-                              cursor: 'pointer',
-                              padding: 0,
-                            }}
-                          >
-                            ✕
-                          </button>
-                        </div>
+                  <div style={{ marginTop: 'auto', paddingTop: '8px' }}>
+                    <button
+                      type="submit"
+                      className="primary member-submit"
+                      disabled={uploading || stagedPhotos.length === 0}
+                      style={{ width: '100%', height: '42px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.04em' }}
+                    >
+                      {uploading
+                        ? `UPLOADING ${stagedPhotos.length} PHOTO${stagedPhotos.length > 1 ? 'S' : ''}…`
+                        : stagedPhotos.length > 0
+                        ? `+ UPLOAD ${stagedPhotos.length} PHOTO${stagedPhotos.length > 1 ? 'S' : ''} TO ALBUM`
+                        : 'SELECT PHOTOS TO UPLOAD'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', flex: 1, padding: '24px 16px', background: 'var(--panel-subtle)', borderRadius: '12px', border: '1px dashed var(--line)' }}>
+                <Icon8 name="irisScan" size={32} style={{ color: 'var(--brand-primary)', opacity: 0.6, marginBottom: '10px' }} />
+                <h3 style={{ font: '700 16px Syne', color: 'var(--text-main)', margin: '0 0 4px' }}>
+                  No Album Selected
+                </h3>
+                <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)', maxWidth: '320px', lineHeight: 1.5 }}>
+                  Select an existing album below to upload photos, or create a new album using the form on the left.
+                </p>
+
+                {albums.length > 0 && (
+                  <div style={{ marginTop: '16px', width: '100%' }}>
+                    <small style={{ display: 'block', fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>
+                      Quick Select Recent Album:
+                    </small>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                      {albums.slice(0, 4).map(a => (
+                        <button
+                          key={a.id}
+                          type="button"
+                          onClick={() => setSelectedAlbum(a)}
+                          style={{
+                            fontSize: '11px',
+                            padding: '4px 10px',
+                            borderRadius: '16px',
+                            background: 'var(--bg-input)',
+                            border: '1px solid var(--line)',
+                            color: 'var(--text-main)',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {a.name} ({a.photos?.length || 0})
+                        </button>
                       ))}
                     </div>
                   </div>
                 )}
-
-                <button
-                  type="submit"
-                  className="primary member-submit"
-                  disabled={uploading || stagedPhotos.length === 0}
-                  style={{ marginTop: '14px' }}
-                >
-                  {uploading
-                    ? `⏳ UPLOADING ${stagedPhotos.length} PHOTO${stagedPhotos.length > 1 ? 'S' : ''}…`
-                    : stagedPhotos.length > 0
-                    ? `＋ &nbsp; UPLOAD ${stagedPhotos.length} PHOTO${stagedPhotos.length > 1 ? 'S' : ''}`
-                    : '＋ &nbsp; UPLOAD PHOTOS'}
-                </button>
-              </form>
-            </article>
-          ) : (
-            <article className="account-form-card" style={{ display: 'grid', placeContent: 'center', textAlign: 'center', minHeight: '180px', color: '#8aa2b4' }}>
-              <p>Click on any album below to select it and upload multiple photos.</p>
-            </article>
-          )}
+              </div>
+            )}
+          </article>
         </div>
 
-        {/* Albums List */}
-        <div className="section-title" style={{ marginTop: '24px' }}>
+        {/* Albums Directory Section */}
+        <div className="section-title" style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div>
-            <p className="eyebrow">ALBUM DIRECTORY</p>
-            <h2>All Albums ({albums.length})</h2>
+            <p className="eyebrow" style={{ margin: '0 0 4px', fontSize: '10px', color: 'var(--brand-primary)', letterSpacing: '0.06em' }}>
+              ALBUM DIRECTORY
+            </p>
+            <h2 style={{ font: '700 20px Syne', color: 'var(--text-main)', margin: 0 }}>
+              All Albums ({albums.length})
+            </h2>
           </div>
         </div>
 
         {loading ? (
           <p className="directory-state">Loading gallery albums...</p>
         ) : albums.length === 0 ? (
-          <p className="directory-state">No albums created yet.</p>
+          <p className="directory-state">No albums created yet. Use the creation card above to create your first album.</p>
         ) : (
-          <div className="gallery-grid">
-            {albums.map(a => (
-              <div
-                key={a.id}
-                className="album-card-box"
-                onClick={() => setSelectedAlbum(a)}
-                style={{ borderColor: selectedAlbum?.id === a.id ? '#48b7f4' : undefined }}
-              >
-                <div className="album-cover">
-                  {a.coverImage || a.photos?.[0]?.imageUrl ? (
-                    <img src={a.coverImage || a.photos[0].imageUrl} alt={a.name} />
-                  ) : (
-                    <div className="album-cover-placeholder">{a.name.slice(0, 2).toUpperCase()}</div>
-                  )}
-                  <span className="album-photo-count">{a.photos?.length || 0} photos</span>
+          <div className="gallery-grid" style={{ marginTop: '16px' }}>
+            {albums.map(a => {
+              const isSelected = selectedAlbum?.id === a.id
+              return (
+                <div
+                  key={a.id}
+                  className="album-card-box"
+                  onClick={() => setSelectedAlbum(a)}
+                  style={{
+                    borderColor: isSelected ? 'var(--brand-primary)' : undefined,
+                    boxShadow: isSelected ? '0 0 16px rgba(72, 183, 244, 0.25)' : undefined,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <div className="album-cover">
+                    {a.coverImage || a.photos?.[0]?.imageUrl ? (
+                      <img src={a.coverImage || a.photos[0].imageUrl} alt={a.name} />
+                    ) : (
+                      <div className="album-cover-placeholder">{a.name.slice(0, 2).toUpperCase()}</div>
+                    )}
+                    <span className="album-photo-count">{a.photos?.length || 0} photos</span>
+                  </div>
+                  <div className="album-details">
+                    <h3>{a.name}</h3>
+                    <p>{a.description || 'Club photo collection'}</p>
+                  </div>
+                  <div style={{ padding: '8px 12px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <small style={{ color: isSelected ? 'var(--brand-primary)' : 'var(--text-dim)', fontWeight: isSelected ? 700 : 400 }}>
+                      {isSelected ? '✓ Active Album' : 'Click to Manage'}
+                    </small>
+                    <button type="button" className="action-btn delete-btn" onClick={e => removeAlbum(a.id, e)} title="Delete entire album">
+                      Delete
+                    </button>
+                  </div>
                 </div>
-                <div className="album-details">
-                  <h3>{a.name}</h3>
-                  <p>{a.description || 'Club photo collection'}</p>
-                </div>
-                <div style={{ padding: '8px 12px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <small style={{ color: '#85d7ff' }}>{selectedAlbum?.id === a.id ? '✓ Selected' : 'Click to select'}</small>
-                  <button type="button" className="action-btn delete-btn" onClick={e => removeAlbum(a.id, e)} title="Delete entire album">
-                    🗑 Delete
-                  </button>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
         {/* Selected Album Photos Grid */}
         {selectedAlbum && (
           <div style={{ marginTop: '36px', borderTop: '1px solid var(--line)', paddingTop: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
               <div>
-                <p className="eyebrow">SELECTED ALBUM PHOTOS</p>
-                <h2>{selectedAlbum.name} ({selectedAlbum.photos?.length || 0} Photos)</h2>
+                <p className="eyebrow" style={{ margin: '0 0 4px', fontSize: '10px', color: 'var(--brand-primary)', letterSpacing: '0.06em' }}>
+                  ACTIVE ALBUM PHOTOS
+                </p>
+                <h2 style={{ font: '700 20px Syne', color: 'var(--text-main)', margin: 0 }}>
+                  {selectedAlbum.name} ({selectedAlbum.photos?.length || 0} Photos)
+                </h2>
               </div>
               <button type="button" className="action-btn delete-btn" onClick={e => removeAlbum(selectedAlbum.id, e)}>
-                🗑 Delete Album
+                Delete Entire Album
               </button>
             </div>
 
             {(!selectedAlbum.photos || selectedAlbum.photos.length === 0) ? (
-              <p className="directory-state" style={{ marginTop: '16px' }}>No photos uploaded to this album yet. Use the "Upload Photo" card above.</p>
+              <div style={{ textAlign: 'center', padding: '36px 20px', background: 'var(--panel-subtle)', borderRadius: '12px', border: '1px dashed var(--line)', marginTop: '16px' }}>
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
+                  No photos uploaded to "{selectedAlbum.name}" yet. Use the Batch Photo Uploader above to add event photos.
+                </p>
+              </div>
             ) : (
               <div className="gallery-grid" style={{ marginTop: '16px' }}>
                 {selectedAlbum.photos.map(p => (
@@ -5824,7 +8341,7 @@ function GalleryManagement({ user, logout, onNavigate }) {
                     )}
                     <div style={{ padding: '6px 10px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'flex-end' }}>
                       <button type="button" className="action-btn delete-btn" onClick={e => removePhoto(selectedAlbum.id, p.id, e)}>
-                        🗑 Remove
+                        Remove Photo
                       </button>
                     </div>
                   </div>
@@ -5845,6 +8362,813 @@ function GalleryManagement({ user, logout, onNavigate }) {
             onDeletePhoto={selectedAlbum ? (photoId, e) => removePhoto(selectedAlbum.id, photoId, e) : null}
           />
         )}
+      </section>
+    </LivePortal>
+  )
+}
+
+// ----------------------------------------------------
+// Campus & Event Reels Studio (Admin & PR / Event Leads)
+// ----------------------------------------------------
+function ReelsManagement({ user, logout, onNavigate }) {
+  const { platformMode } = usePlatformTheme()
+  const isMrdu = platformMode === 'MRDU_EVENTS'
+  const [reels, setReels] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+  const [directorySearch, setDirectorySearch] = useState('')
+  const [directoryCategory, setDirectoryCategory] = useState('ALL')
+  const [page, setPage] = useState(1)
+  const pageSize = 12
+
+  // Form states
+  const [creatorTab, setCreatorTab] = useState('SINGLE') // 'SINGLE' | 'PROFILE'
+  const [url, setUrl] = useState('')
+  const [title, setTitle] = useState('')
+  const [description, setDescription] = useState('')
+  const [authorHandle, setAuthorHandle] = useState('cybersecurityclub_mrdu')
+  const [audioTitle, setAudioTitle] = useState('cybersecurityclub_mrdu • Original audio')
+  const [category, setCategory] = useState('CAMPUS_LIFE')
+  const [reelPlatformMode, setReelPlatformMode] = useState(isMrdu ? 'MRDU_EVENTS' : 'ALL')
+  const [isFeatured, setIsFeatured] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+
+  // Profile Sync states
+  const [profileUrl, setProfileUrl] = useState('https://www.instagram.com/cybersecurityclub_mrdu/')
+  const [profileHandle, setProfileHandle] = useState('cybersecurityclub_mrdu')
+  const [profilePostLinks, setProfilePostLinks] = useState('')
+  const [profileCategory, setProfileCategory] = useState('CAMPUS_LIFE')
+  const [profileStreamMode, setProfileStreamMode] = useState(isMrdu ? 'MRDU_EVENTS' : 'ALL')
+  const [profileTitlePrefix, setProfileTitlePrefix] = useState('Campus Highlights')
+  const [profileSyncing, setProfileSyncing] = useState(false)
+
+  // Parse URL for real-time live embed preview
+  const liveParsed = useMemo(() => {
+    const raw = (url || '').trim()
+    if (!raw) return null
+    if (raw.includes('youtube.com/shorts/') || raw.includes('youtu.be/') || raw.includes('youtube.com/watch') || raw.includes('youtube.com/embed/')) {
+      const match = raw.match(/(?:shorts\/|v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]+)/i)
+      const id = match ? match[1] : null
+      return id ? { type: 'YOUTUBE_SHORT', embedUrl: `https://www.youtube.com/embed/${id}?autoplay=0&loop=1&rel=0` } : null
+    }
+    const igMatch = raw.match(/instagram\.com\/(?:[a-zA-Z0-9_.]+\/)?(?:reel|reels|p|tv|share\/reel)\/([a-zA-Z0-9_-]+)/i)
+    if (igMatch) {
+      return { type: 'INSTAGRAM', embedUrl: `https://www.instagram.com/reel/${igMatch[1]}/embed/` }
+    }
+    if (/\.(mp4|webm|mov)(\?.*)?$/i.test(raw)) {
+      return { type: 'DIRECT_VIDEO', embedUrl: raw }
+    }
+    return { type: 'EXTERNAL', embedUrl: raw }
+  }, [url])
+
+  function loadReels() {
+    setLoading(true)
+    adminApi.listReels()
+      .then(res => setReels(res.reels || []))
+      .catch(err => setError(err.message || 'Failed to load reels.'))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadReels()
+  }, [])
+
+  async function handlePublishReel(e) {
+    e.preventDefault()
+    if (!url.trim() || !title.trim()) {
+      setError('Please provide both a video URL and a title.')
+      return
+    }
+    setSubmitting(true)
+    setError('')
+    setMessage('')
+    try {
+      await adminApi.createReel({
+        url: url.trim(),
+        title: title.trim(),
+        description: description.trim(),
+        authorHandle: authorHandle.trim(),
+        audioTitle: audioTitle.trim(),
+        category,
+        platformMode: reelPlatformMode,
+        isFeatured,
+      })
+      setMessage('✓ Campus Reel published successfully! Pushed as TOP PRIORITY for all students.')
+      setUrl('')
+      setTitle('')
+      setDescription('')
+      setIsFeatured(false)
+      loadReels()
+    } catch (err) {
+      setError(err.message || 'Failed to publish reel.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function handleSyncProfile(e) {
+    e.preventDefault()
+    if (!profileUrl.trim() && !profileHandle.trim()) {
+      setError('Please provide an Instagram profile URL or handle.')
+      return
+    }
+    setProfileSyncing(true)
+    setError('')
+    setMessage('')
+    try {
+      const res = await adminApi.importProfileReels({
+        profileUrl: profileUrl.trim(),
+        handle: profileHandle.trim(),
+        category: profileCategory,
+        platformMode: profileStreamMode,
+        postLinks: profilePostLinks.trim(),
+        titlePrefix: profileTitlePrefix.trim(),
+        count: 5,
+      })
+      setMessage(res.message || '✓ Instagram profile posts synced successfully into random student playback!')
+      setProfilePostLinks('')
+      loadReels()
+    } catch (err) {
+      setError(err.message || 'Failed to sync Instagram profile.')
+    } finally {
+      setProfileSyncing(false)
+    }
+  }
+
+  async function toggleReelStatus(reel) {
+    try {
+      await adminApi.updateReel(reel.id, { isActive: !reel.isActive })
+      setReels(curr => curr.map(r => r.id === reel.id ? { ...r, isActive: !r.isActive } : r))
+    } catch (err) {
+      setError(err.message || 'Failed to update reel status.')
+    }
+  }
+
+  async function toggleFeatured(reel) {
+    try {
+      await adminApi.updateReel(reel.id, { isFeatured: !reel.isFeatured })
+      setReels(curr => curr.map(r => r.id === reel.id ? { ...r, isFeatured: !r.isFeatured } : r))
+    } catch (err) {
+      setError(err.message || 'Failed to toggle featured status.')
+    }
+  }
+
+  async function handleDeleteReel(id) {
+    if (!window.confirm('Are you sure you want to delete this reel?')) return
+    try {
+      await adminApi.deleteReel(id)
+      setReels(curr => curr.filter(r => r.id !== id))
+      setMessage('✓ Reel deleted successfully.')
+    } catch (err) {
+      setError(err.message || 'Failed to delete reel.')
+    }
+  }
+
+  return (
+    <LivePortal user={user} logout={logout} activeTab="admin-reels" onNavigate={onNavigate} title={isMrdu ? 'MRDU REELS STUDIO' : 'CAMPUS REELS STUDIO'}>
+      <section className="gallery-section">
+        <div className="event-heading">
+          <div>
+            <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
+              ← COMMAND CENTER
+            </button>
+            <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <IconVideo size={14} /> SHORT-FORM CAMPUS MEDIA & HIGHLIGHTS
+            </p>
+            <h1>{isMrdu ? 'MRDU Campus Reels Studio' : 'Campus & Event Reels Studio'}</h1>
+            <p>Publish and curate Instagram reels and video highlights for students. Admin uploads are automatically prioritized in student feeds.</p>
+          </div>
+        </div>
+
+        {message && <p className="member-form-success">{message}</p>}
+        {error && <p className="member-form-error">{error}</p>}
+
+        {/* Creator Mode Switcher Tabs */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', background: 'var(--panel-subtle)', padding: '6px', borderRadius: '12px', width: 'fit-content', border: '1px solid var(--line)' }}>
+          <button
+            type="button"
+            onClick={() => setCreatorTab('SINGLE')}
+            style={{
+              padding: '8px 18px',
+              borderRadius: '8px',
+              border: 0,
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: creatorTab === 'SINGLE' ? 'var(--brand-primary)' : 'transparent',
+              color: creatorTab === 'SINGLE' ? '#050c14' : 'var(--text-muted)',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <IconVideo size={15} /> Single Reel / Post (Top Priority Push)
+          </button>
+          <button
+            type="button"
+            onClick={() => setCreatorTab('PROFILE')}
+            style={{
+              padding: '8px 18px',
+              borderRadius: '8px',
+              border: 0,
+              fontSize: '12px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: creatorTab === 'PROFILE' ? 'var(--brand-primary)' : 'transparent',
+              color: creatorTab === 'PROFILE' ? '#050c14' : 'var(--text-muted)',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <IconInstagram size={15} /> Upload Profile Link (Random Discovery Stream)
+          </button>
+        </div>
+
+        {/* Side-by-Side Creator Layout: Form on Left, Live Preview on Right */}
+        <div className="reel-creator-layout">
+          {/* Left Column: Mode 1 (Single Reel) or Mode 2 (Profile Sync) */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {creatorTab === 'SINGLE' ? (
+              <article className="account-form-card" style={{ padding: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <p className="eyebrow" style={{ margin: 0 }}>DIRECT ADMIN UPLOAD</p>
+                  <span className="badge" style={{ background: 'var(--brand-badge-bg)', color: 'var(--brand-primary)', fontSize: '10px', fontWeight: 800 }}>
+                    ★ TOP PRIORITY 1 FOR STUDENTS
+                  </span>
+                </div>
+                <h2>Publish Campus Reel</h2>
+                <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: 1.5, margin: '0 0 16px' }}>
+                  Paste an Instagram Reel, YouTube Short, or MP4 link. The video will be highlighted at the top of all students' feeds immediately.
+                </p>
+
+                <form onSubmit={handlePublishReel} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
+                      Instagram Reel / Video Link URL *
+                    </label>
+                    <input
+                      value={url}
+                      onChange={e => setUrl(e.target.value)}
+                      placeholder="https://www.instagram.com/reel/C8qL_k1S9gW/ or video URL"
+                      required
+                      style={{ width: '100%', height: '42px', padding: '0 14px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)' }}
+                    />
+                    <small style={{ display: 'block', color: 'var(--text-dim)', fontSize: '11px', marginTop: '4px' }}>
+                      Paste any Instagram reel link. The live preview on the right will update in real time.
+                    </small>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
+                      Title / Caption Headline *
+                    </label>
+                    <input
+                      value={title}
+                      onChange={e => setTitle(e.target.value)}
+                      placeholder="e.g. Grand Induction & Live CTF Defense Battle 2026"
+                      required
+                      style={{ width: '100%', height: '42px', padding: '0 14px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
+                        Instagram Account / Handle
+                      </label>
+                      <input
+                        value={authorHandle}
+                        onChange={e => setAuthorHandle(e.target.value)}
+                        placeholder="cybersecurityclub_mrdu"
+                        style={{ width: '100%', height: '42px', padding: '0 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)' }}
+                      />
+                      <div style={{ display: 'flex', gap: '6px', marginTop: '6px' }}>
+                        <button
+                          type="button"
+                          onClick={() => { setAuthorHandle('cybersecurityclub_mrdu'); setAudioTitle('cybersecurityclub_mrdu • Original audio') }}
+                          style={{ fontSize: '10px', padding: '2px 6px', background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '4px', color: 'var(--brand-primary)', cursor: 'pointer' }}
+                        >
+                          @cybersecurityclub_mrdu
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setAuthorHandle('mrdu_official'); setAudioTitle('mrdu_official • Original audio') }}
+                          style={{ fontSize: '10px', padding: '2px 6px', background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '4px', color: 'var(--brand-primary)', cursor: 'pointer' }}
+                        >
+                          @mrdu_official
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
+                        Audio Track Title
+                      </label>
+                      <input
+                        value={audioTitle}
+                        onChange={e => setAudioTitle(e.target.value)}
+                        placeholder="cybersecurityclub_mrdu • Original audio"
+                        style={{ width: '100%', height: '42px', padding: '0 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
+                      Full Post Caption & Hashtags (Optional)
+                    </label>
+                    <textarea
+                      value={description}
+                      onChange={e => setDescription(e.target.value)}
+                      placeholder="Highlights from the event... #MRDU #CyberSecurity #Hackathon"
+                      rows={3}
+                      style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)', resize: 'vertical' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
+                        Category
+                      </label>
+                      <select
+                        value={category}
+                        onChange={e => setCategory(e.target.value)}
+                        style={{ width: '100%', height: '42px', padding: '0 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)' }}
+                      >
+                        <option value="CAMPUS_LIFE">Campus Life & Highlights</option>
+                        <option value="HACKATHONS">Hackathons & CTF Competitions</option>
+                        <option value="WORKSHOPS">Technical Workshops & Labs</option>
+                        <option value="CULTURAL">Cultural & University Fests</option>
+                        <option value="TECH_NEWS">Cyber Security & Tech Updates</option>
+                        <option value="MRDU_SPECIAL">MRDU Central Highlights</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
+                        Platform Stream
+                      </label>
+                      <select
+                        value={reelPlatformMode}
+                        onChange={e => setReelPlatformMode(e.target.value)}
+                        style={{ width: '100%', height: '42px', padding: '0 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)' }}
+                      >
+                        <option value="ALL">All Portals (Global)</option>
+                        <option value="CSC">Cyber Security Club Stream</option>
+                        <option value="MRDU_EVENTS">MRDU Central Events Stream</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px' }}>
+                    <input
+                      type="checkbox"
+                      id="featured-toggle"
+                      checked={isFeatured}
+                      onChange={e => setIsFeatured(e.target.checked)}
+                      style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                    />
+                    <label htmlFor="featured-toggle" style={{ margin: 0, fontSize: '12px', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 600, color: 'var(--text-main)' }}>
+                      <IconFlame size={14} style={{ color: '#f59e0b' }} /> Pin as Featured Reel
+                    </label>
+                  </div>
+
+                  <button className="primary member-submit" disabled={submitting} style={{ height: '46px', fontSize: '13px', fontWeight: 700, letterSpacing: '0.04em' }}>
+                    {submitting ? 'PUBLISHING REEL...' : 'PUBLISH & PUSH TO STUDENTS (PRIORITY 1) →'}
+                  </button>
+                </form>
+              </article>
+            ) : (
+              /* Mode 2: Instagram Profile Sync */
+              <article className="account-form-card" style={{ padding: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <p className="eyebrow" style={{ margin: 0, color: '#ec4899' }}>INSTAGRAM PROFILE STREAM SYNC</p>
+                  <span className="badge" style={{ background: 'rgba(236,72,153,0.12)', color: '#ec4899', fontSize: '10px', fontWeight: 800 }}>
+                    RANDOM DISCOVERY POOL
+                  </span>
+                </div>
+                <h2>Sync Instagram Profile Feed</h2>
+                <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: '1.6', margin: '0 0 16px' }}>
+                  Upload an Instagram profile link so all posts and reels from that account play randomly in the students' Reels Feed. When you upload a new reel directly, it automatically becomes the #1 main priority!
+                </p>
+
+                <form onSubmit={handleSyncProfile} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
+                        Instagram Profile URL *
+                      </label>
+                      <input
+                        value={profileUrl}
+                        onChange={e => {
+                          setProfileUrl(e.target.value)
+                          const m = e.target.value.match(/instagram\.com\/([a-zA-Z0-9_.]+)/i)
+                          if (m && m[1]) setProfileHandle(m[1].replace(/\/$/, ''))
+                        }}
+                        placeholder="https://www.instagram.com/cybersecurityclub_mrdu/"
+                        required
+                        style={{ width: '100%', height: '42px', padding: '0 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)' }}
+                      />
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
+                        Handle / Username
+                      </label>
+                      <input
+                        value={profileHandle}
+                        onChange={e => setProfileHandle(e.target.value)}
+                        placeholder="cybersecurityclub_mrdu"
+                        required
+                        style={{ width: '100%', height: '42px', padding: '0 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
+                      Title Prefix
+                    </label>
+                    <input
+                      value={profileTitlePrefix}
+                      onChange={e => setProfileTitlePrefix(e.target.value)}
+                      placeholder="Campus Highlights"
+                      style={{ width: '100%', height: '42px', padding: '0 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)' }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
+                      Specific Post/Reel URLs from this Profile (Optional, one per line)
+                    </label>
+                    <textarea
+                      value={profilePostLinks}
+                      onChange={e => setProfilePostLinks(e.target.value)}
+                      placeholder={'https://www.instagram.com/reel/C8qL_k1S9gW/\nhttps://www.instagram.com/p/C8tM_p2R7hX/'}
+                      rows={4}
+                      style={{ width: '100%', padding: '10px 14px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)', resize: 'vertical', fontFamily: 'monospace', fontSize: '11px' }}
+                    />
+                    <small style={{ display: 'block', color: 'var(--text-dim)', fontSize: '11px', marginTop: '4px' }}>
+                      Leave empty to auto-sync the profile stream discovery pool, or paste multiple post URLs to import in batch.
+                    </small>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
+                        Category
+                      </label>
+                      <select
+                        value={profileCategory}
+                        onChange={e => setProfileCategory(e.target.value)}
+                        style={{ width: '100%', height: '42px', padding: '0 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)' }}
+                      >
+                        <option value="CAMPUS_LIFE">Campus Life & Highlights</option>
+                        <option value="HACKATHONS">Hackathons & CTF Competitions</option>
+                        <option value="WORKSHOPS">Technical Workshops & Labs</option>
+                        <option value="CULTURAL">Cultural & University Fests</option>
+                        <option value="TECH_NEWS">Cyber Security & Tech Updates</option>
+                        <option value="MRDU_SPECIAL">MRDU Central Highlights</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
+                        Platform Stream
+                      </label>
+                      <select
+                        value={profileStreamMode}
+                        onChange={e => setProfileStreamMode(e.target.value)}
+                        style={{ width: '100%', height: '42px', padding: '0 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)' }}
+                      >
+                        <option value="ALL">All Portals (Global)</option>
+                        <option value="CSC">Cyber Security Club Stream</option>
+                        <option value="MRDU_EVENTS">MRDU Central Events Stream</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <button className="primary member-submit" disabled={profileSyncing} style={{ height: '46px', fontSize: '13px', fontWeight: 700, letterSpacing: '0.04em', background: 'linear-gradient(135deg, #ec4899, #8b5cf6)', borderColor: '#ec4899' }}>
+                    {profileSyncing ? 'SYNCING PROFILE POSTS...' : `SYNC @${profileHandle || 'PROFILE'} POSTS & REELS POOL →`}
+                  </button>
+                </form>
+              </article>
+            )}
+          </div>
+
+          {/* Right Column: Sticky Live Embed Preview Player */}
+          <article
+            className="account-form-card"
+            style={{
+              position: 'sticky',
+              top: '20px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'flex-start',
+              background: 'var(--bg-card)',
+              padding: '20px 16px',
+              border: '1px solid var(--brand-border-subtle)',
+              borderRadius: '18px',
+              boxShadow: '0 10px 35px rgba(0,0,0,0.06)',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '14px', padding: '0 4px' }}>
+              <p className="eyebrow" style={{ margin: 0, fontSize: '10px' }}>LIVE PLAYER PREVIEW</p>
+              {liveParsed && (
+                <span className="badge" style={{ fontSize: '9px', fontWeight: 700, background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                  ● {liveParsed.type.replace('_', ' ')}
+                </span>
+              )}
+            </div>
+
+            {/* Simulated Phone Shell */}
+            <div
+              style={{
+                width: '100%',
+                maxWidth: '300px',
+                height: '520px',
+                background: '#000000',
+                borderRadius: '24px',
+                border: '3px solid #1e293b',
+                boxShadow: '0 16px 45px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.1)',
+                overflow: 'hidden',
+                position: 'relative',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              {/* Top Camera Notch */}
+              <div style={{ position: 'absolute', top: '8px', left: '50%', transform: 'translateX(-50%)', width: '60px', height: '14px', background: '#111827', borderRadius: '10px', zIndex: 30, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#1e293b' }} />
+              </div>
+
+              {/* Video Player Canvas */}
+              <div style={{ width: '100%', height: '100%', position: 'relative', background: '#000000', overflow: 'hidden' }}>
+                {liveParsed ? (
+                  liveParsed.type === 'DIRECT_VIDEO' ? (
+                    <video src={liveParsed.embedUrl} autoPlay loop muted playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <iframe
+                      src={liveParsed.embedUrl}
+                      title="Live Preview"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                      scrolling="no"
+                      style={{ width: '100%', height: '100%', border: 0, overflow: 'hidden', background: '#000000' }}
+                    />
+                  )
+                ) : (
+                  <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', color: 'var(--text-muted)', textAlign: 'center' }}>
+                    <span style={{ display: 'inline-flex', padding: '14px', borderRadius: '50%', background: 'var(--brand-badge-bg)', color: 'var(--brand-primary)', marginBottom: '12px' }}>
+                      <IconVideo size={28} />
+                    </span>
+                    <b style={{ color: 'var(--text-main)', fontSize: '13px', display: 'block', marginBottom: '6px' }}>Interactive Preview</b>
+                    <p style={{ fontSize: '11px', margin: 0, lineHeight: 1.5 }}>
+                      Type or paste an Instagram Reel URL on the left to test playback live in this simulated screen.
+                    </p>
+                  </div>
+                )}
+
+                {/* Simulated Bottom Overlay */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    padding: '24px 12px 12px',
+                    background: 'linear-gradient(to top, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.4) 70%, transparent 100%)',
+                    color: '#ffffff',
+                    zIndex: 20,
+                    pointerEvents: 'none',
+                  }}
+                >
+                  <p style={{ margin: '0 0 2px', fontSize: '11px', fontWeight: 700, color: '#ffffff' }}>
+                    @{authorHandle || 'cybersecurityclub_mrdu'}
+                  </p>
+                  <p style={{ margin: 0, fontSize: '10px', color: '#cbd5e1', lineHeight: 1.3, maxHeight: '28px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {title || 'Reel Caption Headline…'}
+                  </p>
+                  <p style={{ margin: '4px 0 0', fontSize: '9px', color: '#94a3b8', fontFamily: 'monospace' }}>
+                    ♫ {audioTitle || 'Original audio'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions / Tips under Preview */}
+            <div style={{ width: '100%', maxWidth: '300px', marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: 'var(--text-dim)' }}>
+                <span>Real-time Sync Active</span>
+                <button
+                  type="button"
+                  onClick={() => { setUrl(''); setTitle(''); setDescription('') }}
+                  style={{ background: 'none', border: 'none', color: 'var(--brand-primary)', fontSize: '11px', fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                >
+                  Clear Inputs
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        {/* Published Reels Directory */}
+        <div style={{ marginTop: '40px', borderTop: '1px solid var(--line)', paddingTop: '28px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <p className="eyebrow">PUBLISHED FEED DIRECTORY</p>
+              <h2>Manage Published Reels ({reels.length})</h2>
+            </div>
+            <button type="button" className="outline" onClick={loadReels} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px' }}>
+              <IconRefresh size={13} /> Refresh Feed
+            </button>
+          </div>
+
+          {/* Directory Search & Filter Bar */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '20px', flexWrap: 'wrap', background: 'var(--bg-card)', padding: '10px 14px', borderRadius: '12px', border: '1px solid var(--brand-border-subtle)' }}>
+            <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '2px', maxWidth: '100%' }}>
+              {[
+                { id: 'ALL', label: 'All Categories' },
+                { id: 'CAMPUS_LIFE', label: 'Campus Life' },
+                { id: 'HACKATHONS', label: 'Hackathons' },
+                { id: 'WORKSHOPS', label: 'Workshops' },
+                { id: 'CULTURAL', label: 'Cultural' },
+                { id: 'TECH_NEWS', label: 'Tech News' },
+              ].map(cat => (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => { setDirectoryCategory(cat.id); setPage(1) }}
+                  style={{
+                    fontSize: '11px',
+                    padding: '4px 10px',
+                    borderRadius: '16px',
+                    whiteSpace: 'nowrap',
+                    background: directoryCategory === cat.id ? 'var(--brand-primary)' : 'var(--panel-subtle)',
+                    color: directoryCategory === cat.id ? '#ffffff' : 'var(--text-muted)',
+                    border: '1px solid var(--line)',
+                    cursor: 'pointer',
+                    fontWeight: directoryCategory === cat.id ? 700 : 500,
+                  }}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ position: 'relative', width: '220px', minWidth: '160px' }}>
+              <input
+                type="text"
+                placeholder="Filter by title / handle…"
+                value={directorySearch}
+                onChange={e => { setDirectorySearch(e.target.value); setPage(1) }}
+                style={{ width: '100%', height: '32px', padding: '0 10px', fontSize: '11px', borderRadius: '8px', border: '1px solid var(--line)', background: 'var(--bg-input)', color: 'var(--text-main)' }}
+              />
+            </div>
+          </div>
+
+          {loading ? (
+            <p className="directory-state">Loading reels...</p>
+          ) : reels.length === 0 ? (
+            <p className="directory-state">No reels published yet. Use the form above to publish your first college reel!</p>
+          ) : (() => {
+            const filtered = reels.filter(r => {
+              if (directoryCategory !== 'ALL' && r.category !== directoryCategory) return false
+              if (directorySearch.trim()) {
+                const q = directorySearch.toLowerCase().trim()
+                const t = (r.title || '').toLowerCase()
+                const d = (r.description || '').toLowerCase()
+                const h = (r.authorHandle || '').toLowerCase()
+                if (!t.includes(q) && !d.includes(q) && !h.includes(q)) return false
+              }
+              return true
+            })
+            const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize))
+            const paginated = filtered.slice((page - 1) * pageSize, page * pageSize)
+
+            if (filtered.length === 0) {
+              return <p className="directory-state">No reels matched your filter. Try adjusting your search query.</p>
+            }
+
+            return (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: '20px' }}>
+                  {paginated.map(r => (
+                    <article
+                      key={r.id}
+                      className="account-form-card"
+                      style={{
+                        padding: '16px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        opacity: r.isActive ? 1 : 0.6,
+                        border: r.isFeatured ? '1px solid #f59e0b' : '1px solid var(--brand-border-subtle)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <span className="badge" style={{ background: 'var(--brand-badge-bg)', color: 'var(--brand-badge-color)', fontSize: '10px', fontWeight: 600 }}>
+                          {r.category.replace('_', ' ')}
+                        </span>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          {r.isFeatured && (
+                            <span className="badge" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.3)', fontSize: '9px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <IconFlame size={11} /> FEATURED
+                            </span>
+                          )}
+                          <span className="badge" style={{ background: r.isActive ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 116, 139, 0.15)', color: r.isActive ? '#10b981' : '#94a3b8', border: `1px solid ${r.isActive ? 'rgba(16, 185, 129, 0.3)' : 'rgba(100, 116, 139, 0.3)'}`, fontSize: '9px', fontWeight: 700 }}>
+                            {r.isActive ? 'LIVE' : 'HIDDEN'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Embedded Compact Preview */}
+                      <div style={{ width: '100%', height: '220px', background: '#000000', borderRadius: '12px', overflow: 'hidden', marginBottom: '12px' }}>
+                        {r.embedType === 'DIRECT_VIDEO' ? (
+                          <video src={r.url} muted playsInline controls style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <iframe src={r.url} title={r.title} allowFullScreen scrolling="no" style={{ width: '100%', height: '100%', border: 0, overflow: 'hidden' }} />
+                        )}
+                      </div>
+
+                      <h3 style={{ margin: '0 0 6px', fontSize: '14px', color: 'var(--text-main)' }}>{r.title}</h3>
+                      {r.description && <p style={{ margin: '0 0 10px', fontSize: '11px', color: 'var(--text-muted)' }}>{r.description}</p>}
+
+                      <div style={{ marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px', color: 'var(--text-dim)' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                          <span>{r.viewsCount} views</span>
+                          <span>·</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                            <IconHeart size={12} filled={r.likesCount > 0} /> {r.likesCount}
+                          </span>
+                        </span>
+                        <small>By: {r.postedBy}</small>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                        <button
+                          type="button"
+                          className="outline"
+                          onClick={() => toggleReelStatus(r)}
+                          style={{ flex: 1, fontSize: '10px', padding: '6px' }}
+                        >
+                          {r.isActive ? 'Hide' : 'Publish'}
+                        </button>
+                        <button
+                          type="button"
+                          className="outline"
+                          onClick={() => toggleFeatured(r)}
+                          style={{ flex: 1, fontSize: '10px', padding: '6px', color: r.isFeatured ? '#f59e0b' : 'inherit' }}
+                        >
+                          {r.isFeatured ? 'Unpin' : 'Pin to Top'}
+                        </button>
+                        <button
+                          type="button"
+                          className="action-btn delete-btn"
+                          onClick={() => handleDeleteReel(r.id)}
+                          style={{ fontSize: '10px', padding: '6px 10px' }}
+                          title="Delete reel"
+                        >
+                          <IconTrash size={12} />
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+
+                {totalPages > 1 && (
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginTop: '24px' }}>
+                    <button
+                      type="button"
+                      className="outline"
+                      disabled={page <= 1}
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      style={{ fontSize: '11px', padding: '6px 14px' }}
+                    >
+                      ← Previous Page
+                    </button>
+                    <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', fontFamily: 'DM Mono' }}>
+                      Page {page} of {totalPages}
+                    </span>
+                    <button
+                      type="button"
+                      className="outline"
+                      disabled={page >= totalPages}
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      style={{ fontSize: '11px', padding: '6px 14px' }}
+                    >
+                      Next Page →
+                    </button>
+                  </div>
+                )}
+              </>
+            )
+          })()}
+        </div>
       </section>
     </LivePortal>
   )
@@ -6136,14 +9460,14 @@ function TeamManagement({ user, logout, onNavigate }) {
                           setEditPhotoPreview(l.photoUrl || '')
                         }}
                       >
-                        ✏️ Edit Profile
+                        Edit Profile
                       </button>
                       <button
                         type="button"
                         className="action-btn delete-btn"
                         onClick={() => removeMember(l.id)}
                       >
-                        🗑 Remove
+                        Remove
                       </button>
                     </div>
                   </div>
@@ -6226,18 +9550,34 @@ function TeamManagement({ user, logout, onNavigate }) {
 // Club Settings & Priority Controls (Admin)
 // ----------------------------------------------------
 function ClubSettingsManager({ user, logout, onNavigate }) {
-  const { platformMode, setPlatformMode, themeMode, setThemeMode } = usePlatformTheme()
-  const [settings, setSettings] = useState({})
+  const { platformMode, setPlatformMode, themeMode, setThemeMode, setClubSettings } = usePlatformTheme()
   const [selectedPlatform, setSelectedPlatform] = useState(platformMode || 'CYBER_SECURITY_CLUB')
   const [siteStatus, setSiteStatus] = useState('ACTIVE')
   const [subscriptionEnabled, setSubscriptionEnabled] = useState(false)
   const [subscriptionAmount, setSubscriptionAmount] = useState('100')
   const [subscriptionUpiId, setSubscriptionUpiId] = useState('')
   const [qrPreview, setQrPreview] = useState('')
+  const [reelsEnabled, setReelsEnabled] = useState(true)
   const [introVideoEnabled, setIntroVideoEnabled] = useState(true)
-  const [onboardingBriefingMode, setOnboardingBriefingMode] = useState('VIDEO') // 'VIDEO' | 'SLIDESHOW'
+  const [onboardingBriefingMode, setOnboardingBriefingMode] = useState('VIDEO')
   const [introVideoUrl, setIntroVideoUrl] = useState('')
   const [introVideoRequireTwoMinutes, setIntroVideoRequireTwoMinutes] = useState(true)
+
+  // Official Contact & Technical Support Suite
+  const [contactEmail, setContactEmail] = useState('')
+  const [contactPhone, setContactPhone] = useState('')
+  const [technicalSupportEmail, setTechnicalSupportEmail] = useState('')
+  const [technicalSupportPhone, setTechnicalSupportPhone] = useState('')
+
+  // Official Social Media Channels
+  const [instagramUrl, setInstagramUrl] = useState('')
+  const [githubUrl, setGithubUrl] = useState('')
+  const [linkedinUrl, setLinkedinUrl] = useState('')
+  const [youtubeUrl, setYoutubeUrl] = useState('')
+  const [discordUrl, setDiscordUrl] = useState('')
+  const [whatsappUrl, setWhatsappUrl] = useState('')
+  const [websiteUrl, setWebsiteUrl] = useState('')
+
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -6253,8 +9593,7 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
     let mounted = true
     adminApi.getClubSettings()
       .then(({ settings: dict }) => {
-        if (!mounted) return
-        setSettings(dict)
+        if (!mounted || !dict) return
         if (dict.platformMode) {
           setSelectedPlatform(dict.platformMode)
           setPlatformMode(dict.platformMode)
@@ -6264,10 +9603,24 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
         setSubscriptionAmount(String(dict.subscriptionMonthlyAmount || '100'))
         setSubscriptionUpiId(dict.subscriptionUpiId || '')
         setQrPreview(dict.subscriptionQrUrl || '')
+        setReelsEnabled(dict.reelsEnabled !== false && dict.reelsEnabled !== 'false')
         setIntroVideoEnabled(dict.introVideoEnabled !== false && dict.introVideoEnabled !== 'false')
         setOnboardingBriefingMode(dict.onboardingBriefingMode || dict.introBriefingMode || 'VIDEO')
         setIntroVideoUrl(dict.introVideoUrl || '')
         setIntroVideoRequireTwoMinutes(dict.introVideoRequireTwoMinutes !== false && dict.introVideoRequireTwoMinutes !== 'false')
+
+        setContactEmail(dict.contactEmail || '')
+        setContactPhone(dict.contactPhone || '')
+        setTechnicalSupportEmail(dict.technicalSupportEmail || '')
+        setTechnicalSupportPhone(dict.technicalSupportPhone || '')
+
+        setInstagramUrl(dict.instagramUrl || '')
+        setGithubUrl(dict.githubUrl || '')
+        setLinkedinUrl(dict.linkedinUrl || '')
+        setYoutubeUrl(dict.youtubeUrl || '')
+        setDiscordUrl(dict.discordUrl || '')
+        setWhatsappUrl(dict.whatsappUrl || '')
+        setWebsiteUrl(dict.websiteUrl || '')
       })
       .catch(err => { if (mounted) setError(err.message) })
     return () => { mounted = false }
@@ -6275,7 +9628,6 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
 
   async function handleSaveSettings(e) {
     e.preventDefault()
-    const form = new FormData(e.currentTarget)
     setMessage('')
     setError('')
 
@@ -6284,29 +9636,38 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
       siteStatus,
       subscriptionEnabled,
       subscriptionMonthlyAmount: subscriptionAmount ? Number(subscriptionAmount) : 100,
-      subscriptionUpiId: subscriptionUpiId || null,
+      subscriptionUpiId: subscriptionUpiId.trim() || null,
       subscriptionQrUrl: qrPreview || null,
+      reelsEnabled,
       introVideoEnabled,
       onboardingBriefingMode,
       introBriefingMode: onboardingBriefingMode,
-      introVideoUrl: introVideoUrl || null,
+      introVideoUrl: introVideoUrl.trim() || null,
       introVideoRequireTwoMinutes,
-      instagramUrl: String(form.get('instagramUrl') || '').trim() || null,
-      githubUrl: String(form.get('githubUrl') || '').trim() || null,
-      linkedinUrl: String(form.get('linkedinUrl') || '').trim() || null,
-      youtubeUrl: String(form.get('youtubeUrl') || '').trim() || null,
-      discordUrl: String(form.get('discordUrl') || '').trim() || null,
-      whatsappUrl: String(form.get('whatsappUrl') || '').trim() || null,
-      websiteUrl: String(form.get('websiteUrl') || '').trim() || null,
+      contactEmail: contactEmail.trim() || null,
+      contactPhone: contactPhone.trim() || null,
+      technicalSupportEmail: technicalSupportEmail.trim() || null,
+      technicalSupportPhone: technicalSupportPhone.trim() || null,
+      instagramUrl: instagramUrl.trim() || null,
+      githubUrl: githubUrl.trim() || null,
+      linkedinUrl: linkedinUrl.trim() || null,
+      youtubeUrl: youtubeUrl.trim() || null,
+      discordUrl: discordUrl.trim() || null,
+      whatsappUrl: whatsappUrl.trim() || null,
+      websiteUrl: websiteUrl.trim() || null,
     }
 
     setSubmitting(true)
     try {
-      await adminApi.updateClubSettings(payload)
+      const { settings: updated } = await adminApi.updateClubSettings(payload)
       setPlatformMode(selectedPlatform)
-      setMessage('Platform & club settings updated successfully.')
+      if (setClubSettings) setClubSettings(updated || payload)
+      try {
+        localStorage.setItem('cached_club_settings', JSON.stringify(updated || payload))
+      } catch (e) {}
+      setMessage('✓ Platform settings, social media, and technical support channels saved successfully.')
     } catch (err) {
-      setError(err.message)
+      setError(err.message || 'Failed to update settings.')
     } finally {
       setSubmitting(false)
     }
@@ -6353,9 +9714,11 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
             <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
               ← COMMAND CENTER
             </button>
-            <p className="eyebrow">CENTRAL CONFIGURATION</p>
+            <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Icon8 name="keySecurity" size={14} /> CENTRAL CONFIGURATION & BRANDING
+            </p>
             <h1>Global Controls & Platform Identity</h1>
-            <p>Switch platform modes, adjust dark/light themes, manage site availability, subscriptions, and briefings.</p>
+            <p>Configure platform modes, interface themes, site availability, official social media, and technical support helpdesk.</p>
           </div>
           {user.isPrimaryAdmin && (
             <span className="president-lock" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
@@ -6443,7 +9806,9 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
                 disabled={!user.isPrimaryAdmin}
               >
                 <div className="platform-mode-card-header">
-                  <b>🛡️ Cyber Security Club</b>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}>
+                    <IconShieldCheck size={16} /> Cyber Security Club
+                  </span>
                   {selectedPlatform === 'CYBER_SECURITY_CLUB' && <span className="platform-active-pill">SELECTED</span>}
                 </div>
                 <p>
@@ -6462,66 +9827,14 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
                 disabled={!user.isPrimaryAdmin}
               >
                 <div className="platform-mode-card-header">
-                  <b>🎓 MRDU Events Portal</b>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', fontWeight: 700 }}>
+                    <IconSparkles size={16} /> MRDU Events Portal
+                  </span>
                   {selectedPlatform === 'MRDU_EVENTS' && <span className="platform-active-pill">SELECTED</span>}
                 </div>
                 <p>
                   Official Malla Reddy University Events identity. Uses official university banner/crest, academic garnet & gold accents, and multi-department event hub themes.
                 </p>
-              </button>
-            </div>
-          </article>
-
-          {/* Card 0.5: Appearance & Theme Mode (System / Light / Dark) */}
-          <article className="settings-section-card" style={{ border: '1px solid var(--line)', background: 'var(--bg-card)' }}>
-            <div className="settings-card-header">
-              <div>
-                <p className="eyebrow" style={{ color: 'var(--brand-eyebrow)' }}>APPEARANCE & COLOR SCHEME</p>
-                <h3 style={{ color: 'var(--text-main)' }}>Interface Theme (Dark / Light / System)</h3>
-              </div>
-              <span className="badge" style={{ background: 'var(--brand-badge-bg)', color: 'var(--brand-badge-color)', border: '1px solid var(--brand-border-subtle)' }}>
-                {themeMode.toUpperCase()} MODE
-              </span>
-            </div>
-            <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.6', margin: '0 0 16px' }}>
-              Choose your visual theme. Changes take effect immediately across all pages, sidebars, forms, tables, and dialogs.
-            </p>
-
-            <div className="theme-mode-switcher-grid">
-              <button
-                type="button"
-                className={`theme-mode-card ${themeMode === 'system' ? 'active' : ''}`}
-                onClick={() => setThemeMode('system')}
-              >
-                <div className="theme-mode-card-header">
-                  <b>🖥️ System Preference</b>
-                  {themeMode === 'system' && <span className="platform-active-pill">ACTIVE</span>}
-                </div>
-                <p>Automatically match your device / operating system appearance settings.</p>
-              </button>
-
-              <button
-                type="button"
-                className={`theme-mode-card ${themeMode === 'light' ? 'active' : ''}`}
-                onClick={() => setThemeMode('light')}
-              >
-                <div className="theme-mode-card-header">
-                  <b>☀️ Light Mode</b>
-                  {themeMode === 'light' && <span className="platform-active-pill">ACTIVE</span>}
-                </div>
-                <p>Bright, crisp, high-contrast theme optimized for daylight readability.</p>
-              </button>
-
-              <button
-                type="button"
-                className={`theme-mode-card ${themeMode === 'dark' ? 'active' : ''}`}
-                onClick={() => setThemeMode('dark')}
-              >
-                <div className="theme-mode-card-header">
-                  <b>🌙 Dark Mode</b>
-                  {themeMode === 'dark' && <span className="platform-active-pill">ACTIVE</span>}
-                </div>
-                <p>Sleek, deep-contrast theme optimized for focused low-light environments.</p>
               </button>
             </div>
           </article>
@@ -6540,7 +9853,7 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
                   onClick={() => setSiteStatus('ACTIVE')}
                   disabled={!user.isPrimaryAdmin}
                 >
-                  ✓ ONLINE / ACTIVE
+                  ONLINE / ACTIVE
                 </button>
                 <button
                   type="button"
@@ -6548,14 +9861,14 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
                   onClick={() => setSiteStatus('HIBERNATING')}
                   disabled={!user.isPrimaryAdmin}
                 >
-                  🔒 HIBERNATION / OFF
+                  HIBERNATION / OFF
                 </button>
               </div>
             </div>
-            <p style={{ color: '#8aa2b4', fontSize: '13px', lineHeight: '1.6', margin: 0 }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.6', margin: 0 }}>
               {siteStatus === 'ACTIVE'
-                ? '🟢 Normal Website Active: Public visitors and students have normal uninterrupted access.'
-                : '🔴 Hibernation Active: Public visitors and students see the dedicated Hibernation screen with live timer. Only the Primary President and Admins can log in.'}
+                ? 'Website Active: Public visitors and students have normal uninterrupted access.'
+                : 'Hibernation Active: Public visitors and students see the dedicated Hibernation countdown screen. Only the Primary President and Admins can log in.'}
             </p>
           </article>
 
@@ -6573,7 +9886,7 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
                   onClick={() => setSubscriptionEnabled(true)}
                   disabled={!user.isPrimaryAdmin}
                 >
-                  [ ON / ENABLED ]
+                  ENABLED
                 </button>
                 <button
                   type="button"
@@ -6581,14 +9894,14 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
                   onClick={() => setSubscriptionEnabled(false)}
                   disabled={!user.isPrimaryAdmin}
                 >
-                  [ OFF / DISABLED ]
+                  DISABLED
                 </button>
               </div>
             </div>
-            <p style={{ color: '#8aa2b4', fontSize: '12px', lineHeight: '1.6', margin: '0 0 16px' }}>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.6', margin: '0 0 16px' }}>
               {subscriptionEnabled
-                ? 'When ON: Students must have an active verified subscription via UPI to register for events and access technical support. (Leadership accounts are exempt).'
-                : 'When OFF: All students enjoy free access without subscription requirements. Payment history remains preserved.'}
+                ? 'When ENABLED: Students must have an active verified subscription via UPI to register for events and access technical support.'
+                : 'When DISABLED: All students enjoy free access without subscription requirements. Payment history remains preserved.'}
             </p>
 
             <div className="member-form-grid">
@@ -6626,13 +9939,52 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
               <div style={{ marginTop: '12px', display: 'flex', alignItems: 'center', gap: '14px' }}>
                 <img src={qrPreview} alt="Subscription QR" style={{ height: '80px', borderRadius: '6px', border: '1px solid #52bbf544' }} />
                 <button type="button" className="action-btn delete-btn" onClick={() => setQrPreview('')} disabled={!user.isPrimaryAdmin}>
-                  Remove QR Code
+                  <IconTrash size={13} /> Remove QR Code
                 </button>
               </div>
             )}
           </article>
 
-          {/* Card 3: Student Onboarding Video (Compulsory 2-Minute Briefing) */}
+          {/* Card 2b: Campus Reels & Instagram Section Toggle */}
+          <article className="settings-section-card">
+            <div className="settings-card-header">
+              <div>
+                <p className="eyebrow" style={{ color: 'var(--brand-primary)' }}>CAMPUS MEDIA SECTION</p>
+                <h3>Campus Reels &amp; Instagram Feed</h3>
+              </div>
+              <div className="toggle-switch-container">
+                <button
+                  type="button"
+                  className={`switch-btn ${reelsEnabled ? 'on' : ''}`}
+                  onClick={() => setReelsEnabled(true)}
+                  disabled={!user.isPrimaryAdmin}
+                >
+                  ENABLED
+                </button>
+                <button
+                  type="button"
+                  className={`switch-btn ${!reelsEnabled ? 'off' : ''}`}
+                  onClick={() => setReelsEnabled(false)}
+                  disabled={!user.isPrimaryAdmin}
+                >
+                  DISABLED
+                </button>
+              </div>
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.6', margin: '0 0 16px' }}>
+              {reelsEnabled
+                ? 'ENABLED: The Campus Reels & Instagram section is visible in student accounts. Students can browse and view reels published by the admin team.'
+                : 'DISABLED: The Campus Reels section is hidden from all student accounts. Existing reels are preserved and will reappear when re-enabled.'}
+            </p>
+            {!reelsEnabled && (
+              <div style={{ padding: '10px 14px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: '8px', color: '#fca5a5', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <IconAlertTriangle size={14} />
+                Reels section will be hidden from student sidebar and home dashboard.
+              </div>
+            )}
+          </article>
+
+          {/* Card 3: Student Onboarding Video */}
           <article className="settings-section-card">
             <div className="settings-card-header">
               <div>
@@ -6646,7 +9998,7 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
                   onClick={() => setIntroVideoEnabled(true)}
                   disabled={!user.isPrimaryAdmin}
                 >
-                  [ ON / ENABLED ]
+                  ENABLED
                 </button>
                 <button
                   type="button"
@@ -6654,18 +10006,17 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
                   onClick={() => setIntroVideoEnabled(false)}
                   disabled={!user.isPrimaryAdmin}
                 >
-                  [ OFF / DISABLED ]
+                  DISABLED
                 </button>
               </div>
             </div>
 
             <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.6', margin: '0 0 16px' }}>
               {introVideoEnabled
-                ? '🟢 ON / ENABLED: Newly logged-in students must watch the mandatory 2-minute YouTube orientation video before gaining access to the portal dashboard and event registrations.'
-                : '⚪ OFF / DISABLED: Students bypass the orientation video and proceed directly to their dashboard.'}
+                ? 'ENABLED: Newly logged-in students must watch the mandatory 2-minute YouTube orientation video before gaining access to the portal dashboard.'
+                : 'DISABLED: Students bypass the orientation video and proceed directly to their dashboard.'}
             </p>
 
-            {/* YouTube Onboarding Video URL Input & Status */}
             <div style={{ background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '10px', padding: '16px' }}>
               <div className="member-form-grid">
                 <label className="form-wide">
@@ -6677,7 +10028,7 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
                       </span>
                     ) : introVideoUrl ? (
                       <span style={{ color: '#f87171', fontSize: '11px', fontWeight: 600 }}>
-                        ⚠️ Invalid YouTube URL
+                        Invalid YouTube URL
                       </span>
                     ) : null}
                   </span>
@@ -6691,7 +10042,6 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
                 </label>
               </div>
 
-              {/* Video Live Preview in Settings */}
               {parseYouTubeVideoId(introVideoUrl || 'https://www.youtube.com/watch?v=gokPW83s7nA') && (
                 <div style={{ marginTop: '14px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--brand-border-subtle)', background: '#000' }}>
                   <iframe
@@ -6703,58 +10053,212 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
                   />
                 </div>
               )}
-
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginTop: '12px' }}>
-                <div style={{ padding: '6px 12px', borderRadius: '6px', background: 'var(--brand-badge-bg)', border: '1px solid var(--brand-border-subtle)', color: 'var(--brand-primary)', fontSize: '11px', fontWeight: 600 }}>
-                  ⏱ 2-Minute Playback Requirement: COMPULSORY (120 SECONDS)
-                </div>
-              </div>
             </div>
           </article>
 
-          {/* Card 4: Club Social Media Channels */}
+          {/* Card 4: Official Club Communications & Technical Support */}
           <article className="settings-section-card">
             <div className="settings-card-header">
               <div>
-                <p className="eyebrow">BRANDING & LINKS</p>
-                <h3>Official Club Social Links</h3>
+                <p className="eyebrow" style={{ color: 'var(--brand-primary)' }}>COMMUNICATIONS & SUPPORT SUITE</p>
+                <h3>Official Club Contact & Technical Support</h3>
               </div>
             </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.6', margin: '0 0 16px' }}>
+              Publish official club contacts and dedicated technical support helpdesk channels. These links and emails will be displayed on student dashboards and support desk.
+            </p>
 
             <div className="member-form-grid">
               <label>
-                Instagram Profile Link
-                <input name="instagramUrl" placeholder="https://instagram.com/..." defaultValue={settings.instagramUrl || ''} />
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <IconMail size={14} /> Official Club Email ID
+                </span>
+                <input
+                  type="email"
+                  value={contactEmail}
+                  onChange={e => setContactEmail(e.target.value)}
+                  placeholder="cybersecurityclub@mrdu.edu"
+                />
               </label>
               <label>
-                GitHub Organization Link
-                <input name="githubUrl" placeholder="https://github.com/..." defaultValue={settings.githubUrl || ''} />
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <Icon8 name="idDocs" size={14} /> Club Office / Contact Phone
+                </span>
+                <input
+                  type="tel"
+                  value={contactPhone}
+                  onChange={e => setContactPhone(e.target.value)}
+                  placeholder="+91 98765 43210"
+                />
               </label>
               <label>
-                LinkedIn Page Link
-                <input name="linkedinUrl" placeholder="https://linkedin.com/company/..." defaultValue={settings.linkedinUrl || ''} />
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <IconHeadset size={14} /> Dedicated Technical Support Email
+                </span>
+                <input
+                  type="email"
+                  value={technicalSupportEmail}
+                  onChange={e => setTechnicalSupportEmail(e.target.value)}
+                  placeholder="techsupport@mrdu.edu"
+                />
               </label>
               <label>
-                YouTube Channel Link
-                <input name="youtubeUrl" placeholder="https://youtube.com/@..." defaultValue={settings.youtubeUrl || ''} />
-              </label>
-              <label>
-                Discord Server Link
-                <input name="discordUrl" placeholder="https://discord.gg/..." defaultValue={settings.discordUrl || ''} />
-              </label>
-              <label>
-                WhatsApp Community Link
-                <input name="whatsappUrl" placeholder="https://chat.whatsapp.com/..." defaultValue={settings.whatsappUrl || ''} />
-              </label>
-              <label className="form-wide">
-                Official Website Link
-                <input name="websiteUrl" placeholder="https://cybersecurity.mrdu.edu" defaultValue={settings.websiteUrl || ''} />
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <IconWhatsApp size={14} /> Technical Support Helpline / WhatsApp
+                </span>
+                <input
+                  type="tel"
+                  value={technicalSupportPhone}
+                  onChange={e => setTechnicalSupportPhone(e.target.value)}
+                  placeholder="+91 98765 01234"
+                />
               </label>
             </div>
           </article>
 
-          <button className="primary member-submit" type="submit" disabled={submitting} style={{ minHeight: '44px', width: '100%' }}>
-            {submitting ? 'SAVING ALL SETTINGS…' : 'SAVE CONFIGURATION'}
+          {/* Card 5: Official Social Media & Community Channels */}
+          <article className="settings-section-card">
+            <div className="settings-card-header">
+              <div>
+                <p className="eyebrow" style={{ color: '#ec4899' }}>BRANDING & SOCIAL CHANNELS</p>
+                <h3>Official Social Media & Communities</h3>
+              </div>
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.6', margin: '0 0 16px' }}>
+              Publish all official club social handles and online platforms. Students can 1-click navigate directly from their student dashboard.
+            </p>
+
+            <div className="member-form-grid">
+              <label>
+                <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <IconInstagram size={14} /> Instagram Profile URL
+                  </span>
+                  {instagramUrl && (
+                    <a href={instagramUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand-primary)', fontSize: '11px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                      Test <IconExternalLink size={11} />
+                    </a>
+                  )}
+                </span>
+                <input
+                  value={instagramUrl}
+                  onChange={e => setInstagramUrl(e.target.value)}
+                  placeholder="https://instagram.com/mrdu_cybersecurity"
+                />
+              </label>
+
+              <label>
+                <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <IconYouTube size={14} /> YouTube Channel URL
+                  </span>
+                  {youtubeUrl && (
+                    <a href={youtubeUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand-primary)', fontSize: '11px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                      Test <IconExternalLink size={11} />
+                    </a>
+                  )}
+                </span>
+                <input
+                  value={youtubeUrl}
+                  onChange={e => setYoutubeUrl(e.target.value)}
+                  placeholder="https://youtube.com/@mrdu_csc"
+                />
+              </label>
+
+              <label>
+                <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <IconLinkedIn size={14} /> LinkedIn Page URL
+                  </span>
+                  {linkedinUrl && (
+                    <a href={linkedinUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand-primary)', fontSize: '11px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                      Test <IconExternalLink size={11} />
+                    </a>
+                  )}
+                </span>
+                <input
+                  value={linkedinUrl}
+                  onChange={e => setLinkedinUrl(e.target.value)}
+                  placeholder="https://linkedin.com/company/mrdu-csc"
+                />
+              </label>
+
+              <label>
+                <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <IconGitHub size={14} /> GitHub Organization URL
+                  </span>
+                  {githubUrl && (
+                    <a href={githubUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand-primary)', fontSize: '11px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                      Test <IconExternalLink size={11} />
+                    </a>
+                  )}
+                </span>
+                <input
+                  value={githubUrl}
+                  onChange={e => setGithubUrl(e.target.value)}
+                  placeholder="https://github.com/mrdu-csc"
+                />
+              </label>
+
+              <label>
+                <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <IconDiscord size={14} /> Discord Server Invite
+                  </span>
+                  {discordUrl && (
+                    <a href={discordUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand-primary)', fontSize: '11px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                      Test <IconExternalLink size={11} />
+                    </a>
+                  )}
+                </span>
+                <input
+                  value={discordUrl}
+                  onChange={e => setDiscordUrl(e.target.value)}
+                  placeholder="https://discord.gg/invite_code"
+                />
+              </label>
+
+              <label>
+                <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <IconWhatsApp size={14} /> WhatsApp Community / Group
+                  </span>
+                  {whatsappUrl && (
+                    <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand-primary)', fontSize: '11px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                      Test <IconExternalLink size={11} />
+                    </a>
+                  )}
+                </span>
+                <input
+                  value={whatsappUrl}
+                  onChange={e => setWhatsappUrl(e.target.value)}
+                  placeholder="https://chat.whatsapp.com/invite_code"
+                />
+              </label>
+
+              <label className="form-wide">
+                <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <IconGlobe size={14} /> Official Website / Portal URL
+                  </span>
+                  {websiteUrl && (
+                    <a href={websiteUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--brand-primary)', fontSize: '11px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                      Test <IconExternalLink size={11} />
+                    </a>
+                  )}
+                </span>
+                <input
+                  value={websiteUrl}
+                  onChange={e => setWebsiteUrl(e.target.value)}
+                  placeholder="https://cybersecurity.mrdu.edu"
+                />
+              </label>
+            </div>
+          </article>
+
+          <button className="primary member-submit" type="submit" disabled={submitting} style={{ minHeight: '46px', width: '100%', fontSize: '13px', fontWeight: 700, letterSpacing: '0.04em' }}>
+            {submitting ? 'SAVING CONFIGURATION…' : 'SAVE ALL SETTINGS & PUBLISH'}
           </button>
         </form>
 
@@ -6765,8 +10269,8 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
             style={{
               position: 'fixed',
               inset: 0,
-              background: 'rgba(7, 22, 44, 0.8)',
-              backdropFilter: 'blur(6px)',
+              background: 'rgba(7, 22, 44, 0.85)',
+              backdropFilter: 'blur(8px)',
               zIndex: 1100,
               display: 'flex',
               alignItems: 'center',
@@ -6776,95 +10280,72 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
             onClick={() => setSqlExportModalOpen(false)}
           >
             <div
-              className="login-card"
+              className="modal-card"
               style={{
-                maxWidth: '480px',
+                maxWidth: '460px',
                 width: '100%',
-                background: 'var(--bg-card)',
-                border: '1px solid var(--brand-border-subtle)',
+                background: 'var(--bg-modal, #0b1522)',
+                border: '1px solid rgba(234, 88, 12, 0.4)',
                 borderRadius: '16px',
-                padding: '28px 24px',
-                position: 'relative',
-                boxShadow: '0 20px 50px rgba(0,0,0,0.5)',
+                padding: '28px',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
               }}
               onClick={e => e.stopPropagation()}
             >
-              <button
-                onClick={() => setSqlExportModalOpen(false)}
-                style={{
-                  position: 'absolute',
-                  top: '14px',
-                  right: '14px',
-                  background: 'var(--panel-subtle)',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '30px',
-                  height: '30px',
-                  cursor: 'pointer',
-                  color: 'var(--text-main)',
-                  fontWeight: 700,
-                }}
-              >
-                ✕
-              </button>
-
               <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                <span style={{ fontSize: '32px' }}>💾</span>
-                <h2 style={{ font: '700 20px Syne', color: 'var(--text-main)', margin: '8px 0 4px' }}>
-                  Export Full Database (.SQL)
-                </h2>
-                <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0, lineHeight: 1.5 }}>
-                  Enter your Primary President account password to authorize and generate a complete SQL backup dump.
+                <span style={{ display: 'inline-flex', padding: '12px', borderRadius: '50%', background: 'rgba(234, 88, 12, 0.12)', color: '#ea580c', marginBottom: '12px' }}>
+                  <IconCrown size={28} />
+                </span>
+                <h3 style={{ margin: '0 0 6px', color: 'var(--text-main)', fontSize: '20px', fontWeight: 700 }}>
+                  Primary President Verification
+                </h3>
+                <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                  Enter your Primary President account password to authorize and generate the full <b>.SQL database dump</b>.
                 </p>
               </div>
 
+              {sqlExportError && (
+                <div style={{ padding: '10px 14px', borderRadius: '8px', background: '#450a0a', border: '1px solid #f87171', color: '#fca5a5', fontSize: '12px', marginBottom: '16px' }}>
+                  {sqlExportError}
+                </div>
+              )}
+
               {sqlExportSuccess && (
-                <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b98155', color: '#6ee7b7', fontSize: '12px', marginBottom: '16px' }}>
+                <div style={{ padding: '10px 14px', borderRadius: '8px', background: '#052e16', border: '1px solid #4ade80', color: '#86efac', fontSize: '12px', marginBottom: '16px' }}>
                   {sqlExportSuccess}
                 </div>
               )}
 
-              {sqlExportError && (
-                <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef444455', color: '#fca5a5', fontSize: '12px', marginBottom: '16px' }}>
-                  ⚠️ {sqlExportError}
-                </div>
-              )}
-
               <form onSubmit={handleExecuteSqlExport}>
-                <div className="login-field-group">
-                  <label style={{ color: 'var(--text-dim)', fontSize: '11px', fontWeight: 600 }}>
-                    Primary President Account Password
-                  </label>
-                  <div className="login-input-wrapper">
-                    <span className="login-input-icon">🔒</span>
-                    <input
-                      type="password"
-                      required
-                      placeholder="Enter your account password"
-                      value={sqlExportPassword}
-                      onChange={e => setSqlExportPassword(e.target.value)}
-                      autoFocus
-                      style={{ background: 'var(--bg-input)', color: 'var(--text-main)' }}
-                    />
-                  </div>
-                </div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
+                  Account Password *
+                  <input
+                    type="password"
+                    required
+                    placeholder="Enter your account password"
+                    value={sqlExportPassword}
+                    onChange={e => setSqlExportPassword(e.target.value)}
+                    style={{ width: '100%', height: '42px', padding: '0 14px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)', marginTop: '4px' }}
+                    autoFocus
+                  />
+                </label>
 
                 <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-                  <button
-                    type="submit"
-                    className="primary"
-                    disabled={sqlExportSubmitting || !sqlExportPassword}
-                    style={{ flex: 1, minHeight: '42px', fontSize: '11px', background: 'linear-gradient(135deg, #ea580c, #c2410c)' }}
-                  >
-                    {sqlExportSubmitting ? 'GENERATING SQL DUMP…' : 'AUTHORIZE & DOWNLOAD .SQL ➔'}
-                  </button>
                   <button
                     type="button"
                     className="outline"
                     onClick={() => setSqlExportModalOpen(false)}
-                    style={{ minHeight: '42px', fontSize: '11px' }}
+                    style={{ flex: 1, height: '42px' }}
                   >
                     Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="primary"
+                    disabled={sqlExportSubmitting || !sqlExportPassword}
+                    style={{ flex: 2, height: '42px', background: 'linear-gradient(135deg, #ea580c, #c2410c)', borderColor: '#ea580c' }}
+                  >
+                    {sqlExportSubmitting ? 'GENERATING SQL...' : 'CONFIRM & EXPORT'}
                   </button>
                 </div>
               </form>
@@ -6969,7 +10450,18 @@ function StudentRegistrations({ user, logout, onNavigate }) {
   useEffect(() => {
     let mounted = true
     memberApi.listRegistrations()
-      .then(({ registrations: list }) => { if (mounted) setRegistrations(list || []) })
+      .then(({ registrations: list }) => {
+        if (!mounted) return
+        const regList = list || []
+        setRegistrations(regList)
+        const params = new URLSearchParams(window.location.search)
+        const targetId = params.get('passId') || params.get('id')
+        if (targetId) {
+          const match = regList.find(p => p.id === targetId || p.event?.id === targetId)
+          if (match) setSelectedPass(match)
+        }
+      })
+      .catch(() => { if (mounted) setRegistrations([]) })
       .finally(() => { if (mounted) setLoading(false) })
     return () => { mounted = false }
   }, [])
@@ -6983,7 +10475,7 @@ function StudentRegistrations({ user, logout, onNavigate }) {
   }
 
   return (
-    <LivePortal user={user} logout={logout} activeTab="student-registrations" onNavigate={onNavigate} title={isMrdu ? 'MY MRDU EVENT PASSES' : 'MY EVENT PASSES'}>
+    <LivePortal user={user} logout={logout} activeTab="student-passes" onNavigate={onNavigate} title={isMrdu ? 'MY MRDU EVENT PASSES' : 'MY EVENT PASSES'}>
       <section className="gallery-section">
         <div className="event-heading">
           <div>
@@ -7003,7 +10495,7 @@ function StudentRegistrations({ user, logout, onNavigate }) {
         ) : registrations.length === 0 ? (
           <p className="directory-state">You have not registered for any events yet.</p>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(360px, 1fr))', gap: '20px', marginTop: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: '20px', marginTop: '20px' }}>
             {registrations.map(reg => (
               <article
                 key={reg.id}
@@ -7105,7 +10597,7 @@ function StudentRegistrations({ user, logout, onNavigate }) {
                             borderColor: '#0284c7',
                           }}
                         >
-                          🔍 VIEW FULL PASS
+                          <Icon8 name="idDocs" size={13} /> VIEW FULL PASS
                         </button>
                         {reg.qrCodeData && (
                           <a
@@ -7250,7 +10742,7 @@ function StudentRegistrations({ user, logout, onNavigate }) {
                       onClick={() => handleCopyPassId(selectedPass.id)}
                       style={{ fontSize: '10px', padding: '3px 8px', height: '24px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                     >
-                      {copiedId ? '✓ COPIED!' : '📋 COPY ID'}
+                      <IconCopy size={11} /> {copiedId ? 'COPIED!' : 'COPY ID'}
                     </button>
                   </div>
                   <code style={{ display: 'block', fontSize: '12px', color: '#38bdf8', wordBreak: 'break-all', fontFamily: 'monospace', fontWeight: 600 }}>
@@ -7268,6 +10760,12 @@ function StudentRegistrations({ user, logout, onNavigate }) {
                     <span style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block' }}>Member ID / Roll No</span>
                     <b style={{ color: 'var(--brand-primary)', fontFamily: 'monospace' }}>{user.profile?.rollNumber || user.memberId}</b>
                   </div>
+                  {selectedPass.teamName && (
+                    <div>
+                      <span style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block' }}>Team Participation</span>
+                      <b style={{ color: 'var(--brand-primary)' }}>{selectedPass.teamName} {selectedPass.isTeamLeader ? '(Leader)' : '(Member)'}</b>
+                    </div>
+                  )}
                   <div>
                     <span style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block' }}>Event Date & Time</span>
                     <span style={{ color: 'var(--text-main)' }}>{selectedPass.event?.dateTime ? new Date(selectedPass.event.dateTime).toLocaleString() : 'TBA'}</span>
@@ -7283,9 +10781,9 @@ function StudentRegistrations({ user, logout, onNavigate }) {
                   <div>
                     <span style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block' }}>Gate Attendance Status</span>
                     {selectedPass.attendanceMarked ? (
-                      <b style={{ color: '#10b981' }}>✓ CHECKED IN ({selectedPass.attendedAt ? new Date(selectedPass.attendedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Gate'})</b>
+                      <b style={{ color: '#10b981' }}>CHECKED IN ({selectedPass.attendedAt ? new Date(selectedPass.attendedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Gate'})</b>
                     ) : (
-                      <b style={{ color: '#f59e0b' }}>⚡ READY FOR ENTRANCE</b>
+                      <b style={{ color: '#f59e0b' }}>READY FOR ENTRANCE</b>
                     )}
                   </div>
                 </div>
@@ -7315,9 +10813,9 @@ function StudentRegistrations({ user, logout, onNavigate }) {
                     type="button"
                     className="outline"
                     onClick={() => window.print()}
-                    style={{ flex: 1, height: '42px', fontSize: '12px' }}
+                    style={{ flex: 1, height: '42px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                   >
-                    🖨️ PRINT PASS
+                    PRINT PASS
                   </button>
                   <button
                     type="button"
@@ -7394,7 +10892,7 @@ function StudentGallery({ user, logout, onNavigate }) {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span className="badge" style={{ background: '#0e2439', color: '#85d7ff', border: '1px solid #52bbf544', padding: '6px 12px', fontSize: '11px' }}>
-                  📸 {selectedAlbum.photos?.length || 0} Photos
+                  {selectedAlbum.photos?.length || 0} Photos
                 </span>
               </div>
             </div>
@@ -7425,7 +10923,7 @@ function StudentGallery({ user, logout, onNavigate }) {
                     )}
                     <div style={{ padding: '6px 12px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <small style={{ color: 'var(--text-dim)', fontSize: '10px' }}>{new Date(p.createdAt).toLocaleDateString()}</small>
-                      <small style={{ color: 'var(--brand-primary)', fontSize: '10px' }}>🔍 Expand</small>
+                      <small style={{ color: 'var(--brand-primary)', fontSize: '10px' }}>Expand</small>
                     </div>
                   </div>
                 ))}
@@ -7491,6 +10989,790 @@ function StudentGallery({ user, logout, onNavigate }) {
             onClose={() => setActiveLightbox(null)}
             onSelectPhoto={p => setActiveLightbox(p)}
           />
+        )}
+      </section>
+    </LivePortal>
+  )
+}
+
+// ----------------------------------------------------
+// ----------------------------------------------------
+// Campus & Event Reels Feed (Instagram-Style Vertical Player)
+// ----------------------------------------------------
+function StudentReels({ user, logout, onNavigate }) {
+  const { platformMode } = usePlatformTheme()
+  const isMrdu = platformMode === 'MRDU_EVENTS'
+  const [reels, setReels] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [viewMode, setViewMode] = useState('PLAYER') // 'PLAYER' | 'GRID'
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [selectedCategory, setSelectedCategory] = useState('ALL')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [likedReels, setLikedReels] = useState(new Set())
+  const [copiedLink, setCopiedLink] = useState(false)
+  const [isMuted, setIsMuted] = useState(false)
+  const [expandedCaption, setExpandedCaption] = useState(false)
+  const [heartAnim, setHeartAnim] = useState(false)
+  const lastScrollTime = useRef(0)
+  const touchStartY = useRef(null)
+
+  useEffect(() => {
+    let mounted = true
+    setLoading(true)
+    memberApi.listReels({ platformMode: isMrdu ? 'MRDU_EVENTS' : 'ALL' })
+      .then(res => {
+        if (mounted) {
+          const list = res.reels || []
+          setReels(list)
+          const initialLiked = new Set(list.filter(r => r.isLiked).map(r => r.id))
+          setLikedReels(initialLiked)
+          setCurrentIndex(0)
+        }
+      })
+      .catch(() => {})
+      .finally(() => { if (mounted) setLoading(false) })
+    return () => { mounted = false }
+  }, [isMrdu])
+
+  const filteredReels = useMemo(() => {
+    return reels.filter(r => {
+      if (selectedCategory !== 'ALL' && r.category !== selectedCategory) return false
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim()
+        const t = (r.title || '').toLowerCase()
+        const d = (r.description || '').toLowerCase()
+        const h = (r.authorHandle || '').toLowerCase()
+        const c = (r.category || '').toLowerCase()
+        if (!t.includes(q) && !d.includes(q) && !h.includes(q) && !c.includes(q)) return false
+      }
+      return true
+    })
+  }, [reels, selectedCategory, searchQuery])
+
+  const activeReel = (viewMode === 'PLAYER' ? filteredReels[currentIndex] : null) || filteredReels[0] || reels[0] || null
+
+  // Record view on reel display
+  useEffect(() => {
+    if (activeReel?.id && viewMode === 'PLAYER') {
+      setExpandedCaption(false)
+      const timer = setTimeout(() => {
+        memberApi.recordReelView(activeReel.id).catch(() => {})
+      }, 1500)
+      return () => clearTimeout(timer)
+    }
+  }, [activeReel?.id, viewMode])
+
+  // Keyboard navigation for player mode
+  useEffect(() => {
+    if (viewMode !== 'PLAYER') return
+    function handleKeyDown(e) {
+      if (filteredReels.length === 0) return
+      if (e.key === 'ArrowDown' || e.key === 'j') {
+        e.preventDefault()
+        handleNextReel()
+      } else if (e.key === 'ArrowUp' || e.key === 'k') {
+        e.preventDefault()
+        handlePrevReel()
+      } else if (e.key === 'l' || e.key === 'L') {
+        e.preventDefault()
+        if (activeReel) handleToggleLike(activeReel)
+      } else if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault()
+        setIsMuted(m => !m)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [currentIndex, filteredReels, activeReel, viewMode])
+
+  function handleNextReel() {
+    if (currentIndex < filteredReels.length - 1) {
+      setCurrentIndex(curr => curr + 1)
+    }
+  }
+
+  function handlePrevReel() {
+    if (currentIndex > 0) {
+      setCurrentIndex(curr => curr - 1)
+    }
+  }
+
+  function handleWheel(e) {
+    if (viewMode !== 'PLAYER') return
+    const now = Date.now()
+    if (now - lastScrollTime.current < 450) return
+    if (Math.abs(e.deltaY) > 30) {
+      lastScrollTime.current = now
+      if (e.deltaY > 0) handleNextReel()
+      else handlePrevReel()
+    }
+  }
+
+  function handleTouchStart(e) {
+    touchStartY.current = e.touches[0]?.clientY
+  }
+
+  function handleTouchEnd(e) {
+    if (touchStartY.current === null || viewMode !== 'PLAYER') return
+    const touchEndY = e.changedTouches[0]?.clientY
+    const diff = touchStartY.current - touchEndY
+    if (Math.abs(diff) > 40) {
+      if (diff > 0) handleNextReel()
+      else handlePrevReel()
+    }
+    touchStartY.current = null
+  }
+
+  function handleToggleLike(reel) {
+    const isCurrentlyLiked = likedReels.has(reel.id)
+    setLikedReels(prev => {
+      const next = new Set(prev)
+      if (isCurrentlyLiked) next.delete(reel.id)
+      else next.add(reel.id)
+      return next
+    })
+    setReels(curr => curr.map(r => {
+      if (r.id === reel.id) {
+        return {
+          ...r,
+          likesCount: isCurrentlyLiked ? Math.max(0, r.likesCount - 1) : r.likesCount + 1,
+          isLiked: !isCurrentlyLiked,
+        }
+      }
+      return r
+    }))
+    memberApi.likeReel(reel.id).catch(() => {})
+  }
+
+  function handleDoubleTap(reel) {
+    if (!likedReels.has(reel.id)) {
+      handleToggleLike(reel)
+    }
+    setHeartAnim(true)
+    setTimeout(() => setHeartAnim(false), 850)
+  }
+
+  function handleCopyShare(reel) {
+    const shareUrl = reel.externalPostUrl || (reel.url.includes('embed') ? reel.url.replace('/embed/', '').replace('/embed', '') : reel.url)
+    navigator.clipboard?.writeText(shareUrl).then(() => {
+      setCopiedLink(true)
+      setTimeout(() => setCopiedLink(false), 2200)
+    }).catch(() => {})
+  }
+
+  function jumpToReelInPlayer(index) {
+    setCurrentIndex(index)
+    setViewMode('PLAYER')
+  }
+
+  const authorHandle = activeReel?.authorHandle || (activeReel?.postedBy ? activeReel.postedBy.toLowerCase().replace(/\s+/g, '_') : 'cybersecurityclub_mrdu')
+  const authorAvatar = activeReel?.authorAvatar || 'https://images.unsplash.com/photo-1614064641938-3bbee52942c7?w=150&auto=format&fit=crop&q=80'
+  const audioTitle = activeReel?.audioTitle || `${authorHandle} • Original audio`
+  const externalLink = activeReel?.externalPostUrl || (activeReel?.url.includes('instagram.com') ? activeReel.url.replace('/embed/', '/').replace('/embed', '') : `https://www.instagram.com/${authorHandle}`)
+  const isUnwatchedAdminPush = activeReel?.isAdminUpload && !activeReel?.isWatched
+
+  const categories = [
+    { id: 'ALL', label: 'All Highlights' },
+    { id: 'CAMPUS_LIFE', label: 'Campus Life' },
+    { id: 'HACKATHONS', label: 'Hackathons & CTF' },
+    { id: 'WORKSHOPS', label: 'Workshops' },
+    { id: 'CULTURAL', label: 'Cultural & Fests' },
+    { id: 'TECH_NEWS', label: 'Tech Updates' },
+  ]
+
+  return (
+    <LivePortal user={user} logout={logout} activeTab="student-reels" onNavigate={onNavigate} title={isMrdu ? 'MRDU REELS & POSTS' : 'CAMPUS REELS & SOCIAL FEED'}>
+      <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 8px 30px' }}>
+        {/* Navigation Toolbar & View Switcher */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button className="back-button" type="button" onClick={() => onNavigate('student-dashboard')} style={{ margin: 0 }}>
+              ← DASHBOARD
+            </button>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>
+              Official Social Media & Reels
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              type="button"
+              className={viewMode === 'PLAYER' ? 'primary' : 'outline'}
+              onClick={() => setViewMode('PLAYER')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px', fontWeight: 700 }}
+            >
+              <IconVideo size={14} /> REEL PLAYER
+            </button>
+            <button
+              type="button"
+              className={viewMode === 'GRID' ? 'primary' : 'outline'}
+              onClick={() => setViewMode('GRID')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px', fontWeight: 700 }}
+            >
+              <Icon8 name="irisScan" size={14} /> EXPLORE GRID ({reels.length})
+            </button>
+          </div>
+        </div>
+
+        {/* Category Filters and Search Bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '20px', flexWrap: 'wrap', background: 'var(--bg-card)', padding: '10px 14px', borderRadius: '12px', border: '1px solid var(--brand-border-subtle)' }}>
+          <div style={{ display: 'flex', gap: '6px', overflowX: 'auto', paddingBottom: '4px', maxWidth: '100%' }}>
+            {categories.map(cat => (
+              <button
+                key={cat.id}
+                type="button"
+                className={`tab-btn ${selectedCategory === cat.id ? 'active' : ''}`}
+                onClick={() => { setSelectedCategory(cat.id); setCurrentIndex(0) }}
+                style={{
+                  fontSize: '11px',
+                  padding: '4px 12px',
+                  borderRadius: '20px',
+                  whiteSpace: 'nowrap',
+                  background: selectedCategory === cat.id ? 'var(--brand-primary)' : 'var(--panel-subtle)',
+                  color: selectedCategory === cat.id ? '#ffffff' : 'var(--text-muted)',
+                  border: '1px solid var(--line)',
+                  cursor: 'pointer',
+                  fontWeight: selectedCategory === cat.id ? 700 : 500,
+                }}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ position: 'relative', width: '220px', minWidth: '160px' }}>
+            <input
+              type="text"
+              placeholder="Search reels or handles…"
+              value={searchQuery}
+              onChange={e => { setSearchQuery(e.target.value); setCurrentIndex(0) }}
+              style={{ width: '100%', height: '32px', padding: '0 10px', fontSize: '11px', borderRadius: '8px', border: '1px solid var(--line)', background: 'var(--bg-input)', color: 'var(--text-main)' }}
+            />
+          </div>
+        </div>
+
+        {loading ? (
+          <div style={{ display: 'grid', placeItems: 'center', height: '60vh', color: 'var(--text-muted)' }}>
+            <div style={{ textAlign: 'center' }}>
+              <div className="spinner" style={{ width: '32px', height: '32px', margin: '0 auto 12px' }} />
+              <p style={{ fontSize: '12px', letterSpacing: '0.04em' }}>Loading Reels Feed…</p>
+            </div>
+          </div>
+        ) : filteredReels.length === 0 ? (
+          <article className="account-form-card" style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
+            <span style={{ display: 'inline-flex', padding: '16px', borderRadius: '50%', background: 'var(--brand-badge-bg)', color: 'var(--brand-primary)', marginBottom: '14px' }}>
+              <IconVideo size={36} />
+            </span>
+            <h3 style={{ margin: '0 0 8px', color: 'var(--text-main)' }}>No reels found in this category</h3>
+            <p style={{ margin: '0 0 16px', fontSize: '13px' }}>Try selecting "All Highlights" or searching for a different keyword.</p>
+            <button type="button" className="outline" onClick={() => { setSelectedCategory('ALL'); setSearchQuery('') }}>
+              Reset Filters
+            </button>
+          </article>
+        ) : viewMode === 'GRID' ? (
+          /* ==================================================== */
+          /* EXPLORE ALL REELS & POSTS (GRID DISCOVERY MODE)     */
+          /* ==================================================== */
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 280px), 1fr))', gap: '18px' }}>
+            {filteredReels.map((r, idx) => (
+              <article
+                key={r.id}
+                className="account-form-card"
+                onClick={() => jumpToReelInPlayer(idx)}
+                style={{
+                  padding: '14px',
+                  cursor: 'pointer',
+                  borderRadius: '14px',
+                  border: r.isFeatured ? '1px solid #f59e0b' : '1px solid var(--brand-border-subtle)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}
+              >
+                {/* Header author badge */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: 'linear-gradient(45deg, #f09433, #dc2743)', display: 'grid', placeItems: 'center' }}>
+                      <span style={{ fontSize: '10px', color: '#fff', fontWeight: 800 }}>IG</span>
+                    </div>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-main)' }}>
+                      @{r.authorHandle || 'cybersecurityclub_mrdu'}
+                    </span>
+                  </div>
+                  <span className="badge" style={{ fontSize: '9px', fontWeight: 600, background: 'var(--brand-badge-bg)', color: 'var(--brand-badge-color)' }}>
+                    {r.category.replace('_', ' ')}
+                  </span>
+                </div>
+
+                {/* Preview Box */}
+                <div style={{ width: '100%', height: '200px', background: '#000000', borderRadius: '10px', overflow: 'hidden', position: 'relative', marginBottom: '10px', display: 'grid', placeItems: 'center' }}>
+                  {r.embedType === 'DIRECT_VIDEO' ? (
+                    <video src={r.url} muted playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <iframe src={r.url} title={r.title} scrolling="no" style={{ width: '100%', height: '100%', border: 0, pointerEvents: 'none' }} />
+                  )}
+                  <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.2)', display: 'grid', placeItems: 'center', transition: 'background 0.2s' }}>
+                    <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)', display: 'grid', placeItems: 'center', color: '#ffffff', border: '1px solid rgba(255,255,255,0.3)' }}>
+                      <IconVideo size={20} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Title & Description */}
+                <h4 style={{ margin: '0 0 6px', fontSize: '13px', color: 'var(--text-main)', lineHeight: 1.3, fontWeight: 700 }}>
+                  {r.title}
+                </h4>
+                {r.description && (
+                  <p style={{ margin: '0 0 10px', fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
+                    {r.description}
+                  </p>
+                )}
+
+                {/* Action Footer */}
+                <div style={{ marginTop: 'auto', paddingTop: '10px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-dim)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <IconHeart size={12} color="#ef4444" filled={r.likesCount > 0} /> {r.likesCount} · {r.viewsCount} views
+                  </span>
+                  <span style={{ fontSize: '11px', color: 'var(--brand-primary)', fontWeight: 700 }}>
+                    Watch Reel →
+                  </span>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          /* ==================================================== */
+          /* PURE INSTAGRAM-STYLE VERTICAL REEL PLAYER            */
+          /* ==================================================== */
+          <div
+            onWheel={handleWheel}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              position: 'relative',
+              userSelect: 'none',
+              padding: '10px 0',
+            }}
+          >
+            {/* Phone/Reel Canvas Container */}
+            <div
+              onDoubleClick={() => activeReel && handleDoubleTap(activeReel)}
+              style={{
+                width: '100%',
+                maxWidth: '410px',
+                height: 'calc(86vh - 60px)',
+                minHeight: '520px',
+                maxHeight: '740px',
+                background: '#000000',
+                borderRadius: '20px',
+                overflow: 'hidden',
+                position: 'relative',
+                boxShadow: `0 25px 60px rgba(0, 0, 0, 0.8), 0 0 30px ${isMrdu ? 'rgba(211, 47, 47, 0.18)' : 'rgba(82, 187, 245, 0.12)'}`,
+                border: isUnwatchedAdminPush ? '2px solid var(--brand-primary)' : '1px solid rgba(255, 255, 255, 0.12)',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+            >
+              {/* Active Reel Embed */}
+              <div style={{ width: '100%', height: '100%', position: 'relative', background: '#000000', overflow: 'hidden' }}>
+                {activeReel.embedType === 'DIRECT_VIDEO' ? (
+                  <video
+                    src={activeReel.url}
+                    autoPlay
+                    loop
+                    muted={isMuted}
+                    playsInline
+                    controls={false}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                ) : (
+                  <iframe
+                    key={activeReel.id}
+                    src={activeReel.url}
+                    title={activeReel.title}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                    scrolling="no"
+                    style={{ width: '100%', height: '100%', border: 0, overflow: 'hidden', background: '#000000', pointerEvents: 'auto' }}
+                  />
+                )}
+
+                {/* Double-tap Floating Heart Animation */}
+                {heartAnim && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      display: 'grid',
+                      placeItems: 'center',
+                      zIndex: 35,
+                      pointerEvents: 'none',
+                      animation: 'reelHeartPop 0.8s ease-out forwards',
+                    }}
+                  >
+                    <div style={{ transform: 'scale(1.8)', filter: 'drop-shadow(0 0 20px rgba(239, 68, 68, 0.8))' }}>
+                      <IconHeart size={56} filled color="#ef4444" />
+                    </div>
+                  </div>
+                )}
+
+                {/* Top Priority / Direct App Pill */}
+                <div style={{ position: 'absolute', top: '12px', left: '12px', right: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 22, pointerEvents: 'auto' }}>
+                  {isUnwatchedAdminPush ? (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: 'var(--brand-gradient)',
+                        color: '#050c14',
+                        padding: '4px 10px',
+                        borderRadius: '16px',
+                        fontWeight: 800,
+                        fontSize: '10px',
+                        letterSpacing: '0.04em',
+                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+                      }}
+                    >
+                      <IconFlame size={12} /> NEW HIGHLIGHT
+                    </div>
+                  ) : (
+                    <span style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)', padding: '3px 8px', borderRadius: '12px', fontSize: '10px', color: '#ffffff', fontWeight: 600 }}>
+                      {currentIndex + 1} of {filteredReels.length}
+                    </span>
+                  )}
+
+                  {/* Direct Launch Instagram App Pill */}
+                  <a
+                    href={externalLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      background: 'rgba(236, 72, 153, 0.85)',
+                      color: '#ffffff',
+                      textDecoration: 'none',
+                      padding: '4px 10px',
+                      borderRadius: '16px',
+                      fontSize: '10px',
+                      fontWeight: 700,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                    }}
+                  >
+                    <IconVideo size={11} /> Open in Instagram
+                  </a>
+                </div>
+
+                {/* Instagram Floating Right Action Bar */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    right: '12px',
+                    bottom: '95px',
+                    zIndex: 25,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '16px',
+                  }}
+                >
+                  {/* Like Button */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleToggleLike(activeReel) }}
+                      style={{
+                        background: 'rgba(20, 20, 20, 0.65)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255, 255, 255, 0.18)',
+                        borderRadius: '50%',
+                        width: '44px',
+                        height: '44px',
+                        display: 'grid',
+                        placeItems: 'center',
+                        color: likedReels.has(activeReel.id) ? '#ef4444' : '#ffffff',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+                        transition: 'transform 0.15s',
+                      }}
+                      title={likedReels.has(activeReel.id) ? 'Unlike' : 'Like'}
+                    >
+                      <IconHeart size={22} filled={likedReels.has(activeReel.id)} color={likedReels.has(activeReel.id) ? '#ef4444' : '#ffffff'} />
+                    </button>
+                    <span style={{ fontSize: '11px', color: '#ffffff', fontWeight: 700, textShadow: '0 2px 4px rgba(0,0,0,0.9)', fontFamily: 'DM Mono' }}>
+                      {activeReel.likesCount || 0}
+                    </span>
+                  </div>
+
+                  {/* Share Link Button */}
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleCopyShare(activeReel) }}
+                      style={{
+                        background: 'rgba(20, 20, 20, 0.65)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255, 255, 255, 0.18)',
+                        borderRadius: '50%',
+                        width: '44px',
+                        height: '44px',
+                        display: 'grid',
+                        placeItems: 'center',
+                        color: '#ffffff',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+                      }}
+                      title="Copy Share Link"
+                    >
+                      <IconLink size={18} />
+                    </button>
+                    <span style={{ fontSize: '10px', color: '#ffffff', fontWeight: 600, textShadow: '0 2px 4px rgba(0,0,0,0.9)' }}>
+                      {copiedLink ? 'Copied!' : 'Share'}
+                    </span>
+                  </div>
+
+                  {/* External Instagram Link */}
+                  <a
+                    href={externalLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      background: 'rgba(20, 20, 20, 0.65)',
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(255, 255, 255, 0.18)',
+                      borderRadius: '50%',
+                      width: '44px',
+                      height: '44px',
+                      display: 'grid',
+                      placeItems: 'center',
+                      color: '#ffffff',
+                      textDecoration: 'none',
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+                    }}
+                    title="Open on Instagram"
+                  >
+                    <IconVideo size={18} />
+                  </a>
+
+                  {/* Sound Toggle */}
+                  {activeReel.embedType === 'DIRECT_VIDEO' && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setIsMuted(m => !m) }}
+                      style={{
+                        background: 'rgba(20, 20, 20, 0.65)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255, 255, 255, 0.18)',
+                        borderRadius: '50%',
+                        width: '38px',
+                        height: '38px',
+                        display: 'grid',
+                        placeItems: 'center',
+                        color: '#ffffff',
+                        cursor: 'pointer',
+                      }}
+                      title={isMuted ? 'Unmute' : 'Mute'}
+                    >
+                      <span style={{ fontSize: '12px' }}>{isMuted ? 'MUTE' : 'ON'}</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Instagram Bottom Overlay (Profile, Caption, Audio) */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    padding: '30px 60px 16px 14px',
+                    background: 'linear-gradient(to top, rgba(0,0,0,0.94) 0%, rgba(0,0,0,0.65) 55%, transparent 100%)',
+                    color: '#ffffff',
+                    zIndex: 20,
+                    pointerEvents: 'auto',
+                  }}
+                >
+                  {/* Author Profile Row */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                    <div
+                      style={{
+                        width: '34px',
+                        height: '34px',
+                        borderRadius: '50%',
+                        padding: '2px',
+                        background: 'linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888)',
+                        display: 'grid',
+                        placeItems: 'center',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <img
+                        src={authorAvatar}
+                        alt={authorHandle}
+                        style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+                      />
+                    </div>
+
+                    <a
+                      href={externalLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        color: '#ffffff',
+                        fontWeight: 700,
+                        fontSize: '13px',
+                        textDecoration: 'none',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        textShadow: '0 1px 4px rgba(0,0,0,0.8)',
+                      }}
+                    >
+                      @{authorHandle}
+                      <span style={{ color: '#38bdf8', fontSize: '12px' }}>✓</span>
+                    </a>
+
+                    <a
+                      href={externalLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        border: '1px solid rgba(255, 255, 255, 0.4)',
+                        background: 'rgba(255, 255, 255, 0.1)',
+                        color: '#ffffff',
+                        padding: '2px 8px',
+                        borderRadius: '6px',
+                        fontSize: '10px',
+                        fontWeight: 700,
+                        textDecoration: 'none',
+                        marginLeft: '4px',
+                      }}
+                    >
+                      Follow
+                    </a>
+                  </div>
+
+                  {/* Title & Caption */}
+                  <div style={{ marginBottom: '8px' }}>
+                    <p
+                      style={{
+                        margin: 0,
+                        fontSize: '12px',
+                        lineHeight: 1.45,
+                        color: '#f1f5f9',
+                        textShadow: '0 1px 3px rgba(0,0,0,0.9)',
+                        maxHeight: expandedCaption ? '220px' : '38px',
+                        overflow: expandedCaption ? 'y-auto' : 'hidden',
+                        textOverflow: 'ellipsis',
+                        transition: 'max-height 0.2s ease',
+                      }}
+                    >
+                      <b>{activeReel.title}</b>
+                      {activeReel.description && (
+                        <span> — {activeReel.description}</span>
+                      )}
+                    </p>
+
+                    {activeReel.description && activeReel.description.length > 60 && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setExpandedCaption(exp => !exp) }}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#94a3b8',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          padding: 0,
+                          marginTop: '2px',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {expandedCaption ? 'less' : '...more'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Audio Track Ticker */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      fontSize: '11px',
+                      color: '#cbd5e1',
+                      overflow: 'hidden',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <span style={{ fontSize: '11px' }}>♫</span>
+                    <span style={{ fontFamily: 'DM Mono', fontSize: '10px', opacity: 0.9 }}>
+                      {audioTitle}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Desktop Side Navigation Arrows */}
+            <div style={{ position: 'absolute', right: 'calc(50% - 275px)', display: 'flex', flexDirection: 'column', gap: '12px', zIndex: 30 }}>
+              <button
+                type="button"
+                className="outline"
+                disabled={currentIndex === 0}
+                onClick={handlePrevReel}
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '50%',
+                  display: 'grid',
+                  placeItems: 'center',
+                  background: 'var(--panel-subtle)',
+                  borderColor: 'var(--line)',
+                  cursor: currentIndex === 0 ? 'not-allowed' : 'pointer',
+                  opacity: currentIndex === 0 ? 0.3 : 1,
+                  color: 'var(--text-main)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                }}
+                title="Previous Reel (Up Arrow)"
+              >
+                <IconChevronUp size={18} />
+              </button>
+              <div style={{ textAlign: 'center', fontSize: '11px', fontWeight: 700, color: 'var(--text-dim)', fontFamily: 'DM Mono' }}>
+                {currentIndex + 1}/{filteredReels.length}
+              </div>
+              <button
+                type="button"
+                className="outline"
+                disabled={currentIndex === filteredReels.length - 1}
+                onClick={handleNextReel}
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '50%',
+                  display: 'grid',
+                  placeItems: 'center',
+                  background: 'var(--panel-subtle)',
+                  borderColor: 'var(--line)',
+                  cursor: currentIndex === filteredReels.length - 1 ? 'not-allowed' : 'pointer',
+                  opacity: currentIndex === filteredReels.length - 1 ? 0.3 : 1,
+                  color: 'var(--text-main)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                }}
+                title="Next Reel (Down Arrow)"
+              >
+                <IconChevronDown size={18} />
+              </button>
+            </div>
+          </div>
         )}
       </section>
     </LivePortal>
@@ -7884,7 +12166,7 @@ function AdminQrScanner({ user, logout, onNavigate }) {
 
         {error && (
           <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef444466', color: '#fca5a5', fontSize: '13px', margin: '0 0 16px' }}>
-            ⚠️ {error}
+            {error}
           </div>
         )}
 
@@ -7894,7 +12176,7 @@ function AdminQrScanner({ user, logout, onNavigate }) {
           </div>
         )}
 
-        <div className="member-management-grid" style={{ gridTemplateColumns: 'minmax(320px, 1fr) minmax(360px, 1.2fr)', gap: '24px' }}>
+        <div className="member-management-grid">
           {/* Left Column: Scanner View & Manual Input */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {/* Camera Viewport */}
@@ -7923,7 +12205,7 @@ function AdminQrScanner({ user, logout, onNavigate }) {
                   />
                   {/* Cyber Target Overlay */}
                   <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
-                    <div style={{ width: '190px', height: '190px', border: laserActive ? '2px solid #10b981' : '2px dashed #52bbf5', borderRadius: '12px', boxShadow: laserActive ? '0 0 25px #10b981' : '0 0 20px rgba(82, 187, 245, 0.3)' }} />
+                    <div style={{ width: '190px', height: '190px', border: laserActive ? '2px solid #10b981' : `2px dashed ${isMrdu ? '#d32f2f' : '#52bbf5'}`, borderRadius: '12px', boxShadow: laserActive ? '0 0 25px #10b981' : `0 0 20px ${isMrdu ? 'rgba(211,47,47,0.4)' : 'rgba(82,187,245,0.3)'}` }} />
                   </div>
                   {/* Laser Scan line */}
                   <div
@@ -7932,8 +12214,8 @@ function AdminQrScanner({ user, logout, onNavigate }) {
                       left: '10%',
                       right: '10%',
                       height: '2px',
-                      background: laserActive ? '#10b981' : 'linear-gradient(90deg, transparent, #38bdf8, transparent)',
-                      boxShadow: laserActive ? '0 0 14px #10b981' : '0 0 12px #38bdf8',
+                      background: laserActive ? '#10b981' : `linear-gradient(90deg, transparent, ${isMrdu ? '#ef5350' : '#38bdf8'}, transparent)`,
+                      boxShadow: laserActive ? '0 0 14px #10b981' : `0 0 12px ${isMrdu ? '#d32f2f' : '#38bdf8'}`,
                       top: '50%',
                       animation: 'scanline 2s ease-in-out infinite alternate',
                     }}
@@ -8053,7 +12335,7 @@ function AdminQrScanner({ user, logout, onNavigate }) {
                         }}
                       >
                         <b style={{ fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Icon8 name="protect" size={18} /> 🚫 DUPLICATE ENTRY PROHIBITED
+                          <Icon8 name="protect" size={18} /> DUPLICATE ENTRY PROHIBITED
                         </b>
                         <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#fecaca' }}>
                           Attendance was <b>already granted</b> for this pass on{' '}
@@ -8073,7 +12355,7 @@ function AdminQrScanner({ user, logout, onNavigate }) {
                         }}
                       >
                         <b style={{ fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <Icon8 name="authentication" size={18} /> ✓ VALID EVENT PASS — READY FOR ENTRY
+                          <Icon8 name="authentication" size={18} /> VALID EVENT PASS — READY FOR ENTRY
                         </b>
                         <p style={{ margin: '4px 0 0', fontSize: '11px', color: '#a7f3d0' }}>
                           Registration verified in system records. Click below to admit attendee and record gate attendance.
@@ -8171,7 +12453,7 @@ function AdminQrScanner({ user, logout, onNavigate }) {
                         }}
                         style={{ flex: 1, fontSize: '11px', height: '38px' }}
                       >
-                        🔄 SCAN NEXT PASS
+                        SCAN NEXT PASS
                       </button>
                       <button
                         type="button"
@@ -8179,7 +12461,7 @@ function AdminQrScanner({ user, logout, onNavigate }) {
                         onClick={() => onNavigate('admin-events')}
                         style={{ flex: 1, fontSize: '11px', height: '38px' }}
                       >
-                        📅 VIEW IN EVENT STUDIO →
+                        VIEW IN EVENT STUDIO →
                       </button>
                     </div>
                   </div>
@@ -8195,7 +12477,7 @@ function AdminQrScanner({ user, logout, onNavigate }) {
                       {scanResult.event.title}
                     </h2>
                     <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>
-                      📍 {scanResult.event.venue} · 📅 {scanResult.event.dateTime ? new Date(scanResult.event.dateTime).toLocaleString() : 'TBA'}
+                      {scanResult.event.venue} · {scanResult.event.dateTime ? new Date(scanResult.event.dateTime).toLocaleString() : 'TBA'}
                     </p>
                     <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', margin: '20px 0' }}>
                       <div className="stat" style={{ padding: '12px 20px', minWidth: '120px' }}>
@@ -8240,9 +12522,50 @@ function AdminQrScanner({ user, logout, onNavigate }) {
 // Admin Command Center Dashboard (Clean & Structured)
 // ----------------------------------------------------
 function LivePresidentDashboard({ user, logout, onNavigate }) {
+  const isPresident = user.isPrimaryAdmin || user.role === 'PRESIDENT'
   const [memberCount, setMemberCount] = useState(null)
   const [eventCount, setEventCount] = useState(null)
   const [subStats, setSubStats] = useState({ activeSubscriptions: 0, pendingVerification: 0 })
+
+  // Presidential Directives & To-Dos State
+  const [directivesData, setDirectivesData] = useState({
+    announcement: '',
+    todos: [],
+    updatedAt: null,
+    updatedBy: null,
+  })
+  const [loadingDirectives, setLoadingDirectives] = useState(true)
+  const [directivesError, setDirectivesError] = useState('')
+  const [directivesMessage, setDirectivesMessage] = useState('')
+
+  // Briefing Editor State
+  const [isEditingBriefing, setIsEditingBriefing] = useState(false)
+  const [briefingDraft, setBriefingDraft] = useState('')
+  const [savingBriefing, setSavingBriefing] = useState(false)
+
+  // Add To-Do Modal State
+  const [showAddTodoModal, setShowAddTodoModal] = useState(false)
+  const [newTodoTitle, setNewTodoTitle] = useState('')
+  const [newTodoDesc, setNewTodoDesc] = useState('')
+  const [newTodoPriority, setNewTodoPriority] = useState('HIGH')
+  const [newTodoRole, setNewTodoRole] = useState('All Council Leads')
+  const [newTodoTargetDate, setNewTodoTargetDate] = useState('')
+  const [addingTodo, setAddingTodo] = useState(false)
+
+  // Filter States
+  const [filterTab, setFilterTab] = useState('ALL') // ALL, PENDING, COMPLETED
+  const [priorityFilter, setPriorityFilter] = useState('ALL')
+
+  function loadDirectives() {
+    setLoadingDirectives(true)
+    adminApi.getPresidentDirectives()
+      .then(res => {
+        setDirectivesData(res || { announcement: '', todos: [] })
+        setBriefingDraft(res?.announcement || '')
+      })
+      .catch(() => {})
+      .finally(() => setLoadingDirectives(false))
+  }
 
   useEffect(() => {
     let mounted = true
@@ -8250,27 +12573,151 @@ function LivePresidentDashboard({ user, logout, onNavigate }) {
       adminApi.listMembers().catch(() => ({ users: [] })),
       adminApi.listEvents().catch(() => ({ events: [] })),
       adminApi.listSubscriptions().catch(() => ({ stats: {} })),
-    ]).then(([m, e, s]) => {
+      adminApi.getPresidentDirectives().catch(() => null),
+    ]).then(([m, e, s, d]) => {
       if (mounted) {
         setMemberCount(m.users?.length || 0)
         setEventCount(e.events?.length || 0)
         setSubStats(s.stats || {})
+        if (d) {
+          setDirectivesData(d)
+          setBriefingDraft(d.announcement || '')
+        }
       }
+    }).finally(() => {
+      if (mounted) setLoadingDirectives(false)
     })
     return () => { mounted = false }
   }, [])
+
+  async function handleSaveBriefing(e) {
+    if (e) e.preventDefault()
+    if (!isPresident) return
+    setSavingBriefing(true)
+    setDirectivesError('')
+    setDirectivesMessage('')
+    try {
+      const updated = {
+        ...directivesData,
+        announcement: briefingDraft.trim(),
+      }
+      const res = await adminApi.updatePresidentDirectives(updated)
+      setDirectivesData(res.data || updated)
+      setIsEditingBriefing(false)
+      setDirectivesMessage('Presidential briefing updated.')
+      setTimeout(() => setDirectivesMessage(''), 3500)
+    } catch (err) {
+      setDirectivesError(err.message || 'Failed to update presidential briefing.')
+    } finally {
+      setSavingBriefing(false)
+    }
+  }
+
+  async function handleToggleTodo(todoId) {
+    const todos = directivesData.todos || []
+    const target = todos.find(t => t.id === todoId)
+    if (!target) return
+    const nextCompleted = !target.completed
+
+    // Optimistic update
+    const updatedTodos = todos.map(t => t.id === todoId ? { ...t, completed: nextCompleted, completedAt: nextCompleted ? new Date().toISOString() : null, completedBy: nextCompleted ? (user.profile?.name || user.memberId) : null } : t)
+    setDirectivesData(prev => ({ ...prev, todos: updatedTodos }))
+
+    try {
+      await adminApi.togglePresidentDirectiveTodo(todoId, nextCompleted)
+    } catch (err) {
+      // Revert if failed
+      setDirectivesData(prev => ({ ...prev, todos }))
+      setDirectivesError(err.message || 'Failed to update to-do status.')
+    }
+  }
+
+  async function handleCreateTodo(e) {
+    e.preventDefault()
+    if (!isPresident) return
+    if (!newTodoTitle.trim()) {
+      setDirectivesError('Please enter a directive title.')
+      return
+    }
+
+    setAddingTodo(true)
+    setDirectivesError('')
+    try {
+      const newEntry = {
+        id: `dir-${Date.now()}`,
+        title: newTodoTitle.trim(),
+        description: newTodoDesc.trim(),
+        priority: newTodoPriority,
+        assignedRole: newTodoRole.trim() || 'All Council Leads',
+        targetDate: newTodoTargetDate.trim() || 'As Scheduled',
+        completed: false,
+        createdAt: new Date().toISOString(),
+      }
+      const updatedTodos = [newEntry, ...(directivesData.todos || [])]
+      const payload = {
+        ...directivesData,
+        todos: updatedTodos,
+      }
+      const res = await adminApi.updatePresidentDirectives(payload)
+      setDirectivesData(res.data || payload)
+      setShowAddTodoModal(false)
+      setNewTodoTitle('')
+      setNewTodoDesc('')
+      setNewTodoPriority('HIGH')
+      setNewTodoRole('All Council Leads')
+      setNewTodoTargetDate('')
+      setDirectivesMessage('New Presidential directive published.')
+      setTimeout(() => setDirectivesMessage(''), 3500)
+    } catch (err) {
+      setDirectivesError(err.message || 'Failed to create directive to-do.')
+    } finally {
+      setAddingTodo(false)
+    }
+  }
+
+  async function handleDeleteTodo(todoId) {
+    if (!isPresident) return
+    if (!window.confirm('Delete this Presidential directive to-do?')) return
+    const filtered = (directivesData.todos || []).filter(t => t.id !== todoId)
+    try {
+      const payload = {
+        ...directivesData,
+        todos: filtered,
+      }
+      const res = await adminApi.updatePresidentDirectives(payload)
+      setDirectivesData(res.data || payload)
+      setDirectivesMessage('Directive removed.')
+      setTimeout(() => setDirectivesMessage(''), 3000)
+    } catch (err) {
+      setDirectivesError(err.message || 'Failed to delete directive.')
+    }
+  }
+
+  // Filtered To-dos
+  const allTodos = directivesData.todos || []
+  const filteredTodos = allTodos.filter(item => {
+    if (filterTab === 'PENDING' && item.completed) return false
+    if (filterTab === 'COMPLETED' && !item.completed) return false
+    if (priorityFilter !== 'ALL' && item.priority !== priorityFilter) return false
+    return true
+  })
+
+  const pendingCount = allTodos.filter(t => !t.completed).length
+  const completedCount = allTodos.filter(t => t.completed).length
 
   return (
     <LivePortal user={user} logout={logout} activeTab="admin-dashboard" onNavigate={onNavigate} title="COMMAND CENTER">
       <section className="welcome admin-welcome">
         <div>
-          <p className="eyebrow">ADMINISTRATION</p>
+          <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Icon8 name="protect" size={14} /> PRESIDENTIAL COMMAND CENTER
+          </p>
           <h1>Welcome, {user.name}.</h1>
-          <p>{getRoleLabel(user.role)} Command Center · Manage club activities, registrations, and access controls.</p>
+          <p>{getRoleLabel(user.role)} Command Center · Operational directives, task dispatch, and club access controls.</p>
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button className="outline" type="button" onClick={() => onNavigate('admin-qr-scanner')} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '9px 16px', fontSize: '11px', fontWeight: 700 }}>
-            <Icon8 name="faceId" size={17} /> QR ENTRY GATE SCANNER
+            <Icon8 name="faceId" size={17} /> QR ENTRY GATE
           </button>
           <button className="primary" type="button" onClick={() => onNavigate('admin-events')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 16px', fontSize: '11px', fontWeight: 700 }}>
             <span style={{ fontSize: '15px', lineHeight: 1 }}>+</span> CREATE EVENT
@@ -8297,24 +12744,504 @@ function LivePresidentDashboard({ user, logout, onNavigate }) {
       )}
 
       {/* Top Metrics Cards */}
-      <section className="stats">
-        <div className="stat"><i><Icon8 name="idDocs" size={26} /></i><div><p>MEMBERS</p><h2>{memberCount === null ? '...' : memberCount}</h2><small>Registered Accounts</small></div></div>
-        <div className="stat"><i><Icon8 name="realtime" size={26} /></i><div><p>EVENTS</p><h2>{eventCount === null ? '...' : eventCount}</h2><small>Club Catalog</small></div></div>
-        <div className="stat green"><i><Icon8 name="access" size={26} /></i><div><p>ACTIVE SUBSCRIPTIONS</p><h2>{subStats.activeSubscriptions || 0}</h2><small>Verified Members</small></div></div>
-        <div className="stat green"><i><Icon8 name="protect" size={26} /></i><div><p>SYSTEM ROLE</p><h2>{user.isPrimaryAdmin ? 'PRIMARY' : user.role.slice(0, 7)}</h2><small>{getRoleLabel(user.role)}</small></div></div>
+      <section className="stats" style={{ margin: '20px 0 28px' }}>
+        <div className="stat" onClick={() => onNavigate('admin-members')} style={{ cursor: 'pointer' }}>
+          <i><Icon8 name="idDocs" size={26} /></i>
+          <div>
+            <p>MEMBERS</p>
+            <h2>{memberCount === null ? '...' : memberCount}</h2>
+            <small>Registered Accounts</small>
+          </div>
+        </div>
+
+        <div className="stat" onClick={() => onNavigate('admin-events')} style={{ cursor: 'pointer' }}>
+          <i><Icon8 name="realtime" size={26} /></i>
+          <div>
+            <p>EVENTS</p>
+            <h2>{eventCount === null ? '...' : eventCount}</h2>
+            <small>Club Catalog</small>
+          </div>
+        </div>
+
+        <div className="stat green" onClick={() => onNavigate('admin-subscriptions')} style={{ cursor: 'pointer' }}>
+          <i><Icon8 name="access" size={26} /></i>
+          <div>
+            <p>ACTIVE SUBSCRIPTIONS</p>
+            <h2>{subStats.activeSubscriptions || 0}</h2>
+            <small>Verified Members</small>
+          </div>
+        </div>
+
+        <div className="stat green">
+          <i><Icon8 name="protect" size={26} /></i>
+          <div>
+            <p>SYSTEM ROLE</p>
+            <h2>{user.isPrimaryAdmin ? 'PRIMARY' : user.role.slice(0, 7)}</h2>
+            <small>{getRoleLabel(user.role)}</small>
+          </div>
+        </div>
       </section>
+
+      {directivesMessage && <p className="member-form-success" style={{ marginBottom: '16px' }}>{directivesMessage}</p>}
+      {directivesError && <p className="member-form-error" style={{ marginBottom: '16px' }}>{directivesError}</p>}
+
+      {/* ---------------------------------------------------- */}
+      {/* PRIMARY PRESIDENT INSTRUCTIONS & DIRECTIVES SECTION */}
+      {/* ---------------------------------------------------- */}
+      <section style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+        
+        {/* Presidential Command Broadcast Briefing Card */}
+        <article className="member-list-card" style={{ padding: '24px', background: 'var(--panel-bg)', borderRadius: '16px', border: '1px solid var(--brand-border-subtle)', position: 'relative', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ display: 'inline-flex', padding: '8px', borderRadius: '10px', background: 'var(--brand-glow)', color: 'var(--brand-primary)' }}>
+                <Icon8 name="protect" size={20} />
+              </span>
+              <div>
+                <span className="badge badge-president" style={{ fontSize: '10px', letterSpacing: '0.06em', padding: '2px 8px' }}>
+                  PRIMARY PRESIDENT DIRECTIVE
+                </span>
+                <h3 style={{ font: '700 18px Syne', color: 'var(--text-main)', margin: '4px 0 0' }}>
+                  Executive Orders & Operational Briefing
+                </h3>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              {directivesData.updatedAt && (
+                <small style={{ color: 'var(--text-dim)', fontSize: '11px', fontFamily: 'monospace' }}>
+                  Updated: {new Date(directivesData.updatedAt).toLocaleDateString()} by {directivesData.updatedBy || 'President'}
+                </small>
+              )}
+              {isPresident && !isEditingBriefing && (
+                <button
+                  type="button"
+                  className="outline"
+                  onClick={() => { setIsEditingBriefing(true); setBriefingDraft(directivesData.announcement || '') }}
+                  style={{ fontSize: '11px', padding: '6px 14px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <Icon8 name="keySecurity" size={13} /> EDIT BRIEFING
+                </button>
+              )}
+            </div>
+          </div>
+
+          {isEditingBriefing ? (
+            <form onSubmit={handleSaveBriefing} style={{ marginTop: '12px' }}>
+              <textarea
+                rows={4}
+                value={briefingDraft}
+                onChange={e => setBriefingDraft(e.target.value)}
+                placeholder="Enter official instructions, guidance, operational protocols, or focus directives for all council members and administrators..."
+                style={{
+                  width: '100%',
+                  background: 'var(--bg-input)',
+                  border: '1px solid var(--line)',
+                  borderRadius: '10px',
+                  color: 'var(--text-main)',
+                  padding: '12px',
+                  fontSize: '13px',
+                  lineHeight: '1.6',
+                  resize: 'vertical',
+                }}
+              />
+              <div style={{ display: 'flex', gap: '8px', marginTop: '10px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  className="action-btn"
+                  onClick={() => setIsEditingBriefing(false)}
+                  disabled={savingBriefing}
+                  style={{ padding: '6px 14px', fontSize: '11px', background: 'var(--panel-subtle)', color: 'var(--text-main)', border: '1px solid var(--line)' }}
+                >
+                  CANCEL
+                </button>
+                <button
+                  type="submit"
+                  className="primary"
+                  disabled={savingBriefing}
+                  style={{ padding: '6px 18px', fontSize: '11px', fontWeight: 700 }}
+                >
+                  {savingBriefing ? 'SAVING BRIEFING…' : 'PUBLISH BRIEFING'}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <div style={{ background: 'var(--panel-subtle)', borderRadius: '12px', padding: '16px 20px', border: '1px solid var(--line)', marginTop: '6px' }}>
+              <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>
+                {directivesData.announcement || 'No presidential briefing active. The Primary President can publish operational directives using the button above.'}
+              </p>
+            </div>
+          )}
+        </article>
+
+        {/* Presidential Action Directives / To-Dos Command Board */}
+        <article className="member-list-card" style={{ padding: '24px', background: 'var(--panel-bg)', borderRadius: '16px', border: '1px solid var(--line)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '18px' }}>
+            <div>
+              <p className="eyebrow" style={{ margin: '0 0 4px', fontSize: '10px', color: 'var(--brand-primary)', letterSpacing: '0.06em' }}>
+                COUNCIL ACTION ITEMS & DIRECTIVES
+              </p>
+              <h2 style={{ font: '700 20px Syne', color: 'var(--text-main)', margin: 0 }}>
+                Primary President To-Do Directives
+              </h2>
+              <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
+                {isPresident
+                  ? 'Official tasks and assignments issued exclusively by you to lead coordinators and admins.'
+                  : 'Official tasks and directives assigned by the Primary President. Check off tasks when completed.'}
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+              {isPresident && (
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => setShowAddTodoModal(true)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '8px 16px', fontWeight: 700 }}
+                >
+                  <span style={{ fontSize: '15px', lineHeight: 1 }}>+</span> ADD DIRECTIVE / TASK
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Filter & Metric Strip */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', borderBottom: '1px solid var(--line)', paddingBottom: '12px', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => setFilterTab('ALL')}
+                style={{
+                  fontSize: '11px',
+                  padding: '5px 12px',
+                  borderRadius: '20px',
+                  border: '1px solid var(--line)',
+                  background: filterTab === 'ALL' ? 'var(--brand-primary)' : 'var(--bg-input)',
+                  color: filterTab === 'ALL' ? '#000' : 'var(--text-main)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                All Directives ({allTodos.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterTab('PENDING')}
+                style={{
+                  fontSize: '11px',
+                  padding: '5px 12px',
+                  borderRadius: '20px',
+                  border: '1px solid var(--line)',
+                  background: filterTab === 'PENDING' ? 'var(--brand-primary)' : 'var(--bg-input)',
+                  color: filterTab === 'PENDING' ? '#000' : 'var(--text-main)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Pending ({pendingCount})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterTab('COMPLETED')}
+                style={{
+                  fontSize: '11px',
+                  padding: '5px 12px',
+                  borderRadius: '20px',
+                  border: '1px solid var(--line)',
+                  background: filterTab === 'COMPLETED' ? 'var(--brand-primary)' : 'var(--bg-input)',
+                  color: filterTab === 'COMPLETED' ? '#000' : 'var(--text-main)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Completed ({completedCount})
+              </button>
+            </div>
+
+            <div>
+              <select
+                value={priorityFilter}
+                onChange={e => setPriorityFilter(e.target.value)}
+                style={{ height: '32px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '11px' }}
+              >
+                <option value="ALL">All Priorities</option>
+                <option value="CRITICAL">Critical Priority</option>
+                <option value="HIGH">High Priority</option>
+                <option value="MEDIUM">Medium Priority</option>
+                <option value="ROUTINE">Routine Priority</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Directives List */}
+          {loadingDirectives ? (
+            <p className="directory-state">Loading presidential directives...</p>
+          ) : filteredTodos.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px', background: 'var(--panel-subtle)', borderRadius: '12px', border: '1px dashed var(--line)' }}>
+              <Icon8 name="protect" size={32} style={{ color: 'var(--brand-primary)', opacity: 0.7, marginBottom: '8px' }} />
+              <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
+                {filterTab === 'ALL' ? 'No directives issued yet.' : `No ${filterTab.toLowerCase()} directives found.`}
+              </p>
+              {isPresident && (
+                <button
+                  type="button"
+                  className="primary"
+                  onClick={() => setShowAddTodoModal(true)}
+                  style={{ marginTop: '12px', fontSize: '11px', padding: '6px 14px' }}
+                >
+                  CREATE FIRST DIRECTIVE
+                </button>
+              )}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {filteredTodos.map(todo => {
+                const isCritical = todo.priority === 'CRITICAL'
+                const isHigh = todo.priority === 'HIGH'
+                const isMedium = todo.priority === 'MEDIUM'
+
+                const priorityBadgeStyle = isCritical
+                  ? { background: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.4)' }
+                  : isHigh
+                  ? { background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.4)' }
+                  : isMedium
+                  ? { background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.4)' }
+                  : { background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.4)' }
+
+                return (
+                  <div
+                    key={todo.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      justifyContent: 'space-between',
+                      gap: '14px',
+                      padding: '16px 18px',
+                      borderRadius: '12px',
+                      background: todo.completed ? 'rgba(0, 0, 0, 0.2)' : 'var(--bg-input)',
+                      border: todo.completed ? '1px solid var(--line)' : '1px solid var(--brand-border-subtle)',
+                      transition: 'all 0.2s ease',
+                      opacity: todo.completed ? 0.75 : 1,
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '14px', flex: 1 }}>
+                      {/* Checkbox */}
+                      <button
+                        type="button"
+                        onClick={() => handleToggleTodo(todo.id)}
+                        style={{
+                          width: '22px',
+                          height: '22px',
+                          borderRadius: '6px',
+                          border: todo.completed ? '2px solid #10b981' : '2px solid var(--line)',
+                          background: todo.completed ? '#10b981' : 'transparent',
+                          color: '#000',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          marginTop: '2px',
+                          flexShrink: 0,
+                          fontSize: '12px',
+                          fontWeight: 800,
+                          padding: 0,
+                        }}
+                        title={todo.completed ? 'Mark pending' : 'Mark completed'}
+                      >
+                        {todo.completed ? '✓' : ''}
+                      </button>
+
+                      {/* Content */}
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                          <span className="badge" style={{ fontSize: '9px', padding: '1px 7px', ...priorityBadgeStyle }}>
+                            {todo.priority || 'ROUTINE'}
+                          </span>
+                          <span className="badge" style={{ fontSize: '9px', padding: '1px 7px', background: 'var(--panel-subtle)', color: 'var(--text-main)', border: '1px solid var(--line)' }}>
+                            {todo.assignedRole || 'All Council Leads'}
+                          </span>
+                          {todo.targetDate && (
+                            <small style={{ color: 'var(--brand-primary)', fontSize: '10px', fontFamily: 'monospace' }}>
+                              Due: {todo.targetDate}
+                            </small>
+                          )}
+                        </div>
+
+                        <b style={{
+                          fontSize: '14px',
+                          color: todo.completed ? 'var(--text-muted)' : 'var(--text-main)',
+                          textDecoration: todo.completed ? 'line-through' : 'none',
+                          display: 'block',
+                        }}>
+                          {todo.title}
+                        </b>
+
+                        {todo.description && (
+                          <p style={{
+                            margin: '4px 0 0',
+                            fontSize: '12px',
+                            color: 'var(--text-dim)',
+                            lineHeight: '1.5',
+                            textDecoration: todo.completed ? 'line-through' : 'none',
+                          }}>
+                            {todo.description}
+                          </p>
+                        )}
+
+                        {todo.completed && todo.completedBy && (
+                          <small style={{ display: 'block', marginTop: '6px', color: '#10b981', fontSize: '10px' }}>
+                            ✓ Marked complete by {todo.completedBy} {todo.completedAt ? `· ${new Date(todo.completedAt).toLocaleString()}` : ''}
+                          </small>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* President Controls */}
+                    {isPresident && (
+                      <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTodo(todo.id)}
+                          style={{
+                            background: 'transparent',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            color: '#f87171',
+                            borderRadius: '6px',
+                            padding: '4px 8px',
+                            fontSize: '10px',
+                            cursor: 'pointer',
+                          }}
+                          title="Delete directive"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </article>
+      </section>
+
+      {/* Add Directive Modal (Primary President Only) */}
+      {showAddTodoModal && isPresident && (
+        <div className="photo-lightbox" onClick={() => setShowAddTodoModal(false)}>
+          <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-modal)', padding: '28px', borderRadius: '16px', border: '1px solid var(--line)', maxWidth: '520px', width: '92vw' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Icon8 name="protect" size={20} />
+                <h3 style={{ font: '700 18px Syne', color: 'var(--text-main)', margin: 0 }}>
+                  Issue Presidential Directive / Task
+                </h3>
+              </div>
+              <button className="lightbox-close" onClick={() => setShowAddTodoModal(false)} style={{ position: 'static' }}>✕</button>
+            </div>
+
+            <form onSubmit={handleCreateTodo} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label className="field-label" style={{ fontSize: '11px' }}>Directive Title *</label>
+                <input
+                  required
+                  placeholder="e.g. Audit Hall 4 Audio Equipment & Test Scanners"
+                  value={newTodoTitle}
+                  onChange={e => setNewTodoTitle(e.target.value)}
+                  style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px' }}
+                />
+              </div>
+
+              <div>
+                <label className="field-label" style={{ fontSize: '11px' }}>Directive Instructions / Details</label>
+                <textarea
+                  rows={3}
+                  placeholder="Detailed specifications, safety instructions, or team requirements..."
+                  value={newTodoDesc}
+                  onChange={e => setNewTodoDesc(e.target.value)}
+                  style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '10px', fontSize: '12px', resize: 'vertical' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label className="field-label" style={{ fontSize: '11px' }}>Priority Level</label>
+                  <select
+                    value={newTodoPriority}
+                    onChange={e => setNewTodoPriority(e.target.value)}
+                    style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px' }}
+                  >
+                    <option value="CRITICAL">Critical (Immediate)</option>
+                    <option value="HIGH">High Priority</option>
+                    <option value="MEDIUM">Medium Priority</option>
+                    <option value="ROUTINE">Routine Task</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="field-label" style={{ fontSize: '11px' }}>Assigned Council Wing</label>
+                  <select
+                    value={newTodoRole}
+                    onChange={e => setNewTodoRole(e.target.value)}
+                    style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px' }}
+                  >
+                    <option value="All Council Leads">All Council Leads</option>
+                    <option value="Event Management">Event Management</option>
+                    <option value="PR & Media Team">PR & Media Team</option>
+                    <option value="Technical Lead">Technical Leads</option>
+                    <option value="Treasurer">Treasury & Logistics</option>
+                    <option value="Security & Gate Team">Security & Gate Team</option>
+                    <option value="Vice President">Vice President</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="field-label" style={{ fontSize: '11px' }}>Target Completion Deadline</label>
+                <input
+                  placeholder="e.g. Friday 4:00 PM / 24h Before Fest / Daily EOD"
+                  value={newTodoTargetDate}
+                  onChange={e => setNewTodoTargetDate(e.target.value)}
+                  style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                <button
+                  type="button"
+                  className="action-btn"
+                  onClick={() => setShowAddTodoModal(false)}
+                  disabled={addingTodo}
+                  style={{ flex: 1, height: '40px', background: 'var(--panel-subtle)', color: 'var(--text-main)', border: '1px solid var(--line)', fontSize: '11px' }}
+                >
+                  CANCEL
+                </button>
+                <button
+                  type="submit"
+                  className="primary"
+                  disabled={addingTodo}
+                  style={{ flex: 2, height: '40px', fontSize: '11px', fontWeight: 700 }}
+                >
+                  {addingTodo ? 'PUBLISHING DIRECTIVE…' : 'PUBLISH DIRECTIVE'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </LivePortal>
   )
 }
 
 // ----------------------------------------------------
+// ----------------------------------------------------
 // Student Member Hub (Student Dashboard)
 // ----------------------------------------------------
 function LiveStudentDashboard({ user, logout, onNavigate }) {
-  const { platformMode } = usePlatformTheme()
+  const { platformMode, reelsEnabled, clubSettings: sharedClubSettings } = usePlatformTheme()
   const isMrdu = platformMode === 'MRDU_EVENTS'
   const [events, setEvents] = useState([])
   const [subStatus, setSubStatus] = useState(null)
+  const [clubSettings, setClubSettings] = useState(() => sharedClubSettings)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -8322,10 +13249,12 @@ function LiveStudentDashboard({ user, logout, onNavigate }) {
     Promise.all([
       memberApi.listEvents().catch(() => ({ events: [] })),
       memberApi.getSubscriptionStatus().catch(() => null),
-    ]).then(([e, s]) => {
+      memberApi.getPublicClubSettings().catch(() => ({ settings: null })),
+    ]).then(([e, s, cs]) => {
       if (mounted) {
         setEvents(e.events || [])
         setSubStatus(s)
+        setClubSettings(cs?.settings || null)
       }
     }).finally(() => {
       if (mounted) setLoading(false)
@@ -8335,59 +13264,274 @@ function LiveStudentDashboard({ user, logout, onNavigate }) {
 
   const needsSubscription = subStatus?.subscriptionEnabled && !subStatus?.hasActiveSubscription && !subStatus?.isExempt
 
+  // Time-based professional greeting
+  const hour = new Date().getHours()
+  const timeGreeting = hour < 12 ? 'Good Morning' : hour < 17 ? 'Good Afternoon' : 'Good Evening'
+
   return (
     <LivePortal user={user} logout={logout} activeTab="student-dashboard" onNavigate={onNavigate} title={isMrdu ? 'MRDU EVENTS CENTRAL HUB' : 'STUDENT MEMBER HUB'}>
-      <section className="welcome">
-        <div>
-          <p className="eyebrow">{isMrdu ? 'MALLA REDDY (DEEMED TO BE UNIVERSITY)' : 'DEPARTMENT OF CYBER SECURITY'}</p>
-          <h1>Hello, {user.name} <span>👋</span></h1>
-          <p>{isMrdu ? 'Welcome to the official MRDU Events & Fests student portal.' : 'Welcome to the official Cyber Security Club student hub.'}</p>
+      {/* High-Tech Command Hero HUD */}
+      <section
+        className="welcome"
+        style={{
+          background: isMrdu ? 'linear-gradient(135deg, rgba(211, 47, 47, 0.08) 0%, rgba(56, 13, 13, 0.6) 100%)' : 'linear-gradient(135deg, rgba(82, 187, 245, 0.08) 0%, rgba(13, 31, 56, 0.6) 100%)',
+          border: '1px solid var(--brand-border-subtle)',
+          borderRadius: '18px',
+          padding: '32px 28px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '20px',
+          boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        <div style={{ position: 'relative', zIndex: 2, maxWidth: '640px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+            <span className="badge" style={{ background: 'var(--brand-badge-bg)', color: 'var(--brand-primary)', border: '1px solid var(--brand-border-subtle)', fontSize: '10px', fontWeight: 700, letterSpacing: '0.06em' }}>
+              {isMrdu ? 'MALLA REDDY UNIVERSITY' : 'DEPARTMENT OF CYBER SECURITY'}
+            </span>
+            <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.3)', fontSize: '10px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <IconShieldCheck size={12} /> VERIFIED STUDENT ACCOUNT
+            </span>
+          </div>
+
+          <h1 style={{ margin: '0 0 8px', fontSize: '26px', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>
+            {timeGreeting}, {user.name}
+          </h1>
+          <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+            {isMrdu
+              ? 'Welcome to the official MRDU central events portal. Access digital passes, register for technical summits, and watch campus reels.'
+              : 'Welcome to the Cyber Security Club portal. Access CTF sandboxes, workshop passes, exclusive campus reels, and technical mentor support.'}
+          </p>
         </div>
-        <button className="outline" type="button" onClick={() => onNavigate('student-events')}>
-          BROWSE ALL EVENTS &nbsp;→
-        </button>
+
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', zIndex: 2 }}>
+          <button
+            type="button"
+            className="primary"
+            onClick={() => onNavigate('student-events')}
+            style={{ fontSize: '12px', padding: '10px 18px', fontWeight: 700, letterSpacing: '0.04em' }}
+          >
+            EXPLORE EVENTS CATALOG →
+          </button>
+          <button
+            type="button"
+            className="outline"
+            onClick={() => onNavigate('student-passes')}
+            style={{ fontSize: '12px', padding: '10px 18px', fontWeight: 700 }}
+          >
+            DIGITAL PASS WALLET
+          </button>
+        </div>
       </section>
 
-      {/* Subscription Notice Banner - Only if enabled by Primary Admin */}
+      {/* Subscription Notice Banner */}
       {subStatus?.subscriptionEnabled && needsSubscription && (
-        <div className="pending-alert-banner" style={{ marginTop: '20px', background: '#2d1f05', borderColor: '#f59e0b', color: '#fef3c7' }}>
+        <div className="pending-alert-banner" style={{ marginTop: '20px', background: 'rgba(245, 158, 11, 0.1)', borderColor: 'rgba(245, 158, 11, 0.4)', color: '#fef3c7', borderRadius: '12px', padding: '16px 20px' }}>
           <div>
-            <b>{isMrdu ? 'Your student event pass is inactive' : 'Your student membership is inactive'}</b>
-            <p style={{ margin: '2px 0 0', fontSize: '11px', color: '#fde68a' }}>
-              Subscribe (₹{subStatus?.monthlyAmount || 100}/mo via UPI) to unlock event registrations, technical support, and {isMrdu ? 'event' : 'member-only'} gallery.
+            <b style={{ color: '#f59e0b', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <IconAlertTriangle size={14} /> {isMrdu ? 'Student Event Pass Inactive' : 'Student Club Membership Inactive'}
+            </b>
+            <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
+              Subscribe (₹{subStatus?.monthlyAmount || 100}/mo via UPI) to unlock event registrations, digital pass wallet, and technical support desk.
             </p>
           </div>
-          <button type="button" onClick={() => onNavigate('student-membership')} style={{ background: '#f59e0b', color: '#000' }}>
-            SUBSCRIBE NOW →
+          <button type="button" onClick={() => onNavigate('student-membership')} style={{ background: '#f59e0b', color: '#000', fontWeight: 700, fontSize: '11px', padding: '8px 16px', borderRadius: '6px', border: 0, cursor: 'pointer' }}>
+            ACTIVATE NOW →
           </button>
         </div>
       )}
 
-      <section className="stats" style={{ margin: '28px 0' }}>
-        <div className="stat"><i><Icon8 name="realtime" size={26} /></i><div><p>{isMrdu ? 'UNIVERSITY EVENTS' : 'CLUB EVENTS'}</p><h2>{events.length}</h2><small>{isMrdu ? 'Fests & Workshops' : 'Workshops & CTFs'}</small></div></div>
-        <div className="stat"><i><Icon8 name="faceId" size={26} /></i><div><p>{isMrdu ? 'MY EVENT PASSES' : 'MY PASSES'}</p><h2>{events.filter(e => e.isRegistered).length}</h2><small>{isMrdu ? 'Confirmed Passes' : 'Confirmed registrations'}</small></div></div>
+      {/* 4 Interactive Metric HUD Cards */}
+      <section className="stats" style={{ margin: '24px 0', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+        <div className="stat" onClick={() => onNavigate('student-events')} style={{ cursor: 'pointer', borderRadius: '14px', border: '1px solid var(--brand-border-subtle)' }}>
+          <i><IconSparkles size={24} style={{ color: 'var(--brand-primary)' }} /></i>
+          <div>
+            <p>{isMrdu ? 'UNIVERSITY EVENTS' : 'CLUB EVENTS'}</p>
+            <h2>{events.length}</h2>
+            <small>{isMrdu ? 'Active Summits & Fests' : 'Live Workshops & CTFs'}</small>
+          </div>
+        </div>
+
+        <div className="stat" onClick={() => onNavigate('student-passes')} style={{ cursor: 'pointer', borderRadius: '14px', border: '1px solid var(--brand-border-subtle)' }}>
+          <i><Icon8 name="idDocs" size={24} /></i>
+          <div>
+            <p>{isMrdu ? 'MY EVENT PASSES' : 'MY PASSES'}</p>
+            <h2>{events.filter(e => e.isRegistered).length}</h2>
+            <small>Confirmed Registrations</small>
+          </div>
+        </div>
+
         {subStatus?.subscriptionEnabled ? (
-          <div className={`stat ${subStatus?.hasActiveSubscription ? 'green' : 'amber'}`}>
-            <i><Icon8 name="access" size={26} /></i>
+          <div className={`stat ${subStatus?.hasActiveSubscription ? 'green' : 'amber'}`} onClick={() => onNavigate('student-membership')} style={{ cursor: 'pointer', borderRadius: '14px' }}>
+            <i><Icon8 name="access" size={24} /></i>
             <div>
               <p>{isMrdu ? 'STUDENT PASS' : 'MEMBERSHIP'}</p>
               <h2>{subStatus?.hasActiveSubscription ? 'ACTIVE' : 'INACTIVE'}</h2>
-              <small>{subStatus?.hasActiveSubscription ? 'Verified' : 'Subscribe via UPI'}</small>
+              <small>{subStatus?.hasActiveSubscription ? 'Verified Account' : 'UPI Payment Required'}</small>
             </div>
           </div>
         ) : (
-          <div className="stat green">
-            <i><Icon8 name="protect" size={26} /></i>
+          <div className="stat green" style={{ borderRadius: '14px' }}>
+            <i><IconShieldCheck size={24} style={{ color: '#10b981' }} /></i>
             <div>
-              <p>DEPARTMENT</p>
+              <p>DEPARTMENT & YEAR</p>
               <h2>{user.profile?.department || 'CSE'}</h2>
-              <small>{user.profile?.year ? `Year ${user.profile.year}` : 'Student Portal'}</small>
+              <small>{user.profile?.year ? `Year ${user.profile.year} · Verified` : 'Enrolled Student'}</small>
             </div>
           </div>
         )}
-        <div className="stat green"><i><Icon8 name="fingerprint" size={26} /></i><div><p>{isMrdu ? 'STUDENT ID' : 'MEMBER ID'}</p><h2>{user.memberId}</h2><small>Authorized Account</small></div></div>
+
+        <div className="stat green" style={{ borderRadius: '14px' }}>
+          <i><Icon8 name="fingerprint" size={24} /></i>
+          <div>
+            <p>{isMrdu ? 'STUDENT ID' : 'MEMBER ID'}</p>
+            <h2>{user.memberId}</h2>
+            <small>Roll / Authorized ID</small>
+          </div>
+        </div>
       </section>
 
+      {/* Quick Command Hub Grid (6 Interactive Tiles) */}
+      <div style={{ marginBottom: '32px' }}>
+        <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
+          <Icon8 name="access" size={14} /> QUICK COMMAND HUB
+        </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px' }}>
+          <div
+            onClick={() => onNavigate('student-passes')}
+            className="account-form-card"
+            style={{
+              padding: '16px',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              borderRadius: '12px',
+              border: '1px solid var(--brand-border-subtle)',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <span style={{ display: 'inline-flex', padding: '10px', borderRadius: '10px', background: 'var(--brand-badge-bg)', color: 'var(--brand-primary)', width: 'fit-content' }}>
+              <IconCreditCard size={18} />
+            </span>
+            <b style={{ fontSize: '13px', color: 'var(--text-main)' }}>Digital Pass Wallet</b>
+            <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.4 }}>View QR boarding passes & download printable IDs.</p>
+          </div>
+
+          {reelsEnabled && (
+            <div
+              onClick={() => onNavigate('student-reels')}
+              className="account-form-card"
+              style={{
+                padding: '16px',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                borderRadius: '12px',
+                border: '1px solid var(--brand-border-subtle)',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <span style={{ display: 'inline-flex', padding: '10px', borderRadius: '10px', background: 'rgba(236, 72, 153, 0.12)', color: '#ec4899', width: 'fit-content' }}>
+                <IconVideo size={18} />
+              </span>
+              <b style={{ fontSize: '13px', color: 'var(--text-main)' }}>Campus Reels</b>
+              <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.4 }}>Short-form video highlights, CTF demos & event teasers.</p>
+            </div>
+          )}
+
+          <div
+            onClick={() => onNavigate('student-events')}
+            className="account-form-card"
+            style={{
+              padding: '16px',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              borderRadius: '12px',
+              border: '1px solid var(--brand-border-subtle)',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <span style={{ display: 'inline-flex', padding: '10px', borderRadius: '10px', background: 'rgba(59, 130, 246, 0.12)', color: '#3b82f6', width: 'fit-content' }}>
+              <IconCalendar size={18} />
+            </span>
+            <b style={{ fontSize: '13px', color: 'var(--text-main)' }}>Events Catalog</b>
+            <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.4 }}>Register for upcoming hackathons, labs, and summits.</p>
+          </div>
+
+          <div
+            onClick={() => onNavigate('student-complaints')}
+            className="account-form-card"
+            style={{
+              padding: '16px',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              borderRadius: '12px',
+              border: '1px solid var(--brand-border-subtle)',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <span style={{ display: 'inline-flex', padding: '10px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', width: 'fit-content' }}>
+              <IconHeadset size={18} />
+            </span>
+            <b style={{ fontSize: '13px', color: 'var(--text-main)' }}>24/7 Doubt Desk</b>
+            <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.4 }}>Submit queries, get technical support & mentor guidance.</p>
+          </div>
+
+          <div
+            onClick={() => onNavigate('student-gallery')}
+            className="account-form-card"
+            style={{
+              padding: '16px',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              borderRadius: '12px',
+              border: '1px solid var(--brand-border-subtle)',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <span style={{ display: 'inline-flex', padding: '10px', borderRadius: '10px', background: 'rgba(168, 85, 247, 0.12)', color: '#a855f7', width: 'fit-content' }}>
+              <IconSparkles size={18} />
+            </span>
+            <b style={{ fontSize: '13px', color: 'var(--text-main)' }}>Photo Gallery</b>
+            <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.4 }}>Browse high-resolution event albums and campus fests.</p>
+          </div>
+
+          <div
+            onClick={() => onNavigate('student-team')}
+            className="account-form-card"
+            style={{
+              padding: '16px',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+              borderRadius: '12px',
+              border: '1px solid var(--brand-border-subtle)',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <span style={{ display: 'inline-flex', padding: '10px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b', width: 'fit-content' }}>
+              <IconUserSvg size={18} />
+            </span>
+            <b style={{ fontSize: '13px', color: 'var(--text-main)' }}>Club Council</b>
+            <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.4 }}>Connect with student leads, office bearers, and mentors.</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Featured Sessions & Events Catalog */}
       <div className="section-title">
         <div>
           <p className="eyebrow">{isMrdu ? 'CAMPUS HIGHLIGHTS' : 'FEATURED SESSIONS'}</p>
@@ -8426,7 +13570,7 @@ function LiveStudentDashboard({ user, logout, onNavigate }) {
                 <div className="card-footer">
                   {evt.isRegistered ? (
                     <span className="badge badge-registered" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                      <Icon8 name="authentication" size={12} /> REGISTERED
+                      <IconShieldCheck size={13} /> REGISTERED
                     </span>
                   ) : (
                     <button className="register-btn" type="button" onClick={() => onNavigate(`event-detail/${evt.id}`)}>
@@ -8439,6 +13583,109 @@ function LiveStudentDashboard({ user, logout, onNavigate }) {
           ))}
         </div>
       )}
+
+      {/* Sleek Official About & Channels Section at the Bottom */}
+      <footer
+        style={{
+          marginTop: '48px',
+          padding: '28px 24px',
+          background: 'var(--panel-subtle)',
+          border: '1px solid var(--line)',
+          borderRadius: '16px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '20px',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px' }}>
+          <div style={{ maxWidth: '580px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <span style={{ color: 'var(--brand-primary)', display: 'inline-flex' }}>
+                {isMrdu ? <IconSparkles size={16} /> : <IconShieldCheck size={16} />}
+              </span>
+              <b style={{ color: 'var(--text-main)', fontSize: '14px' }}>
+                {isMrdu ? 'About Malla Reddy University Events Portal' : 'About Cyber Security Club · MRDU'}
+              </b>
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: 1.6, margin: 0 }}>
+              {isMrdu
+                ? 'Malla Reddy (Deemed to be University) · NAAC A++ Accredited. The central gateway for university workshops, national symposiums, hackathons, and multi-department student initiatives.'
+                : 'The official student cyber defense organisation at Malla Reddy University. Advancing ethical hacking, live CTF competitions, security research, and student technical empowerment.'}
+            </p>
+          </div>
+
+          {/* Quick Support & Helpline */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <small style={{ color: 'var(--text-dim)', fontSize: '10px', textTransform: 'uppercase', fontWeight: 700 }}>
+              Official Student Support
+            </small>
+            <a
+              href={`mailto:${clubSettings?.contactEmail || 'cybersecurityclub@mrdu.edu'}`}
+              style={{ color: 'var(--brand-primary)', fontSize: '12px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <IconMail size={13} /> {clubSettings?.contactEmail || 'cybersecurityclub@mrdu.edu'}
+            </a>
+            {clubSettings?.technicalSupportEmail && (
+              <a
+                href={`mailto:${clubSettings.technicalSupportEmail}`}
+                style={{ color: 'var(--text-muted)', fontSize: '11.5px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
+                <IconHeadset size={13} /> {clubSettings.technicalSupportEmail}
+              </a>
+            )}
+          </div>
+        </div>
+
+        {/* Inline Social Icons & Links Bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', paddingTop: '16px', borderTop: '1px solid var(--line)' }}>
+          <small style={{ color: 'var(--text-dim)', fontSize: '11px' }}>
+            © {new Date().getFullYear()} {isMrdu ? 'Malla Reddy University' : 'Cyber Security Club'}. All rights reserved.
+          </small>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+            {clubSettings?.instagramUrl && (
+              <a
+                href={clubSettings.instagramUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: 'var(--text-muted)', fontSize: '12px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', transition: 'color 0.15s ease' }}
+              >
+                <IconInstagram size={14} /> Instagram
+              </a>
+            )}
+            {clubSettings?.youtubeUrl && (
+              <a
+                href={clubSettings.youtubeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: 'var(--text-muted)', fontSize: '12px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', transition: 'color 0.15s ease' }}
+              >
+                <IconYouTube size={14} /> YouTube
+              </a>
+            )}
+            {(clubSettings?.whatsappUrl || clubSettings?.discordUrl) && (
+              <a
+                href={clubSettings.whatsappUrl || clubSettings.discordUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: 'var(--text-muted)', fontSize: '12px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', transition: 'color 0.15s ease' }}
+              >
+                {clubSettings.whatsappUrl ? <IconWhatsApp size={14} /> : <IconDiscord size={14} />} Community
+              </a>
+            )}
+            {clubSettings?.githubUrl && (
+              <a
+                href={clubSettings.githubUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: 'var(--text-muted)', fontSize: '12px', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px', transition: 'color 0.15s ease' }}
+              >
+                <IconGitHub size={14} /> GitHub
+              </a>
+            )}
+          </div>
+        </div>
+      </footer>
     </LivePortal>
   )
 }
@@ -8456,115 +13703,286 @@ function getAuditCategory(action = '') {
   return 'GENERAL'
 }
 
-function getCategoryBadge(cat) {
+function getCategoryBadge(cat, isMrdu = false) {
   switch (cat) {
-    case 'PAYMENTS': return { label: '💳 Payments', color: '#70ddb4', bg: '#10382e' }
-    case 'AUTH': return { label: '🔑 Auth', color: '#52bbf5', bg: '#164366' }
-    case 'MEMBERS': return { label: '👥 Members', color: '#d5baff', bg: '#382766' }
-    case 'EVENTS': return { label: '▢ Events', color: '#ffb74d', bg: '#3a2a10' }
-    case 'SYSTEM': return { label: '⚙ System', color: '#f87171', bg: '#3a1818' }
-    default: return { label: '◫ General', color: '#8aa2b4', bg: '#182433' }
+    case 'PAYMENTS': return { label: 'Payments', color: '#70ddb4', bg: '#10382e' }
+    case 'AUTH': return isMrdu
+      ? { label: 'Auth', color: '#ff9a9a', bg: 'rgba(211,47,47,0.15)' }
+      : { label: 'Auth', color: '#52bbf5', bg: '#164366' }
+    case 'MEMBERS': return { label: 'Members', color: '#d5baff', bg: '#382766' }
+    case 'EVENTS': return { label: 'Events', color: '#ffb74d', bg: '#3a2a10' }
+    case 'SYSTEM': return { label: 'System', color: '#f87171', bg: '#3a1818' }
+    default: return { label: 'General', color: '#8aa2b4', bg: '#182433' }
   }
 }
 
+const AUDIT_ACTION_TITLES = {
+  EVENT_ENTRY_GRANTED: 'Event Gate Entry & Attendance Checked In',
+  EVENT_PAYMENT_VERIFIED: 'Event Pass Payment Verified',
+  PASS_PAYMENT_VERIFIED: 'Event Pass Payment Verified',
+  EVENT_CREATED: 'New Event Created & Published',
+  EVENT_UPDATED: 'Event Schedule & Details Updated',
+  EVENT_DELETED: 'Event Deleted',
+  EVENT_REGISTERED: 'Student Event Registration Submitted',
+  TEAM_INVITE_SENT: 'Team Squad Invitation Dispatched',
+  TEAM_INVITE_RESPONDED: 'Team Squad Invitation Response',
+  ACCOUNT_CREATED: 'New Member Account Provisioned',
+  GUEST_REGISTERED: 'Guest Student Registered Account',
+  BULK_STUDENTS_CREATED: 'Batch Student Accounts Provisioned',
+  ACCOUNT_STATUS_CHANGED: 'Member Account Access Status Changed',
+  ACCOUNT_AUTO_DISABLED_INACTIVITY: 'Account Auto-Disabled (Inactivity > 3 Days)',
+  ACCOUNT_PERMISSIONS_CHANGED: 'Administrative Permissions Updated',
+  ACCOUNT_UPDATED: 'Member Profile Information Updated',
+  ADMIN_PASSWORD_RESET: 'Member Password Reset by Administrator',
+  TWO_FACTOR_RESET_BY_ADMIN: 'Member 2FA Reset by Administrator',
+  MEMBER_DELETED: 'Member Account Deleted',
+  PRIMARY_PRESIDENT_LOGIN_SUCCESS: 'Primary President Sign-in',
+  PRESIDENT_LOGIN_SUCCESS: 'President Sign-in',
+  LOGIN_SUCCESS: 'Member Sign-in',
+  TWO_FACTOR_LOGIN_SUCCESS: '2FA Security Code Verified',
+  TWO_FACTOR_LOGIN_FAILED: 'Failed 2FA Security Attempt',
+  LOGOUT: 'Member Sign-out',
+  LOGOUT_ALL_DEVICES: 'All Device Sessions Terminated',
+  LOGIN_BLOCKED: 'Sign-in Attempt Blocked',
+  ACCOUNT_LOCKED: 'Account Locked Due to Failed Attempts',
+  PASSWORD_RESET_REQUESTED: 'Password Reset Requested',
+  PASSWORD_RESET_COMPLETED: 'Password Reset Completed',
+  TWO_FACTOR_ENABLED: 'Two-Factor Authentication Enabled',
+  TWO_FACTOR_DISABLED: 'Two-Factor Authentication Disabled',
+  MASTER_SECURITY_PIN_CHANGED: 'President Master Security PIN Changed',
+  FULL_DATABASE_EXPORT_SQL: 'Full Database SQL Snapshot Exported',
+  DATABASE_EXPORT_REJECTED_INVALID_PASSWORD: 'Database Export Blocked (Invalid Password)',
+  GALLERY_ALBUM_CREATED: 'New Photo Gallery Album Created',
+  GALLERY_PHOTO_ADDED: 'Photo Uploaded to Gallery',
+  GALLERY_PHOTOS_ADDED: 'Batch Photos Uploaded to Gallery',
+  GALLERY_PHOTO_DELETED: 'Photo Deleted from Gallery',
+  GALLERY_ALBUM_DELETED: 'Gallery Album Deleted',
+  CAMPUS_REEL_PUBLISHED: 'New Campus Reel Published',
+  CAMPUS_REEL_DELETED: 'Campus Reel Deleted',
+  CLUB_SETTINGS_UPDATED: 'Global Club Settings & Links Saved',
+  CLUB_TEAM_MEMBER_ADDED: 'New Leadership Profile Added',
+  CLUB_TEAM_MEMBER_REMOVED: 'Leadership Profile Removed',
+  CLUB_TEAM_MEMBER_UPDATED: 'Leadership Profile Updated',
+  SUBSCRIPTION_VERIFIED: 'Student Pass Membership Approved',
+  SUBSCRIPTION_REJECTED: 'Student Pass Membership Rejected',
+  COMPLAINT_STATUS_UPDATED: 'Helpdesk Doubt Inquiry Status Updated',
+  AUDIT_LOGS_PURGED: 'Compliance Audit Logs Purged',
+}
+
+const FRIENDLY_PARAM_LABELS = {
+  eventTitle: 'Event Name',
+  title: 'Event / Item Title',
+  name: 'Full Name',
+  attendeeName: 'Student Name',
+  attendeeMemberId: 'Student Roll No / Member ID',
+  verifiedBy: 'Verified By (Admin ID)',
+  paymentReference: 'UPI UTR Reference',
+  paymentStatus: 'Payment Status',
+  paymentAmount: 'Amount (₹)',
+  amount: 'Amount (₹)',
+  totalAmount: 'Total Amount (₹)',
+  requiresPayment: 'Payment Required',
+  isTeamEvent: 'Participation Mode',
+  isTeam: 'Participation Mode',
+  teamName: 'Team Squad Name',
+  minTeamSize: 'Minimum Team Size',
+  maxTeamSize: 'Maximum Team Size',
+  teamRules: 'Team Composition Rules',
+  residencyType: 'Residency Type',
+  transportMode: 'Commute Mode',
+  hostelType: 'Hostel Accommodation',
+  gender: 'Gender',
+  age: 'Age',
+  department: 'Department',
+  rollNumber: 'Roll Number',
+  phone: 'Phone Number',
+  email: 'Email Address',
+  role: 'Account Role',
+  cscRole: 'Club Role',
+  mrduRole: 'MRDU Role',
+  reason: 'Reason / Note',
+  lockMinutes: 'Lock Duration (Minutes)',
+  ticketSubject: 'Doubt Subject',
+  ticketCategory: 'Category',
+  status: 'Updated Status',
+  from: 'Previous Value',
+  to: 'New Value',
+  filename: 'Exported File Name',
+  sizeBytes: 'Backup File Size',
+  purgedBy: 'Purged By (Admin)',
+  count: 'Total Count',
+  ip: 'Network IP Address',
+  category: 'Category',
+  authorRole: 'Author Role',
+  response: 'Response Decision',
+}
+
+const TECHNICAL_ID_KEYS = new Set([
+  'eventId', 'registrationId', 'albumId', 'photoId', 'reelId', 'complaintId', 'userId', 'actorUserId', 'targetUserId', 'teamId', 'ticketId'
+])
+
+function isTechnicalUuid(val) {
+  if (typeof val !== 'string') return false
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val) || /^c[a-z0-9]{24}$/i.test(val)
+}
+
+function getFriendlyActionTitle(action) {
+  return AUDIT_ACTION_TITLES[action] || action.replaceAll('_', ' ')
+}
+
 function formatMetaKey(key) {
+  if (FRIENDLY_PARAM_LABELS[key]) return FRIENDLY_PARAM_LABELS[key]
   return key
     .replace(/([A-Z])/g, ' $1')
     .replace(/^./, str => str.toUpperCase())
-    .replace(/Url$/, ' URL')
-    .replace(/Id$/, ' ID')
+    .replace(/Url$/, ' Link / URL')
+    .replace(/Id$/, '')
     .replace(/Upi/, 'UPI')
 }
 
-function formatMetaValue(val) {
+function formatMetaValue(val, key) {
   if (val === null || val === undefined) return 'None'
-  if (typeof val === 'boolean') return val ? 'YES / ACTIVE' : 'NO / DISABLED'
-  if (typeof val === 'object') return JSON.stringify(val, null, 2)
-  return String(val)
+  if (typeof val === 'boolean') return val ? 'Yes' : 'No'
+  if (key === 'sizeBytes' || key === 'size') {
+    const num = Number(val)
+    if (!isNaN(num)) return `${(num / 1024).toFixed(1)} KB`
+  }
+  if (key === 'residencyType') {
+    return val === 'DAY_SCHOLAR' ? 'Day Scholar' : val === 'HOSTELLER' ? 'Hosteller' : val
+  }
+  if (key === 'isTeamEvent' || key === 'isTeam') {
+    return val ? 'Team Squad' : 'Individual'
+  }
+  if (key === 'role' || key === 'cscRole' || key === 'mrduRole' || key === 'authorRole') {
+    return getRoleLabel(val)
+  }
+  if (typeof val === 'object') {
+    if (Array.isArray(val)) return val.join(', ')
+    return JSON.stringify(val, null, 2)
+  }
+  return String(val).replace(/_/g, ' ')
 }
 
 function formatAuditSummary(entry) {
-  if (!entry) return 'Action recorded.'
+  if (!entry) return 'Action recorded in system audit logs.'
   const meta = entry.metadata || {}
   const targetUser = entry.target?.profile?.name || entry.target?.name || meta.targetName || meta.name || entry.target?.memberId || meta.targetMemberId || meta.memberId
 
   switch (entry.action) {
-    case 'PRIMARY_PRESIDENT_LOGIN_SUCCESS':
-      return 'Primary President logged in with full administrative privileges'
-    case 'PRESIDENT_LOGIN_SUCCESS':
-      return 'President logged in successfully'
-    case 'LOGIN_SUCCESS':
-      return 'Member logged in successfully'
-    case 'TWO_FACTOR_LOGIN_SUCCESS':
-      return 'Two-factor authentication verified successfully'
-    case 'TWO_FACTOR_LOGIN_FAILED':
-      return 'Failed 2FA verification attempt'
-    case 'LOGOUT':
-      return 'Logged out of active session'
-    case 'LOGOUT_ALL_DEVICES':
-      return 'Terminated all active user sessions'
-    case 'LOGIN_BLOCKED':
-      return `Login blocked (${meta.reason || 'Security policy'})`
-    case 'ACCOUNT_LOCKED':
-      return `Account temporarily locked due to failed attempts (${meta.lockMinutes || 15}m)`
-    case 'ACCOUNT_CREATED':
-      return `Created new account for ${meta.name || targetUser || 'member'}`
-    case 'GUEST_REGISTERED':
-      return `New guest student registered (${meta.memberId || targetUser || ''})`
-    case 'BULK_STUDENTS_CREATED':
-      return `Bulk provisioned ${meta.count || ''} student accounts`
-    case 'ACCOUNT_STATUS_CHANGED':
-      return `Status changed from ${meta.from || 'PREV'} to ${meta.to || 'NEW'} for ${targetUser || 'user'}`
-    case 'ACCOUNT_PERMISSIONS_CHANGED':
-      return `Updated system permissions for ${targetUser || 'user'}`
-    case 'ACCOUNT_UPDATED':
-      return `Profile updated for ${targetUser || 'user'}`
-    case 'EVENT_CREATED':
-      return `Created new event: "${meta.title || meta.eventId || 'Event'}"`
-    case 'EVENT_UPDATED':
-      return `Updated event details: "${meta.title || meta.eventId || 'Event'}"`
-    case 'EVENT_DELETED':
-      return `Deleted event: "${meta.title || meta.eventId || 'Event'}"`
-    case 'EVENT_REGISTERED':
-      return `Registered for event "${meta.eventTitle || meta.eventId || ''}"`
+    case 'EVENT_ENTRY_GRANTED':
+      return `Admitted attendee ${meta.attendeeName || targetUser || 'student'}${meta.attendeeMemberId ? ` (${meta.attendeeMemberId})` : ''} at gate and verified attendance for "${meta.eventTitle || 'Event'}".`
     case 'EVENT_PAYMENT_VERIFIED':
-      return `Payment verified (${meta.paymentStatus || 'VERIFIED'}) for pass ${meta.registrationId || ''}`
+    case 'PASS_PAYMENT_VERIFIED':
+      return `Verified ${meta.paymentReference ? `UPI transaction (UTR: ${meta.paymentReference})` : 'payment'} and activated event pass for ${meta.attendeeName || targetUser || 'attendee'}${meta.attendeeMemberId ? ` (${meta.attendeeMemberId})` : ''} for "${meta.eventTitle || 'Event'}".`
+    case 'EVENT_CREATED':
+      return `Created and published new event "${meta.title || meta.eventTitle || 'Event'}"${meta.requiresPayment ? ` with fee of ₹${meta.paymentAmount || 0}` : ' (Free Event)'}${meta.isTeamEvent ? ' [Team Participation Mode]' : ''}.`
+    case 'EVENT_UPDATED':
+      return `Updated event schedule, venue, or configuration for "${meta.title || meta.eventTitle || 'Event'}".`
+    case 'EVENT_DELETED':
+      return `Removed event "${meta.title || meta.eventTitle || 'Event'}" from the university portal.`
+    case 'EVENT_REGISTERED':
+      return `Submitted registration for event "${meta.eventTitle || 'Event'}"${meta.isTeam ? ` as squad "${meta.teamName}"` : ' as individual'}${meta.paymentReference ? ` (UTR: ${meta.paymentReference})` : ''}.`
+    case 'TEAM_INVITE_SENT':
+      return `Invited member ${meta.memberId || ''} to join team squad "${meta.teamName || ''}".`
+    case 'TEAM_INVITE_RESPONDED':
+      return `Responded ${meta.response || ''} to team squad invitation for "${meta.teamName || ''}".`
+    case 'ACCOUNT_CREATED':
+      return `Provisioned new account for ${meta.name || targetUser || 'member'} (${meta.memberId || 'ID'}, Role: ${getRoleLabel(meta.role || 'STUDENT')}).`
+    case 'GUEST_REGISTERED':
+      return `Self-registered new guest account for ${meta.name || targetUser || ''} (${meta.memberId || ''}${meta.department ? `, Dept: ${meta.department}` : ''}).`
+    case 'BULK_STUDENTS_CREATED':
+      return `Bulk provisioned ${meta.count || 0} student accounts with secure credentials.`
+    case 'ACCOUNT_STATUS_CHANGED':
+      return `Changed account access status of ${targetUser || meta.name || 'member'} from ${meta.from || 'PREV'} to ${meta.to || 'NEW'}.`
+    case 'ACCOUNT_AUTO_DISABLED_INACTIVITY':
+      return `Account automatically disabled due to inactivity (over 3 days without sign-in) for ${meta.name || targetUser || 'member'} (${meta.memberId || ''}). Reactivation requires Technical Team authorization.`
+    case 'ACCOUNT_PERMISSIONS_CHANGED':
+      return `Updated administrative permissions for ${targetUser || 'user'}.`
+    case 'ACCOUNT_UPDATED':
+      return `Updated profile information for ${targetUser || 'user'}.`
+    case 'ADMIN_PASSWORD_RESET':
+      return `Admin reset the login password for ${meta.targetName || targetUser || 'member'} (${meta.targetMemberId || ''}).`
+    case 'TWO_FACTOR_RESET_BY_ADMIN':
+      return `Disabled 2FA security lock for ${meta.targetName || targetUser || 'member'} (${meta.targetMemberId || ''}).`
+    case 'MEMBER_DELETED':
+      return `Permanently removed account for ${meta.targetName || targetUser || 'member'} (${meta.targetMemberId || ''}).`
+    case 'MASTER_SECURITY_PIN_CHANGED':
+      return `Updated 6-digit Master Security PIN for presidential command authorizations.`
+    case 'FULL_DATABASE_EXPORT_SQL':
+      return `Generated and exported full database SQL snapshot (${meta.filename || 'backup.sql'}, ${(Number(meta.sizeBytes || 0) / 1024).toFixed(1)} KB).`
+    case 'DATABASE_EXPORT_REJECTED_INVALID_PASSWORD':
+      return `Blocked database export attempt due to incorrect presidential master password.`
     case 'GALLERY_ALBUM_CREATED':
-      return `Created photo album: "${meta.name || meta.albumId || 'Album'}"`
+      return `Created new photo gallery album: "${meta.name || 'Album'}".`
     case 'GALLERY_PHOTO_ADDED':
     case 'GALLERY_PHOTOS_ADDED':
-      return `Uploaded photo(s) to album ${meta.albumId || ''}`
+      return `Uploaded ${meta.count ? `${meta.count} photos` : 'photo(s)'} to photo gallery.`
+    case 'GALLERY_PHOTO_DELETED':
+      return `Deleted photo from photo gallery album.`
     case 'GALLERY_ALBUM_DELETED':
-      return `Deleted photo album "${meta.name || ''}"`
+      return `Deleted photo gallery album "${meta.name || 'Album'}" and all its photos.`
+    case 'CAMPUS_REEL_PUBLISHED':
+      return `Published new short-form campus reel: "${meta.title || 'Reel'}" (${meta.category ? meta.category.replace(/_/g, ' ') : 'Campus'}).`
+    case 'CAMPUS_REEL_DELETED':
+      return `Deleted campus reel: "${meta.title || 'Reel'}".`
     case 'CLUB_SETTINGS_UPDATED':
-      return `Modified global club configurations (${Array.isArray(meta.keys) ? meta.keys.join(', ') : 'settings'})`
+      return `Updated global portal settings, links, and contact channels.`
     case 'CLUB_TEAM_MEMBER_ADDED':
-      return `Added leadership profile: ${meta.name || ''}`
+      return `Added leadership profile for ${meta.name || 'member'} to the Organizing Team.`
     case 'CLUB_TEAM_MEMBER_REMOVED':
-      return `Removed leadership profile: ${meta.name || ''}`
+      return `Removed leadership profile for ${meta.name || 'member'} from the Organizing Team.`
     case 'CLUB_TEAM_MEMBER_UPDATED':
-      return `Updated leadership profile: ${meta.name || ''}`
+      return `Updated leadership profile details for ${meta.name || 'member'}.`
     case 'SUBSCRIPTION_VERIFIED':
-      return `Approved student membership subscription for ${targetUser || 'student'}`
+      return `Verified UPI payment and activated student membership pass for ${targetUser || meta.targetName || 'student'}${meta.amount ? ` (₹${meta.amount})` : ''}.`
     case 'SUBSCRIPTION_REJECTED':
-      return `Rejected student membership subscription (${meta.reason || 'Verification failed'})`
+      return `Rejected membership pass payment for ${targetUser || meta.targetName || 'student'}${meta.reason ? ` (Reason: ${meta.reason})` : ''}.`
     case 'COMPLAINT_STATUS_UPDATED':
-      return `Updated doubt inquiry status to ${meta.status || ''}`
+      return `Updated status of doubt helpdesk inquiry to "${meta.status || 'UPDATED'}".`
+    case 'PRIMARY_PRESIDENT_LOGIN_SUCCESS':
+      return 'Primary President logged in with full administrative privileges.'
+    case 'PRESIDENT_LOGIN_SUCCESS':
+      return 'President logged in successfully.'
+    case 'LOGIN_SUCCESS':
+      return 'Member logged in successfully.'
+    case 'TWO_FACTOR_LOGIN_SUCCESS':
+      return 'Two-factor authentication code verified successfully.'
+    case 'TWO_FACTOR_LOGIN_FAILED':
+      return 'Failed 2FA verification attempt.'
+    case 'LOGOUT':
+      return 'Logged out of active web session.'
+    case 'LOGOUT_ALL_DEVICES':
+      return 'Terminated all active user sessions across all devices.'
+    case 'LOGIN_BLOCKED':
+      return `Sign-in attempt was blocked (${meta.reason === 'ACCOUNT_DISABLED' ? 'Account Disabled' : meta.reason === 'ACCOUNT_LOCKED' ? 'Account Locked' : meta.reason || 'Security Policy'}).`
+    case 'ACCOUNT_LOCKED':
+      return `Account locked after repeated failed login attempts.`
+    case 'PASSWORD_RESET_REQUESTED':
+      return 'Password recovery instructions requested.'
+    case 'PASSWORD_RESET_COMPLETED':
+      return 'Password was successfully reset and updated.'
+    case 'TWO_FACTOR_ENABLED':
+      return 'Enabled two-factor authentication for account security.'
+    case 'TWO_FACTOR_DISABLED':
+      return 'Disabled two-factor authentication.'
     case 'AUDIT_LOGS_PURGED':
-      return 'Purged security compliance records with Master PIN authorization'
-    default:
-      if (meta && Object.keys(meta).length > 0) {
-        const filtered = Object.entries(meta)
-          .filter(([k]) => !['memberId', 'name', 'role', 'isPrimaryAdmin'].includes(k))
-          .map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
-          .join(', ')
-        if (filtered) return filtered
-      }
+      return 'Purged security compliance records with Master PIN authorization.'
+    default: {
+      const parts = []
+      if (meta.eventTitle || meta.title) parts.push(`"${meta.eventTitle || meta.title}"`)
+      if (meta.attendeeName) parts.push(`Attendee: ${meta.attendeeName}`)
+      if (meta.name && meta.name !== targetUser) parts.push(`Name: ${meta.name}`)
+      if (meta.paymentReference) parts.push(`UTR: ${meta.paymentReference}`)
+      if (meta.status) parts.push(`Status: ${meta.status}`)
+      if (parts.length > 0) return `${entry.action.replaceAll('_', ' ')} — ${parts.join(', ')}`
       return entry.action.replaceAll('_', ' ')
+    }
   }
 }
 
 function AuditLogView({ user, logout, onNavigate }) {
+  const { platformMode } = usePlatformTheme()
+  const isMrdu = platformMode === 'MRDU_EVENTS'
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [categoryFilter, setCategoryFilter] = useState('ALL')
@@ -8608,12 +14026,12 @@ function AuditLogView({ user, logout, onNavigate }) {
   }
 
   const categories = [
-    { id: 'ALL', label: 'All Audits', icon: '◫' },
-    { id: 'PAYMENTS', label: 'Payments & Subscriptions', icon: '💳' },
-    { id: 'AUTH', label: 'Authentication & PIN', icon: '🔑' },
-    { id: 'MEMBERS', label: 'Members & Roles', icon: '👥' },
-    { id: 'EVENTS', label: 'Events & Passes', icon: '▢' },
-    { id: 'SYSTEM', label: 'System & Support', icon: '⚙' },
+    { id: 'ALL', label: 'All Audits', icon: 'ALL' },
+    { id: 'PAYMENTS', label: 'Payments & Subscriptions', icon: 'PAY' },
+    { id: 'AUTH', label: 'Authentication & PIN', icon: 'AUTH' },
+    { id: 'MEMBERS', label: 'Members & Roles', icon: 'MEMBERS' },
+    { id: 'EVENTS', label: 'Events & Passes', icon: 'EVENTS' },
+    { id: 'SYSTEM', label: 'System & Support', icon: 'SYS' },
   ]
 
   const filteredLogs = logs.filter(entry => {
@@ -8754,7 +14172,7 @@ function AuditLogView({ user, logout, onNavigate }) {
                 </div>
                 {filteredLogs.map(entry => {
                   const cat = getAuditCategory(entry.action)
-                  const badge = getCategoryBadge(cat)
+                  const badge = getCategoryBadge(cat, isMrdu)
                   const actorName = entry.actor?.profile?.name || entry.actor?.name || entry.metadata?.name || entry.metadata?.actorName || (entry.actor?.isPrimaryAdmin ? 'Primary President' : entry.actorUserId ? 'Club Member' : 'System Administrator')
                   const actorMemberId = entry.actor?.memberId || entry.metadata?.memberId || entry.metadata?.actorMemberId || (entry.actorUserId ? 'MEMBER' : 'SYSTEM')
                   const actorRole = entry.actor?.role || entry.metadata?.role || entry.metadata?.actorRole || (entry.actorUserId ? 'STUDENT' : 'SYSTEM')
@@ -8778,9 +14196,9 @@ function AuditLogView({ user, logout, onNavigate }) {
                         </span>
                       </div>
                       <div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          <b style={{ color: badge.color, fontSize: '11px', letterSpacing: '0.04em' }}>
-                            {entry.action.replaceAll('_', ' ')}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <b style={{ color: badge.color, fontSize: '11px', letterSpacing: '0.02em' }}>
+                            {getFriendlyActionTitle(entry.action)}
                           </b>
                           <span style={{ color: 'var(--text-muted)', fontSize: '11px', lineHeight: 1.4 }}>
                             {summary}
@@ -8798,11 +14216,12 @@ function AuditLogView({ user, logout, onNavigate }) {
                       <div>
                         <button
                           type="button"
-                          className="audit-info-btn"
+                          className="action-btn edit-btn"
                           onClick={() => setSelectedLog(entry)}
+                          style={{ fontSize: '10px', padding: '4px 8px' }}
                           title="Click to view complete details"
                         >
-                          ⓘ
+                          View Details
                         </button>
                       </div>
                     </div>
@@ -8818,7 +14237,6 @@ function AuditLogView({ user, logout, onNavigate }) {
           <div className="photo-lightbox" onClick={() => setClearModalOpen(false)}>
             <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-modal)', padding: '28px', borderRadius: '14px', border: '1px solid #f8717155', maxWidth: '440px', width: '100%' }}>
               <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-                <span style={{ fontSize: '36px' }}>⚠️</span>
                 <h3 style={{ margin: '8px 0 4px', font: '700 20px Syne', color: '#dc2626' }}>Clear Audit Logs</h3>
                 <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>
                   This will purge all previous compliance records from the database. Only the Primary President can execute this.
@@ -8854,21 +14272,35 @@ function AuditLogView({ user, logout, onNavigate }) {
           const actorName = selectedLog.actor?.profile?.name || selectedLog.actor?.name || selectedLog.metadata?.name || (selectedLog.actor?.isPrimaryAdmin ? 'Primary President' : selectedLog.actorUserId ? 'Authorized Member' : 'System Administrator')
           const actorMemberId = selectedLog.actor?.memberId || selectedLog.metadata?.memberId || null
           const actorRole = selectedLog.actor?.role || selectedLog.metadata?.role || null
-          const targetName = selectedLog.target?.profile?.name || selectedLog.target?.name || selectedLog.metadata?.targetName || null
-          const targetMemberId = selectedLog.target?.memberId || selectedLog.metadata?.targetMemberId || null
+          const targetName = selectedLog.target?.profile?.name || selectedLog.target?.name || selectedLog.metadata?.targetName || selectedLog.metadata?.attendeeName || null
+          const targetMemberId = selectedLog.target?.memberId || selectedLog.metadata?.targetMemberId || selectedLog.metadata?.attendeeMemberId || null
           const targetRole = selectedLog.target?.role || selectedLog.metadata?.targetRole || null
           const summary = formatAuditSummary(selectedLog)
+          const friendlyTitle = getFriendlyActionTitle(selectedLog.action)
+
+          // Separate user-facing human parameters from raw internal technical IDs
+          const metaEntries = selectedLog.metadata ? Object.entries(selectedLog.metadata) : []
+          const humanEntries = metaEntries.filter(([k, v]) => {
+            if (TECHNICAL_ID_KEYS.has(k)) return false
+            if (isTechnicalUuid(v)) return false
+            if (k === 'updatedFields' && Array.isArray(v) && v.length === 0) return false
+            return true
+          })
+
+          const technicalRefs = metaEntries.filter(([k, v]) => {
+            return TECHNICAL_ID_KEYS.has(k) || isTechnicalUuid(v)
+          })
 
           return (
             <div className="photo-lightbox" onClick={() => setSelectedLog(null)}>
               <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-modal)', padding: '28px', borderRadius: '14px', border: '1px solid var(--brand-border-subtle)', maxWidth: '640px', width: '100%', maxHeight: '85vh', overflowY: 'auto' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--line)', paddingBottom: '14px', marginBottom: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid var(--line)', paddingBottom: '14px', marginBottom: '16px' }}>
                   <div>
-                    <span className="badge badge-president" style={{ marginBottom: '6px' }}>
+                    <span className="badge badge-president" style={{ marginBottom: '6px', fontSize: '10px' }}>
                       {selectedLog.action}
                     </span>
                     <h3 style={{ margin: '4px 0 0', font: '700 18px Syne', color: 'var(--text-main)' }}>
-                      Audit Event Details
+                      {friendlyTitle}
                     </h3>
                   </div>
                   <button className="lightbox-close" onClick={() => setSelectedLog(null)} style={{ position: 'static' }}>✕</button>
@@ -8877,58 +14309,71 @@ function AuditLogView({ user, logout, onNavigate }) {
                 {/* Member, Action & Timing Grid */}
                 <div className="audit-detail-grid">
                   <div className="audit-detail-field">
-                    <b>MEMBER PROFILE NAME</b>
+                    <b>PERFORMED BY (ADMIN / MEMBER)</b>
                     <p style={{ color: 'var(--text-main)', fontWeight: 600, fontSize: '13px' }}>{actorName}</p>
+                    <small style={{ color: 'var(--brand-primary)', fontFamily: 'DM Mono', fontSize: '11px' }}>
+                      {actorMemberId ? `${actorMemberId} • ${getRoleLabel(actorRole)}` : 'System Automated Operation'}
+                    </small>
                   </div>
                   <div className="audit-detail-field">
-                    <b>MEMBER ID & ROLE</b>
-                    <p style={{ color: 'var(--brand-primary)', fontWeight: 600, fontSize: '13px' }}>
-                      {actorMemberId ? `${actorMemberId} (${getRoleLabel(actorRole)})` : 'SYSTEM ACTION'}
+                    <b>DATE & EXACT RECORDED TIME</b>
+                    <p style={{ color: '#059669', fontFamily: 'DM Mono', fontWeight: 600, fontSize: '12px' }}>
+                      {new Date(selectedLog.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' })}
                     </p>
+                    <small style={{ color: 'var(--text-dim)', fontSize: '10px' }}>Immutable Security Timestamp</small>
                   </div>
-                  <div className="audit-detail-field">
-                    <b>ACTION EVENT</b>
-                    <p style={{ color: '#d97706', fontWeight: 600 }}>{selectedLog.action.replaceAll('_', ' ')}</p>
-                  </div>
-                  <div className="audit-detail-field">
-                    <b>DATE & EXACT TIMING</b>
-                    <p style={{ color: '#059669', fontFamily: 'DM Mono', fontSize: '12px' }}>{new Date(selectedLog.createdAt).toLocaleString()}</p>
-                  </div>
-                  <div className="audit-detail-field" style={{ gridColumn: '1 / -1', background: 'var(--panel-subtle)', padding: '10px 14px', borderRadius: '6px', border: '1px solid var(--brand-border-subtle)' }}>
-                    <b style={{ color: 'var(--brand-primary)' }}>CHANGES / ACTIVITY SUMMARY</b>
-                    <p style={{ margin: '4px 0 0', color: 'var(--text-main)', fontSize: '12px', lineHeight: 1.5 }}>
-                      {summary}
-                    </p>
-                  </div>
+
                   {targetMemberId && (
-                    <div className="audit-detail-field" style={{ gridColumn: '1 / -1', background: 'var(--panel-subtle)', padding: '10px 14px', borderRadius: '6px', border: '1px solid var(--line)' }}>
-                      <b style={{ color: '#d97706' }}>TARGET MEMBER ACTION APPLIED TO</b>
-                      <p style={{ margin: '4px 0 0', color: 'var(--text-main)', fontSize: '12px' }}>
-                        <b>{targetName || targetMemberId}</b> ({targetMemberId}) · <span style={{ color: 'var(--brand-primary)' }}>{getRoleLabel(targetRole)}</span>
+                    <div className="audit-detail-field" style={{ gridColumn: '1 / -1', background: 'var(--panel-subtle)', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+                      <b style={{ color: '#d97706', fontSize: '10px' }}>APPLIED TO TARGET STUDENT / ATTENDEE</b>
+                      <p style={{ margin: '4px 0 0', color: 'var(--text-main)', fontSize: '13px', fontWeight: 600 }}>
+                        {targetName || targetMemberId} <span style={{ color: 'var(--brand-primary)', fontFamily: 'DM Mono', fontSize: '11px', fontWeight: 'normal' }}>({targetMemberId})</span>
+                        {targetRole && <span className="badge" style={{ marginLeft: '8px', fontSize: '9px' }}>{getRoleLabel(targetRole)}</span>}
                       </p>
                     </div>
                   )}
+
+                  <div className="audit-detail-field" style={{ gridColumn: '1 / -1', background: 'var(--panel-subtle)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--brand-border-subtle)' }}>
+                    <b style={{ color: 'var(--brand-primary)', fontSize: '10px', letterSpacing: '0.06em' }}>ACTIVITY NARRATIVE & SUMMARY</b>
+                    <p style={{ margin: '6px 0 0', color: 'var(--text-main)', fontSize: '13px', lineHeight: 1.6, fontWeight: 500 }}>
+                      {summary}
+                    </p>
+                  </div>
                 </div>
 
-                {/* Metadata Key-Value Breakdown */}
-                <b style={{ color: 'var(--brand-primary)', fontSize: '12px', display: 'block', margin: '14px 0 6px' }}>FULL PARAMETERS & RECORDED DATA:</b>
-                {selectedLog.metadata && Object.keys(selectedLog.metadata).length > 0 ? (
-                  <table className="audit-meta-table">
-                    <tbody>
-                      {Object.entries(selectedLog.metadata).map(([k, v]) => (
-                        <tr key={k}>
-                          <td>{formatMetaKey(k)}</td>
-                          <td>{formatMetaValue(v)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <p style={{ color: 'var(--text-dim)', fontSize: '12px', margin: '8px 0' }}>No extra parameters recorded for this operation.</p>
+                {/* Clear Human-Readable Parameters Breakdown */}
+                {humanEntries.length > 0 && (
+                  <div style={{ marginTop: '16px' }}>
+                    <b style={{ color: 'var(--brand-primary)', fontSize: '11px', letterSpacing: '0.04em', display: 'block', marginBottom: '8px' }}>
+                      RECORDED EVENT PARAMETERS:
+                    </b>
+                    <table className="audit-meta-table">
+                      <tbody>
+                        {humanEntries.map(([k, v]) => (
+                          <tr key={k}>
+                            <td>{formatMetaKey(k)}</td>
+                            <td>{formatMetaValue(v, k)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Technical References (Neat and Unobtrusive) */}
+                {technicalRefs.length > 0 && (
+                  <div style={{ marginTop: '14px', padding: '8px 12px', background: 'var(--panel-subtle)', borderRadius: '6px', border: '1px solid var(--line)', display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+                    <small style={{ color: 'var(--text-dim)', fontSize: '10px', fontWeight: 600 }}>System Reference Keys:</small>
+                    {technicalRefs.map(([k, v]) => (
+                      <span key={k} style={{ fontFamily: 'DM Mono, monospace', fontSize: '10px', padding: '2px 6px', borderRadius: '4px', background: 'var(--bg-input)', color: 'var(--brand-primary)', border: '1px solid var(--line)' }}>
+                        {formatMetaKey(k)}: #{String(v).slice(0, 8)}
+                      </span>
+                    ))}
+                  </div>
                 )}
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
-                  <button type="button" className="primary" onClick={() => setSelectedLog(null)} style={{ minHeight: '36px' }}>
+                  <button type="button" className="primary" onClick={() => setSelectedLog(null)} style={{ minHeight: '38px', padding: '0 20px' }}>
                     CLOSE DETAILS
                   </button>
                 </div>
@@ -8996,7 +14441,7 @@ function CouncilChatView({ user, logout, onNavigate }) {
             <p>Exclusive internal communications room for club leads, coordinators, and the President.</p>
           </div>
           <span className="president-lock" style={{ background: '#1c182d', color: '#d5baff', borderColor: '#d5baff44' }}>
-            🛡️ LEADS ONLY
+            LEADS ONLY
           </span>
         </div>
 
@@ -9080,14 +14525,11 @@ function App() {
   const [screen, setScreen] = useState(resetToken ? 'reset-password' : 'login')
   const [checkingSession, setCheckingSession] = useState(true)
 
-  // Platform Mode & Theme System
+  // Platform Mode & Permanent Light Theme
   const [platformMode, setPlatformMode] = useState('CYBER_SECURITY_CLUB')
-  const [themeMode, setThemeModeState] = useState(() => {
-    return localStorage.getItem('app-theme-preference') || 'system'
-  })
-  const [systemDark, setSystemDark] = useState(() => {
-    return typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-  })
+  const themeMode = 'light'
+  const resolvedTheme = 'light'
+  const setThemeMode = () => {}
 
   // Experience & System flags
   const [showIntroVideo, setShowIntroVideo] = useState(false)
@@ -9095,16 +14537,20 @@ function App() {
   const [isHibernating, setIsHibernating] = useState(false)
   const [adminLoginModal, setAdminLoginModal] = useState(false)
 
-  // Listen to OS theme changes
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return
-    const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    const handler = e => setSystemDark(e.matches)
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
-  }, [])
+  // Shared Club Settings state with persistent local caching to prevent UI popping/flickering
+  const [clubSettings, setClubSettings] = useState(() => {
+    try {
+      const stored = localStorage.getItem('cached_club_settings')
+      if (stored) return JSON.parse(stored)
+    } catch (e) {}
+    return null
+  })
 
-  // Fetch initial public club settings to get current platformMode (for students, guests, and admins)
+  // Synchronously compute reelsEnabled and subEnabled from cache/network
+  const reelsEnabled = clubSettings ? (clubSettings.reelsEnabled !== false && clubSettings.reelsEnabled !== 'false') : true
+  const subEnabled = clubSettings ? (clubSettings.subscriptionEnabled === true || clubSettings.subscriptionEnabled === 'true') : false
+
+  // Fetch initial public club settings to get current platformMode, reels, subscriptions
   useEffect(() => {
     let mounted = true
     authApi.getPublicSettings()
@@ -9112,51 +14558,46 @@ function App() {
         if (!mounted || !dict) return
         if (dict.platformMode) setPlatformMode(dict.platformMode)
         if (dict.siteStatus === 'HIBERNATING') setIsHibernating(true)
+        setClubSettings(dict)
+        try {
+          localStorage.setItem('cached_club_settings', JSON.stringify(dict))
+        } catch (e) {}
       })
       .catch(() => {})
     return () => { mounted = false }
   }, [])
 
-  const resolvedTheme = useMemo(() => {
-    if (themeMode === 'light') return 'light'
-    if (themeMode === 'dark') return 'dark'
-    return systemDark ? 'dark' : 'light'
-  }, [themeMode, systemDark])
-
-  const setThemeMode = (mode) => {
-    setThemeModeState(mode)
-    try {
-      localStorage.setItem('app-theme-preference', mode)
-    } catch {}
-  }
-
-  // Synchronize document attributes
+  // Synchronize document attributes (permanently locked to light mode)
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', resolvedTheme)
-  }, [resolvedTheme])
+    document.documentElement.setAttribute('data-theme', 'light')
+  }, [])
 
   useEffect(() => {
     document.documentElement.setAttribute('data-platform', platformMode)
   }, [platformMode])
 
   function getScreenFromPath(role) {
-    const path = window.location.pathname.replace(/^\//, '')
+    const path = window.location.pathname.replace(/^\//, '').replace(/\/$/, '')
     if (path.startsWith('event-detail/')) return path
     if (['events', 'student-events'].includes(path)) return 'student-events'
-    if (['registrations', 'student-registrations'].includes(path)) return 'student-registrations'
+    if (['passes', 'student-passes', 'my-passes', 'registrations', 'student-registrations'].includes(path)) {
+      return role === 'STUDENT' ? 'student-passes' : 'admin-passes'
+    }
+    if (['reels', 'student-reels'].includes(path)) return 'student-reels'
     if (['membership', 'student-membership'].includes(path)) return 'student-membership'
     if (['support', 'student-support'].includes(path)) return 'student-support'
     if (['team', 'student-team'].includes(path)) return 'student-team'
     if (['gallery', 'student-gallery'].includes(path)) return 'student-gallery'
-    if (['profile', 'student-profile'].includes(path)) return 'student-profile'
+    if (['profile', 'student-profile'].includes(path)) return role === 'STUDENT' ? 'student-profile' : 'admin-profile'
     if (['security'].includes(path)) return 'security'
     if (['admin/members', 'admin-members'].includes(path)) return 'admin-members'
     if (['admin/qr-scanner', 'admin-qr-scanner', 'qr-scanner', 'gate'].includes(path)) return 'admin-qr-scanner'
     if (['admin/events', 'admin-events'].includes(path)) return 'admin-events'
-    if (['admin/payments', 'admin-payments'].includes(path)) return 'admin-payments'
+    if (['admin/passes', 'admin-passes', 'admin/payments', 'admin-payments'].includes(path)) return 'admin-passes'
     if (['admin/subscriptions', 'admin-subscriptions'].includes(path)) return 'admin-subscriptions'
     if (['admin/support', 'admin-support'].includes(path)) return 'admin-support'
     if (['admin/chat', 'admin-chat'].includes(path)) return 'admin-chat'
+    if (['admin/reels', 'admin-reels'].includes(path)) return 'admin-reels'
     if (['admin/team', 'admin-team'].includes(path)) return 'admin-team'
     if (['admin/gallery', 'admin-gallery'].includes(path)) return 'admin-gallery'
     if (['admin/settings', 'admin-settings'].includes(path)) return 'admin-settings'
@@ -9167,7 +14608,18 @@ function App() {
 
   function navigateTo(nextScreen) {
     setScreen(nextScreen)
-    const urlPath = nextScreen.startsWith('event-detail/') ? `/${nextScreen}` : `/${nextScreen.replace('admin-', 'admin/').replace('student-', '')}`
+    let urlPath = nextScreen
+    if (nextScreen.startsWith('event-detail/')) {
+      urlPath = `/${nextScreen}`
+    } else if (nextScreen === 'student-passes' || nextScreen === 'student-registrations') {
+      urlPath = '/passes'
+    } else if (nextScreen.startsWith('admin-')) {
+      urlPath = `/${nextScreen.replace('admin-', 'admin/')}`
+    } else if (nextScreen.startsWith('student-')) {
+      urlPath = `/${nextScreen.replace('student-', '')}`
+    } else {
+      urlPath = `/${nextScreen}`
+    }
     window.history.pushState({}, '', urlPath)
   }
 
@@ -9289,11 +14741,12 @@ function App() {
         if (screen === 'admin-members') return <MemberManagement user={user} logout={logout} onNavigate={navigateTo} />
         if (screen === 'admin-qr-scanner') return <AdminQrScanner user={user} logout={logout} onNavigate={navigateTo} />
         if (screen === 'admin-events') return <EventManagement user={user} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-payments') return <PaymentManagement user={user} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-payments' || screen === 'admin-passes' || screen === 'passes') return <PaymentManagement user={user} logout={logout} onNavigate={navigateTo} />
         if (screen === 'admin-subscriptions') return <SubscriptionManagement user={user} logout={logout} onNavigate={navigateTo} />
         if (screen === 'admin-support') return <SupportDeskView user={user} logout={logout} onNavigate={navigateTo} />
         if (screen === 'admin-chat') return <CouncilChatView user={user} logout={logout} onNavigate={navigateTo} />
         if (screen === 'admin-gallery') return <GalleryManagement user={user} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-reels') return <ReelsManagement user={user} logout={logout} onNavigate={navigateTo} />
         if (screen === 'admin-team') return <TeamManagement user={user} logout={logout} onNavigate={navigateTo} />
         if (screen === 'admin-settings') return <ClubSettingsManager user={user} logout={logout} onNavigate={navigateTo} />
         if (screen === 'admin-audit') return <AuditLogView user={user} logout={logout} onNavigate={navigateTo} />
@@ -9304,7 +14757,8 @@ function App() {
 
       // Student Screens
       if (screen === 'student-events') return <StudentEvents user={user} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'student-registrations') return <StudentRegistrations user={user} logout={logout} onNavigate={navigateTo} />
+      if (screen === 'student-passes' || screen === 'student-registrations' || screen === 'passes') return <StudentRegistrations user={user} logout={logout} onNavigate={navigateTo} />
+      if (screen === 'student-reels') return <StudentReels user={user} logout={logout} onNavigate={navigateTo} />
       if (screen === 'student-membership') return <StudentMembership user={user} logout={logout} onNavigate={navigateTo} />
       if (screen === 'student-support') return <SupportDeskView user={user} logout={logout} onNavigate={navigateTo} />
       if (screen === 'student-team') return <OurTeamShowcase user={user} logout={logout} onNavigate={navigateTo} />
@@ -9317,7 +14771,17 @@ function App() {
   }
 
   return (
-    <PlatformThemeContext.Provider value={{ platformMode, setPlatformMode, themeMode, setThemeMode, resolvedTheme }}>
+    <PlatformThemeContext.Provider value={{
+      platformMode,
+      setPlatformMode,
+      themeMode,
+      setThemeMode,
+      resolvedTheme,
+      clubSettings,
+      setClubSettings,
+      reelsEnabled,
+      subEnabled,
+    }}>
       {renderContent()}
     </PlatformThemeContext.Provider>
   )

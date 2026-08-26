@@ -115,12 +115,13 @@ export async function downloadIdPass(student) {
 
   ctx.fillStyle = '#6586a1'
   ctx.font = '600 11px monospace'
-  ctx.fillText('BRANCH & SPECIALIZATION', 55, 310)
+  ctx.fillText('BRANCH, YEAR & SPECIALIZATION', 55, 310)
 
   ctx.fillStyle = '#e1effa'
   ctx.font = '500 16px sans-serif'
   const specText = student.specialization ? ` (${student.specialization})` : ''
-  ctx.fillText(`${student.branch || 'CSE'}${specText}`, 55, 336)
+  const yearText = student.year ? ` · Year ${student.year}` : ''
+  ctx.fillText(`${student.branch || 'CSE'}${yearText}${specText}`, 55, 336)
 
   // Right Column: Official Credentials Box
   const credX = 540
@@ -143,7 +144,7 @@ export async function downloadIdPass(student) {
   ctx.fillRect(credX, credY, credW, 42)
   ctx.fillStyle = '#85d7ff'
   ctx.font = 'bold 12px monospace'
-  ctx.fillText('🔑 OFFICIAL PORTAL CREDENTIALS', credX + 20, credY + 26)
+  ctx.fillText('[ ACCESS ] OFFICIAL PORTAL CREDENTIALS', credX + 20, credY + 26)
 
   // Member ID Box
   ctx.fillStyle = '#7e9db8'
@@ -178,9 +179,9 @@ export async function downloadIdPass(student) {
   // Security Note in Box
   ctx.fillStyle = '#9cb6cc'
   ctx.font = '11px sans-serif'
-  ctx.fillText('⚠️ Please store this pass securely offline.', credX + 20, credY + 265)
-  ctx.fillText('Do not share your login credentials with anyone.', credX + 20, credY + 285)
-  ctx.fillText('Use these credentials to sign in anytime at the login page.', credX + 20, credY + 305)
+  ctx.fillText('• Please store this pass securely offline.', credX + 20, credY + 265)
+  ctx.fillText('• Do not share your login credentials with anyone.', credX + 20, credY + 285)
+  ctx.fillText('• Use these credentials to sign in anytime at the login page.', credX + 20, credY + 305)
 
   // Left Column Notice Box
   ctx.fillStyle = 'rgba(25, 45, 70, 0.4)'

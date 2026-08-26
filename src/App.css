@@ -22,8 +22,8 @@
   --panel-subtle: #09111b;
   --line: rgba(177, 209, 235, .13);
   --line-strong: rgba(177, 209, 235, .25);
-  --white: #edf7ff;
-  --muted: #8093a5;
+  --white: #ffffff;
+  --muted: #cbd5e1;
   --blue: #52bbf5;
   --green: #70ddb4;
   --radius: 14px;
@@ -36,9 +36,9 @@
   --bg-card-alt: #09121d;
   --bg-input: #050a12;
   --bg-modal: #0d1522;
-  --text-main: #edf7ff;
-  --text-muted: #8093a5;
-  --text-dim: #556879;
+  --text-main: #f8fafc;
+  --text-muted: #cbd5e1;
+  --text-dim: #94a3b8;
   --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.35);
   --shadow-modal: 0 24px 60px rgba(0, 0, 0, 0.7);
 }
@@ -125,6 +125,52 @@
   --brand-hero-bg: radial-gradient(ellipse at 50% 15%, rgba(220, 38, 38, 0.14), transparent 70%);
 }
 
+/* Light Theme Component Polish */
+[data-theme="light"] .login-page {
+  background: radial-gradient(circle at 50% 10%, rgba(2, 132, 199, 0.08) 0%, #f8fafc 70%);
+}
+
+[data-theme="light"][data-platform="MRDU_EVENTS"] .login-page {
+  background: radial-gradient(circle at 50% 10%, rgba(183, 28, 28, 0.08) 0%, #f8fafc 70%);
+}
+
+[data-theme="light"] .login-card {
+  background: #ffffff;
+  border: 1px solid rgba(2, 132, 199, 0.22);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(2, 132, 199, 0.08);
+}
+
+[data-theme="light"][data-platform="MRDU_EVENTS"] .login-card {
+  background: #ffffff;
+  border: 1px solid rgba(183, 28, 28, 0.25);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(183, 28, 28, 0.08);
+}
+
+[data-theme="light"] .login-input-wrapper input {
+  background: #f8fafc;
+  border: 1px solid rgba(20, 45, 80, 0.18);
+  color: #0f172a;
+}
+
+[data-theme="light"] .login-input-wrapper input:focus {
+  background: #ffffff;
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+}
+
+[data-theme="light"] .login-field-group label {
+  color: #334155;
+}
+
+[data-theme="light"] .account-form-card,
+[data-theme="light"] .panel,
+[data-theme="light"] .card,
+[data-theme="light"] .table-card {
+  background: #ffffff;
+  border: 1px solid rgba(20, 45, 80, 0.12);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -192,9 +238,11 @@ body {
    PORTAL & SIDEBAR RESPONSIVE LAYOUT (CLEAN & NON-OVERLAPPING)
    ========================================================================== */
 .portal {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   width: 100%;
+  max-width: 100vw;
+  overflow: hidden;
   color: var(--text-main);
   background: var(--bg-portal);
   position: relative;
@@ -204,10 +252,8 @@ body {
 .sidebar {
   width: 250px;
   min-width: 250px;
-  min-height: 100vh;
-  position: sticky;
-  top: 0;
   height: 100vh;
+  flex-shrink: 0;
   padding: 24px 14px 18px;
   display: flex;
   flex-direction: column;
@@ -220,8 +266,12 @@ body {
 
 .workspace {
   flex: 1;
+  width: 100%;
   min-width: 0;
-  min-height: 100vh;
+  max-width: 100%;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
   background: var(--bg-workspace);
   display: flex;
   flex-direction: column;
@@ -1213,6 +1263,13 @@ body {
   margin-bottom: 20px;
 }
 
+.settings-section-card p {
+  color: #cbd5e1;
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0 0 16px;
+}
+
 .settings-card-header {
   display: flex;
   justify-content: space-between;
@@ -1225,9 +1282,9 @@ body {
 }
 
 .settings-card-header h3 {
-  margin: 0;
-  font: 700 16px Syne;
-  color: #edf7ff;
+  margin: 4px 0 0;
+  font: 700 17px Syne;
+  color: #f8fafc;
 }
 
 .toggle-switch-container {
@@ -1262,10 +1319,9 @@ body {
    MEMBER & EVENT FORMS
    ========================================================================== */
 .member-management-grid, .event-management-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(320px, .85fr);
+  display: flex;
+  flex-direction: column;
   gap: 20px;
-  align-items: start;
 }
 
 .account-form-card, .member-list-card {
@@ -1920,11 +1976,34 @@ body {
   position: absolute;
   inset: 0;
   background-image: 
-    linear-gradient(rgba(82, 187, 245, 0.04) 1px, transparent 1px), 
-    linear-gradient(90deg, rgba(82, 187, 245, 0.04) 1px, transparent 1px);
+    linear-gradient(rgba(82, 187, 245, 0.05) 1px, transparent 1px), 
+    linear-gradient(90deg, rgba(82, 187, 245, 0.05) 1px, transparent 1px);
   background-size: 36px 36px;
-  mask-image: radial-gradient(circle at center, #000 40%, transparent 85%);
+  background-position: var(--ox, 0px) var(--oy, 0px);
+  mask-image: radial-gradient(ellipse 70% 70% at var(--gx, 50%) var(--gy, 40%), #000 30%, transparent 85%);
   pointer-events: none;
+  transition: background-position 0.08s ease, mask-image 0.12s ease;
+  will-change: background-position, mask-image;
+}
+
+[data-platform="MRDU_EVENTS"] .grid-overlay {
+  background-image: 
+    linear-gradient(rgba(211, 47, 47, 0.06) 1px, transparent 1px), 
+    linear-gradient(90deg, rgba(211, 47, 47, 0.06) 1px, transparent 1px);
+}
+
+.login-showcase-spotlight {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle 280px at var(--gx, 50%) var(--gy, 40%), rgba(82, 187, 245, 0.07) 0%, transparent 70%);
+  pointer-events: none;
+  transition: background 0.12s ease;
+  will-change: background;
+  z-index: 1;
+}
+
+[data-platform="MRDU_EVENTS"] .login-showcase-spotlight {
+  background: radial-gradient(circle 280px at var(--gx, 50%) var(--gy, 40%), rgba(211, 47, 47, 0.09) 0%, transparent 70%);
 }
 
 .login-panel {
@@ -1942,18 +2021,74 @@ body {
   width: 100%;
   max-width: 420px;
   padding: 36px 32px;
-  background: rgba(13, 21, 34, 0.88);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(82, 187, 245, 0.2);
-  border-radius: 18px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65), 0 0 35px rgba(82, 187, 245, 0.06);
+  background: radial-gradient(circle 380px at var(--card-x, 50%) var(--card-y, 30%), rgba(82, 187, 245, 0.12) 0%, rgba(13, 21, 34, 0.92) 85%);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(82, 187, 245, 0.22);
+  border-radius: 20px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 45px rgba(82, 187, 245, 0.09);
   position: relative;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  overflow: hidden;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.login-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 10%;
+  right: 10%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--brand-primary), transparent);
+  box-shadow: 0 0 12px var(--brand-primary);
+  pointer-events: none;
+  z-index: 3;
+}
+
+[data-platform="MRDU_EVENTS"] .login-card {
+  background: radial-gradient(circle 380px at var(--card-x, 50%) var(--card-y, 30%), rgba(211, 47, 47, 0.15) 0%, rgba(18, 14, 20, 0.94) 85%);
+  border-color: rgba(211, 47, 47, 0.28);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.8), 0 0 45px rgba(211, 47, 47, 0.1);
 }
 
 .login-card:hover {
-  border-color: rgba(82, 187, 245, 0.32);
+  border-color: rgba(82, 187, 245, 0.45);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.8), 0 0 55px rgba(82, 187, 245, 0.15);
+}
+
+[data-platform="MRDU_EVENTS"] .login-card:hover {
+  border-color: rgba(211, 47, 47, 0.5);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.85), 0 0 55px rgba(211, 47, 47, 0.18);
+}
+
+.login-card-spotlight {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle 240px at var(--card-x, 50%) var(--card-y, 30%), rgba(82, 187, 245, 0.08) 0%, transparent 80%);
+  pointer-events: none;
+  z-index: 1;
+  transition: background 0.08s ease;
+}
+
+[data-platform="MRDU_EVENTS"] .login-card-spotlight {
+  background: radial-gradient(circle 240px at var(--card-x, 50%) var(--card-y, 30%), rgba(211, 47, 47, 0.1) 0%, transparent 80%);
+}
+
+.login-card-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 24px;
+  position: relative;
+  z-index: 2;
+}
+
+.login-card-mobile-crest {
+  display: none;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 12px;
 }
 
 .login-field-group {
@@ -2038,10 +2173,14 @@ body {
 }
 
 /* ==========================================================================
-   MEDIA QUERIES (MOBILE, TABLET, DESKTOP)
+   MEDIA QUERIES (MOBILE, TABLET, DESKTOP) - PREMIUM & ZERO OVERFLOW
    ========================================================================== */
 @media (max-width: 960px) {
   .member-management-grid, .event-management-grid, .event-detail-hero {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .settings-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -2049,32 +2188,58 @@ body {
 @media (max-width: 900px) {
   .login-page {
     grid-template-columns: 1fr;
+    width: 100vw;
+    max-width: 100%;
+    overflow-x: hidden;
   }
   .login-showcase {
     display: none;
   }
+  .login-card-mobile-crest {
+    display: flex;
+  }
   .login-panel {
     min-height: 100vh;
-    padding: 30px 16px;
+    padding: 24px 16px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .login-card {
+    max-width: 440px;
+    margin: 0 auto;
+    width: 100%;
   }
 }
 
 @media (max-width: 860px) {
   .mobile-nav-toggle {
     display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 40px;
+    min-height: 40px;
+    border-radius: 8px;
+    background: var(--bg-input);
+    border: 1px solid var(--line);
+    color: var(--brand-primary);
   }
 
   .sidebar {
     position: fixed !important;
     inset: 0 auto 0 0 !important;
-    width: 280px !important;
+    width: min(300px, 85vw) !important;
     height: 100vh !important;
+    height: 100dvh !important;
     z-index: 1000 !important;
     transform: translateX(-100%);
-    transition: transform .25s ease;
-    background: #070c14 !important;
-    border-right: 1px solid var(--line) !important;
-    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.8);
+    transition: transform .28s cubic-bezier(0.4, 0, 0.2, 1);
+    background: rgba(8, 14, 23, 0.97) !important;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-right: 1px solid var(--brand-border-subtle) !important;
+    box-shadow: 14px 0 40px rgba(0, 0, 0, 0.85);
+    overflow-y: auto;
   }
 
   .sidebar.open {
@@ -2083,46 +2248,186 @@ body {
 
   .sidebar-overlay.active {
     display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    z-index: 999;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+
+  .sidebar nav button, .side-bottom button {
+    height: 46px;
+    font-size: 13px;
+    padding: 0 14px;
+    border-radius: 10px;
   }
 
   .header {
-    padding: 0 16px;
+    height: 64px;
+    min-height: 64px;
+    padding: 0 14px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .header b {
+    font-size: 11.5px;
+    letter-spacing: .05em;
+  }
+
+  .header small {
+    display: none;
   }
 
   .dashboard {
-    padding: 20px 16px 60px;
+    padding: 18px 12px 60px;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
+  }
+
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
   }
 
   .sub-stats-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
   }
 
   .hibernation-timer-grid {
     grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .event-cards, .gallery-grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+    gap: 14px;
   }
 }
 
-@media (max-width: 520px) {
-  .sub-stats-grid {
-    grid-template-columns: 1fr;
+@media (max-width: 640px) {
+  .header-tools {
+    gap: 6px;
   }
 
-  .member-form-grid {
-    grid-template-columns: 1fr;
+  /* Make profile button on mobile compact avatar-only */
+  .profile-button {
+    padding: 4px !important;
+    border-radius: 50% !important;
   }
 
-  .stats {
-    grid-template-columns: 1fr;
+  .profile-button div {
+    display: none !important;
+  }
+
+  .quick-theme-toggle {
+    padding: 6px 8px !important;
+    font-size: 10px !important;
+  }
+
+  .quick-theme-toggle span {
+    display: none !important;
   }
 
   .welcome {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
+    padding: 18px 16px;
+    gap: 14px;
+  }
+
+  .welcome div:last-child {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .welcome div:last-child button {
+    width: 100%;
+    justify-content: center;
+    min-height: 42px;
+  }
+
+  .welcome h1 {
+    font-size: 20px;
+    margin: 4px 0 6px;
+  }
+
+  .welcome p {
+    font-size: 12px;
+  }
+
+  .event-heading h1, .section-title h2 {
+    font-size: 20px;
+  }
+
+  .member-list-card, .account-form-card, .event-card-box, .album-card-box {
+    padding: 16px !important;
+    border-radius: 14px !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Prevent iOS Safari / mobile browser automatic zooming on inputs */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
+  input[type="text"], input[type="email"], input[type="password"], input[type="tel"], select {
+    min-height: 44px;
+  }
+
+  .primary, .outline, .action-btn {
+    min-height: 42px;
+  }
+
+  .photo-lightbox-content {
+    width: calc(100vw - 20px) !important;
+    max-width: 100% !important;
+    padding: 18px 14px !important;
+    margin: 10px auto !important;
   }
 
   .settings-card-header {
     flex-direction: column;
     align-items: flex-start;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .stat {
+    padding: 14px 16px;
+  }
+
+  .sub-stats-grid, .hibernation-timer-grid, .member-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .event-cards, .gallery-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .event-filter-bar {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .event-filter-bar .filter-pill {
+    flex-shrink: 0;
   }
 }
 
@@ -3271,6 +3576,523 @@ body {
   color: #0f172a;
 }
 
+@keyframes reelHeartPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.35);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.45);
+  }
+}
+
+/* ==========================================================================
+   EVENT BUILDER PROFESSIONAL OPTION BOXES & WIZARD STYLES
+   ========================================================================== */
+.event-builder-box {
+  background: var(--panel-subtle, rgba(13, 21, 34, 0.65));
+  border: 1px solid var(--line, rgba(82, 187, 245, 0.15));
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 18px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.event-builder-box-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: 700 11px 'DM Mono', monospace;
+  letter-spacing: 0.08em;
+  color: var(--brand-primary);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.event-mode-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 640px) {
+  .event-mode-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.event-mode-card {
+  position: relative;
+  padding: 16px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+  background: var(--bg-input, #060b13);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+.event-mode-card:hover {
+  border-color: var(--brand-primary);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.event-mode-card.selected {
+  border-color: var(--brand-primary);
+  background: rgba(82, 187, 245, 0.08);
+  box-shadow: 0 0 0 1px var(--brand-primary), 0 8px 24px rgba(82, 187, 245, 0.15);
+}
+
+.event-mode-card.selected-free {
+  border-color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+  box-shadow: 0 0 0 1px #10b981, 0 8px 24px rgba(16, 185, 129, 0.15);
+}
+
+.event-mode-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.event-mode-card-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--panel-subtle, rgba(255, 255, 255, 0.05));
+  color: var(--brand-primary);
+  border: 1px solid var(--line);
+}
+
+.event-mode-card.selected-free .event-mode-card-icon {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+.event-mode-radio {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.event-mode-card.selected .event-mode-radio {
+  border-color: var(--brand-primary);
+  background: var(--brand-primary);
+}
+
+.event-mode-card.selected-free .event-mode-radio {
+  border-color: #10b981;
+  background: #10b981;
+}
+
+.event-mode-radio-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+}
+
+.event-mode-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-main);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.event-mode-desc {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* QR Code & File Upload Dropzone */
+.event-qr-upload-zone {
+  border: 1.5px dashed var(--line);
+  border-radius: 10px;
+  padding: 18px 20px;
+  background: var(--bg-input, #060b13);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.event-qr-upload-zone:hover {
+  border-color: var(--brand-primary);
+  background: rgba(82, 187, 245, 0.04);
+}
+
+.event-qr-preview-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--panel-subtle, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--line);
+  margin-top: 10px;
+}
+
+.event-qr-thumb {
+  width: 54px;
+  height: 54px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  background: #ffffff;
+}
+
+[data-theme="light"] .event-builder-box {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] .event-mode-card {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .event-mode-card:hover {
+  background: #ffffff;
+  border-color: #0284c7;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .event-mode-card.selected {
+  background: #f0f9ff;
+  border-color: #0284c7;
+  box-shadow: 0 0 0 1px #0284c7, 0 8px 20px rgba(2, 132, 199, 0.12);
+}
+
+[data-theme="light"] .event-mode-card.selected-free {
+  background: #f0fdf4;
+  border-color: #10b981;
+  box-shadow: 0 0 0 1px #10b981, 0 8px 20px rgba(16, 185, 129, 0.12);
+}
+
+[data-theme="light"] .event-mode-card-icon {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+}
+
+[data-theme="light"] .event-qr-upload-zone {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+[data-theme="light"] .event-qr-upload-zone:hover {
+  background: #f0f9ff;
+  border-color: #0284c7;
+}
+
+[data-theme="light"] .event-qr-preview-card {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
 
 
+
+/* ==========================================================================
+   MRDU EVENTS — FULL RED THEME OVERRIDES
+   Converts every hardcoded blue/cyan element to the MRDU red palette.
+   This block must remain at the very end of the file so it wins specificity.
+   ========================================================================== */
+
+/* ---- Icon filters: blue hue → red hue ---- */
+[data-platform="MRDU_EVENTS"][data-theme='dark'] .icon8-img {
+  filter: brightness(0) invert(0.92) drop-shadow(0 0 5px rgba(211, 47, 47, 0.45));
+}
+
+[data-platform="MRDU_EVENTS"][data-theme='dark'] .sidebar nav button:hover .icon8-img,
+[data-platform="MRDU_EVENTS"][data-theme='dark'] .side-bottom button:hover .icon8-img {
+  filter: brightness(0) invert(1) drop-shadow(0 0 8px rgba(211, 47, 47, 0.95));
+}
+
+[data-platform="MRDU_EVENTS"][data-theme='dark'] .sidebar nav .active .icon8-img {
+  filter: brightness(0) invert(0.55) sepia(1) saturate(8) hue-rotate(345deg) brightness(1.15)
+          drop-shadow(0 0 10px #d32f2f);
+}
+
+/* ---- Sidebar active indicator bar & text ---- */
+[data-platform="MRDU_EVENTS"] .sidebar nav .active {
+  color: #ff9a9a;
+  background: linear-gradient(90deg, rgba(211, 47, 47, 0.22), transparent);
+}
+
+[data-platform="MRDU_EVENTS"] .sidebar nav .active:before {
+  background: var(--brand-primary);
+  box-shadow: 0 0 9px var(--brand-primary);
+}
+
+[data-platform="MRDU_EVENTS"] .sidebar nav button:hover,
+[data-platform="MRDU_EVENTS"] .side-bottom button:hover {
+  color: #ffcdd2;
+  background: rgba(211, 47, 47, 0.1);
+}
+
+/* ---- Mobile sidebar toggle ---- */
+[data-platform="MRDU_EVENTS"] .sidebar-toggle {
+  color: var(--brand-badge-color);
+}
+
+/* ---- Badge president ---- */
+[data-platform="MRDU_EVENTS"] .badge-president {
+  background: var(--brand-badge-bg);
+  color: var(--brand-badge-color);
+  border: 1px solid var(--brand-border-subtle);
+}
+
+/* ---- Sub-stat card blue icon ---- */
+[data-platform="MRDU_EVENTS"] .sub-stat-card.blue > i {
+  background: rgba(211, 47, 47, 0.12);
+  color: var(--brand-primary);
+}
+
+/* ---- Audit tabs ---- */
+[data-platform="MRDU_EVENTS"] .audit-tab-btn:hover {
+  border-color: rgba(211, 47, 47, 0.45);
+}
+
+[data-platform="MRDU_EVENTS"] .audit-tab-btn.active {
+  background: rgba(211, 47, 47, 0.1);
+  color: var(--brand-badge-color);
+  border-color: var(--brand-primary);
+}
+
+[data-platform="MRDU_EVENTS"] .audit-table-row:hover {
+  border-color: var(--brand-border-subtle);
+}
+
+[data-platform="MRDU_EVENTS"] .audit-info-btn {
+  background: rgba(211, 47, 47, 0.08);
+  border: 1px solid rgba(211, 47, 47, 0.25);
+  color: var(--brand-badge-color);
+}
+
+[data-platform="MRDU_EVENTS"] .audit-info-btn:hover {
+  background: rgba(211, 47, 47, 0.18);
+  border-color: var(--brand-primary);
+}
+
+[data-platform="MRDU_EVENTS"] .audit-meta-table td:last-child {
+  color: var(--brand-badge-color);
+}
+
+/* ---- Hibernation card ---- */
+[data-platform="MRDU_EVENTS"] .hibernation-card {
+  border: 1px solid var(--brand-border-subtle);
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.8), 0 0 30px var(--brand-glow);
+}
+
+[data-platform="MRDU_EVENTS"] .hibernation-timer-box {
+  border: 1px solid var(--brand-border-subtle);
+}
+
+[data-platform="MRDU_EVENTS"] .timer-block {
+  border: 1px solid var(--brand-border-subtle);
+}
+
+[data-platform="MRDU_EVENTS"] .timer-num {
+  color: var(--brand-badge-color);
+}
+
+[data-platform="MRDU_EVENTS"] .hibernation-admin-btn {
+  background: rgba(211, 47, 47, 0.08);
+  border: 1px solid rgba(211, 47, 47, 0.35);
+  color: var(--brand-badge-color);
+}
+
+[data-platform="MRDU_EVENTS"] .hibernation-admin-btn:hover {
+  background: rgba(211, 47, 47, 0.2);
+  border-color: var(--brand-primary);
+  color: #fff;
+}
+
+/* ---- Lightbox ---- */
+[data-platform="MRDU_EVENTS"] .photo-lightbox-content img {
+  border: 1px solid var(--brand-border-subtle);
+}
+
+[data-platform="MRDU_EVENTS"] .lightbox-nav-btn {
+  border: 1px solid var(--brand-border-subtle);
+}
+
+[data-platform="MRDU_EVENTS"] .lightbox-nav-btn:hover:not(:disabled) {
+  background: rgba(211, 47, 47, 0.18);
+  border-color: var(--brand-primary);
+}
+
+[data-platform="MRDU_EVENTS"] .lightbox-counter-badge {
+  background: rgba(30, 8, 8, 0.8);
+  border: 1px solid var(--brand-border-subtle);
+  color: var(--brand-badge-color);
+}
+
+/* ---- Leader cards / team ---- */
+[data-platform="MRDU_EVENTS"] .leader-photo {
+  border: 2px solid var(--brand-primary);
+}
+
+[data-platform="MRDU_EVENTS"] .leader-photo-placeholder {
+  background: rgba(211, 47, 47, 0.08);
+  color: var(--brand-badge-color);
+  border: 2px solid var(--brand-primary);
+}
+
+[data-platform="MRDU_EVENTS"] .album-card-box:hover {
+  border-color: var(--brand-border-subtle);
+}
+
+[data-platform="MRDU_EVENTS"] .album-cover-placeholder {
+  background: radial-gradient(circle at center, #4a1515, #1a0808);
+  color: var(--brand-badge-color);
+}
+
+[data-platform="MRDU_EVENTS"] .social-pill {
+  border: 1px solid rgba(211, 47, 47, 0.3);
+  color: var(--brand-badge-color);
+  background: rgba(211, 47, 47, 0.06);
+}
+
+/* ---- Leader order badge & controls ---- */
+[data-platform="MRDU_EVENTS"] .leader-order-badge {
+  background: rgba(211, 47, 47, 0.1);
+  color: var(--brand-badge-color);
+  border: 1px solid rgba(211, 47, 47, 0.3);
+}
+
+[data-platform="MRDU_EVENTS"] .order-btn:hover:not(:disabled) {
+  background: rgba(211, 47, 47, 0.15);
+  border-color: var(--brand-primary);
+}
+
+/* ---- Notification bell ---- */
+[data-platform="MRDU_EVENTS"] .notification-bell-btn {
+  color: var(--brand-badge-color);
+}
+
+[data-platform="MRDU_EVENTS"] .notification-bell-btn:hover {
+  background: rgba(211, 47, 47, 0.1);
+  border-color: var(--brand-primary);
+}
+
+/* ---- Badge resolved (was blue text/border) ---- */
+[data-platform="MRDU_EVENTS"] .badge-resolved {
+  background: rgba(211, 47, 47, 0.1) !important;
+  color: var(--brand-badge-color) !important;
+  border: 1px solid rgba(211, 47, 47, 0.35) !important;
+}
+
+[data-platform="MRDU_EVENTS"] .ticket-card:hover {
+  border-color: var(--brand-border-subtle) !important;
+}
+
+/* ---- Guest / form inputs focus ---- */
+[data-platform="MRDU_EVENTS"] .guest-field-group input:focus,
+[data-platform="MRDU_EVENTS"] .guest-field-group select:focus {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 10px var(--brand-glow);
+}
+
+[data-platform="MRDU_EVENTS"] .guest-modal-content {
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px var(--brand-glow);
+}
+
+[data-platform="MRDU_EVENTS"] .guest-credentials-card {
+  border: 1px solid rgba(211, 47, 47, 0.45);
+}
+
+[data-platform="MRDU_EVENTS"] .cred-value {
+  color: var(--brand-badge-color);
+  background: rgba(211, 47, 47, 0.06);
+  border: 1px solid rgba(211, 47, 47, 0.2);
+}
+
+[data-platform="MRDU_EVENTS"] .bulk-textarea:focus {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 10px var(--brand-glow);
+}
+
+/* ---- Briefing slideshow nav ---- */
+[data-platform="MRDU_EVENTS"] .briefing-nav-btn {
+  border: 1px solid rgba(211, 47, 47, 0.4);
+  color: var(--brand-badge-color);
+}
+
+[data-platform="MRDU_EVENTS"] .briefing-nav-btn:hover {
+  background: rgba(211, 47, 47, 0.18);
+  border-color: var(--brand-primary);
+}
+
+/* ---- Login password toggle ---- */
+[data-platform="MRDU_EVENTS"] .login-pwd-toggle:hover {
+  color: var(--brand-badge-color);
+}
+
+/* ---- Event builder: selected card glow ---- */
+[data-platform="MRDU_EVENTS"] .event-mode-card.selected {
+  background: var(--brand-badge-bg);
+  box-shadow: 0 0 0 1px var(--brand-primary), 0 8px 24px var(--brand-glow);
+}
+
+[data-platform="MRDU_EVENTS"] .event-qr-upload-zone:hover {
+  background: rgba(211, 47, 47, 0.04);
+}
+
+/* ---- Generic inline rgba(82,187,245) glows on modal/cards ---- */
+[data-platform="MRDU_EVENTS"] .hibernation-page {
+  background: radial-gradient(circle at center, #1e0a0a 0, #0d0505 55%, #040103 100%);
+}
+
+/* ==========================================================================
+   REELS STUDIO SIDE-BY-SIDE CREATOR LAYOUT
+   ========================================================================== */
+.reel-creator-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 380px);
+  gap: 28px;
+  align-items: start;
+}
+
+@media (max-width: 980px) {
+  .reel-creator-layout {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+}
 

@@ -1,5 +1,5 @@
 /**
- * Utility functions for YouTube video parsing and normalization.
+ * Utility functions for YouTube, Instagram, and direct video URL parsing and embed normalization.
  */
 
 export function parseYouTubeVideoId(url) {
@@ -59,4 +59,47 @@ export function getYouTubeEmbedUrl(rawUrl, options = {}) {
   }
 
   return `https://www.youtube-nocookie.com/embed/${videoId}?${params.toString()}`
+}
+
+export function parseInstagramCode(url) {
+  if (!url || typeof url !== 'string') return null
+  const cleaned = url.trim()
+  const igMatch = cleaned.match(/instagram\.com\/(?:reel|p|tv)\/([a-zA-Z0-9_-]+)/i)
+  return igMatch ? igMatch[1] : null
+}
+
+export function parseMediaUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return null
+  const cleaned = rawUrl.trim()
+
+  const igCode = parseInstagramCode(cleaned)
+  if (igCode) {
+    return {
+      type: 'INSTAGRAM_REEL',
+      mediaId: igCode,
+      embedUrl: `https://www.instagram.com/p/${igCode}/embed/captioned/`,
+      externalUrl: `https://www.instagram.com/reel/${igCode}/`,
+    }
+  }
+
+  const ytId = parseYouTubeVideoId(cleaned)
+  if (ytId) {
+    return {
+      type: 'YOUTUBE_SHORT',
+      mediaId: ytId,
+      embedUrl: `https://www.youtube-nocookie.com/embed/${ytId}?autoplay=1&mute=1&playsinline=1&loop=1&playlist=${ytId}&controls=1&rel=0`,
+      externalUrl: `https://www.youtube.com/watch?v=${ytId}`,
+    }
+  }
+
+  if (cleaned.match(/\.(mp4|webm|mov)(\?.*)?$/i) || cleaned.startsWith('blob:') || cleaned.startsWith('data:video')) {
+    return {
+      type: 'DIRECT_VIDEO',
+      mediaId: cleaned,
+      embedUrl: cleaned,
+      externalUrl: cleaned,
+    }
+  }
+
+  return null
 }

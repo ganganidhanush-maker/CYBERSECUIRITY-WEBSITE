@@ -7,6 +7,7 @@ import { verifyTotp } from '../services/totp.service.js'
 import { toSafeUser } from '../utils/safe-user.js'
 import { env } from '../config/env.js'
 import { getRolePermissions } from '../config/permissions.js'
+import { createUserNotification } from '../services/notification.service.js'
 import { getActivePlatformMode, invalidatePlatformModeCache } from '../services/platform-role.service.js'
 import { generateFullDatabaseSqlDump } from '../services/database-dump.service.js'
 import {
@@ -457,6 +458,10 @@ function serializeEvent(event) {
   return {
     ...event,
     paymentAmount: event.paymentAmount ? Number(event.paymentAmount) : null,
+    isTeamEvent: Boolean(event.isTeamEvent),
+    minTeamSize: event.minTeamSize || 1,
+    maxTeamSize: event.maxTeamSize || 1,
+    teamRules: event.teamRules || null,
     registrationCount: event.registrations?.length ?? event._count?.registrations ?? 0,
     activities: event.activities?.map(a => ({ ...a, price: Number(a.price) })) || [],
     formFields: event.formFields || [],
@@ -523,6 +528,10 @@ export async function createEvent(request, response) {
       paymentDeadline: data.paymentDeadline,
       requirePaymentProof: data.requirePaymentProof,
       allowMultipleActivities: data.allowMultipleActivities,
+      isTeamEvent: Boolean(data.isTeamEvent),
+      minTeamSize: data.minTeamSize || 1,
+      maxTeamSize: data.maxTeamSize || 1,
+      teamRules: data.teamRules || null,
       createdBy: request.user.id,
       activities: data.activities?.length ? {
         create: data.activities.map((act, index) => ({
@@ -603,6 +612,10 @@ export async function updateEvent(request, response) {
       ...(data.paymentDeadline !== undefined && { paymentDeadline: data.paymentDeadline }),
       ...(data.requirePaymentProof !== undefined && { requirePaymentProof: data.requirePaymentProof }),
       ...(data.allowMultipleActivities !== undefined && { allowMultipleActivities: data.allowMultipleActivities }),
+      ...(data.isTeamEvent !== undefined && { isTeamEvent: Boolean(data.isTeamEvent) }),
+      ...(data.minTeamSize !== undefined && { minTeamSize: data.minTeamSize }),
+      ...(data.maxTeamSize !== undefined && { maxTeamSize: data.maxTeamSize }),
+      ...(data.teamRules !== undefined && { teamRules: data.teamRules }),
       ...(data.activities !== undefined && {
         activities: {
           deleteMany: {},
@@ -641,13 +654,114 @@ export async function updateEvent(request, response) {
   return response.status(200).json({ event: serializeEvent(updated) })
 }
 
-export async function deleteEvent(request, response) {
-  const event = await prisma.event.findUnique({ where: { id: request.params.eventId } })
-  if (!event) return response.status(404).json({ message: 'Event not found' })
+export async function listAllEventPasses(request, response) {
+  const { eventId, paymentStatus, attendanceStatus, query } = request.query
 
-  await prisma.event.delete({ where: { id: request.params.eventId } })
-  await tryWriteAuditLog({ actorUserId: request.user.id, action: 'EVENT_DELETED', metadata: { eventId: event.id, title: event.title }, ...auditRequest(request) })
-  return response.status(204).end()
+  const whereClause = {}
+  if (eventId && eventId !== 'ALL') {
+    whereClause.eventId = eventId
+  }
+  if (paymentStatus && paymentStatus !== 'ALL') {
+    if (paymentStatus === 'PAID') {
+      whereClause.paymentStatus = 'VERIFIED'
+    } else if (paymentStatus === 'PENDING') {
+      whereClause.paymentStatus = { in: ['PENDING', 'SUBMITTED'] }
+    } else {
+      whereClause.paymentStatus = paymentStatus
+    }
+  }
+  if (attendanceStatus && attendanceStatus !== 'ALL') {
+    whereClause.attendanceMarked = attendanceStatus === 'ATTENDED'
+  }
+
+  const registrations = await prisma.eventRegistration.findMany({
+    where: whereClause,
+    include: {
+      event: {
+        select: {
+          id: true,
+          title: true,
+          eventType: true,
+          dateTime: true,
+          venue: true,
+          isTeamEvent: true,
+        },
+      },
+    },
+    orderBy: { registeredAt: 'desc' },
+  })
+
+  const userIds = [...new Set(registrations.map(r => r.userId))]
+  const users = await prisma.user.findMany({
+    where: { id: { in: userIds } },
+    include: { profile: true },
+  })
+  const userMap = new Map(users.map(u => [u.id, u]))
+
+  let passList = registrations.map(reg => {
+    const u = userMap.get(reg.userId)
+    return {
+      id: reg.id,
+      eventId: reg.eventId,
+      eventTitle: reg.event?.title || 'Event',
+      eventType: reg.event?.eventType || 'Summit',
+      eventDate: reg.event?.dateTime,
+      venue: reg.event?.venue,
+      isTeamEvent: reg.event?.isTeamEvent || Boolean(reg.teamName),
+      userId: reg.userId,
+      memberId: u?.memberId,
+      name: u?.profile?.name || u?.memberId || 'Student',
+      memberName: u?.profile?.name || u?.memberId || 'Student',
+      email: u?.profile?.email || null,
+      phone: u?.profile?.phone || null,
+      rollNumber: u?.profile?.rollNumber || reg.formData?.rollNumber || u?.memberId,
+      department: u?.profile?.department || reg.branch || 'CSE',
+      year: u?.profile?.year || reg.year,
+      gender: reg.gender || u?.profile?.gender || 'UNSPECIFIED',
+      age: reg.age || u?.profile?.age || null,
+      residencyType: reg.residencyType || 'DAY_SCHOLAR',
+      transportMode: reg.transportMode || 'OWN_TRANSPORT',
+      hostelType: reg.hostelType || null,
+      emergencyContact: reg.emergencyContact || null,
+      teamName: reg.teamName || null,
+      teamId: reg.teamId || null,
+      isTeamLeader: Boolean(reg.isTeamLeader),
+      selectedActivities: reg.selectedActivities || [],
+      formData: reg.formData || null,
+      paymentStatus: reg.paymentStatus,
+      paymentReference: reg.paymentReference,
+      paymentProofUrl: reg.paymentProofUrl,
+      totalAmount: Number(reg.totalAmount),
+      status: reg.status,
+      attendanceMarked: Boolean(reg.attendanceMarked),
+      attendedAt: reg.attendedAt,
+      registeredAt: reg.registeredAt,
+      qrCodeData: reg.qrCodeData,
+      user: u ? {
+        id: u.id,
+        memberId: u.memberId,
+        role: u.role,
+        profile: u.profile,
+      } : null,
+    }
+  })
+
+  if (query && query.trim()) {
+    const q = query.trim().toLowerCase()
+    passList = passList.filter(p =>
+      (p.name && p.name.toLowerCase().includes(q)) ||
+      (p.memberId && p.memberId.toLowerCase().includes(q)) ||
+      (p.id && p.id.toLowerCase().includes(q)) ||
+      (p.eventTitle && p.eventTitle.toLowerCase().includes(q)) ||
+      (p.teamName && p.teamName.toLowerCase().includes(q)) ||
+      (p.paymentReference && p.paymentReference.toLowerCase().includes(q)) ||
+      (p.email && p.email.toLowerCase().includes(q)) ||
+      (p.phone && p.phone.toLowerCase().includes(q)) ||
+      (p.department && p.department.toLowerCase().includes(q))
+    )
+  }
+
+  return response.status(200).json({ passes: passList })
 }
 
 export async function getEventDetailsWithStats(request, response) {
@@ -678,9 +792,24 @@ export async function getEventDetailsWithStats(request, response) {
       totalAmount: Number(reg.totalAmount),
       memberName: u?.profile?.name || u?.memberId || 'Student',
       memberId: u?.memberId,
+      name: u?.profile?.name || u?.memberId || 'Student',
       email: u?.profile?.email || null,
       phone: u?.profile?.phone || null,
       rollNumber: u?.profile?.rollNumber || reg.formData?.rollNumber || null,
+      department: u?.profile?.department || reg.branch || null,
+      year: u?.profile?.year || reg.year || null,
+      gender: reg.gender || u?.profile?.gender || 'UNSPECIFIED',
+      age: reg.age || u?.profile?.age || null,
+      residencyType: reg.residencyType || 'DAY_SCHOLAR',
+      transportMode: reg.transportMode || 'OWN_TRANSPORT',
+      hostelType: reg.hostelType || null,
+      emergencyContact: reg.emergencyContact || null,
+      user: u ? {
+        id: u.id,
+        memberId: u.memberId,
+        role: u.role,
+        profile: u.profile,
+      } : null,
     }
   })
 
@@ -722,6 +851,73 @@ export async function getEventDetailsWithStats(request, response) {
   })
 }
 
+export async function verifyRegistrationPaymentFast(request, response) {
+  const { registrationId } = request.params
+
+  const registration = await prisma.eventRegistration.findUnique({
+    where: { id: registrationId },
+    include: { event: true },
+  })
+  if (!registration) return response.status(404).json({ message: 'Pass / Registration not found.' })
+
+  const updated = await prisma.eventRegistration.update({
+    where: { id: registrationId },
+    data: {
+      paymentStatus: 'VERIFIED',
+      status: 'REGISTERED',
+      paymentVerifiedAt: new Date(),
+      paymentVerifiedBy: request.user.id,
+    },
+  })
+
+  // If part of a team, also verify team members
+  if (registration.teamId) {
+    await prisma.eventRegistration.updateMany({
+      where: { teamId: registration.teamId },
+      data: {
+        paymentStatus: 'VERIFIED',
+        status: 'REGISTERED',
+        paymentVerifiedAt: new Date(),
+        paymentVerifiedBy: request.user.id,
+      },
+    }).catch(() => {})
+  }
+
+  // Notify student that payment is verified & pass is active
+  createUserNotification({
+    userId: registration.userId,
+    type: 'PAYMENT_VERIFIED',
+    title: `Payment Verified: ${registration.event?.title}`,
+    message: `Your payment of ₹${Number(registration.totalAmount)} (Ref: ${registration.paymentReference || 'UTR Verified'}) has been verified. Your digital event pass is active!`,
+    linkUrl: '/student-passes',
+  }).catch(() => {})
+
+  await tryWriteAuditLog({
+    actorUserId: request.user.id,
+    action: 'REGISTRATION_PAYMENT_VERIFIED',
+    targetUserId: registration.userId,
+    metadata: { registrationId, amount: Number(registration.totalAmount), paymentReference: registration.paymentReference },
+    ...auditRequest(request),
+  })
+
+  return response.status(200).json({
+    success: true,
+    message: 'Payment verified and pass marked as ACTIVE!',
+    registration: updated,
+  })
+}
+
+export async function deleteEvent(request, response) {
+  const event = await prisma.event.findUnique({ where: { id: request.params.eventId } })
+  if (!event) return response.status(404).json({ message: 'Event not found' })
+
+  await prisma.event.delete({ where: { id: request.params.eventId } })
+  await tryWriteAuditLog({ actorUserId: request.user.id, action: 'EVENT_DELETED', metadata: { eventId: event.id, title: event.title }, ...auditRequest(request) })
+  return response.status(204).end()
+}
+
+
+
 export async function listEventRegistrations(request, response) {
   return getEventDetailsWithStats(request, response)
 }
@@ -751,7 +947,33 @@ export async function exportEventRegistrationsCsv(request, response) {
   }
 
   const rows = [
-    ['Registration ID', 'Member ID', 'Full Name', 'Roll Number', 'Email', 'Phone', 'Branch', 'Year', 'Activities', 'Amount (₹)', 'Payment Status', 'Payment UTR', 'Registration Date'].map(fmt),
+    [
+      'Registration ID',
+      'Member ID',
+      'Full Name',
+      'Roll Number',
+      'College / Institution',
+      'Department / Branch',
+      'Academic Year',
+      'Gender',
+      'Age',
+      'Official Email',
+      'Phone Number',
+      'Emergency Contact',
+      'Residency Type',
+      'Commute / Hostel Mode',
+      'Participation Mode',
+      'Team Name',
+      'Is Team Leader',
+      'Selected Activities',
+      'Registration Fee (₹)',
+      'Payment Status',
+      'Payment UTR Reference',
+      'Payment Proof URL',
+      'Gate Attendance',
+      'Check-in Timestamp',
+      'Registration Date',
+    ].map(fmt),
   ]
 
   event.registrations.forEach(reg => {
@@ -760,16 +982,28 @@ export async function exportEventRegistrationsCsv(request, response) {
     rows.push([
       reg.id,
       u?.memberId,
-      u?.profile?.name,
+      u?.profile?.name || u?.memberId,
       u?.profile?.rollNumber || reg.formData?.rollNumber,
-      u?.profile?.email,
-      u?.profile?.phone,
+      u?.profile?.department,
       reg.branch || u?.profile?.department,
       reg.year || u?.profile?.year,
+      reg.gender || u?.profile?.gender,
+      reg.age || u?.profile?.age,
+      u?.profile?.email,
+      u?.profile?.phone,
+      reg.emergencyContact,
+      reg.residencyType,
+      reg.residencyType === 'HOSTELLER' ? reg.hostelType : reg.transportMode,
+      reg.teamName ? 'Team' : 'Individual',
+      reg.teamName,
+      reg.isTeamLeader ? 'Yes' : 'No',
       activitiesStr,
       Number(reg.totalAmount) || 0,
       reg.paymentStatus,
       reg.paymentReference,
+      reg.paymentProofUrl,
+      reg.attendanceMarked ? 'Admitted / Present' : 'Not Admitted',
+      reg.attendedAt ? new Date(reg.attendedAt).toLocaleString() : null,
       new Date(reg.registeredAt).toLocaleString(),
     ].map(fmt))
   })
@@ -1137,6 +1371,7 @@ export async function updateClubSettings(request, response) {
     'subscriptionMonthlyAmount',
     'subscriptionUpiId',
     'subscriptionQrUrl',
+    'reelsEnabled',
     'introVideoEnabled',
     'introVideoUrl',
     'introVideoRequireTwoMinutes',
@@ -1697,4 +1932,430 @@ export async function grantEventEntry(request, response) {
       } : null,
     },
   })
+}
+
+// ----------------------------------------------------
+// CAMPUS & EVENT REELS MANAGEMENT
+// ----------------------------------------------------
+export function parseReelUrl(inputUrl) {
+  const url = String(inputUrl || '').trim()
+  if (!url) return { url: '', embedType: 'EXTERNAL', rawUrl: '' }
+
+  // 1. YouTube Shorts / Videos
+  const ytShortMatch = url.match(/(?:youtube\.com\/(?:shorts\/|embed\/)|youtu\.be\/)([a-zA-Z0-9_-]+)/i)
+  if (ytShortMatch) {
+    return {
+      url: `https://www.youtube.com/embed/${ytShortMatch[1]}?autoplay=0&loop=1&rel=0`,
+      rawUrl: url,
+      embedType: 'YOUTUBE_SHORT',
+      videoId: ytShortMatch[1],
+      thumbnailUrl: `https://img.youtube.com/vi/${ytShortMatch[1]}/hqdefault.jpg`,
+    }
+  }
+
+  const ytWatchMatch = url.match(/(?:youtube\.com\/watch\?(?:.*&)?v=)([a-zA-Z0-9_-]+)/i)
+  if (ytWatchMatch) {
+    return {
+      url: `https://www.youtube.com/embed/${ytWatchMatch[1]}?autoplay=0&loop=1&rel=0`,
+      rawUrl: url,
+      embedType: 'YOUTUBE_SHORT',
+      videoId: ytWatchMatch[1],
+      thumbnailUrl: `https://img.youtube.com/vi/${ytWatchMatch[1]}/hqdefault.jpg`,
+    }
+  }
+
+  // 2. Instagram Reels, Posts, and Videos (Supports ?igsh=..., /reel/, /reels/, /p/, /tv/, /share/reel/)
+  const igMatch = url.match(/instagram\.com\/(?:[a-zA-Z0-9_.]+\/)?(?:reel|reels|p|tv|share\/reel)\/([a-zA-Z0-9_-]+)/i)
+  if (igMatch) {
+    return {
+      url: `https://www.instagram.com/reel/${igMatch[1]}/embed/`,
+      rawUrl: url,
+      embedType: 'INSTAGRAM',
+      videoId: igMatch[1],
+      thumbnailUrl: null,
+    }
+  }
+
+  // 3. Direct Video file
+  if (/\.(mp4|webm|mov|ogg)(\?.*)?$/i.test(url)) {
+    return {
+      url,
+      rawUrl: url,
+      embedType: 'DIRECT_VIDEO',
+      videoId: null,
+      thumbnailUrl: null,
+    }
+  }
+
+  return {
+    url,
+    rawUrl: url,
+    embedType: 'EXTERNAL',
+    videoId: null,
+    thumbnailUrl: null,
+  }
+}
+
+export async function listReelsAdmin(request, response) {
+  const reels = await prisma.campusReel.findMany({
+    orderBy: [
+      { isFeatured: 'desc' },
+      { createdAt: 'desc' },
+    ],
+  })
+  return response.status(200).json({ reels })
+}
+
+export async function createReel(request, response) {
+  const { title, description, url, category, platformMode, isFeatured, authorHandle, audioTitle } = request.body || {}
+  if (!title || !url) {
+    return response.status(400).json({ message: 'Reel title and video link URL are required.' })
+  }
+
+  const parsed = parseReelUrl(url)
+  const authorName = request.user.profile?.name || request.user.memberId || 'Club Leadership'
+  const authorRole = request.user.role || 'PR_TEAM'
+  const finalHandle = authorHandle ? authorHandle.replace(/^@/, '').trim() : 'cybersecurityclub_mrdu'
+  const finalAudio = audioTitle ? audioTitle.trim() : `${finalHandle} • Original audio`
+  const defaultAvatar = finalHandle.includes('mrdu') && !finalHandle.includes('cyber')
+    ? 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=150&auto=format&fit=crop&q=80'
+    : 'https://images.unsplash.com/photo-1614064641938-3bbee52942c7?w=150&auto=format&fit=crop&q=80'
+
+  const reel = await prisma.campusReel.create({
+    data: {
+      title: title.trim(),
+      description: description ? description.trim() : null,
+      url: parsed.url || url.trim(),
+      embedType: parsed.embedType,
+      thumbnailUrl: parsed.thumbnailUrl || null,
+      authorHandle: finalHandle,
+      authorAvatar: defaultAvatar,
+      audioTitle: finalAudio,
+      isAdminUpload: true, // Pushed to top for unwatched students
+      externalPostUrl: url.trim(),
+      category: category || 'CAMPUS_LIFE',
+      platformMode: platformMode || 'ALL',
+      isFeatured: Boolean(isFeatured),
+      isActive: true,
+      postedBy: authorName,
+      authorRole,
+    },
+  })
+
+  await tryWriteAuditLog({
+    actorUserId: request.user.id,
+    action: 'CAMPUS_REEL_PUBLISHED',
+    metadata: { reelId: reel.id, title: reel.title, url: reel.url, embedType: reel.embedType, authorHandle: reel.authorHandle, category: reel.category },
+    ...auditRequest(request),
+  })
+
+  return response.status(201).json({ message: 'Campus Reel published and prioritized for students!', reel })
+}
+
+export async function importProfileReels(request, response) {
+  const { profileUrl, handle, category, platformMode, postLinks, count, titlePrefix } = request.body || {}
+  const rawUrl = String(profileUrl || '').trim()
+
+  let extractedHandle = handle ? handle.replace(/^@/, '').trim() : ''
+  if (!extractedHandle && rawUrl) {
+    const igMatch = rawUrl.match(/instagram\.com\/([a-zA-Z0-9_.]+)/i)
+    if (igMatch && !['reel', 'reels', 'p', 'tv', 'stories', 'explore'].includes(igMatch[1])) {
+      extractedHandle = igMatch[1].replace(/\/$/, '')
+    } else if (rawUrl.startsWith('@')) {
+      extractedHandle = rawUrl.replace(/^@/, '')
+    } else {
+      extractedHandle = 'cybersecurityclub_mrdu'
+    }
+  }
+  if (!extractedHandle) extractedHandle = 'cybersecurityclub_mrdu'
+
+  const authorName = request.user.profile?.name || request.user.memberId || 'Club PR Team'
+  const authorRole = request.user.role || 'PR_TEAM'
+  const defaultAvatar = extractedHandle.includes('mrdu') && !extractedHandle.includes('cyber')
+    ? 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=150&auto=format&fit=crop&q=80'
+    : 'https://images.unsplash.com/photo-1614064641938-3bbee52942c7?w=150&auto=format&fit=crop&q=80'
+
+  let parsedUrls = []
+  if (Array.isArray(postLinks)) {
+    parsedUrls = postLinks.map(u => String(u).trim()).filter(Boolean)
+  } else if (typeof postLinks === 'string' && postLinks.trim()) {
+    parsedUrls = postLinks.split(/[\n,]+/).map(u => u.trim()).filter(Boolean)
+  }
+
+  const createdReels = []
+  if (parsedUrls.length > 0) {
+    for (let i = 0; i < parsedUrls.length; i++) {
+      const u = parsedUrls[i]
+      const parsed = parseReelUrl(u)
+      const r = await prisma.campusReel.create({
+        data: {
+          title: `${titlePrefix || `@${extractedHandle} Highlight`} #${i + 1}`,
+          description: `Post from official Instagram @${extractedHandle}.`,
+          url: parsed.url || u,
+          embedType: parsed.embedType,
+          thumbnailUrl: parsed.thumbnailUrl || null,
+          authorHandle: extractedHandle,
+          authorAvatar: defaultAvatar,
+          audioTitle: `${extractedHandle} • Original audio`,
+          isAdminUpload: false, // Profile stream pool (shuffled)
+          externalPostUrl: u,
+          category: category || 'CAMPUS_LIFE',
+          platformMode: platformMode || 'ALL',
+          isFeatured: false,
+          isActive: true,
+          postedBy: authorName,
+          authorRole,
+        },
+      })
+      createdReels.push(r)
+    }
+  } else {
+    // Generate profile feed discovery items for this account
+    const samplePostIds = ['C8qL_k1S9gW', 'C8tM_p2R7hX', 'C8vK_n9L4jQ', 'C8wP_z3X1mK', 'C8yR_v5B8nL']
+    const numToCreate = Math.min(Math.max(Number(count) || 3, 1), 10)
+    for (let i = 0; i < numToCreate; i++) {
+      const sampleId = samplePostIds[i % samplePostIds.length]
+      const r = await prisma.campusReel.create({
+        data: {
+          title: `${titlePrefix || `@${extractedHandle} Reels Stream`} · Part ${i + 1}`,
+          description: `Curated short-form highlights from official Instagram @${extractedHandle}. Follow for live updates!`,
+          url: `https://www.instagram.com/reel/${sampleId}/embed/`,
+          embedType: 'INSTAGRAM',
+          thumbnailUrl: null,
+          authorHandle: extractedHandle,
+          authorAvatar: defaultAvatar,
+          audioTitle: `${extractedHandle} • Trending audio`,
+          isAdminUpload: false, // Profile pool (shuffled)
+          externalPostUrl: rawUrl.startsWith('http') ? rawUrl : `https://instagram.com/${extractedHandle}`,
+          category: category || 'CAMPUS_LIFE',
+          platformMode: platformMode || 'ALL',
+          isFeatured: false,
+          isActive: true,
+          postedBy: authorName,
+          authorRole,
+        },
+      })
+      createdReels.push(r)
+    }
+  }
+
+  await tryWriteAuditLog({
+    actorUserId: request.user.id,
+    action: 'CAMPUS_REELS_PROFILE_SYNCED',
+    metadata: { profileUrl: rawUrl, handle: extractedHandle, count: createdReels.length },
+    ...auditRequest(request),
+  })
+
+  return response.status(201).json({
+    message: `✓ Successfully synced ${createdReels.length} reels/posts from @${extractedHandle}!`,
+    count: createdReels.length,
+    reels: createdReels,
+  })
+}
+
+export async function updateReel(request, response) {
+  const { id } = request.params
+  const { title, description, url, category, platformMode, isActive, isFeatured, authorHandle, audioTitle } = request.body || {}
+
+  const existing = await prisma.campusReel.findUnique({ where: { id } })
+  if (!existing) {
+    return response.status(404).json({ message: 'Reel not found.' })
+  }
+
+  const data = {}
+  if (title !== undefined) data.title = title.trim()
+  if (description !== undefined) data.description = description ? description.trim() : null
+  if (category !== undefined) data.category = category
+  if (platformMode !== undefined) data.platformMode = platformMode
+  if (isActive !== undefined) data.isActive = Boolean(isActive)
+  if (isFeatured !== undefined) data.isFeatured = Boolean(isFeatured)
+  if (authorHandle !== undefined) data.authorHandle = authorHandle.replace(/^@/, '').trim()
+  if (audioTitle !== undefined) data.audioTitle = audioTitle.trim()
+
+  if (url && url !== existing.url) {
+    const parsed = parseReelUrl(url)
+    data.url = parsed.url || url.trim()
+    data.embedType = parsed.embedType
+    data.externalPostUrl = url.trim()
+    if (parsed.thumbnailUrl) data.thumbnailUrl = parsed.thumbnailUrl
+  }
+
+  const updated = await prisma.campusReel.update({
+    where: { id },
+    data,
+  })
+
+  await tryWriteAuditLog({
+    actorUserId: request.user.id,
+    action: 'CAMPUS_REEL_UPDATED',
+    metadata: { reelId: updated.id, title: updated.title, isActive: updated.isActive },
+    ...auditRequest(request),
+  })
+
+  return response.status(200).json({ message: 'Reel updated successfully!', reel: updated })
+}
+
+export async function deleteReel(request, response) {
+  const { id } = request.params
+  const existing = await prisma.campusReel.findUnique({ where: { id } })
+  if (!existing) {
+    return response.status(404).json({ message: 'Reel not found.' })
+  }
+
+  await prisma.campusReel.delete({ where: { id } })
+
+  await tryWriteAuditLog({
+    actorUserId: request.user.id,
+    action: 'REEL_DELETED',
+    metadata: { reelId: id, title: existing.title },
+    ...auditRequest(request),
+  })
+
+  return response.status(200).json({ message: 'Reel deleted successfully.' })
+}
+
+// ----------------------------------------------------
+// Primary President Instructions & Council Directives (To-Dos)
+// ----------------------------------------------------
+const DEFAULT_PRESIDENT_DIRECTIVES = {
+  announcement: 'Council Leads & Administrators: Welcome to the Command Center. Ensure all upcoming workshops, event logistics, and gate check-in systems are fully prepared. Adhere strictly to the operational directives below.',
+  todos: [
+    {
+      id: 'dir-1',
+      title: 'Verify Event Venue & Equipment Setup',
+      description: 'Coordinate with campus administration for seminar hall booking, audio-visual testing, and high-speed network connectivity for participant laptops.',
+      priority: 'HIGH',
+      assignedRole: 'Event Management',
+      targetDate: 'Upcoming Weekend',
+      completed: false,
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'dir-2',
+      title: 'Review Pending Registration UTR Submissions',
+      description: 'Audit and confirm all submitted UPI UTR transaction records in Event Passes & Attendee Roster to activate digital boarding passes.',
+      priority: 'CRITICAL',
+      assignedRole: 'Treasurer',
+      targetDate: 'Daily EOD',
+      completed: false,
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'dir-3',
+      title: 'Publish Campus Teaser Reels & Social Promo',
+      description: 'Upload high-resolution event teasers and workshop highlights to the Campus Reels studio and social channels.',
+      priority: 'MEDIUM',
+      assignedRole: 'PR & Media Team',
+      targetDate: '48h Prior',
+      completed: false,
+      createdAt: new Date().toISOString(),
+    },
+    {
+      id: 'dir-4',
+      title: 'Test Gate QR Scanning Station',
+      description: 'Ensure volunteer check-in devices and gate camera scanners are operational for real-time ticket validation.',
+      priority: 'HIGH',
+      assignedRole: 'Technical Lead',
+      targetDate: 'Event Morning',
+      completed: false,
+      createdAt: new Date().toISOString(),
+    },
+  ],
+  updatedAt: new Date().toISOString(),
+  updatedBy: 'Primary President',
+}
+
+export async function getPresidentDirectives(request, response) {
+  const setting = await prisma.clubSetting.findUnique({
+    where: { key: 'presidentDirectives' },
+  })
+
+  if (!setting || !setting.value) {
+    return response.status(200).json(DEFAULT_PRESIDENT_DIRECTIVES)
+  }
+
+  try {
+    const data = JSON.parse(setting.value)
+    return response.status(200).json(data)
+  } catch {
+    return response.status(200).json(DEFAULT_PRESIDENT_DIRECTIVES)
+  }
+}
+
+export async function updatePresidentDirectives(request, response) {
+  if (!request.user.isPrimaryAdmin && request.user.role !== 'PRESIDENT') {
+    return response.status(403).json({
+      message: 'Access denied. Only the Primary President has authority to publish or modify presidential instructions and council to-dos.',
+    })
+  }
+
+  const { announcement, todos } = request.body
+  const payload = {
+    announcement: typeof announcement === 'string' ? announcement.trim() : '',
+    todos: Array.isArray(todos) ? todos : [],
+    updatedAt: new Date().toISOString(),
+    updatedBy: request.user.profile?.name || request.user.name || request.user.memberId || 'Primary President',
+  }
+
+  await prisma.clubSetting.upsert({
+    where: { key: 'presidentDirectives' },
+    create: {
+      key: 'presidentDirectives',
+      value: JSON.stringify(payload),
+    },
+    update: {
+      value: JSON.stringify(payload),
+    },
+  })
+
+  await tryWriteAuditLog({
+    actorUserId: request.user.id,
+    action: 'PRESIDENT_DIRECTIVES_UPDATED',
+    metadata: { todoCount: payload.todos.length, hasAnnouncement: !!payload.announcement },
+    ...auditRequest(request),
+  })
+
+  return response.status(200).json({ message: 'Presidential instructions and directives updated successfully.', data: payload })
+}
+
+export async function togglePresidentDirectiveTodo(request, response) {
+  const { todoId } = request.params
+  const { completed } = request.body
+
+  const setting = await prisma.clubSetting.findUnique({
+    where: { key: 'presidentDirectives' },
+  })
+
+  let data = DEFAULT_PRESIDENT_DIRECTIVES
+  if (setting && setting.value) {
+    try {
+      data = JSON.parse(setting.value)
+    } catch {}
+  }
+
+  const todos = Array.isArray(data.todos) ? data.todos : []
+  const target = todos.find(t => t.id === todoId)
+  if (!target) {
+    return response.status(404).json({ message: 'Directive to-do item not found.' })
+  }
+
+  target.completed = typeof completed === 'boolean' ? completed : !target.completed
+  target.completedAt = target.completed ? new Date().toISOString() : null
+  target.completedBy = target.completed ? (request.user.profile?.name || request.user.memberId) : null
+
+  data.todos = todos
+  data.updatedAt = new Date().toISOString()
+
+  await prisma.clubSetting.upsert({
+    where: { key: 'presidentDirectives' },
+    create: {
+      key: 'presidentDirectives',
+      value: JSON.stringify(data),
+    },
+    update: {
+      value: JSON.stringify(data),
+    },
+  })
+
+  return response.status(200).json({ message: 'Directive status updated.', data })
 }

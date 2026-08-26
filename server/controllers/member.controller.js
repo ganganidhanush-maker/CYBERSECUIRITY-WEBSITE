@@ -2,6 +2,7 @@ import crypto from 'node:crypto'
 import QRCode from 'qrcode'
 import { prisma } from '../db/prisma.js'
 import { tryWriteAuditLog } from '../services/audit.service.js'
+import { createUserNotification } from '../services/notification.service.js'
 import { toSafeUser } from '../utils/safe-user.js'
 import { eventRegistrationSchema, profileUpdateSchema } from '../validators/member.validator.js'
 
@@ -11,6 +12,8 @@ function auditRequest(request) {
 
 function serializeEventForStudent(event, userId) {
   const userRegistration = event.registrations?.find(r => r.userId === userId) || event.registrations?.[0] || null
+  const userTeam = event.teams?.find(t => t.leaderId === userId || t.members?.some(m => m.userId === userId)) || null
+
   return {
     id: event.id,
     title: event.title,
@@ -49,6 +52,10 @@ function serializeEventForStudent(event, userId) {
     paymentDeadline: event.paymentDeadline,
     requirePaymentProof: event.requirePaymentProof,
     allowMultipleActivities: event.allowMultipleActivities,
+    isTeamEvent: Boolean(event.isTeamEvent),
+    minTeamSize: event.minTeamSize || 1,
+    maxTeamSize: event.maxTeamSize || 1,
+    teamRules: event.teamRules || null,
     registrationCount: event._count?.registrations ?? event.registrations?.length ?? 0,
     isRegistered: Boolean(userRegistration),
     registrationStatus: userRegistration?.status || null,
@@ -60,6 +67,25 @@ function serializeEventForStudent(event, userId) {
       totalAmount: Number(userRegistration.totalAmount),
       selectedActivities: userRegistration.selectedActivities,
       paymentReference: userRegistration.paymentReference,
+      teamName: userRegistration.teamName,
+      isTeamLeader: userRegistration.isTeamLeader,
+    } : null,
+    userTeam: userTeam ? {
+      id: userTeam.id,
+      teamName: userTeam.teamName,
+      status: userTeam.status,
+      isLeader: userTeam.leaderId === userId,
+      leaderId: userTeam.leaderId,
+      members: (userTeam.members || []).map(m => ({
+        id: m.id,
+        userId: m.userId,
+        memberId: m.user?.memberId,
+        name: m.user?.profile?.name || m.user?.memberId,
+        gender: m.user?.profile?.gender || null,
+        status: m.status,
+        invitedAt: m.invitedAt,
+        respondedAt: m.respondedAt,
+      })),
     } : null,
     activities: event.activities?.map(a => ({
       id: a.id,
@@ -81,9 +107,27 @@ export async function listPublishedEvents(request, response) {
       activities: { where: { isAvailable: true }, orderBy: { sortOrder: 'asc' } },
       formFields: true,
       registrations: { where: { userId: request.user.id } },
+      teams: {
+        where: {
+          OR: [
+            { leaderId: request.user.id },
+            { members: { some: { userId: request.user.id } } },
+          ],
+        },
+        include: {
+          members: {
+            include: {
+              user: { include: { profile: true } },
+            },
+          },
+        },
+      },
       _count: { select: { registrations: true } },
     },
-    orderBy: { dateTime: 'asc' },
+    orderBy: [
+      { dateTime: 'desc' },
+      { createdAt: 'desc' },
+    ],
   })
 
   return response.status(200).json({
@@ -98,6 +142,21 @@ export async function getEventDetails(request, response) {
       activities: { orderBy: { sortOrder: 'asc' } },
       formFields: true,
       registrations: { where: { userId: request.user.id } },
+      teams: {
+        where: {
+          OR: [
+            { leaderId: request.user.id },
+            { members: { some: { userId: request.user.id } } },
+          ],
+        },
+        include: {
+          members: {
+            include: {
+              user: { include: { profile: true } },
+            },
+          },
+        },
+      },
       _count: { select: { registrations: true } },
     },
   })
@@ -161,13 +220,22 @@ export async function registerForEvent(request, response) {
   let registrationStatus = 'REGISTERED'
 
   if (totalAmount > 0) {
-    if (data.paymentProofUrl || data.paymentReference) {
-      paymentStatus = 'SUBMITTED'
-      registrationStatus = 'PENDING'
-    } else {
-      paymentStatus = 'PENDING'
-      registrationStatus = 'PENDING_PAYMENT'
+    if (!data.paymentReference) {
+      return response.status(400).json({ message: 'UPI Reference ID (UTR / Transaction ID) is required for paid event registrations.' })
     }
+    paymentStatus = 'SUBMITTED'
+    registrationStatus = 'PENDING_VERIFICATION'
+  }
+
+  // Update gender & age in profile if provided and not set
+  if (data.gender || data.age) {
+    prisma.profile.update({
+      where: { userId: request.user.id },
+      data: {
+        ...(data.gender ? { gender: data.gender } : {}),
+        ...(data.age ? { age: data.age } : {}),
+      },
+    }).catch(() => {})
   }
 
   const regId = crypto.randomUUID()
@@ -176,6 +244,9 @@ export async function registerForEvent(request, response) {
   try {
     qrCodeData = await QRCode.toDataURL(qrPassPayload, { margin: 2, width: 300, color: { dark: '#000000', light: '#ffffff' } })
   } catch {}
+
+  const effectiveGender = data.gender || request.user.profile?.gender || null
+  const effectiveAge = data.age || request.user.profile?.age || null
 
   const registration = await prisma.eventRegistration.create({
     data: {
@@ -190,8 +261,15 @@ export async function registerForEvent(request, response) {
       branch: data.branch || request.user.profile?.department || null,
       section: data.section || null,
       year: data.year || request.user.profile?.year || null,
+      gender: effectiveGender,
+      age: effectiveAge,
+      residencyType: data.residencyType || null,
+      transportMode: data.transportMode || null,
+      hostelType: data.hostelType || null,
       emergencyContact: data.emergencyContact || null,
       teamName: data.teamName || null,
+      teamId: data.teamId || null,
+      isTeamLeader: Boolean(data.isTeamLeader || (event.isTeamEvent && data.teamName)),
       github: data.github || null,
       formData: data.formData || null,
       status: registrationStatus,
@@ -199,6 +277,78 @@ export async function registerForEvent(request, response) {
       qrCodeData,
     },
   })
+
+  // If team event and teamId is provided, also generate registrations for accepted team members!
+  if (event.isTeamEvent && data.teamId) {
+    try {
+      const team = await prisma.eventTeam.findUnique({
+        where: { id: data.teamId },
+        include: {
+          members: {
+            where: { status: 'ACCEPTED', userId: { not: request.user.id } },
+            include: { user: { include: { profile: true } } },
+          },
+        },
+      })
+
+      if (team) {
+        await prisma.eventTeam.update({
+          where: { id: team.id },
+          data: { status: 'REGISTERED' },
+        })
+
+        for (const member of team.members) {
+          const mExisting = await prisma.eventRegistration.findUnique({
+            where: { eventId_userId: { eventId: event.id, userId: member.userId } },
+          })
+          if (!mExisting) {
+            const mRegId = crypto.randomUUID()
+            let mQrCode = null
+            try {
+              mQrCode = await QRCode.toDataURL(`EVENT_PASS:${mRegId}`, { margin: 2, width: 300, color: { dark: '#000000', light: '#ffffff' } })
+            } catch {}
+
+            await prisma.eventRegistration.create({
+              data: {
+                id: mRegId,
+                eventId: event.id,
+                userId: member.userId,
+                selectedActivities: selectedActivitiesList.length ? selectedActivitiesList : undefined,
+                totalAmount: 0,
+                paymentStatus,
+                paymentReference: data.paymentReference || null,
+                paymentProofUrl: data.paymentProofUrl || null,
+                branch: member.user?.profile?.department || null,
+                year: member.user?.profile?.year || null,
+                gender: member.user?.profile?.gender || null,
+                age: member.user?.profile?.age || null,
+                residencyType: data.residencyType || null,
+                transportMode: data.transportMode || null,
+                hostelType: data.hostelType || null,
+                teamName: team.teamName,
+                teamId: team.id,
+                isTeamLeader: false,
+                status: registrationStatus,
+                attendanceMarked: false,
+                qrCodeData: mQrCode,
+              },
+            })
+
+            // Notify member that team pass is ready
+            createUserNotification({
+              userId: member.userId,
+              type: 'EVENT_REGISTRATION',
+              title: `Team Pass Generated: ${event.title}`,
+              message: `Your team "${team.teamName}" has been successfully registered for "${event.title}" by team leader ${request.user.name}. Your digital pass is now ready in your pass wallet!`,
+              linkUrl: '/student-passes',
+            }).catch(() => {})
+          }
+        }
+      }
+    } catch (teamErr) {
+      console.error('[TEAM REGISTRATION PROPAGATION ERROR]:', teamErr.message)
+    }
+  }
 
   await tryWriteAuditLog({
     actorUserId: request.user.id,
@@ -208,6 +358,7 @@ export async function registerForEvent(request, response) {
       title: event.title,
       totalAmount,
       paymentStatus,
+      teamName: data.teamName || null,
       selectedActivities: selectedActivitiesList,
     },
     ...auditRequest(request),
@@ -219,6 +370,252 @@ export async function registerForEvent(request, response) {
       totalAmount: Number(registration.totalAmount),
       qrCodeData: registration.qrCodeData || qrCodeData,
     },
+  })
+}
+
+// ----------------------------------------------------
+// Team Formation & Invite Flow
+// ----------------------------------------------------
+export async function lookupMemberForTeam(request, response) {
+  const query = String(request.params.memberId || request.query.q || '').trim().toUpperCase()
+  if (!query || query.length < 3) {
+    return response.status(400).json({ message: 'Enter at least 3 characters of Member ID or Roll Number.' })
+  }
+
+  const user = await prisma.user.findFirst({
+    where: {
+      memberId: query,
+      accountStatus: 'ACTIVE',
+    },
+    include: {
+      profile: true,
+    },
+  })
+
+  if (!user) {
+    return response.status(404).json({ message: `No active student found with Member ID "${query}".` })
+  }
+
+  if (user.id === request.user.id) {
+    return response.status(400).json({ message: 'You cannot invite yourself to your team.' })
+  }
+
+  return response.status(200).json({
+    member: {
+      id: user.id,
+      memberId: user.memberId,
+      name: user.profile?.name || user.memberId,
+      rollNumber: user.profile?.rollNumber || user.memberId,
+      department: user.profile?.department || 'CSE',
+      year: user.profile?.year || 1,
+      gender: user.profile?.gender || 'UNSPECIFIED',
+      age: user.profile?.age || null,
+      profileImage: user.profile?.profileImage || null,
+    },
+  })
+}
+
+export async function createEventTeam(request, response) {
+  const { eventId } = request.params
+  const { teamName, invitedMemberIds = [] } = request.body
+
+  if (!teamName || !teamName.trim()) {
+    return response.status(400).json({ message: 'Team name is required.' })
+  }
+
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+  })
+  if (!event || !event.isTeamEvent) {
+    return response.status(400).json({ message: 'This event is not configured for team participation.' })
+  }
+
+  // Check if leader already has a team for this event
+  const existingTeam = await prisma.eventTeam.findFirst({
+    where: {
+      eventId,
+      OR: [
+        { leaderId: request.user.id },
+        { members: { some: { userId: request.user.id } } },
+      ],
+    },
+  })
+  if (existingTeam) {
+    return response.status(409).json({ message: 'You are already in or leading a team for this event.' })
+  }
+
+  // Verify unique member IDs
+  const cleanInvitedIds = [...new Set(invitedMemberIds.filter(id => id && id !== request.user.id))]
+
+  // Create team & leader record
+  const team = await prisma.eventTeam.create({
+    data: {
+      id: crypto.randomUUID(),
+      eventId,
+      leaderId: request.user.id,
+      teamName: teamName.trim(),
+      status: 'FORMING',
+      members: {
+        create: [
+          {
+            userId: request.user.id,
+            status: 'ACCEPTED',
+            respondedAt: new Date(),
+          },
+          ...cleanInvitedIds.map(uid => ({
+            userId: uid,
+            status: 'INVITED',
+          })),
+        ],
+      },
+    },
+    include: {
+      members: {
+        include: {
+          user: { include: { profile: true } },
+        },
+      },
+    },
+  })
+
+  // Send notifications to all invited members
+  for (const uid of cleanInvitedIds) {
+    createUserNotification({
+      userId: uid,
+      type: 'TEAM_INVITE',
+      title: `Team Invitation: ${event.title}`,
+      message: `${request.user.name} has invited you to join Team "${teamName.trim()}" for ${event.title}. Open your portal to Accept or Decline.`,
+      linkUrl: `/event-detail/${eventId}`,
+    }).catch(() => {})
+  }
+
+  return response.status(201).json({
+    team: {
+      id: team.id,
+      teamName: team.teamName,
+      status: team.status,
+      isLeader: true,
+      members: team.members.map(m => ({
+        id: m.id,
+        userId: m.userId,
+        memberId: m.user?.memberId,
+        name: m.user?.profile?.name || m.user?.memberId,
+        gender: m.user?.profile?.gender || null,
+        status: m.status,
+        invitedAt: m.invitedAt,
+        respondedAt: m.respondedAt,
+      })),
+    },
+  })
+}
+
+export async function respondTeamInvite(request, response) {
+  const { inviteId } = request.params
+  const { accept } = request.body
+
+  const memberRecord = await prisma.eventTeamMember.findUnique({
+    where: { id: inviteId },
+    include: {
+      team: {
+        include: {
+          event: true,
+          leader: { include: { profile: true } },
+        },
+      },
+    },
+  })
+
+  if (!memberRecord || memberRecord.userId !== request.user.id) {
+    return response.status(404).json({ message: 'Team invitation not found.' })
+  }
+
+  const newStatus = accept ? 'ACCEPTED' : 'REJECTED'
+  const updated = await prisma.eventTeamMember.update({
+    where: { id: inviteId },
+    data: {
+      status: newStatus,
+      respondedAt: new Date(),
+    },
+  })
+
+  // Notify team leader of member's decision
+  createUserNotification({
+    userId: memberRecord.team.leaderId,
+    type: 'TEAM_RESPONSE',
+    title: `Team Invite ${accept ? 'Accepted' : 'Declined'}`,
+    message: `${request.user.name} has ${accept ? 'ACCEPTED' : 'DECLINED'} your invitation to join Team "${memberRecord.team.teamName}".`,
+    linkUrl: `/event-detail/${memberRecord.team.eventId}`,
+  }).catch(() => {})
+
+  return response.status(200).json({
+    success: true,
+    status: newStatus,
+    message: accept ? `You joined Team "${memberRecord.team.teamName}"!` : `You declined the invitation to Team "${memberRecord.team.teamName}".`,
+  })
+}
+
+export async function removeTeamMember(request, response) {
+  const { teamId, memberId } = request.params
+
+  const team = await prisma.eventTeam.findUnique({
+    where: { id: teamId },
+    include: { members: true },
+  })
+
+  if (!team || team.leaderId !== request.user.id) {
+    return response.status(403).json({ message: 'Only the team leader can remove team members.' })
+  }
+
+  if (team.status === 'REGISTERED') {
+    return response.status(400).json({ message: 'Cannot modify team members after registration and pass issuance.' })
+  }
+
+  await prisma.eventTeamMember.deleteMany({
+    where: {
+      teamId,
+      userId: memberId,
+      userId: { not: request.user.id }, // Leader cannot remove themselves
+    },
+  })
+
+  return response.status(200).json({ success: true, message: 'Member removed from team.' })
+}
+
+export async function listMyTeamInvites(request, response) {
+  const invites = await prisma.eventTeamMember.findMany({
+    where: {
+      userId: request.user.id,
+      status: 'INVITED',
+    },
+    include: {
+      team: {
+        include: {
+          event: true,
+          leader: { include: { profile: true } },
+          members: {
+            include: { user: { include: { profile: true } } },
+          },
+        },
+      },
+    },
+    orderBy: { invitedAt: 'desc' },
+  })
+
+  return response.status(200).json({
+    invites: invites.map(inv => ({
+      inviteId: inv.id,
+      status: inv.status,
+      invitedAt: inv.invitedAt,
+      teamId: inv.team.id,
+      teamName: inv.team.teamName,
+      eventId: inv.team.eventId,
+      eventTitle: inv.team.event.title,
+      eventDate: inv.team.event.dateTime,
+      leaderName: inv.team.leader?.profile?.name || inv.team.leader?.memberId,
+      leaderMemberId: inv.team.leader?.memberId,
+      teamMembersCount: inv.team.members.length,
+      acceptedCount: inv.team.members.filter(m => m.status === 'ACCEPTED').length,
+    })),
   })
 }
 
@@ -530,4 +927,216 @@ export async function markAllNotificationsRead(request, response) {
 
   return response.status(200).json({ success: true })
 }
+
+// ----------------------------------------------------
+// CAMPUS & EVENT REELS (STUDENT / MEMBER STREAM)
+// ----------------------------------------------------
+function shuffleArray(array) {
+  const arr = [...array]
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
+
+export async function listPublicReels(request, response) {
+  const { category, search, platformMode } = request.query
+  const userId = request.user?.id || null
+
+  const where = {
+    isActive: true,
+  }
+
+  const andConditions = []
+
+  if (category && category !== 'ALL') {
+    andConditions.push({ category })
+  }
+
+  if (platformMode && platformMode !== 'ALL') {
+    andConditions.push({
+      OR: [
+        { platformMode },
+        { platformMode: 'ALL' },
+      ],
+    })
+  }
+
+  if (search) {
+    andConditions.push({
+      OR: [
+        { title: { contains: search } },
+        { description: { contains: search } },
+        { postedBy: { contains: search } },
+        { authorHandle: { contains: search } },
+      ],
+    })
+  }
+
+  if (andConditions.length > 0) {
+    where.AND = andConditions
+  }
+
+  const allReels = await prisma.campusReel.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+  })
+
+  // Per-user watch and like state
+  let viewedReelIds = new Set()
+  let likedReelIds = new Set()
+
+  if (userId) {
+    try {
+      const views = await prisma.reelView.findMany({
+        where: { userId },
+        select: { reelId: true },
+      })
+      viewedReelIds = new Set(views.map(v => v.reelId))
+
+      const likes = await prisma.reelLike.findMany({
+        where: { userId },
+        select: { reelId: true },
+      })
+      likedReelIds = new Set(likes.map(l => l.reelId))
+    } catch {}
+  }
+
+  // Tag reels with user context
+  const taggedReels = allReels.map(reel => ({
+    ...reel,
+    isWatched: viewedReelIds.has(reel.id),
+    isLiked: likedReelIds.has(reel.id),
+  }))
+
+  // Smart Priority Push Algorithm:
+  // 1. Newly uploaded admin reels that the user HAS NOT watched yet -> TOP PRIORITY (newest first)
+  // 2. Freshly uploaded admin posts / featured highlights (newest first)
+  // 3. All remaining reels / profile synced stream pool -> Randomized discovery stream
+  const now = Date.now()
+  const unwatchedAdminReels = taggedReels
+    .filter(r => r.isAdminUpload && !r.isWatched)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+
+  const freshFeaturedAdminReels = taggedReels
+    .filter(r => r.isAdminUpload && r.isWatched && (r.isFeatured || (now - new Date(r.createdAt).getTime() < 48 * 3600 * 1000)))
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+
+  const remainingReels = taggedReels.filter(r => 
+    !(r.isAdminUpload && !r.isWatched) && 
+    !(r.isAdminUpload && r.isWatched && (r.isFeatured || (now - new Date(r.createdAt).getTime() < 48 * 3600 * 1000)))
+  )
+
+  const shuffledPool = shuffleArray(remainingReels)
+  const finalFeed = [...unwatchedAdminReels, ...freshFeaturedAdminReels, ...shuffledPool]
+
+  return response.status(200).json({ reels: finalFeed })
+}
+
+export async function likeReel(request, response) {
+  const { id } = request.params
+  const userId = request.user?.id || null
+
+  const reel = await prisma.campusReel.findUnique({ where: { id } })
+  if (!reel) {
+    return response.status(404).json({ message: 'Reel not found.' })
+  }
+
+  let isLiked = false
+  let currentLikes = reel.likesCount
+
+  if (userId) {
+    try {
+      const existing = await prisma.reelLike.findUnique({
+        where: { reelId_userId: { reelId: id, userId } },
+      })
+
+      if (existing) {
+        await prisma.reelLike.delete({
+          where: { reelId_userId: { reelId: id, userId } },
+        })
+        const updated = await prisma.campusReel.update({
+          where: { id },
+          data: { likesCount: { decrement: 1 } },
+        })
+        isLiked = false
+        currentLikes = Math.max(0, updated.likesCount)
+      } else {
+        await prisma.reelLike.create({
+          data: { reelId: id, userId },
+        })
+        const updated = await prisma.campusReel.update({
+          where: { id },
+          data: { likesCount: { increment: 1 } },
+        })
+        isLiked = true
+        currentLikes = updated.likesCount
+      }
+    } catch {
+      const updated = await prisma.campusReel.update({
+        where: { id },
+        data: { likesCount: { increment: 1 } },
+      })
+      isLiked = true
+      currentLikes = updated.likesCount
+    }
+  } else {
+    const updated = await prisma.campusReel.update({
+      where: { id },
+      data: { likesCount: { increment: 1 } },
+    })
+    isLiked = true
+    currentLikes = updated.likesCount
+  }
+
+  return response.status(200).json({ likesCount: currentLikes, isLiked })
+}
+
+export async function recordReelView(request, response) {
+  const { id } = request.params
+  const userId = request.user?.id || null
+
+  const reel = await prisma.campusReel.findUnique({ where: { id } })
+  if (!reel) {
+    return response.status(404).json({ message: 'Reel not found.' })
+  }
+
+  let currentViews = reel.viewsCount
+
+  if (userId) {
+    try {
+      const existing = await prisma.reelView.findUnique({
+        where: { reelId_userId: { reelId: id, userId } },
+      })
+
+      if (!existing) {
+        await prisma.reelView.create({
+          data: { reelId: id, userId },
+        })
+        const updated = await prisma.campusReel.update({
+          where: { id },
+          data: { viewsCount: { increment: 1 } },
+        })
+        currentViews = updated.viewsCount
+      }
+    } catch {
+      const updated = await prisma.campusReel.update({
+        where: { id },
+        data: { viewsCount: { increment: 1 } },
+      })
+      currentViews = updated.viewsCount
+    }
+  } else {
+    const updated = await prisma.campusReel.update({
+      where: { id },
+      data: { viewsCount: { increment: 1 } },
+    })
+    currentViews = updated.viewsCount
+  }
+
+  return response.status(200).json({ viewsCount: currentViews, isWatched: true })
+}
+
+
 

@@ -60,6 +60,9 @@ export async function registerGuestAccount(request, response) {
               phone: data.phone || null,
               department: departmentFormatted,
               rollNumber: assignedMemberId,
+              gender: data.gender || null,
+              age: data.age || null,
+              year: data.year || null,
             },
           },
           permissions: {
@@ -94,6 +97,7 @@ export async function registerGuestAccount(request, response) {
       name: data.name,
       college: data.college,
       branch: data.branch,
+      year: data.year || null,
       specialization: data.specialization || null,
     },
     ...auditRequest(request),

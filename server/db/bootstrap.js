@@ -10,9 +10,9 @@ export async function bootstrapDatabase() {
         id VARCHAR(191) NOT NULL,
         member_id VARCHAR(32) NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
-        role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NOT NULL,
-        csc_role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NULL,
-        mrdu_role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NULL,
+        role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NOT NULL,
+        csc_role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NULL,
+        mrdu_role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NULL,
         is_primary_admin BOOLEAN NOT NULL DEFAULT FALSE,
         account_status ENUM('ACTIVE', 'DISABLED') NOT NULL DEFAULT 'ACTIVE',
         failed_login_attempts INT NOT NULL DEFAULT 0,
@@ -32,12 +32,15 @@ export async function bootstrapDatabase() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `).catch(() => {})
 
-    // Add csc_role and mrdu_role columns if they don't exist yet on existing tables
+    // Update ENUM definitions on existing tables
     await prisma.$executeRawUnsafe(`
-      ALTER TABLE users ADD COLUMN csc_role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NULL;
+      ALTER TABLE users MODIFY COLUMN role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NOT NULL;
     `).catch(() => {})
     await prisma.$executeRawUnsafe(`
-      ALTER TABLE users ADD COLUMN mrdu_role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NULL;
+      ALTER TABLE users MODIFY COLUMN csc_role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NULL;
+    `).catch(() => {})
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE users MODIFY COLUMN mrdu_role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NULL;
     `).catch(() => {})
 
     // Seed/sync default platform roles for existing users
@@ -84,13 +87,17 @@ export async function bootstrapDatabase() {
       CREATE TABLE IF NOT EXISTS permission_assignments (
         id VARCHAR(191) NOT NULL,
         user_id VARCHAR(191) NOT NULL,
-        permission ENUM('ACCOUNT_MANAGEMENT', 'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE', 'EVENT_REGISTER', 'REGISTRATIONS_VIEW', 'PAYMENTS_VIEW', 'PAYMENTS_VERIFY', 'QR_PASSES_VIEW', 'GALLERY_VIEW', 'GALLERY_MANAGE', 'TEAM_MANAGE', 'SETTINGS_MANAGE', 'AUDIT_VIEW', 'CHAT_USE', 'SUGGESTIONS_CREATE', 'FEEDBACK_CREATE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT') NOT NULL,
+        permission ENUM('ACCOUNT_MANAGEMENT', 'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE', 'EVENT_REGISTER', 'REGISTRATIONS_VIEW', 'PAYMENTS_VIEW', 'PAYMENTS_VERIFY', 'QR_PASSES_VIEW', 'GALLERY_VIEW', 'GALLERY_MANAGE', 'REELS_MANAGE', 'TEAM_MANAGE', 'SETTINGS_MANAGE', 'AUDIT_VIEW', 'CHAT_USE', 'SUGGESTIONS_CREATE', 'FEEDBACK_CREATE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT') NOT NULL,
         created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
         PRIMARY KEY (id),
         UNIQUE INDEX permission_assignments_user_id_permission_key (user_id, permission),
         INDEX permission_assignments_permission_idx (permission),
         CONSTRAINT fk_permissions_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `).catch(() => {})
+
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE permission_assignments MODIFY COLUMN permission ENUM('ACCOUNT_MANAGEMENT', 'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE', 'EVENT_REGISTER', 'REGISTRATIONS_VIEW', 'PAYMENTS_VIEW', 'PAYMENTS_VERIFY', 'QR_PASSES_VIEW', 'GALLERY_VIEW', 'GALLERY_MANAGE', 'REELS_MANAGE', 'TEAM_MANAGE', 'SETTINGS_MANAGE', 'AUDIT_VIEW', 'CHAT_USE', 'SUGGESTIONS_CREATE', 'FEEDBACK_CREATE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT') NOT NULL;
     `).catch(() => {})
 
     // 4. audit_logs table
@@ -231,13 +238,63 @@ export async function bootstrapDatabase() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `).catch(() => {})
 
-    // Self-healing column additions for existing event_registrations table
+    // Self-healing column additions for existing profiles, events, and event_registrations tables
+    await prisma.$executeRawUnsafe(`ALTER TABLE profiles ADD COLUMN gender VARCHAR(20) NULL`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE profiles ADD COLUMN age INT NULL`).catch(() => {})
+
+    await prisma.$executeRawUnsafe(`ALTER TABLE events ADD COLUMN is_team_event BOOLEAN NOT NULL DEFAULT FALSE`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE events ADD COLUMN min_team_size INT NOT NULL DEFAULT 1`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE events ADD COLUMN max_team_size INT NOT NULL DEFAULT 1`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE events ADD COLUMN team_rules LONGTEXT NULL`).catch(() => {})
+
+    await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN gender VARCHAR(20) NULL`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN age INT NULL`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN residency_type VARCHAR(32) NULL`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN transport_mode VARCHAR(32) NULL`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN hostel_type VARCHAR(32) NULL`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN team_id VARCHAR(191) NULL`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN is_team_leader BOOLEAN NOT NULL DEFAULT FALSE`).catch(() => {})
     await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN attendance_marked BOOLEAN NOT NULL DEFAULT FALSE`).catch(() => {})
     await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN attended_at DATETIME(3) NULL`).catch(() => {})
     await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN attendance_verified_by VARCHAR(191) NULL`).catch(() => {})
     await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN qr_code_data LONGTEXT NULL`).catch(() => {})
 
-    // 9. gallery_albums & gallery_photos
+    // 9. event_teams & event_team_members
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS event_teams (
+        id VARCHAR(191) NOT NULL,
+        event_id VARCHAR(191) NOT NULL,
+        leader_id VARCHAR(191) NOT NULL,
+        team_name VARCHAR(120) NOT NULL,
+        status VARCHAR(50) NOT NULL DEFAULT 'FORMING',
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (id),
+        INDEX event_teams_event_id_idx (event_id),
+        INDEX event_teams_leader_id_idx (leader_id),
+        CONSTRAINT fk_teams_event FOREIGN KEY (event_id) REFERENCES events (id) ON DELETE CASCADE,
+        CONSTRAINT fk_teams_leader FOREIGN KEY (leader_id) REFERENCES users (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `).catch(() => {})
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS event_team_members (
+        id VARCHAR(191) NOT NULL,
+        team_id VARCHAR(191) NOT NULL,
+        user_id VARCHAR(191) NOT NULL,
+        status VARCHAR(50) NOT NULL DEFAULT 'INVITED',
+        invited_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        responded_at DATETIME(3) NULL,
+        PRIMARY KEY (id),
+        UNIQUE INDEX event_team_members_team_id_user_id_key (team_id, user_id),
+        INDEX event_team_members_team_id_idx (team_id),
+        INDEX event_team_members_user_id_idx (user_id),
+        CONSTRAINT fk_team_members_team FOREIGN KEY (team_id) REFERENCES event_teams (id) ON DELETE CASCADE,
+        CONSTRAINT fk_team_members_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `).catch(() => {})
+
+    // 10. gallery_albums & gallery_photos
     await prisma.$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS gallery_albums (
         id VARCHAR(191) NOT NULL,
@@ -423,7 +480,93 @@ export async function bootstrapDatabase() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `).catch(() => {})
 
-    // 18. Provision President Account
+    // 18. campus_reels table
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS campus_reels (
+        id VARCHAR(191) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        description LONGTEXT NULL,
+        url LONGTEXT NOT NULL,
+        embed_type VARCHAR(50) NOT NULL DEFAULT 'EXTERNAL',
+        thumbnail_url LONGTEXT NULL,
+        author_handle VARCHAR(120) NULL,
+        author_avatar LONGTEXT NULL,
+        audio_title VARCHAR(255) NULL,
+        is_admin_upload BOOLEAN NOT NULL DEFAULT FALSE,
+        external_post_url LONGTEXT NULL,
+        category VARCHAR(100) NOT NULL DEFAULT 'CAMPUS_LIFE',
+        platform_mode VARCHAR(50) NOT NULL DEFAULT 'ALL',
+        likes_count INT NOT NULL DEFAULT 0,
+        views_count INT NOT NULL DEFAULT 0,
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        is_featured BOOLEAN NOT NULL DEFAULT FALSE,
+        posted_by VARCHAR(120) NOT NULL,
+        author_role VARCHAR(60) NOT NULL,
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (id),
+        INDEX campus_reels_category_idx (category),
+        INDEX campus_reels_platform_mode_idx (platform_mode),
+        INDEX campus_reels_is_active_idx (is_active),
+        INDEX campus_reels_is_admin_upload_idx (is_admin_upload),
+        INDEX campus_reels_created_at_idx (created_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `).catch(() => {})
+
+    // Add new columns to campus_reels if not present
+    await prisma.$executeRawUnsafe(`ALTER TABLE campus_reels ADD COLUMN author_handle VARCHAR(120) NULL;`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE campus_reels ADD COLUMN author_avatar LONGTEXT NULL;`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE campus_reels ADD COLUMN audio_title VARCHAR(255) NULL;`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE campus_reels ADD COLUMN is_admin_upload BOOLEAN NOT NULL DEFAULT FALSE;`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE campus_reels ADD COLUMN external_post_url LONGTEXT NULL;`).catch(() => {})
+
+    // 18b. reel_views table
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS reel_views (
+        id VARCHAR(191) NOT NULL,
+        reel_id VARCHAR(191) NOT NULL,
+        user_id VARCHAR(191) NOT NULL,
+        viewed_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (id),
+        UNIQUE INDEX reel_views_reel_id_user_id_key (reel_id, user_id),
+        INDEX reel_views_user_id_idx (user_id),
+        INDEX reel_views_reel_id_idx (reel_id),
+        CONSTRAINT fk_reel_views_reel FOREIGN KEY (reel_id) REFERENCES campus_reels (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `).catch(() => {})
+
+    // 18c. reel_likes table
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS reel_likes (
+        id VARCHAR(191) NOT NULL,
+        reel_id VARCHAR(191) NOT NULL,
+        user_id VARCHAR(191) NOT NULL,
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (id),
+        UNIQUE INDEX reel_likes_reel_id_user_id_key (reel_id, user_id),
+        INDEX reel_likes_user_id_idx (user_id),
+        INDEX reel_likes_reel_id_idx (reel_id),
+        CONSTRAINT fk_reel_likes_reel FOREIGN KEY (reel_id) REFERENCES campus_reels (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `).catch(() => {})
+
+    // Seed/refresh authentic MRDU and Cybersecurity Club Instagram Reels
+    try {
+      const existingReels = await prisma.$queryRawUnsafe(`SELECT COUNT(*) as count FROM campus_reels`)
+      const count = Number(existingReels?.[0]?.count || 0)
+      if (count === 0) {
+        await prisma.$executeRawUnsafe(`
+          INSERT INTO campus_reels (id, title, description, url, embed_type, author_handle, author_avatar, audio_title, is_admin_upload, external_post_url, category, platform_mode, likes_count, views_count, is_active, is_featured, posted_by, author_role)
+          VALUES 
+          ('reel-csc-1', 'MRDU Cyber Security Club Grand CTF Defense Battle & Induction 2026', 'Highlights from our annual Cyber Defense Arena & CTF live challenge at Malla Reddy University! #CyberSecurity #MRDU #EthicalHacking #CTF', 'https://www.instagram.com/reel/C8qL_k1S9gW/embed', 'INSTAGRAM', 'cybersecurityclub_mrdu', 'https://images.unsplash.com/photo-1614064641938-3bbee52942c7?w=150&auto=format&fit=crop&q=80', 'cybersecurityclub_mrdu • Original audio', TRUE, 'https://www.instagram.com/cybersecurityclub_mrdu', 'HACKATHONS', 'ALL', 184, 890, TRUE, TRUE, 'PR Team Lead', 'PR_TEAM'),
+          ('reel-mrdu-1', 'MRDU Campus Vibes & National Hackathon Grand Finals 2026', 'Energy was off the charts at the MRDU Central Auditorium! Top tech innovators battling it out for 24 hours non-stop. #MRDU #CampusLife #TechFest', 'https://www.instagram.com/reel/C8aB1m_P0xz/embed', 'INSTAGRAM', 'mrdu_official', 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=150&auto=format&fit=crop&q=80', 'mrdu_official • Campus Beats Trending', FALSE, 'https://www.instagram.com/mrdu_official', 'CAMPUS_LIFE', 'ALL', 320, 1450, TRUE, TRUE, 'Media Lead', 'MEDIA_LEAD'),
+          ('reel-csc-2', 'Live Wi-Fi Packet Sniffing & Network Security Workshop', 'Hands-on hardware security and wireless vulnerability exploitation workshop in Lab 304. #CyberKnights #NetworkSecurity #MRDU', 'https://www.instagram.com/reel/C7zN10xR3mB/embed', 'INSTAGRAM', 'cybersecurityclub_mrdu', 'https://images.unsplash.com/photo-1614064641938-3bbee52942c7?w=150&auto=format&fit=crop&q=80', 'cybersecurityclub_mrdu • Tech Audio Mix', TRUE, 'https://www.instagram.com/cybersecurityclub_mrdu', 'WORKSHOPS', 'ALL', 142, 620, TRUE, FALSE, 'Event Management', 'EVENT_MANAGEMENT'),
+          ('reel-mrdu-2', 'MRDU Annual Tech & Cultural Extravaganza Highlights', 'A night of electrifying performances, tech showcases, and memorable campus celebrations! #MRDUFest #UniversityVibes', 'https://www.instagram.com/reel/C6yD2v_Q7lZ/embed', 'INSTAGRAM', 'mrdu_events', 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=150&auto=format&fit=crop&q=80', 'mrdu_events • Fest Anthem 2026', FALSE, 'https://www.instagram.com/mrdu_events', 'CULTURAL', 'ALL', 415, 2100, TRUE, FALSE, 'President Office', 'PRESIDENT');
+        `).catch(() => {})
+      }
+    } catch {}
+
+    // 19. Provision President Account
     const presidentMemberId = (process.env.PRESIDENT_MEMBER_ID || '25EU07R0015').toUpperCase()
     const presidentPassword = process.env.PRESIDENT_INITIAL_PASSWORD || 'Dh@nush@dmin_csmrdu2029'
     const presidentName = process.env.PRESIDENT_NAME || 'Dhanush'
@@ -468,62 +611,6 @@ export async function bootstrapDatabase() {
       create: { key: 'onboardingBriefingMode', value: 'VIDEO' },
       update: {},
     })
-
-    // 20. Seed Initial Gallery Albums with Photos if empty
-    const albumCount = await prisma.galleryAlbum.count()
-    if (albumCount === 0) {
-      await prisma.galleryAlbum.create({
-        data: {
-          id: 'album-ctf-2026',
-          name: 'National Cyber CTF Hackathon 2026',
-          description: '48-hour live ethical hacking, binary exploitation, and reverse engineering challenge.',
-          coverImage: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80',
-          photos: {
-            create: [
-              {
-                id: 'photo-ctf-1',
-                imageUrl: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=1200&q=80',
-                caption: 'Live Flag Submission & Cyber Command Center Dashboard',
-              },
-              {
-                id: 'photo-ctf-2',
-                imageUrl: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?auto=format&fit=crop&w=1200&q=80',
-                caption: 'Binary Analysis and Cryptographic Cipher Cracking Round',
-              },
-              {
-                id: 'photo-ctf-3',
-                imageUrl: 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=1200&q=80',
-                caption: 'Finalists Team Collaboration in Deep Network Defense',
-              },
-            ],
-          },
-        },
-      })
-
-      await prisma.galleryAlbum.create({
-        data: {
-          id: 'album-bootcamp-2026',
-          name: 'Ethical Hacking & Defense Bootcamp',
-          description: 'Hands-on malware analysis, SOC incident response, and web security laboratories.',
-          coverImage: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=1200&q=80',
-          photos: {
-            create: [
-              {
-                id: 'photo-boot-1',
-                imageUrl: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?auto=format&fit=crop&w=1200&q=80',
-                caption: 'Hands-on Sandbox Penetration Testing Workshop',
-              },
-              {
-                id: 'photo-boot-2',
-                imageUrl: 'https://images.unsplash.com/photo-1510511459019-5dda7724fd87?auto=format&fit=crop&w=1200&q=80',
-                caption: 'Network Forensics and Wireshark Packet Inspection Lab',
-              },
-            ],
-          },
-        },
-      })
-      console.info('[BOOTSTRAP SUCCESS] Initial gallery albums and photos provisioned.')
-    }
   } catch (error) {
     console.warn('[BOOTSTRAP WARNING] Database bootstrap check warning:', error.message)
   }
