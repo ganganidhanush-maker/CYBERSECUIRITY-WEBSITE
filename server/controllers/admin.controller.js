@@ -197,28 +197,32 @@ export async function bulkCreateMembers(request, response) {
     try {
       const platformMode = request.platformMode || await getActivePlatformMode()
       const isMrdu = platformMode === 'MRDU_EVENTS'
+      const assignedRole = s.role || 'STUDENT'
+      const assignedPermissions = getRolePermissions(assignedRole)
       const passwordHash = await bcrypt.hash(s.password, env.bcryptRounds)
       const user = await prisma.user.create({
         data: {
           memberId: memId,
           passwordHash,
-          role: 'STUDENT',
-          cscRole: 'STUDENT',
-          mrduRole: 'STUDENT',
+          role: assignedRole,
+          cscRole: isMrdu ? 'STUDENT' : assignedRole,
+          mrduRole: isMrdu ? assignedRole : 'STUDENT',
           isPrimaryAdmin: false,
           accountStatus: 'ACTIVE',
           profile: {
             create: {
               name: s.name,
+              gender: s.gender || 'MALE',
+              age: s.age ? Number(s.age) : null,
               rollNumber: s.rollNumber || memId,
               department: s.department || null,
-              year: s.year || null,
+              year: s.year ? Number(s.year) : null,
               email: s.email || null,
               phone: s.phone || null,
             },
           },
           permissions: {
-            create: studentPermissions.map(permission => ({ permission })),
+            create: assignedPermissions.map(permission => ({ permission })),
           },
         },
         include: userInclude,
@@ -1287,9 +1291,113 @@ export async function deleteGalleryPhoto(request, response) {
   return response.status(204).end()
 }
 
+const ROLE_PRIORITY_MAP = {
+  PRESIDENT: 1,
+  VICE_PRESIDENT: 2,
+  STUDENT_COORDINATOR: 3,
+  TECH_TEAM: 4,
+  EVENT_MANAGEMENT: 5,
+  TREASURER: 6,
+  SECRETARY: 7,
+  MEDIA_LEAD: 8,
+  SOCIAL_MEDIA_LEAD: 9,
+  PR_TEAM: 10,
+  CULTURAL: 11,
+  ADMIN: 12,
+}
+
+const ROLE_DISPLAY_TITLES = {
+  PRESIDENT: 'President',
+  VICE_PRESIDENT: 'Vice President',
+  STUDENT_COORDINATOR: 'Student Coordinator',
+  TECH_TEAM: 'Tech Team Lead',
+  EVENT_MANAGEMENT: 'Event Management Lead',
+  TREASURER: 'Treasurer Lead',
+  SECRETARY: 'Secretary Lead',
+  MEDIA_LEAD: 'Media Lead',
+  SOCIAL_MEDIA_LEAD: 'Social Media Lead',
+  PR_TEAM: 'PR Team Lead',
+  CULTURAL: 'Cultural Lead',
+  ADMIN: 'Platform Administrator',
+}
+
+export async function syncLeadersFromAccounts() {
+  try {
+    const leaders = await prisma.user.findMany({
+      where: {
+        role: { not: 'STUDENT' },
+        accountStatus: 'ACTIVE',
+      },
+      include: { profile: true },
+      orderBy: { createdAt: 'asc' },
+    })
+
+    for (const leader of leaders) {
+      const priority = ROLE_PRIORITY_MAP[leader.role] || 99
+      const roleTitle = ROLE_DISPLAY_TITLES[leader.role] || leader.role
+      const name = leader.profile?.name || leader.memberId
+      const collegeEmail = leader.profile?.email || null
+      const bio = leader.profile?.bio || `Council leadership member · ${roleTitle}`
+      const photoUrl = leader.profile?.profileImage || null
+      const instagramUrl = leader.profile?.instagramUrl || null
+      const linkedinUrl = leader.profile?.linkedinUrl || null
+      const githubUrl = leader.profile?.githubUrl || null
+
+      const existing = await prisma.clubTeamMember.findFirst({
+        where: {
+          OR: [
+            collegeEmail ? { collegeEmail } : undefined,
+            { name },
+          ].filter(Boolean),
+        },
+      })
+
+      if (existing) {
+        await prisma.clubTeamMember.update({
+          where: { id: existing.id },
+          data: {
+            name,
+            roleTitle: existing.roleTitle || roleTitle,
+            sortOrder: priority,
+            bio: leader.profile?.bio || existing.bio || bio,
+            photoUrl: photoUrl || existing.photoUrl,
+            instagramUrl: instagramUrl || existing.instagramUrl,
+            linkedinUrl: linkedinUrl || existing.linkedinUrl,
+            githubUrl: githubUrl || existing.githubUrl,
+          },
+        })
+      } else {
+        await prisma.clubTeamMember.create({
+          data: {
+            id: newId(),
+            name,
+            roleTitle,
+            sortOrder: priority,
+            collegeEmail,
+            bio,
+            photoUrl,
+            instagramUrl,
+            linkedinUrl,
+            githubUrl,
+          },
+        })
+      }
+    }
+  } catch (err) {
+    console.error('Error syncing leaders from accounts:', err)
+  }
+}
+
 export async function listClubTeam(request, response) {
+  await syncLeadersFromAccounts()
   const team = await prisma.clubTeamMember.findMany({ orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] })
   return response.status(200).json({ team })
+}
+
+export async function syncClubTeamFromAccounts(request, response) {
+  await syncLeadersFromAccounts()
+  const team = await prisma.clubTeamMember.findMany({ orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] })
+  return response.status(200).json({ message: 'Leadership team synced successfully from account directory.', team })
 }
 
 export async function createClubTeamMember(request, response) {
@@ -1976,8 +2084,8 @@ export function parseReelUrl(inputUrl) {
     }
   }
 
-  // 3. Direct Video file
-  if (/\.(mp4|webm|mov|ogg)(\?.*)?$/i.test(url)) {
+  // 3. Direct Video file or Base64 / Blob
+  if (url.startsWith('data:video/') || url.startsWith('blob:') || /\.(mp4|webm|mov|ogg)(\?.*)?$/i.test(url)) {
     return {
       url,
       rawUrl: url,
@@ -2007,7 +2115,12 @@ export async function listReelsAdmin(request, response) {
 }
 
 export async function createReel(request, response) {
-  const { title, description, url, category, platformMode, isFeatured, authorHandle, audioTitle } = request.body || {}
+  const body = request.body || {}
+  const title = body.title ? String(body.title).trim() : ''
+  const url = String(body.url || body.reelUrl || body.videoUrl || '').trim()
+  const description = body.description || body.caption || null
+  const { category, platformMode, isFeatured, authorHandle, audioTitle } = body
+
   if (!title || !url) {
     return response.status(400).json({ message: 'Reel title and video link URL are required.' })
   }
@@ -2016,16 +2129,16 @@ export async function createReel(request, response) {
   const authorName = request.user.profile?.name || request.user.memberId || 'Club Leadership'
   const authorRole = request.user.role || 'PR_TEAM'
   const finalHandle = authorHandle ? authorHandle.replace(/^@/, '').trim() : 'cybersecurityclub_mrdu'
-  const finalAudio = audioTitle ? audioTitle.trim() : `${finalHandle} • Original audio`
+  const finalAudio = audioTitle ? String(audioTitle).trim() : `${finalHandle} • Original audio`
   const defaultAvatar = finalHandle.includes('mrdu') && !finalHandle.includes('cyber')
     ? 'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?w=150&auto=format&fit=crop&q=80'
     : 'https://images.unsplash.com/photo-1614064641938-3bbee52942c7?w=150&auto=format&fit=crop&q=80'
 
   const reel = await prisma.campusReel.create({
     data: {
-      title: title.trim(),
-      description: description ? description.trim() : null,
-      url: parsed.url || url.trim(),
+      title,
+      description: description ? String(description).trim() : null,
+      url: parsed.url || url,
       embedType: parsed.embedType,
       thumbnailUrl: parsed.thumbnailUrl || null,
       authorHandle: finalHandle,

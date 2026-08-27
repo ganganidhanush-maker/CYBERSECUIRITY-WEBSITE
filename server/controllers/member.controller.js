@@ -790,9 +790,11 @@ export async function createSupportTicket(request, response) {
   const validRoles = [
     'PRESIDENT',
     'VICE_PRESIDENT',
+    'STUDENT_COORDINATOR',
     'TREASURER',
     'EVENT_MANAGEMENT',
     'MEDIA_LEAD',
+    'SOCIAL_MEDIA_LEAD',
     'TECH_TEAM',
     'PR_TEAM',
     'CULTURAL',

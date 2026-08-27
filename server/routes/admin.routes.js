@@ -25,6 +25,7 @@ import {
   listAdminSupportTickets,
   listAuditLogs,
   listClubTeam,
+  syncClubTeamFromAccounts,
   listComplaints,
   listCouncilMessages,
   listEventRegistrations,
@@ -132,6 +133,7 @@ adminRouter.delete('/reels/:id', requireReelsManager, adminWriteRateLimiter, asy
 
 // Club Team & Leadership Management
 adminRouter.get('/team', requirePermission('TEAM_MANAGE'), asyncHandler(listClubTeam))
+adminRouter.post('/team/sync-accounts', requirePermission('TEAM_MANAGE'), asyncHandler(syncClubTeamFromAccounts))
 adminRouter.post('/team', requirePermission('TEAM_MANAGE'), adminWriteRateLimiter, asyncHandler(createClubTeamMember))
 adminRouter.put('/team/reorder', requirePermission('TEAM_MANAGE'), adminWriteRateLimiter, asyncHandler(reorderClubTeam))
 adminRouter.put('/team/:memberId', requirePermission('TEAM_MANAGE'), adminWriteRateLimiter, asyncHandler(updateClubTeamMember))

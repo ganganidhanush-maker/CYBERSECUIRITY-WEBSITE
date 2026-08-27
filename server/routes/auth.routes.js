@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { confirmTwoFactorSetup, disableTwoFactor, login, logout, logoutAllDevices, me, requestPasswordReset, resetPassword, startTwoFactorSetup, verifyTwoFactorLogin } from '../controllers/auth.controller.js'
+import { changePassword, confirmTwoFactorSetup, disableTwoFactor, login, logout, logoutAllDevices, me, requestPasswordReset, resetPassword, startTwoFactorSetup, verifyTwoFactorLogin } from '../controllers/auth.controller.js'
 import { registerGuestAccount } from '../controllers/guest.controller.js'
 import { getPublicClubSettings } from '../controllers/member.controller.js'
 import { csrfToken } from '../middleware/csrf.js'
@@ -15,6 +15,7 @@ authRouter.post('/register-guest', loginRateLimiter, asyncHandler(registerGuestA
 authRouter.post('/verify-2fa', twoFactorRateLimiter, asyncHandler(verifyTwoFactorLogin))
 authRouter.post('/forgot-password', passwordResetRateLimiter, asyncHandler(requestPasswordReset))
 authRouter.post('/reset-password', passwordResetRateLimiter, asyncHandler(resetPassword))
+authRouter.post('/change-password', requireAuth, asyncHandler(changePassword))
 authRouter.post('/logout', requireAuth, asyncHandler(logout))
 authRouter.post('/logout-all-devices', requireAuth, asyncHandler(logoutAllDevices))
 authRouter.post('/two-factor/setup', requireAuth, asyncHandler(startTwoFactorSetup))

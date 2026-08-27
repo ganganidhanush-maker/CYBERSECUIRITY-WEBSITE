@@ -117,13 +117,13 @@ export function canManageReels(user) {
   if (!user) return false
   if (isPrimaryPresident(user)) return true
   const role = user.role || user.effectiveRole
-  return ['PRESIDENT', 'VICE_PRESIDENT', 'PR_TEAM', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'ADMIN'].includes(role) || hasPermission(user, 'REELS_MANAGE') || hasPermission(user, 'GALLERY_MANAGE')
+  return ['PRESIDENT', 'VICE_PRESIDENT', 'STUDENT_COORDINATOR', 'PR_TEAM', 'SOCIAL_MEDIA_LEAD', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'ADMIN'].includes(role) || hasPermission(user, 'REELS_MANAGE') || hasPermission(user, 'GALLERY_MANAGE')
 }
 
 export function hasPermission(user, permission) {
   if (!user) return false
   if (isPrimaryPresident(user)) return true
-  if (user?.role === 'PRESIDENT' || user?.role === 'ADMIN') return true
+  if (user?.role === 'PRESIDENT' || user?.role === 'ADMIN' || user?.role === 'STUDENT_COORDINATOR') return true
 
   const defaultPerms = ROLE_DEFAULT_PERMISSIONS[user?.role] || []
   if (defaultPerms.includes(permission)) return true

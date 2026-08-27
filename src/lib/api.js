@@ -151,9 +151,11 @@ export const authApi = {
   logout: () => request('/auth/logout', { method: 'POST' }),
   requestPasswordReset: memberId => request('/auth/forgot-password', { method: 'POST', body: JSON.stringify({ memberId }) }),
   resetPassword: (token, password) => request('/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, password }) }),
-  startTwoFactorSetup: () => request('/auth/2fa/setup', { method: 'POST' }),
-  confirmTwoFactorSetup: code => request('/auth/2fa/confirm', { method: 'POST', body: JSON.stringify({ code }) }),
-  disableTwoFactor: (password, code) => request('/auth/2fa/disable', { method: 'POST', body: JSON.stringify({ password, code }) }),
+  startTwoFactorSetup: () => request('/auth/two-factor/setup', { method: 'POST' }),
+  confirmTwoFactorSetup: code => request('/auth/two-factor/confirm', { method: 'POST', body: JSON.stringify({ code }) }),
+  disableTwoFactor: (password, code) => request('/auth/two-factor/disable', { method: 'POST', body: JSON.stringify({ password, code }) }),
+  changePassword: (currentPassword, newPassword) => request('/auth/change-password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) }),
+  logoutAllSessions: () => request('/auth/logout-all-devices', { method: 'POST' }),
 }
 
 export const adminApi = {
@@ -197,6 +199,7 @@ export const adminApi = {
 
   // Team & Leadership
   listClubTeam: () => request('/admin/team'),
+  syncClubTeamFromAccounts: () => request('/admin/team/sync-accounts', { method: 'POST' }),
   createClubTeamMember: member => request('/admin/team', { method: 'POST', body: JSON.stringify(member) }),
   updateClubTeamMember: (memberId, member) => request(`/admin/team/${memberId}`, { method: 'PUT', body: JSON.stringify(member) }),
   reorderClubTeam: orderedIds => request('/admin/team/reorder', { method: 'PUT', body: JSON.stringify({ orderedIds }) }),

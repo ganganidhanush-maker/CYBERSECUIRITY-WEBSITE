@@ -16,18 +16,98 @@ import './App.css'
 export const PlatformThemeContext = createContext({
   platformMode: 'CYBER_SECURITY_CLUB',
   setPlatformMode: () => {},
-  themeMode: 'light',
+  themeMode: 'system',
   setThemeMode: () => {},
   resolvedTheme: 'light',
   clubSettings: null,
   setClubSettings: () => {},
   reelsEnabled: true,
   subEnabled: false,
+  onSwitchPersonaRole: () => {},
 })
 
 export function usePlatformTheme() {
   return useContext(PlatformThemeContext)
 }
+
+const ROLE_PERMISSIONS_MAP = {
+  STUDENT_COORDINATOR: [
+    'ACCOUNT_MANAGEMENT', 'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE', 'EVENT_REGISTER',
+    'REGISTRATIONS_VIEW', 'PAYMENTS_VIEW', 'PAYMENTS_VERIFY', 'QR_PASSES_VIEW', 'GALLERY_VIEW',
+    'GALLERY_MANAGE', 'REELS_MANAGE', 'TEAM_MANAGE', 'SETTINGS_MANAGE', 'AUDIT_VIEW',
+    'CHAT_USE', 'SUGGESTIONS_CREATE', 'FEEDBACK_CREATE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  PRESIDENT: [
+    'ACCOUNT_MANAGEMENT', 'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE', 'EVENT_REGISTER',
+    'REGISTRATIONS_VIEW', 'PAYMENTS_VIEW', 'PAYMENTS_VERIFY', 'QR_PASSES_VIEW', 'GALLERY_VIEW',
+    'GALLERY_MANAGE', 'REELS_MANAGE', 'TEAM_MANAGE', 'SETTINGS_MANAGE', 'AUDIT_VIEW',
+    'CHAT_USE', 'SUGGESTIONS_CREATE', 'FEEDBACK_CREATE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  VICE_PRESIDENT: [
+    'ACCOUNT_MANAGEMENT', 'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE', 'EVENT_REGISTER',
+    'REGISTRATIONS_VIEW', 'PAYMENTS_VIEW', 'QR_PASSES_VIEW', 'GALLERY_VIEW', 'GALLERY_MANAGE',
+    'REELS_MANAGE', 'TEAM_MANAGE', 'CHAT_USE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  TREASURER: [
+    'DASHBOARD_VIEW', 'EVENTS_VIEW', 'REGISTRATIONS_VIEW', 'PAYMENTS_VIEW', 'PAYMENTS_VERIFY',
+    'QR_PASSES_VIEW', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  EVENT_MANAGEMENT: [
+    'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE', 'EVENT_REGISTER', 'REGISTRATIONS_VIEW',
+    'QR_PASSES_VIEW', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  MEDIA_LEAD: [
+    'DASHBOARD_VIEW', 'EVENTS_VIEW', 'GALLERY_VIEW', 'GALLERY_MANAGE', 'REELS_MANAGE',
+    'TEAM_MANAGE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  SOCIAL_MEDIA_LEAD: [
+    'DASHBOARD_VIEW', 'EVENTS_VIEW', 'GALLERY_VIEW', 'GALLERY_MANAGE', 'REELS_MANAGE',
+    'SETTINGS_MANAGE', 'TEAM_MANAGE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  TECH_TEAM: [
+    'DASHBOARD_VIEW', 'EVENTS_VIEW', 'SETTINGS_MANAGE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  PR_TEAM: [
+    'DASHBOARD_VIEW', 'EVENTS_VIEW', 'REELS_MANAGE', 'SETTINGS_MANAGE', 'TEAM_MANAGE',
+    'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  CULTURAL: [
+    'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  SECRETARY: [
+    'ACCOUNT_MANAGEMENT', 'DASHBOARD_VIEW', 'EVENTS_VIEW', 'REGISTRATIONS_VIEW', 'TEAM_MANAGE',
+    'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  ADMIN: [
+    'ACCOUNT_MANAGEMENT', 'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE', 'EVENT_REGISTER',
+    'REGISTRATIONS_VIEW', 'PAYMENTS_VIEW', 'PAYMENTS_VERIFY', 'GALLERY_VIEW', 'GALLERY_MANAGE',
+    'REELS_MANAGE', 'TEAM_MANAGE', 'SETTINGS_MANAGE', 'AUDIT_VIEW', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  STUDENT: [
+    'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_REGISTER', 'REGISTRATIONS_VIEW', 'QR_PASSES_VIEW',
+    'GALLERY_VIEW', 'CHAT_USE', 'SUGGESTIONS_CREATE', 'FEEDBACK_CREATE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+}
+
+function getRolePermissions(role) {
+  return ROLE_PERMISSIONS_MAP[role] || ROLE_PERMISSIONS_MAP.STUDENT
+}
+
+const PERSONA_ROLES = [
+  { id: 'PRESIDENT', label: 'President', emoji: '👑', badge: 'EXEC' },
+  { id: 'VICE_PRESIDENT', label: 'Vice President', emoji: '🛡️', badge: 'EXEC' },
+  { id: 'STUDENT_COORDINATOR', label: 'Student Coordinator', emoji: '🎓', badge: 'LEAD' },
+  { id: 'TECH_TEAM', label: 'Tech Team Lead', emoji: '💻', badge: 'TECH' },
+  { id: 'EVENT_MANAGEMENT', label: 'Event Management Lead', emoji: '🎯', badge: 'EVENTS' },
+  { id: 'TREASURER', label: 'Treasurer Lead', emoji: '💰', badge: 'FINANCE' },
+  { id: 'SECRETARY', label: 'Secretary Lead', emoji: '📜', badge: 'ADMIN' },
+  { id: 'MEDIA_LEAD', label: 'Media Lead', emoji: '📸', badge: 'MEDIA' },
+  { id: 'SOCIAL_MEDIA_LEAD', label: 'Social Media Lead', emoji: '📱', badge: 'SOCIAL' },
+  { id: 'PR_TEAM', label: 'PR Team Lead', emoji: '📢', badge: 'PR' },
+  { id: 'CULTURAL', label: 'Cultural Lead', emoji: '🎭', badge: 'CULTURAL' },
+  { id: 'ADMIN', label: 'Administrator', emoji: '⚡', badge: 'ADMIN' },
+  { id: 'STUDENT', label: 'Student View', emoji: '🧑‍🎓', badge: 'STUDENT' },
+]
 
 const CLUB_ROLES = [
   { id: 'STUDENT', label: 'Student Member', roleType: 'student' },
@@ -41,6 +121,7 @@ const CLUB_ROLES = [
   { id: 'PR_TEAM', label: 'PR Team', roleType: 'admin' },
   { id: 'CULTURAL', label: 'Cultural', roleType: 'admin' },
   { id: 'SECRETARY', label: 'Secretary', roleType: 'admin' },
+  { id: 'STUDENT_COORDINATOR', label: 'Student Coordinator', roleType: 'admin' },
   { id: 'ADMIN', label: 'Administrator', roleType: 'admin' },
 ]
 
@@ -362,7 +443,7 @@ const OFFICIAL_COLLEGES_LIST = [
   'Other / External University (Specify Below)',
 ]
 
-const BRANCH_OPTIONS = ['CSE', 'ECE', 'EEE', 'CE', 'ME', 'IT', 'BBA', 'MBA', 'IoT']
+const BRANCH_OPTIONS = ['Cyber Security', 'CSE', 'AI & ML', 'Data Science', 'ECE', 'EEE', 'CE', 'ME', 'IT', 'BBA', 'MBA', 'IoT']
 const CSE_SPECIALIZATIONS = ['AIML', 'CS', 'DS', 'General', 'IT', 'IOT', 'AIDS']
 const ACADEMIC_YEARS = [
   { value: 1, label: '1st Year (Freshman / UG)' },
@@ -1120,6 +1201,38 @@ function IconSparkles({ size = 16, style = {} }) {
   )
 }
 
+function IconEye({ size = 16, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
+
+function IconEyeOff({ size = 16, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  )
+}
+
+function IconCopy({ size = 13, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  )
+}
+
+function IconLifebuoy({ size = 14, style = {} }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
+      <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" /><line x1="4.93" y1="4.93" x2="9.17" y2="9.17" /><line x1="14.83" y1="14.83" x2="19.07" y2="19.07" /><line x1="14.83" y1="9.17" x2="19.07" y2="4.93" /><line x1="4.93" y1="19.07" x2="9.17" y2="14.83" />
+    </svg>
+  )
+}
+
 // ----------------------------------------------------
 // Navigation, Header & LivePortal Frame
 // ----------------------------------------------------
@@ -1133,17 +1246,17 @@ function Sidebar({ user, logout, activeTab, onNavigate, isOpen, onClose }) {
     ? [
         [<Icon8 name="protect" size={17} />, isMrdu ? 'Portal Home' : 'Dashboard', 'admin-dashboard', true],
         [<Icon8 name="faceId" size={17} />, 'QR Entry Gate', 'admin-qr-scanner', has('EVENTS_VIEW') || has('EVENT_MANAGE') || user.isAdminUser],
-        [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Participants' : 'Members', 'admin-members', has('ACCOUNT_MANAGEMENT') || user.isPrimaryAdmin || ['PRESIDENT', 'VICE_PRESIDENT', 'ADMIN', 'SECRETARY'].includes(user.role)],
+        [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Participants' : 'Members', 'admin-members', has('ACCOUNT_MANAGEMENT') || user.isPrimaryAdmin || ['PRESIDENT', 'VICE_PRESIDENT', 'STUDENT_COORDINATOR', 'ADMIN', 'SECRETARY'].includes(user.role)],
         [<Icon8 name="realtime" size={17} />, 'Event Studio', 'admin-events', has('EVENTS_VIEW') || has('EVENT_MANAGE')],
         [<Icon8 name="access" size={17} />, isMrdu ? 'Pass Subscriptions' : 'Subscriptions', 'admin-subscriptions', has('PAYMENTS_VIEW') || user.role === 'TREASURER' || user.role === 'PRESIDENT'],
         [<Icon8 name="authentication" size={17} />, isMrdu ? 'Passes & Payments' : 'Passes & Check-in', 'admin-passes', has('PAYMENTS_VIEW') || has('EVENTS_VIEW') || user.isAdminUser],
         [<Icon8 name="captcha" size={17} />, 'Helpdesk & Doubts', 'admin-support', true],
         [<Icon8 name="protect" size={17} />, 'Council Room', 'admin-chat', true],
         [<Icon8 name="irisScan" size={17} />, isMrdu ? 'Event Gallery' : 'Gallery', 'admin-gallery', has('GALLERY_VIEW') || has('GALLERY_MANAGE')],
-        [<Icon8 name="realtime" size={17} />, isMrdu ? 'MRDU Reels Studio' : 'Reels Studio', 'admin-reels', has('REELS_MANAGE') || has('GALLERY_MANAGE') || user.isPrimaryAdmin || ['PRESIDENT', 'VICE_PRESIDENT', 'PR_TEAM', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'ADMIN'].includes(user.role)],
-        [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Organizing Team' : 'Team / Leaders', 'admin-team', has('TEAM_MANAGE')],
-        [<Icon8 name="keySecurity" size={17} />, 'Settings & Links', 'admin-settings', has('SETTINGS_MANAGE')],
-        [<Icon8 name="showPassword" size={17} />, 'Audit Log', 'admin-audit', has('AUDIT_VIEW')],
+        [<Icon8 name="realtime" size={17} />, isMrdu ? 'MRDU Reels Studio' : 'Reels Studio', 'admin-reels', has('REELS_MANAGE') || has('GALLERY_MANAGE') || user.isPrimaryAdmin || ['PRESIDENT', 'VICE_PRESIDENT', 'STUDENT_COORDINATOR', 'PR_TEAM', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'ADMIN'].includes(user.role)],
+        [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Organizing Team' : 'Team / Leaders', 'admin-team', has('TEAM_MANAGE') || ['PRESIDENT', 'VICE_PRESIDENT', 'STUDENT_COORDINATOR', 'ADMIN'].includes(user.role)],
+        [<Icon8 name="keySecurity" size={17} />, 'Settings & Links', 'admin-settings', has('SETTINGS_MANAGE') || user.role === 'PRESIDENT'],
+        [<Icon8 name="showPassword" size={17} />, 'Audit Log', 'admin-audit', has('AUDIT_VIEW') || user.role === 'PRESIDENT'],
         [<Icon8 name="fingerprint" size={17} />, 'My Profile', 'admin-profile', true],
         [<Icon8 name="password" size={17} />, 'Security & PIN', 'security', true],
       ].filter(item => item[3])
@@ -1157,6 +1270,7 @@ function Sidebar({ user, logout, activeTab, onNavigate, isOpen, onClose }) {
         [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Organizing Team' : 'Our Team', 'student-team', true],
         [<Icon8 name="irisScan" size={17} />, isMrdu ? 'Event Gallery' : 'Gallery', 'student-gallery', true],
         [<Icon8 name="fingerprint" size={17} />, 'My Profile', 'student-profile', true],
+        [<Icon8 name="password" size={17} />, 'Account Security', 'security', true],
       ].filter(item => item[3])
 
   return (
@@ -1198,9 +1312,106 @@ function Sidebar({ user, logout, activeTab, onNavigate, isOpen, onClose }) {
   )
 }
 
-function Header({ user, title, onProfile, onToggleNav, onOpenNotifications, unreadCount }) {
-  const { platformMode } = usePlatformTheme()
+function RolePersonaSwitcher({ user, onSwitchRole, onNavigate }) {
+  const [open, setOpen] = useState(false)
+  const dropdownRef = useRef(null)
+
+  const activePersona = PERSONA_ROLES.find(r => r.id === user.role) || {
+    id: user.role,
+    label: getRoleLabel(user.role),
+    emoji: '🛡️',
+    badge: 'LEAD',
+  }
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setOpen(false)
+      }
+    }
+    if (open) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [open])
+
+  return (
+    <div className="role-persona-switcher-container" ref={dropdownRef}>
+      <button
+        type="button"
+        className="role-persona-trigger"
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        title="Click to switch between club roles and student view"
+      >
+        <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--brand-primary)', fontFamily: '"DM Mono", monospace' }}>
+          SWITCH ROLE:
+        </span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+          <span style={{ fontSize: '13px' }}>{activePersona.emoji}</span>
+          <span style={{ color: 'var(--text-main)' }}>{activePersona.label}</span>
+        </span>
+        <span style={{ fontSize: '9px', opacity: 0.7, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }}>
+          ▼
+        </span>
+      </button>
+
+      {open && (
+        <div className="role-persona-dropdown-menu" role="listbox">
+          <div style={{ padding: '6px 8px 4px', fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.5px', textTransform: 'uppercase', borderBottom: '1px solid var(--line)', marginBottom: '4px' }}>
+            Switch Active Persona
+          </div>
+          {PERSONA_ROLES.map(r => {
+            const isSelected = r.id === user.role
+            return (
+              <button
+                key={r.id}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                className={`role-persona-item ${isSelected ? 'selected' : ''}`}
+                onClick={() => {
+                  setOpen(false)
+                  if (onSwitchRole) onSwitchRole(r.id)
+                  if (onNavigate) {
+                    onNavigate(r.id === 'STUDENT' ? 'student-dashboard' : 'admin-dashboard')
+                  }
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '14px' }}>{r.emoji}</span>
+                  <span style={{ fontWeight: isSelected ? 700 : 600 }}>{r.label}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 5px', borderRadius: '4px', background: isSelected ? 'var(--brand-primary)' : 'var(--panel-subtle)', color: isSelected ? '#000' : 'var(--text-dim)', border: '1px solid var(--line)' }}>
+                    {r.badge}
+                  </span>
+                  {isSelected && <span style={{ color: 'var(--brand-primary)', fontWeight: 800 }}>✓</span>}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function Header({ user, title, onProfile, onToggleNav, onOpenNotifications, unreadCount, onSwitchPersonaRole, onNavigate }) {
+  const { platformMode, themeMode, setThemeMode, onSwitchPersonaRole: ctxSwitchPersona } = usePlatformTheme()
   const isMrdu = platformMode === 'MRDU_EVENTS'
+
+  const effectiveSwitchPersona = onSwitchPersonaRole || ctxSwitchPersona
+
+  function cycleTheme() {
+    if (themeMode === 'dark') setThemeMode('light')
+    else if (themeMode === 'light') setThemeMode('system')
+    else setThemeMode('dark')
+  }
+
+  const ThemeIconComponent = themeMode === 'light' ? IconSun : themeMode === 'dark' ? IconMoon : IconMonitor
+  const themeLabel = themeMode === 'light' ? 'Light' : themeMode === 'dark' ? 'Dark' : 'System'
 
   return (
     <header className="header">
@@ -1214,6 +1425,27 @@ function Header({ user, title, onProfile, onToggleNav, onOpenNotifications, unre
         </div>
       </div>
       <div className="header-tools" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Dynamic Role Switcher for Student Coordinator / Multi-Role Leads */}
+        {user.canSwitchPersona && (
+          <RolePersonaSwitcher
+            user={user}
+            onSwitchRole={effectiveSwitchPersona}
+            onNavigate={onNavigate}
+          />
+        )}
+
+        {/* Quick Theme Toggle Right At The Top */}
+        <button
+          type="button"
+          className="quick-theme-toggle"
+          onClick={cycleTheme}
+          title={`Theme: ${themeMode.toUpperCase()} (Click to toggle)`}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)', cursor: 'pointer' }}
+        >
+          <ThemeIconComponent size={14} />
+          <span>{themeLabel}</span>
+        </button>
+
         {/* In-App Notifications Bell */}
         <button
           type="button"
@@ -1323,17 +1555,22 @@ function NotificationsModal({ isOpen, onClose, onNavigate }) {
                   marginBottom: '8px',
                   background: n.isRead ? 'var(--bg-input)' : 'var(--brand-badge-bg)',
                   border: n.isRead ? '1px solid var(--line)' : '1px solid var(--brand-border-subtle)',
-                  cursor: 'pointer',
+                  cursor: n.linkUrl ? 'pointer' : 'default',
                   transition: 'background 0.15s ease',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                  <b style={{ color: n.isRead ? 'var(--text-main)' : 'var(--brand-primary)', fontSize: '12px' }}>{n.title}</b>
-                  <small style={{ color: 'var(--text-dim)', fontSize: '9px', font: '500 "DM Mono", monospace' }}>
-                    {new Date(n.createdAt).toLocaleDateString()}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <b style={{ color: 'var(--text-main)', fontSize: '13px' }}>{n.title}</b>
+                  <small style={{ color: 'var(--text-dim)', fontSize: '10px' }}>
+                    {n.createdAt ? new Date(n.createdAt).toLocaleDateString() : ''}
                   </small>
                 </div>
-                <p style={{ color: 'var(--text-muted)', fontSize: '11px', margin: '4px 0 0', lineHeight: '1.5' }}>{n.message}</p>
+                <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.4' }}>{n.message}</p>
+                {n.linkUrl && (
+                  <small style={{ color: 'var(--brand-primary)', display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '6px', fontWeight: 600 }}>
+                    Open link →
+                  </small>
+                )}
               </div>
             ))
           )}
@@ -1343,7 +1580,7 @@ function NotificationsModal({ isOpen, onClose, onNavigate }) {
   )
 }
 
-function LivePortal({ user, logout, activeTab, onNavigate, title, onUserUpdated, children }) {
+function LivePortal({ user, logout, activeTab, onNavigate, title, onUserUpdated, onSwitchPersonaRole, children }) {
   const [navOpen, setNavOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
@@ -1374,6 +1611,8 @@ function LivePortal({ user, logout, activeTab, onNavigate, title, onUserUpdated,
           onToggleNav={() => setNavOpen(o => !o)}
           onOpenNotifications={() => setNotifOpen(true)}
           unreadCount={unreadCount}
+          onSwitchPersonaRole={onSwitchPersonaRole}
+          onNavigate={onNavigate}
         />
         <div className="dashboard">{children}</div>
       </div>
@@ -1778,6 +2017,15 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
   const { platformMode, themeMode, setThemeMode } = usePlatformTheme()
   const isMrdu = platformMode === 'MRDU_EVENTS'
 
+  function cycleTheme() {
+    if (themeMode === 'dark') setThemeMode('light')
+    else if (themeMode === 'light') setThemeMode('system')
+    else setThemeMode('dark')
+  }
+
+  const ThemeIconComponent = themeMode === 'light' ? IconSun : themeMode === 'dark' ? IconMoon : IconMonitor
+  const themeLabel = themeMode === 'light' ? 'Light' : themeMode === 'dark' ? 'Dark' : 'System'
+
   // Cursor-reactive grid
   const showcaseRef = useRef(null)
   const handleShowcaseMouseMove = useCallback((e) => {
@@ -2165,7 +2413,17 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
         </div>
       </section>
 
-      <section className="login-panel">
+      <section className="login-panel" style={{ position: 'relative' }}>
+        <button
+          type="button"
+          className="quick-theme-toggle"
+          onClick={cycleTheme}
+          title={`Theme: ${themeMode.toUpperCase()} (Click to toggle)`}
+          style={{ position: 'absolute', top: '18px', right: '22px', zIndex: 10, display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)', cursor: 'pointer' }}
+        >
+          <ThemeIconComponent size={14} />
+          <span>{themeLabel}</span>
+        </button>
         <div
           className="login-card"
           ref={loginCardRef}
@@ -2538,7 +2796,7 @@ function PasswordReset({ token, onComplete }) {
 }
 
 // ----------------------------------------------------
-// Account Security & President Master PIN
+// Account Security, Password Manager & Master Locks
 // ----------------------------------------------------
 function AccountSecurity({ user, logout, onNavigate }) {
   const [setup, setSetup] = useState(null)
@@ -2548,11 +2806,65 @@ function AccountSecurity({ user, logout, onNavigate }) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // Change Password state
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmNewPassword, setConfirmNewPassword] = useState('')
+  const [pwMessage, setPwMessage] = useState('')
+  const [pwError, setPwError] = useState('')
+  const [pwLoading, setPwLoading] = useState(false)
+
   // Master PIN (Primary President only)
   const [masterPin, setMasterPin] = useState('')
   const [masterPinPassword, setMasterPinPassword] = useState('')
   const [pinMessage, setPinMessage] = useState('')
   const [pinError, setPinError] = useState('')
+
+  // Session termination state
+  const [sessionMessage, setSessionMessage] = useState('')
+  const [terminatingSessions, setTerminatingSessions] = useState(false)
+
+  const hasLength = newPassword.length >= 12
+  const hasLower = /[a-z]/.test(newPassword)
+  const hasUpper = /[A-Z]/.test(newPassword)
+  const hasNumber = /\d/.test(newPassword)
+  const hasSymbol = /[^A-Za-z0-9]/.test(newPassword)
+
+  const securityScore = useMemo(() => {
+    let score = 50 // Base score for bcrypt account
+    if (user.twoFactorEnabled) score += 30
+    if (user.isPrimaryAdmin) score += 10
+    if (newPassword && hasLength && hasUpper && hasLower && hasNumber && hasSymbol) score += 10
+    return Math.min(100, score)
+  }, [user, newPassword, hasLength, hasUpper, hasLower, hasNumber, hasSymbol])
+
+  async function handleChangePassword(e) {
+    e.preventDefault()
+    setPwError('')
+    setPwMessage('')
+
+    if (newPassword !== confirmNewPassword) {
+      setPwError('New passwords do not match.')
+      return
+    }
+    if (newPassword.length < 8) {
+      setPwError('New password must be at least 8 characters long.')
+      return
+    }
+
+    setPwLoading(true)
+    try {
+      const res = await authApi.changePassword(currentPassword, newPassword)
+      setPwMessage(res.message || '✓ Password changed successfully!')
+      setCurrentPassword('')
+      setNewPassword('')
+      setConfirmNewPassword('')
+    } catch (err) {
+      setPwError(err.message || 'Failed to update password.')
+    } finally {
+      setPwLoading(false)
+    }
+  }
 
   async function startSetup() {
     setError('')
@@ -2575,7 +2887,7 @@ function AccountSecurity({ user, logout, onNavigate }) {
       await authApi.confirmTwoFactorSetup(code)
       setSetup(null)
       setCode('')
-      setMessage('Two-factor authentication is now active.')
+      setMessage('✓ Two-factor authentication (TOTP) is now active on your account.')
     } catch (requestError) {
       setError(requestError.message)
     } finally {
@@ -2613,14 +2925,17 @@ function AccountSecurity({ user, logout, onNavigate }) {
     }
   }
 
-  if (!user.isAdminUser) {
-    return (
-      <LivePortal user={user} logout={logout} activeTab="student-dashboard" onNavigate={onNavigate} title="DASHBOARD">
-        <section className="member-management">
-          <p className="directory-state">Security & administrative authorization controls are reserved for council accounts.</p>
-        </section>
-      </LivePortal>
-    )
+  async function handleTerminateOtherSessions() {
+    setTerminatingSessions(true)
+    setSessionMessage('')
+    try {
+      await authApi.logoutAllSessions()
+      setSessionMessage('✓ All other device sessions terminated. Only this browser session remains active.')
+    } catch (err) {
+      setSessionMessage(err.message || 'Failed to terminate other sessions.')
+    } finally {
+      setTerminatingSessions(false)
+    }
   }
 
   return (
@@ -2628,14 +2943,14 @@ function AccountSecurity({ user, logout, onNavigate }) {
       <section className="member-management">
         <div className="member-heading">
           <div>
-            <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
-              ← BACK
+            <button className="back-button" type="button" onClick={() => onNavigate(user.isAdminUser ? 'admin-dashboard' : 'student-dashboard')}>
+              ← BACK TO DASHBOARD
             </button>
             <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Icon8 name="password" size={14} /> AUTHENTICATION PROTECTION
+              <IconShieldCheck size={14} /> CYBER DEFENSE & AUTHENTICATION PROTOCOLS
             </p>
-            <h1>Account Security & Locks</h1>
-            <p>Configure two-factor protection and manage secondary authorization controls.</p>
+            <h1>Account Security & Protection</h1>
+            <p>Manage authentication credentials, configure multi-factor hardware/software locks, and monitor active sessions.</p>
           </div>
           <span className="president-lock" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             <Icon8 name="authentication" size={14} />
@@ -2643,19 +2958,57 @@ function AccountSecurity({ user, logout, onNavigate }) {
           </span>
         </div>
 
+        {/* Security Posture HUD Bar */}
+        <div className="roster-stats-hud" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+          <div className="roster-stat-card">
+            <span className="roster-stat-label">SECURITY HEALTH SCORE</span>
+            <span className="roster-stat-value" style={{ color: securityScore >= 80 ? '#10b981' : '#f59e0b' }}>
+              {securityScore}%
+            </span>
+            <small style={{ color: 'var(--text-dim)', fontSize: '10px' }}>
+              {securityScore >= 80 ? 'Optimal Protection' : 'Action Recommended'}
+            </small>
+          </div>
+          <div className="roster-stat-card">
+            <span className="roster-stat-label">2FA AUTHENTICATOR</span>
+            <span className="roster-stat-value" style={{ color: user.twoFactorEnabled ? '#10b981' : '#ef4444', fontSize: '15px' }}>
+              {user.twoFactorEnabled ? '● ENABLED' : '○ DISABLED'}
+            </span>
+            <small style={{ color: 'var(--text-dim)', fontSize: '10px' }}>
+              {user.twoFactorEnabled ? 'TOTP Authenticator Active' : 'Setup Authenticator Below'}
+            </small>
+          </div>
+          <div className="roster-stat-card">
+            <span className="roster-stat-label">PASSWORD ENCRYPTION</span>
+            <span className="roster-stat-value" style={{ color: 'var(--brand-primary)', fontSize: '15px' }}>
+              BCRYPT 10-SALT
+            </span>
+            <small style={{ color: 'var(--text-dim)', fontSize: '10px' }}>Industry Grade Hash</small>
+          </div>
+          <div className="roster-stat-card">
+            <span className="roster-stat-label">MEMBER IDENTITY</span>
+            <span className="roster-stat-value" style={{ color: 'var(--text-main)', fontSize: '15px', fontFamily: 'DM Mono' }}>
+              {user.memberId}
+            </span>
+            <small style={{ color: 'var(--brand-eyebrow)', fontSize: '10px' }}>
+              {user.isPrimaryAdmin ? 'Primary President' : getRoleLabel(user.role)}
+            </small>
+          </div>
+        </div>
+
         {/* Primary President Dual Lock Master PIN Card */}
         {user.isPrimaryAdmin && (
-          <article className="account-form-card security-card" style={{ maxWidth: '720px', marginBottom: '24px', border: '1px solid #ffb74d55' }}>
-            <p className="eyebrow" style={{ color: '#ffb74d', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Icon8 name="keySecurity" size={16} /> PRIMARY PRESIDENT SECURITY
+          <article className="account-form-card security-card" style={{ marginBottom: '24px', border: '1px solid rgba(245, 158, 11, 0.4)', background: 'linear-gradient(180deg, rgba(245, 158, 11, 0.06) 0%, var(--bg-card) 100%)' }}>
+            <p className="eyebrow" style={{ color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <IconCrown size={15} /> PRIMARY PRESIDENT DUAL LOCK (TWO MASTER KEYS)
             </p>
-            <h2 style={{ color: '#ffb74d', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Icon8 name="keySecurity" size={24} /> Dual 6-Digit Master Security PIN (Two Locks)
+            <h2 style={{ color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '8px', margin: '6px 0 10px' }}>
+              Dual 6-Digit Master Security PIN
             </h2>
-            <p style={{ color: '#9bb7cc', fontSize: '13px', lineHeight: '1.6' }}>
-              Set a dedicated 6-digit Master PIN for your Primary President account. When enabled, signing in requires your password + this 6-digit PIN (independent of authenticator apps).
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.6', margin: '0 0 16px' }}>
+              Set a dedicated 6-digit Master PIN for your Primary President account. When enabled, signing into the Primary President account requires your password + this 6-digit PIN.
             </p>
-            <form onSubmit={handleSetMasterPin} style={{ marginTop: '16px' }}>
+            <form onSubmit={handleSetMasterPin}>
               <div className="member-form-grid">
                 <label>
                   New 6-Digit Master PIN *
@@ -2682,67 +3035,219 @@ function AccountSecurity({ user, logout, onNavigate }) {
               </div>
               {pinError && <p className="member-form-error">{pinError}</p>}
               {pinMessage && <p className="member-form-success">{pinMessage}</p>}
-              <button className="primary member-submit" disabled={masterPin.length !== 6 || !masterPinPassword} style={{ marginTop: '14px', background: 'linear-gradient(105deg,#f59e0b,#d97706)' }}>
+              <button className="primary member-submit" disabled={masterPin.length !== 6 || !masterPinPassword} style={{ marginTop: '14px', background: 'linear-gradient(135deg,#f59e0b,#d97706)', borderColor: '#f59e0b' }}>
                 SET 6-DIGIT MASTER SECURITY PIN
               </button>
             </form>
           </article>
         )}
 
-        {/* Standard 2FA Authenticator Card */}
-        <article className="account-form-card security-card" style={{ maxWidth: '720px' }}>
-          {!user.twoFactorEnabled && !setup && (
-            <>
-              <h2>Set up Authenticator App (2FA)</h2>
-              <p>Add two-factor protection using Google Authenticator, Microsoft Authenticator, or Authy.</p>
-              <button className="primary member-submit" type="button" onClick={startSetup} disabled={loading}>
-                {loading ? 'PREPARING…' : 'START 2FA SETUP'}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+          {/* Card 1: Change Account Password */}
+          <article className="account-form-card security-card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <span style={{ padding: '8px', borderRadius: '8px', background: 'var(--brand-badge-bg)', color: 'var(--brand-primary)', display: 'inline-flex' }}>
+                <Icon8 name="password" size={18} />
+              </span>
+              <div>
+                <p className="eyebrow" style={{ margin: 0 }}>CREDENTIAL UPDATE</p>
+                <h2 style={{ margin: 0, fontSize: '18px' }}>Change Password</h2>
+              </div>
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: 1.5, margin: '0 0 16px' }}>
+              Update your account password. Strong passwords contain uppercase, lowercase, numbers, and symbols.
+            </p>
+
+            <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '4px' }}>
+                  Current Password *
+                </label>
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={e => setCurrentPassword(e.target.value)}
+                  placeholder="Enter current password"
+                  required
+                  style={{ width: '100%', height: '40px', padding: '0 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '4px' }}>
+                  New Password *
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  placeholder="Enter new strong password"
+                  required
+                  minLength={8}
+                  style={{ width: '100%', height: '40px', padding: '0 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)' }}
+                />
+                {newPassword && (
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
+                    <span className="badge" style={{ fontSize: '9px', background: hasLength ? 'rgba(16, 185, 129, 0.15)' : 'var(--panel-subtle)', color: hasLength ? '#10b981' : 'var(--text-dim)' }}>
+                      {hasLength ? '✓ 12+ chars' : '12+ chars'}
+                    </span>
+                    <span className="badge" style={{ fontSize: '9px', background: hasUpper ? 'rgba(16, 185, 129, 0.15)' : 'var(--panel-subtle)', color: hasUpper ? '#10b981' : 'var(--text-dim)' }}>
+                      {hasUpper ? '✓ Uppercase' : 'Uppercase'}
+                    </span>
+                    <span className="badge" style={{ fontSize: '9px', background: hasLower ? 'rgba(16, 185, 129, 0.15)' : 'var(--panel-subtle)', color: hasLower ? '#10b981' : 'var(--text-dim)' }}>
+                      {hasLower ? '✓ Lowercase' : 'Lowercase'}
+                    </span>
+                    <span className="badge" style={{ fontSize: '9px', background: hasNumber ? 'rgba(16, 185, 129, 0.15)' : 'var(--panel-subtle)', color: hasNumber ? '#10b981' : 'var(--text-dim)' }}>
+                      {hasNumber ? '✓ Number' : 'Number'}
+                    </span>
+                    <span className="badge" style={{ fontSize: '9px', background: hasSymbol ? 'rgba(16, 185, 129, 0.15)' : 'var(--panel-subtle)', color: hasSymbol ? '#10b981' : 'var(--text-dim)' }}>
+                      {hasSymbol ? '✓ Symbol' : 'Symbol'}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '4px' }}>
+                  Confirm New Password *
+                </label>
+                <input
+                  type="password"
+                  value={confirmNewPassword}
+                  onChange={e => setConfirmNewPassword(e.target.value)}
+                  placeholder="Repeat new password"
+                  required
+                  minLength={8}
+                  style={{ width: '100%', height: '40px', padding: '0 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)' }}
+                />
+              </div>
+
+              {pwError && <p className="member-form-error" role="alert">{pwError}</p>}
+              {pwMessage && <p className="member-form-success" role="status">{pwMessage}</p>}
+
+              <button className="primary member-submit" type="submit" disabled={pwLoading || !currentPassword || !newPassword || !confirmNewPassword} style={{ marginTop: '8px' }}>
+                {pwLoading ? 'SAVING NEW PASSWORD…' : 'UPDATE ACCOUNT PASSWORD'}
               </button>
-            </>
-          )}
-          {!user.twoFactorEnabled && setup && (
-            <>
-              <h2>Scan QR Code</h2>
-              <p>Scan this QR code in your authenticator app, then enter the 6-digit code.</p>
-              <img className="mfa-qr" src={setup.qrCodeDataUrl} alt="2FA QR Code" />
-              <form onSubmit={confirmSetup}>
-                <label>
-                  Authentication Code
-                  <input
-                    value={code}
-                    onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    inputMode="numeric"
-                    placeholder="000000"
-                    required
-                  />
-                </label>
-                <button className="primary member-submit" disabled={loading || code.length !== 6}>
-                  {loading ? 'VERIFYING…' : 'ENABLE 2FA'}
+            </form>
+          </article>
+
+          {/* Card 2: Two-Factor Authenticator (2FA) */}
+          <article className="account-form-card security-card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+              <span style={{ padding: '8px', borderRadius: '8px', background: 'var(--brand-badge-bg)', color: 'var(--brand-primary)', display: 'inline-flex' }}>
+                <Icon8 name="authentication" size={18} />
+              </span>
+              <div>
+                <p className="eyebrow" style={{ margin: 0 }}>TWO-FACTOR AUTHENTICATION</p>
+                <h2 style={{ margin: 0, fontSize: '18px' }}>Authenticator App (2FA)</h2>
+              </div>
+            </div>
+
+            {!user.twoFactorEnabled && !setup && (
+              <>
+                <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: 1.5, margin: '0 0 16px' }}>
+                  Protect your account against unauthorized logins with Google Authenticator, Microsoft Authenticator, or Authy.
+                </p>
+                <div style={{ background: 'var(--panel-subtle)', padding: '14px', borderRadius: '10px', border: '1px solid var(--line)', marginBottom: '16px' }}>
+                  <p style={{ margin: '0 0 4px', fontSize: '12px', fontWeight: 700, color: 'var(--text-main)' }}>Why enable 2FA?</p>
+                  <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                    <li>Prevents access even if your password is compromised</li>
+                    <li>Generates time-synchronized 6-digit security codes</li>
+                    <li>Works offline without SMS or email dependency</li>
+                  </ul>
+                </div>
+                <button className="primary member-submit" type="button" onClick={startSetup} disabled={loading} style={{ width: '100%' }}>
+                  {loading ? 'PREPARING QR CODE…' : 'ENABLE 2FA AUTHENTICATOR →'}
                 </button>
-              </form>
-            </>
-          )}
-          {user.twoFactorEnabled && (
-            <>
-              <h2>Two-Factor Authentication is Enabled</h2>
-              <p>Disabling 2FA requires your current password and a live authenticator code.</p>
-              <form onSubmit={disableSetup}>
-                <label>
-                  Current Password
-                  <input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
-                </label>
-                <label>
-                  Authentication Code
-                  <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" required />
-                </label>
-                <button className="outline" disabled={loading || code.length !== 6}>
-                  {loading ? 'DISABLING…' : 'DISABLE 2FA'}
-                </button>
-              </form>
-            </>
-          )}
-          {error && <p className="member-form-error" role="alert">{error}</p>}
-          {message && <p className="member-form-success" role="status">{message}</p>}
+              </>
+            )}
+
+            {!user.twoFactorEnabled && setup && (
+              <>
+                <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '0 0 12px' }}>
+                  1. Scan this QR code in your Authenticator app, then enter the 6-digit code below:
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '14px', background: '#ffffff', padding: '12px', borderRadius: '12px', width: 'fit-content', margin: '0 auto 14px' }}>
+                  <img src={setup.qrCodeDataUrl} alt="2FA QR Code" style={{ width: '180px', height: '180px', display: 'block' }} />
+                </div>
+                <form onSubmit={confirmSetup} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>
+                    Enter 6-Digit Authenticator Code
+                    <input
+                      value={code}
+                      onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      inputMode="numeric"
+                      placeholder="000000"
+                      required
+                      style={{ width: '100%', height: '44px', textAlign: 'center', fontSize: '20px', letterSpacing: '6px', fontFamily: 'DM Mono', marginTop: '4px' }}
+                    />
+                  </label>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button className="primary" style={{ flex: 1 }} disabled={loading || code.length !== 6}>
+                      {loading ? 'VERIFYING…' : 'ACTIVATE 2FA'}
+                    </button>
+                    <button type="button" className="outline" onClick={() => setSetup(null)}>
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+
+            {user.twoFactorEnabled && (
+              <>
+                <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '10px', padding: '12px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ color: '#10b981', fontSize: '18px' }}>✓</span>
+                  <div>
+                    <b style={{ color: '#10b981', fontSize: '13px', display: 'block' }}>2FA Is Active & Enforced</b>
+                    <small style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Your account is protected with multi-factor authentication.</small>
+                  </div>
+                </div>
+                <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '0 0 14px' }}>
+                  To disable two-factor authentication, enter your current account password and live authenticator code:
+                </p>
+                <form onSubmit={disableSetup} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>
+                    Current Password
+                    <input type="password" value={password} onChange={e => setPassword(e.target.value)} required placeholder="Enter password" style={{ width: '100%', marginTop: '4px' }} />
+                  </label>
+                  <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>
+                    Live 6-Digit Authenticator Code
+                    <input value={code} onChange={e => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" required maxLength={6} style={{ width: '100%', marginTop: '4px', textAlign: 'center', letterSpacing: '4px', fontFamily: 'DM Mono' }} />
+                  </label>
+                  <button className="outline" disabled={loading || code.length !== 6 || !password} style={{ color: '#ef4444', borderColor: '#ef4444' }}>
+                    {loading ? 'DISABLING…' : 'DISABLE TWO-FACTOR AUTHENTICATION'}
+                  </button>
+                </form>
+              </>
+            )}
+
+            {error && <p className="member-form-error" role="alert" style={{ marginTop: '12px' }}>{error}</p>}
+            {message && <p className="member-form-success" role="status" style={{ marginTop: '12px' }}>{message}</p>}
+          </article>
+        </div>
+
+        {/* Card 3: Session Management & Device Security */}
+        <article className="account-form-card security-card" style={{ marginTop: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+            <div>
+              <p className="eyebrow">SESSION MANAGEMENT & DEVICE HYGIENE</p>
+              <h3 style={{ margin: '4px 0', fontSize: '16px', color: 'var(--text-main)' }}>Active Device Sessions</h3>
+              <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>
+                You are currently signed into this device with a valid encrypted session cookie. If you suspect unauthorized access, terminate all other sessions.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="outline"
+              onClick={handleTerminateOtherSessions}
+              disabled={terminatingSessions}
+              style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.4)', fontSize: '11px', padding: '8px 16px', fontWeight: 700 }}
+            >
+              {terminatingSessions ? 'TERMINATING…' : 'LOGOUT ALL OTHER DEVICES'}
+            </button>
+          </div>
+          {sessionMessage && <p className="member-form-success" style={{ marginTop: '14px' }}>{sessionMessage}</p>}
         </article>
       </section>
     </LivePortal>
@@ -2773,13 +3278,18 @@ function MemberManagement({ user, logout, onNavigate }) {
   // Bulk Account Creation States
   const [accountMode, setAccountMode] = useState('single')
   const [bulkText, setBulkText] = useState('')
+  const [bulkDefaultRole, setBulkDefaultRole] = useState('STUDENT')
+  const [bulkDefaultGender, setBulkDefaultGender] = useState('MALE')
+  const [bulkDefaultAge, setBulkDefaultAge] = useState('')
   const [bulkYear, setBulkYear] = useState(1)
   const [bulkCollegeChoice, setBulkCollegeChoice] = useState('Malla Reddy (MR) Deemed to be University')
   const [bulkCollegeCustom, setBulkCollegeCustom] = useState('')
-  const [bulkBranch, setBulkBranch] = useState('CSE')
-  const [bulkSpecialization, setBulkSpecialization] = useState('AIML')
+  const [bulkBranch, setBulkBranch] = useState('Cyber Security')
+  const [bulkSpecialization, setBulkSpecialization] = useState('')
+  const [bulkAutoPassword, setBulkAutoPassword] = useState(true)
   const [bulkSubmitting, setBulkSubmitting] = useState(false)
   const [bulkResultModal, setBulkResultModal] = useState(null)
+  const bulkFileInputRef = useRef(null)
 
   const [transferModalOpen, setTransferModalOpen] = useState(false)
   const [transferTargetId, setTransferTargetId] = useState('')
@@ -2803,74 +3313,164 @@ function MemberManagement({ user, logout, onNavigate }) {
   const bulkSpecText = bulkSpecialization ? ` - ${bulkSpecialization}` : ''
   const bulkDepartment = `${bulkBranch}${bulkBranch === 'CSE' ? bulkSpecText : ''} (${effectiveBulkCollege || 'MRDU'})`
 
-  const existingMemberIds = useMemo(() => new Set(members.map(m => m.memberId.toUpperCase())), [members])
+  const existingMemberIds = useMemo(() => {
+    return new Set((members || []).map(m => (m?.memberId ? String(m.memberId).toUpperCase() : '')).filter(Boolean))
+  }, [members])
+
+  function handleDownloadBulkTemplate() {
+    const headers = [
+      'Full Name',
+      'Roll Number / Member ID',
+      'Password (Leave empty for auto-generated)',
+      'Gender (MALE / FEMALE / OTHER)',
+    ]
+    const rows = [
+      ['Dhanush G', '25EU07R0015', 'Pass@word123!', 'MALE'],
+      ['Aditya Sharma', '25EU07R0016', 'Pass@word123!', 'MALE'],
+      ['Priya Patel', '25EU07R0017', 'Pass@word123!', 'FEMALE'],
+      ['Rahul Verma', '25EU07R0018', 'Pass@word123!', 'MALE'],
+    ]
+    downloadCsv('bulk_member_provisioning_template.csv', headers, rows)
+  }
+
+  function handleBulkFileUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = evt => {
+      const content = evt.target?.result || ''
+      setBulkText(content)
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
+
+  function generateAutoPassword(seed) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*'
+    let pwd = 'P@ss' + String(seed || '').slice(-3) + '9'
+    for (let i = 0; i < 6; i++) pwd += chars[Math.floor(Math.random() * chars.length)]
+    return pwd
+  }
 
   const parsedBulkStudents = useMemo(() => {
     if (!bulkText || !bulkText.trim()) return []
-    const lines = bulkText.split(/\r?\n/).filter(line => line.trim().length > 0)
-    const batchMemberIds = new Set()
+    const lines = bulkText.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+    if (lines.length === 0) return []
 
-    return lines.map((line, index) => {
-      let parts = line.split('\t')
-      if (parts.length < 2) {
-        parts = line.split(/\s{2,}|\s*,\s*|\s*;\s*/)
-      }
-      if (parts.length < 2) {
-        const spaceParts = line.trim().split(/\s+/)
-        if (spaceParts.length >= 3) {
-          const pass = spaceParts.pop()
-          const roll = spaceParts.pop()
-          const name = spaceParts.join(' ')
-          parts = [name, roll, pass]
-        }
+    const firstLineLower = lines[0].toLowerCase()
+    const isHeader = (firstLineLower.includes('name') && (firstLineLower.includes('roll') || firstLineLower.includes('id') || firstLineLower.includes('member')))
+    const dataLines = isHeader ? lines.slice(1) : lines
+
+    const batchMemberIds = new Set()
+    const batchEmails = new Set()
+
+    const isGenderString = str => ['MALE', 'FEMALE', 'OTHER'].includes(String(str || '').trim().toUpperCase())
+
+    return dataLines.map((line, index) => {
+      let parts = []
+      if (line.includes('\t')) {
+        parts = line.split('\t').map(p => p.trim())
+      } else if (line.includes(',') || line.includes(';')) {
+        const matches = line.match(/(".*?"|[^",;]+)(?=\s*[,;]|\s*$)/g)
+        parts = matches ? matches.map(m => m.replace(/^"(.*)"$/, '$1').trim()) : line.split(/[,;]/).map(p => p.trim())
+      } else {
+        parts = line.split(/\s{2,}/).map(p => p.trim())
       }
 
       const name = String(parts[0] || '').trim()
-      const memberId = String(parts[1] || '').trim().toUpperCase()
-      const password = String(parts[2] || '').trim()
+      const rawMemberId = String(parts[1] || '').trim().toUpperCase()
+      let rawPassword = String(parts[2] || '').trim()
+      const part3 = String(parts[3] || '').trim()
+      const part4 = String(parts[4] || '').trim()
+      const part5 = String(parts[5] || '').trim()
+
+      let gender = bulkDefaultGender
+      let email = null
+      let phone = null
+
+      if (isGenderString(part3)) {
+        gender = part3.toUpperCase()
+      } else if (part3.includes('@')) {
+        email = part3
+        phone = part4 || null
+        if (isGenderString(part5)) gender = part5.toUpperCase()
+      } else if (isGenderString(part4)) {
+        gender = part4.toUpperCase()
+      } else if (isGenderString(part5)) {
+        gender = part5.toUpperCase()
+      }
+
+      if (!rawPassword && bulkAutoPassword && rawMemberId) {
+        rawPassword = generateAutoPassword(rawMemberId)
+      }
+
+      const role = bulkDefaultRole
+      const department = bulkDepartment
+      const year = Number(bulkYear) || 1
+      const age = bulkDefaultAge ? Number(bulkDefaultAge) : null
 
       const errors = []
       if (!name) errors.push('Missing Name')
-      if (!memberId) {
+      if (!rawMemberId) {
         errors.push('Missing Roll Number')
-      } else if (!/^[A-Za-z0-9]{4,32}$/.test(memberId)) {
+      } else if (!/^[A-Za-z0-9]{4,32}$/.test(rawMemberId)) {
         errors.push('Alphanumeric 4-32 chars')
-      } else if (existingMemberIds.has(memberId)) {
+      } else if (existingMemberIds.has(rawMemberId)) {
         errors.push('Roll No / Member ID already exists')
-      } else if (batchMemberIds.has(memberId)) {
+      } else if (batchMemberIds.has(rawMemberId)) {
         errors.push('Duplicate in this batch')
       } else {
-        batchMemberIds.add(memberId)
+        batchMemberIds.add(rawMemberId)
       }
 
-      if (!password) {
+      if (!rawPassword) {
         errors.push('Missing Password')
-      } else if (password.length < 8) {
+      } else if (rawPassword.length < 8) {
         errors.push('Password min 8 chars')
+      }
+
+      if (email) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+          errors.push('Invalid Email')
+        } else if (batchEmails.has(email.toLowerCase())) {
+          errors.push('Duplicate Email in batch')
+        } else {
+          batchEmails.add(email.toLowerCase())
+        }
       }
 
       return {
         index: index + 1,
         name,
-        memberId,
-        rollNumber: memberId,
-        password,
-        year: Number(bulkYear) || 1,
-        department: bulkDepartment,
+        memberId: rawMemberId,
+        rollNumber: rawMemberId,
+        password: rawPassword,
+        email,
+        phone,
+        gender,
+        age,
+        role,
+        department,
+        year,
         isValid: errors.length === 0,
         errors,
       }
     })
-  }, [bulkText, bulkYear, bulkDepartment, existingMemberIds])
+  }, [bulkText, bulkYear, bulkDepartment, bulkDefaultRole, bulkDefaultGender, bulkDefaultAge, bulkAutoPassword, existingMemberIds])
 
-  const validBulkCount = parsedBulkStudents.filter(s => s.isValid).length
-  const invalidBulkCount = parsedBulkStudents.length - validBulkCount
+  const validBulkCount = (parsedBulkStudents || []).filter(s => s.isValid).length
+  const invalidBulkCount = (parsedBulkStudents || []).length - validBulkCount
 
   function loadMembers() {
     setLoading(true)
     adminApi.listMembers()
-      .then(({ users }) => setMembers(users))
-      .catch(err => setError(err.message))
+      .then(res => {
+        setMembers(Array.isArray(res?.users) ? res.users : Array.isArray(res) ? res : [])
+      })
+      .catch(err => {
+        setError(err.message || 'Failed to load member accounts.')
+        setMembers([])
+      })
       .finally(() => setLoading(false))
   }
 
@@ -2934,9 +3534,14 @@ function MemberManagement({ user, logout, onNavigate }) {
         name: r.name,
         memberId: r.memberId,
         password: r.password,
-        rollNumber: r.rollNumber,
+        role: r.role,
+        gender: r.gender,
+        age: r.age,
+        rollNumber: r.rollNumber || r.memberId,
         year: r.year,
         department: r.department,
+        email: r.email,
+        phone: r.phone,
       }))
 
       const res = await adminApi.bulkCreateMembers(payload)
@@ -3119,36 +3724,48 @@ function MemberManagement({ user, logout, onNavigate }) {
             <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
               ← COMMAND CENTER
             </button>
-            <p className="eyebrow">ROLE-BASED ACCESS CONTROL</p>
-            <h1>Club Members & Leaders</h1>
+            <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Icon8 name="idDocs" size={14} /> ROLE-BASED ACCESS CONTROL
+            </p>
+            <h1>Club Members & Directory</h1>
             <p>Add new club members, assign predefined roles, manage 2FA locks, and oversee authorized access.</p>
           </div>
-          {user.isPrimaryAdmin && (
-            <button className="outline" type="button" onClick={() => setTransferModalOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <IconCrown size={14} /> TRANSFER PRIMARY LEADERSHIP
+          <div className="member-heading-actions">
+            {user.isPrimaryAdmin && (
+              <button className="outline" type="button" onClick={() => setTransferModalOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '7px 14px' }}>
+                <IconCrown size={14} /> Transfer Leadership
+              </button>
+            )}
+            <button
+              type="button"
+              className="outline"
+              onClick={handleDownloadMembersCsv}
+              disabled={members.length === 0}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '7px 14px' }}
+              title="Download member roster as CSV"
+            >
+              <IconDownload size={13} /> Export Roster CSV
             </button>
-          )}
+          </div>
         </div>
 
         {message && <p className="member-form-success">{message}</p>}
         {error && <p className="member-form-error">{error}</p>}
 
-        <div className="member-view-switcher" style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap' }}>
+        <div className="member-view-switcher">
           <button
             type="button"
-            className={managementView === 'ROSTER' ? 'primary' : 'outline'}
+            className={managementView === 'ROSTER' ? 'primary active' : 'outline'}
             onClick={() => setManagementView('ROSTER')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '8px 18px', fontWeight: 700 }}
           >
-            <Icon8 name="idDocs" size={14} /> ACTIVE MEMBER DIRECTORY ({members.length})
+            <Icon8 name="idDocs" size={14} /> Member Directory ({members.length})
           </button>
           <button
             type="button"
-            className={managementView === 'CREATE' ? 'primary' : 'outline'}
+            className={managementView === 'CREATE' ? 'primary active' : 'outline'}
             onClick={() => setManagementView('CREATE')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '8px 18px', fontWeight: 700 }}
           >
-            <IconUserSvg size={14} /> ＋ PROVISION NEW ACCOUNT
+            <IconUserSvg size={14} /> ＋ Provision New Account
           </button>
         </div>
 
@@ -3345,122 +3962,192 @@ function MemberManagement({ user, logout, onNavigate }) {
             ) : (
               /* Bulk Account Creation Interface */
               <div className="bulk-accounts-container">
-                <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '0 0 16px' }}>
-                  Paste rows directly from Excel or CSV. Roll Number is automatically assigned as the Member ID.
-                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>
+                    Paste data directly from Excel / CSV or upload a spreadsheet (<b>Name | Roll Number | Password | Gender</b>).
+                  </p>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <input
+                      type="file"
+                      ref={bulkFileInputRef}
+                      onChange={handleBulkFileUpload}
+                      accept=".csv,.tsv,.txt"
+                      style={{ display: 'none' }}
+                    />
+                    <button
+                      type="button"
+                      className="outline"
+                      onClick={() => bulkFileInputRef.current?.click()}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+                    >
+                      <IconUpload size={13} /> 📂 Upload Spreadsheet / CSV
+                    </button>
+                    <button
+                      type="button"
+                      className="outline"
+                      onClick={handleDownloadBulkTemplate}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+                      title="Download template with Name, Roll Number, Password, Gender"
+                    >
+                      <IconDownload size={13} /> 📥 Download Sample Template (.CSV)
+                    </button>
+                  </div>
+                </div>
 
                 <form onSubmit={handleBulkSubmit}>
-                  <div style={{ marginBottom: '14px' }}>
+                  {/* Step 1: Input Data */}
+                  <div style={{ marginBottom: '16px' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                      <label style={{ color: 'var(--text-muted)', font: '600 11px "DM Mono", monospace' }}>
-                        1. Paste Student Data (Name | Roll Number | Password)
+                      <label style={{ color: 'var(--text-main)', font: '700 11px "DM Mono", monospace' }}>
+                        1. Paste Member Data (Full Name | Roll Number / Member ID | Password | Gender)
                       </label>
-                      <small style={{ color: '#059669', fontSize: '10px', font: '500 10px "DM Mono", monospace' }}>
-                        Excel / Tab / Comma Delimited
-                      </small>
+                      <span style={{ color: 'var(--brand-primary)', fontSize: '10px', font: '600 10px "DM Mono", monospace' }}>
+                        Excel Tab / Comma Delimited
+                      </span>
                     </div>
                     <textarea
                       className="bulk-textarea"
-                      placeholder={`Paste rows from Excel or text editor:\nStudent 1\t25EU07R0001\tPassword1!\nStudent 2\t25EU07R0002\tPassword2!\nStudent 3\t25EU07R0003\tPassword3!`}
+                      placeholder={`Format: Full Name, Roll Number, Password, Gender\n\nDhanush G\t25EU07R0015\tPass@word123!\tMale\nAditya Sharma\t25EU07R0016\tPass@word123!\tMale\nPriya Patel\t25EU07R0017\tPass@word123!\tFemale\nRahul Verma\t25EU07R0018\tPass@word123!\tMale`}
                       value={bulkText}
                       onChange={e => setBulkText(e.target.value)}
-                      style={{ minHeight: '140px' }}
+                      style={{ minHeight: '130px', fontFamily: '"DM Mono", monospace', fontSize: '11px', lineHeight: 1.5 }}
                     />
                   </div>
 
-                  {/* Common Information Settings */}
+                  {/* Step 2: Common Batch Defaults */}
                   <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '10px', padding: '16px', marginBottom: '16px' }}>
-                    <label style={{ color: 'var(--brand-primary)', font: '700 11px "DM Mono", monospace', display: 'block', marginBottom: '10px' }}>
-                      2. Common Batch Information (Applies to All Uploaded Accounts)
-                    </label>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
-                      <div>
-                        <label style={{ color: 'var(--text-dim)', fontSize: '10px', display: 'block', marginBottom: '4px' }}>ACADEMIC YEAR</label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                      <label style={{ color: 'var(--brand-primary)', font: '700 11px "DM Mono", monospace' }}>
+                        2. Common Batch Settings (Applies to all uploaded accounts)
+                      </label>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', cursor: 'pointer', color: 'var(--text-main)', fontWeight: 600 }}>
+                        <input
+                          type="checkbox"
+                          checked={bulkAutoPassword}
+                          onChange={e => setBulkAutoPassword(e.target.checked)}
+                          style={{ cursor: 'pointer', accentColor: 'var(--brand-primary)' }}
+                        />
+                        ⚡ Auto-generate secure passwords if omitted
+                      </label>
+                    </div>
+
+                    <div className="member-form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                      <label>
+                        Assigned Club Role
                         <select
+                          className="member-select"
+                          value={bulkDefaultRole}
+                          onChange={e => setBulkDefaultRole(e.target.value)}
+                        >
+                          {CLUB_ROLES.map(r => (
+                            <option key={r.id} value={r.id}>{r.label} ({r.roleType.toUpperCase()})</option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label>
+                        Default Gender (Fallback)
+                        <select
+                          className="member-select"
+                          value={bulkDefaultGender}
+                          onChange={e => setBulkDefaultGender(e.target.value)}
+                        >
+                          <option value="MALE">Male</option>
+                          <option value="FEMALE">Female</option>
+                          <option value="OTHER">Other</option>
+                        </select>
+                      </label>
+
+                      <label>
+                        Academic Year
+                        <select
+                          className="member-select"
                           value={bulkYear}
                           onChange={e => setBulkYear(Number(e.target.value))}
-                          style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 8px', fontSize: '11px' }}
                         >
                           {ACADEMIC_YEARS.map(y => (
                             <option key={y.value} value={y.value}>{y.label}</option>
                           ))}
                         </select>
-                      </div>
+                      </label>
 
-                      <div>
-                        <label style={{ color: 'var(--text-dim)', fontSize: '10px', display: 'block', marginBottom: '4px' }}>COLLEGE</label>
+                      <label>
+                        College / Institution
                         <select
+                          className="member-select"
                           value={bulkCollegeChoice}
                           onChange={e => setBulkCollegeChoice(e.target.value)}
-                          style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 8px', fontSize: '11px' }}
                         >
                           <option value="Malla Reddy (MR) Deemed to be University">Malla Reddy (MR) Deemed to be University</option>
-                          <option value="Other">Other</option>
+                          <option value="Other">Other / External College</option>
                         </select>
-                      </div>
+                      </label>
 
                       {bulkCollegeChoice === 'Other' && (
-                        <div style={{ gridColumn: '1 / -1' }}>
-                          <label style={{ color: 'var(--text-dim)', fontSize: '10px', display: 'block', marginBottom: '4px' }}>CUSTOM COLLEGE NAME</label>
+                        <label style={{ gridColumn: '1 / -1' }}>
+                          Custom College Name
                           <input
                             placeholder="Enter College Name"
                             value={bulkCollegeCustom}
                             onChange={e => setBulkCollegeCustom(e.target.value)}
-                            style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '11px' }}
                           />
-                        </div>
+                        </label>
                       )}
 
-                      <div>
-                        <label style={{ color: 'var(--text-dim)', fontSize: '10px', display: 'block', marginBottom: '4px' }}>BRANCH</label>
+                      <label>
+                        Department / Branch
                         <select
+                          className="member-select"
                           value={bulkBranch}
                           onChange={e => setBulkBranch(e.target.value)}
-                          style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 8px', fontSize: '11px' }}
                         >
                           {BRANCH_OPTIONS.map(b => (
                             <option key={b} value={b}>{b}</option>
                           ))}
                         </select>
-                      </div>
+                      </label>
 
                       {bulkBranch === 'CSE' && (
-                        <div>
-                          <label style={{ color: 'var(--text-dim)', fontSize: '10px', display: 'block', marginBottom: '4px' }}>CSE SPECIALIZATION</label>
+                        <label>
+                          CSE Specialization
                           <select
+                            className="member-select"
                             value={bulkSpecialization}
                             onChange={e => setBulkSpecialization(e.target.value)}
-                            style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 8px', fontSize: '11px' }}
                           >
+                            <option value="">None (General)</option>
                             {CSE_SPECIALIZATIONS.map(s => (
                               <option key={s} value={s}>{s}</option>
                             ))}
                           </select>
-                        </div>
+                        </label>
                       )}
                     </div>
                   </div>
 
-                  {/* Live Validation & Preview Table */}
+                  {/* Step 3: Live Validation & Preview Table */}
                   {parsedBulkStudents.length > 0 && (
                     <div style={{ marginBottom: '16px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <label style={{ color: 'var(--text-muted)', font: '600 11px "DM Mono", monospace' }}>
-                          3. Batch Preview & Validation ({parsedBulkStudents.length} Students)
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+                        <label style={{ color: 'var(--text-main)', font: '700 11px "DM Mono", monospace' }}>
+                          3. Batch Preview & Validation ({parsedBulkStudents.length} Records)
                         </label>
                         <span className={invalidBulkCount === 0 ? 'bulk-badge-valid' : 'bulk-badge-invalid'}>
-                          {invalidBulkCount === 0 ? `ALL ${validBulkCount} VALID` : `${validBulkCount} VALID · ${invalidBulkCount} ISSUES`}
+                          {invalidBulkCount === 0 ? `ALL ${validBulkCount} VALID & READY` : `${validBulkCount} VALID · ${invalidBulkCount} ISSUES`}
                         </span>
                       </div>
 
-                      <div className="bulk-preview-wrap">
+                      <div className="bulk-preview-wrap" style={{ maxHeight: '320px', overflowX: 'auto', overflowY: 'auto' }}>
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
                           <thead>
-                            <tr style={{ background: 'var(--panel-subtle)', color: 'var(--brand-primary)', borderBottom: '1px solid var(--line)', position: 'sticky', top: 0 }}>
+                            <tr style={{ background: 'var(--panel-subtle)', color: 'var(--brand-primary)', borderBottom: '1px solid var(--line)', position: 'sticky', top: 0, zIndex: 2 }}>
                               <th style={{ padding: '8px 10px', textAlign: 'left' }}>#</th>
-                              <th style={{ padding: '8px 10px', textAlign: 'left' }}>NAME</th>
-                              <th style={{ padding: '8px 10px', textAlign: 'left' }}>ROLL NO / MEMBER ID</th>
+                              <th style={{ padding: '8px 10px', textAlign: 'left' }}>FULL NAME</th>
+                              <th style={{ padding: '8px 10px', textAlign: 'left' }}>ROLL NUMBER / MEMBER ID</th>
                               <th style={{ padding: '8px 10px', textAlign: 'left' }}>PASSWORD</th>
+                              <th style={{ padding: '8px 10px', textAlign: 'left' }}>GENDER</th>
+                              <th style={{ padding: '8px 10px', textAlign: 'left' }}>DEPARTMENT & YEAR</th>
+                              <th style={{ padding: '8px 10px', textAlign: 'left' }}>ASSIGNED ROLE</th>
                               <th style={{ padding: '8px 10px', textAlign: 'left' }}>STATUS</th>
                             </tr>
                           </thead>
@@ -3468,14 +4155,29 @@ function MemberManagement({ user, logout, onNavigate }) {
                             {parsedBulkStudents.map(s => (
                               <tr key={s.index} style={{ borderBottom: '1px solid var(--line)', background: s.isValid ? 'transparent' : 'rgba(239, 68, 68, 0.08)' }}>
                                 <td style={{ padding: '6px 10px', color: 'var(--text-dim)' }}>{s.index}</td>
-                                <td style={{ padding: '6px 10px', color: 'var(--text-main)', fontWeight: 500 }}>{s.name || '<Empty>'}</td>
-                                <td style={{ padding: '6px 10px', color: 'var(--brand-primary)', fontFamily: 'monospace' }}>{s.memberId || '<Empty>'}</td>
-                                <td style={{ padding: '6px 10px', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{s.password ? '••••••••' : '<Empty>'}</td>
+                                <td style={{ padding: '6px 10px', color: 'var(--text-main)', fontWeight: 600 }}>{s.name || '<Empty>'}</td>
+                                <td style={{ padding: '6px 10px', color: 'var(--brand-primary)', fontFamily: 'monospace', fontWeight: 700 }}>{s.memberId || '<Empty>'}</td>
+                                <td style={{ padding: '6px 10px', color: 'var(--text-dim)', fontFamily: 'monospace' }}>
+                                  {s.password ? `${s.password.slice(0, 4)}••••` : '<Missing>'}
+                                </td>
+                                <td style={{ padding: '6px 10px' }}>
+                                  <span style={{ fontSize: '10px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px', background: s.gender === 'FEMALE' ? 'rgba(236, 72, 153, 0.12)' : 'rgba(59, 130, 246, 0.12)', color: s.gender === 'FEMALE' ? '#ec4899' : '#3b82f6' }}>
+                                    {s.gender || 'MALE'}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '6px 10px', color: 'var(--text-muted)', fontSize: '10px' }}>{s.department} · Y{s.year}</td>
+                                <td style={{ padding: '6px 10px' }}>
+                                  <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 6px', borderRadius: '4px', background: 'var(--panel-subtle)', color: 'var(--brand-primary)', border: '1px solid var(--line)' }}>
+                                    {s.role}
+                                  </span>
+                                </td>
                                 <td style={{ padding: '6px 10px' }}>
                                   {s.isValid ? (
-                                    <span style={{ color: '#059669', fontWeight: 600 }}>Valid</span>
+                                    <span style={{ color: '#059669', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                      ✓ Ready
+                                    </span>
                                   ) : (
-                                    <span style={{ color: '#dc2626', fontWeight: 500 }}>{s.errors.join(', ')}</span>
+                                    <span style={{ color: '#dc2626', fontWeight: 600 }}>{s.errors.join(', ')}</span>
                                   )}
                                 </td>
                               </tr>
@@ -3486,14 +4188,24 @@ function MemberManagement({ user, logout, onNavigate }) {
                     </div>
                   )}
 
-                  <button
-                    type="submit"
-                    className="primary"
-                    disabled={bulkSubmitting || validBulkCount === 0}
-                    style={{ width: '100%', minHeight: '44px', fontSize: '11px', fontWeight: 700 }}
-                  >
-                    {bulkSubmitting ? 'CREATING STUDENT ACCOUNTS…' : `CREATE ${validBulkCount} STUDENT ACCOUNTS`}
-                  </button>
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <button
+                      type="submit"
+                      className="primary"
+                      disabled={bulkSubmitting || validBulkCount === 0}
+                      style={{ flex: 1, minHeight: '44px', fontSize: '12px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
+                    >
+                      {bulkSubmitting ? 'PROVISIONING ACCOUNTS…' : `⚡ PROVISION ${validBulkCount} ACCOUNTS`}
+                    </button>
+                    <button
+                      type="button"
+                      className="outline"
+                      onClick={() => setManagementView('ROSTER')}
+                      style={{ minHeight: '44px', padding: '0 20px' }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </form>
               </div>
             )}
@@ -3903,11 +4615,14 @@ function MemberManagement({ user, logout, onNavigate }) {
 // Universal Member Profile Management (Students & Admins)
 // ----------------------------------------------------
 function UniversalProfileView({ user, logout, onNavigate, onProfileUpdated }) {
+  const { platformMode } = usePlatformTheme()
+  const isMrdu = platformMode === 'MRDU_EVENTS'
   const [profile, setProfile] = useState(user.profile || {})
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [photoPreview, setPhotoPreview] = useState(user.profile?.profileImage || '')
+  const [copiedId, setCopiedId] = useState(false)
 
   async function handleSave(e) {
     e.preventDefault()
@@ -3935,12 +4650,18 @@ function UniversalProfileView({ user, logout, onNavigate, onProfileUpdated }) {
       const res = await memberApi.updateProfile(payload)
       setProfile(res.user.profile || {})
       if (onProfileUpdated) onProfileUpdated(res.user)
-      setMessage('Profile and avatar updated successfully.')
+      setMessage('✓ Profile and avatar updated successfully! Changes are live across the portal.')
     } catch (err) {
-      setError(err.message)
+      setError(err.message || 'Failed to save profile.')
     } finally {
       setSubmitting(false)
     }
+  }
+
+  function handleCopyMemberId() {
+    navigator.clipboard.writeText(user.memberId)
+    setCopiedId(true)
+    setTimeout(() => setCopiedId(false), 2000)
   }
 
   return (
@@ -3951,58 +4672,75 @@ function UniversalProfileView({ user, logout, onNavigate, onProfileUpdated }) {
             <button className="back-button" type="button" onClick={() => onNavigate(user.isAdminUser ? 'admin-dashboard' : 'student-dashboard')}>
               ← BACK TO DASHBOARD
             </button>
-            <p className="eyebrow">IDENTITY & AVATAR</p>
-            <h1>Personal Profile & Avatar</h1>
-            <p>Upload your profile photo and customize your bio, skills, and portfolios.</p>
+            <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Icon8 name="fingerprint" size={14} /> OFFICIAL CREDENTIALS & ID STUDIO
+            </p>
+            <h1>Personal Profile & Digital Identity</h1>
+            <p>Customize your member badge, bio, developer portfolio links, and cyber security skills.</p>
           </div>
-          <span className="president-lock">MEMBER ID: {user.memberId}</span>
+          <button
+            type="button"
+            onClick={handleCopyMemberId}
+            className="president-lock"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', cursor: 'pointer', background: 'var(--panel-subtle)' }}
+            title="Click to copy Member ID"
+          >
+            <Icon8 name="idDocs" size={14} />
+            MEMBER ID: {user.memberId} {copiedId ? '(COPIED!)' : ''}
+          </button>
         </div>
 
         {message && <p className="member-form-success">{message}</p>}
         {error && <p className="member-form-error">{error}</p>}
 
-        <div className="member-management-grid">
-          <article className="account-form-card" style={{ maxWidth: '640px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))', gap: '24px', alignItems: 'start' }}>
+          {/* Left Column: Comprehensive Profile Editor */}
+          <article className="account-form-card" style={{ padding: '24px' }}>
             <form onSubmit={handleSave}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '20px', padding: '14px', background: 'var(--panel-subtle)', borderRadius: '10px', border: '1px solid var(--line)' }}>
+              {/* Photo Uploader Header Box */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '18px', marginBottom: '22px', padding: '16px', background: 'var(--bg-input)', borderRadius: '12px', border: '1px solid var(--line)' }}>
                 {photoPreview ? (
-                  <img src={photoPreview} alt="Profile" style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '2px solid var(--brand-primary)' }} />
+                  <img src={photoPreview} alt="Profile" style={{ width: '84px', height: '84px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--brand-primary)', boxShadow: '0 4px 14px rgba(0,0,0,0.15)' }} />
                 ) : (
-                  <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: 'linear-gradient(135deg,#2488d8,#18447e)', display: 'grid', placeItems: 'center', color: '#fff', font: '700 24px Syne' }}>
+                  <div style={{ width: '84px', height: '84px', borderRadius: '50%', background: 'var(--brand-gradient)', display: 'grid', placeItems: 'center', color: 'var(--brand-text)', font: '700 28px Syne', boxShadow: '0 4px 14px rgba(0,0,0,0.15)' }}>
                     {user.initials}
                   </div>
                 )}
-                <div>
-                  <b style={{ color: 'var(--text-main)', fontSize: '14px', display: 'block' }}>Profile Photo</b>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '11px', margin: '2px 0 10px' }}>Upload a JPEG or PNG photo</p>
-                  <label className="action-btn edit-btn" style={{ cursor: 'pointer', display: 'inline-block' }}>
-                    Upload New Image
-                    <input
-                      type="file"
-                      accept="image/*"
-                      style={{ display: 'none' }}
-                      onChange={e => {
-                        const file = e.target.files?.[0]
-                        if (file) readImageFile(file, setPhotoPreview)
-                      }}
-                    />
-                  </label>
-                  {photoPreview && (
-                    <button type="button" className="action-btn cancel-btn" onClick={() => setPhotoPreview('')} style={{ marginLeft: '8px' }}>
-                      Remove
-                    </button>
-                  )}
+                <div style={{ flex: 1 }}>
+                  <b style={{ color: 'var(--text-main)', fontSize: '15px', display: 'block' }}>Avatar & Photo</b>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '11px', margin: '2px 0 10px' }}>Upload a JPEG or PNG photo to display on your digital ID.</p>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <label className="action-btn edit-btn" style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}>
+                      <IconUpload size={13} /> Change Photo
+                      <input
+                        type="file"
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        onChange={e => {
+                          const file = e.target.files?.[0]
+                          if (file) readImageFile(file, setPhotoPreview)
+                        }}
+                      />
+                    </label>
+                    {photoPreview && (
+                      <button type="button" className="action-btn cancel-btn" onClick={() => setPhotoPreview('')} style={{ fontSize: '11px', padding: '6px 12px' }}>
+                        Remove
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              <div className="member-form-grid">
+              {/* Personal & Academic Details */}
+              <p className="eyebrow" style={{ margin: '0 0 12px', fontSize: '10px' }}>PERSONAL & CONTACT INFO</p>
+              <div className="member-form-grid" style={{ marginBottom: '20px' }}>
                 <label>
-                  Full Name
-                  <input name="name" defaultValue={profile.name || user.name} />
+                  Full Name *
+                  <input name="name" defaultValue={profile.name || user.name} required />
                 </label>
                 <label>
                   Phone Number
-                  <input name="phone" defaultValue={profile.phone || ''} placeholder="Phone number" />
+                  <input name="phone" defaultValue={profile.phone || ''} placeholder="e.g. +91 9876543210" />
                 </label>
                 <label>
                   Gender
@@ -4016,53 +4754,137 @@ function UniversalProfileView({ user, logout, onNavigate, onProfileUpdated }) {
                   Age
                   <input name="age" type="number" min={15} max={65} defaultValue={profile.age || ''} placeholder="Age (e.g. 20)" />
                 </label>
-                <label className="form-wide">
-                  Short Bio
-                  <input name="bio" defaultValue={profile.bio || ''} placeholder="e.g. Reverse engineering & CTF enthusiast" />
-                </label>
-                <label className="form-wide">
-                  Cyber Security Skills
-                  <input name="skills" defaultValue={profile.skills || ''} placeholder="e.g. Wireshark, Metasploit, Python, Reverse Engineering" />
-                </label>
+              </div>
+
+              {/* Bio & Skills */}
+              <p className="eyebrow" style={{ margin: '0 0 12px', fontSize: '10px' }}>ABOUT & TECHNICAL EXPERTISE</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
+                    Short Bio
+                  </label>
+                  <input name="bio" defaultValue={profile.bio || ''} placeholder="e.g. Reverse engineering, ethical hacking & CTF enthusiast" style={{ width: '100%', height: '40px', padding: '0 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '6px' }}>
+                    Key Cyber Security & Technical Skills
+                  </label>
+                  <input name="skills" defaultValue={profile.skills || ''} placeholder="e.g. Wireshark, Metasploit, Python, Burp Suite, Network Forensics" style={{ width: '100%', height: '40px', padding: '0 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)' }} />
+                </div>
+              </div>
+
+              {/* Online Links */}
+              <p className="eyebrow" style={{ margin: '0 0 12px', fontSize: '10px' }}>ONLINE PORTFOLIOS & PROFILES</p>
+              <div className="member-form-grid" style={{ marginBottom: '20px' }}>
                 <label>
-                  GitHub Profile URL
+                  GitHub URL
                   <input name="githubUrl" defaultValue={profile.githubUrl || ''} placeholder="https://github.com/..." />
                 </label>
                 <label>
-                  LinkedIn Profile URL
+                  LinkedIn URL
                   <input name="linkedinUrl" defaultValue={profile.linkedinUrl || ''} placeholder="https://linkedin.com/in/..." />
+                </label>
+                <label>
+                  Instagram Handle / URL
+                  <input name="instagramUrl" defaultValue={profile.instagramUrl || ''} placeholder="https://instagram.com/..." />
+                </label>
+                <label>
+                  Portfolio Website
+                  <input name="portfolioUrl" defaultValue={profile.portfolioUrl || ''} placeholder="https://..." />
                 </label>
               </div>
 
-              <button className="primary member-submit" type="submit" disabled={submitting} style={{ marginTop: '18px', width: '100%' }}>
-                {submitting ? 'SAVING PROFILE…' : 'SAVE PROFILE & AVATAR'}
+              <button className="primary member-submit" type="submit" disabled={submitting} style={{ width: '100%', height: '44px', fontWeight: 700 }}>
+                {submitting ? 'SAVING PROFILE…' : 'SAVE PROFILE & UPDATE ID CARD'}
               </button>
             </form>
           </article>
 
-          {/* Profile Card Preview & Appearance */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <article className="account-form-card" style={{ textAlign: 'center' }}>
-              <p className="eyebrow">BADGE PREVIEW</p>
-              <h2>My Member Badge</h2>
-              <div style={{ marginTop: '20px', padding: '24px', background: 'var(--bg-input)', borderRadius: '12px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          {/* Right Column: Holographic Digital ID Card & Quick Actions */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', position: 'sticky', top: '20px' }}>
+            <article className="account-form-card" style={{ padding: '24px', textAlign: 'center', background: 'linear-gradient(180deg, var(--bg-card) 0%, var(--bg-portal) 100%)', border: '1.5px solid var(--brand-border-subtle)', borderRadius: '18px', boxShadow: '0 12px 35px rgba(0,0,0,0.08)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
+                <span className="platform-active-pill" style={{ fontSize: '9px' }}>
+                  OFFICIAL ID PASS
+                </span>
+                <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontSize: '9px', fontWeight: 700 }}>
+                  ● ACTIVE MEMBER
+                </span>
+              </div>
+
+              {/* Digital Badge Card Canvas */}
+              <div style={{ padding: '24px 16px', background: 'var(--bg-input)', borderRadius: '16px', border: '1px solid var(--line)', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '4px', background: 'var(--brand-gradient)' }} />
+
                 {photoPreview ? (
-                  <img src={photoPreview} alt="Profile" style={{ width: '96px', height: '96px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--brand-primary)', marginBottom: '14px' }} />
+                  <img src={photoPreview} alt="Profile" style={{ width: '100px', height: '100px', borderRadius: '50%', objectFit: 'cover', border: '3px solid var(--brand-primary)', margin: '0 auto 14px', display: 'block', boxShadow: '0 6px 20px rgba(0,0,0,0.2)' }} />
                 ) : (
-                  <div style={{ width: '96px', height: '96px', borderRadius: '50%', background: 'var(--brand-gradient)', display: 'grid', placeItems: 'center', color: 'var(--brand-text)', font: '700 30px Syne', marginBottom: '14px' }}>
+                  <div style={{ width: '100px', height: '100px', borderRadius: '50%', background: 'var(--brand-gradient)', display: 'grid', placeItems: 'center', color: 'var(--brand-text)', font: '700 32px Syne', margin: '0 auto 14px', boxShadow: '0 6px 20px rgba(0,0,0,0.2)' }}>
                     {user.initials}
                   </div>
                 )}
-                <h3 style={{ margin: '0 0 4px', font: '700 20px Syne', color: 'var(--text-main)' }}>{profile.name || user.name}</h3>
-                <span className={`badge ${user.isPrimaryAdmin ? 'badge-president' : user.role === 'STUDENT' ? 'badge-student' : 'badge-admin'}`} style={{ marginBottom: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                  {user.isPrimaryAdmin ? <><IconCrown size={12} /> PRESIDENT</> : getRoleLabel(user.role)}
-                </span>
-                <p style={{ color: 'var(--brand-primary)', font: '500 11px "DM Mono", monospace', margin: '0 0 10px' }}>
-                  MEMBER ID: {user.memberId}
+
+                <h3 style={{ margin: '0 0 4px', font: '700 20px Syne', color: 'var(--text-main)' }}>
+                  {profile.name || user.name}
+                </h3>
+
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', margin: '6px 0 12px', flexWrap: 'wrap' }}>
+                  <span className={`badge ${user.isPrimaryAdmin ? 'badge-president' : user.role === 'STUDENT' ? 'badge-student' : 'badge-admin'}`} style={{ fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    {user.isPrimaryAdmin ? <><IconCrown size={12} /> PRESIDENT</> : getRoleLabel(user.role)}
+                  </span>
+                  <span className="badge" style={{ background: 'var(--panel-subtle)', color: 'var(--brand-primary)', fontSize: '10px', fontFamily: 'DM Mono' }}>
+                    {user.memberId}
+                  </span>
+                </div>
+
+                <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: 1.5, margin: '0 0 14px', padding: '0 8px' }}>
+                  {profile.bio || `${isMrdu ? 'MRDU Events' : 'Cyber Security Club'} authorized student member.`}
                 </p>
-                <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: '1.6', margin: '0 0 14px' }}>
-                  {profile.bio || 'Authorized member · Malla Reddy (MR) Deemed to be University.'}
-                </p>
+
+                {profile.skills && (
+                  <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', flexWrap: 'wrap', marginBottom: '14px' }}>
+                    {profile.skills.split(/[,;]/).slice(0, 4).map((skill, idx) => (
+                      <span key={idx} style={{ fontSize: '9px', padding: '2px 8px', borderRadius: '4px', background: 'var(--panel-subtle)', border: '1px solid var(--line)', color: 'var(--text-main)', fontFamily: 'DM Mono' }}>
+                        {skill.trim()}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div style={{ borderTop: '1px dashed var(--line)', paddingTop: '12px', display: 'flex', justifyContent: 'space-around', fontSize: '11px', color: 'var(--text-dim)' }}>
+                  <div>
+                    <small style={{ display: 'block', fontSize: '9px' }}>DEPARTMENT</small>
+                    <b style={{ color: 'var(--text-main)' }}>{user.profile?.department || 'CSE / Cyber'}</b>
+                  </div>
+                  <div>
+                    <small style={{ display: 'block', fontSize: '9px' }}>YEAR</small>
+                    <b style={{ color: 'var(--text-main)' }}>Year {user.profile?.year || '1'}</b>
+                  </div>
+                  <div>
+                    <small style={{ display: 'block', fontSize: '9px' }}>2FA LOCK</small>
+                    <b style={{ color: user.twoFactorEnabled ? '#10b981' : '#f59e0b' }}>{user.twoFactorEnabled ? 'ENFORCED' : 'OPTIONAL'}</b>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Profile Actions */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginTop: '16px' }}>
+                <button
+                  type="button"
+                  className="outline"
+                  onClick={() => onNavigate('security')}
+                  style={{ fontSize: '11px', padding: '8px 12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  <Icon8 name="password" size={13} /> Account Security
+                </button>
+                <button
+                  type="button"
+                  className="outline"
+                  onClick={() => onNavigate(user.isAdminUser ? 'admin-passes' : 'student-passes')}
+                  style={{ fontSize: '11px', padding: '8px 12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  <Icon8 name="faceId" size={13} /> Event Passes
+                </button>
               </div>
             </article>
           </div>
@@ -5504,38 +6326,40 @@ function EventManagement({ user, logout, onNavigate }) {
             <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
               ← COMMAND CENTER
             </button>
-            <p className="eyebrow">COMPREHENSIVE WORKFLOW STUDIO</p>
+            <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <IconSparkles size={13} /> COMPREHENSIVE WORKFLOW STUDIO
+            </p>
             <h1>Club Events & Master Studio</h1>
             <p>Publish workshops, CTF competitions, seminars, and team hackathons with clean pricing & pass tracking.</p>
           </div>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="event-heading-actions">
             <button
               type="button"
-              className="primary"
+              className="outline"
               onClick={() => onNavigate('admin-passes')}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '7px 14px' }}
               title="View all registered student passes and UTR records"
             >
-              <IconCreditCard size={16} /> PASSES & CHECK-IN ROSTER
+              <IconCreditCard size={14} /> Passes & Roster →
             </button>
             <button
               type="button"
               className="outline"
               onClick={() => onNavigate('admin-qr-scanner')}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '7px 14px' }}
               title="Scan attendee event passes and verify tickets"
             >
-              <Icon8 name="irisScan" size={16} /> SCAN AT ENTRY GATE
+              <Icon8 name="irisScan" size={14} /> Gate Scanner →
             </button>
             <button
               type="button"
               className="outline"
               onClick={handleDownloadEventsList}
               disabled={events.length === 0}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '7px 14px' }}
               title="Download events catalog as CSV"
             >
-              <IconDownload size={14} /> DOWNLOAD EVENTS CSV
+              <IconDownload size={13} /> Export CSV
             </button>
           </div>
         </div>
@@ -5543,25 +6367,23 @@ function EventManagement({ user, logout, onNavigate }) {
         {message && <p className="member-form-success">{message}</p>}
         {error && <p className="member-form-error">{error}</p>}
 
-        <div className="event-view-switcher" style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap' }}>
+        <div className="event-view-switcher">
           <button
             type="button"
-            className={eventView === 'CATALOG' ? 'primary' : 'outline'}
+            className={eventView === 'CATALOG' ? 'primary active' : 'outline'}
             onClick={() => setEventView('CATALOG')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '8px 18px', fontWeight: 700 }}
           >
-            <IconSparkles size={14} /> PUBLISHED EVENTS CATALOG ({events.length})
+            <IconSparkles size={14} /> Published Events ({events.length})
           </button>
           <button
             type="button"
-            className={eventView === 'BUILDER' ? 'primary' : 'outline'}
+            className={eventView === 'BUILDER' ? 'primary active' : 'outline'}
             onClick={() => {
               if (!editingEventId) setFormData(initialEventForm)
               setEventView('BUILDER')
             }}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '8px 18px', fontWeight: 700 }}
           >
-            <Icon8 name="customForms" size={14} /> {editingEventId ? 'EDITING EVENT' : '＋ CREATE & PUBLISH EVENT'}
+            <Icon8 name="customForms" size={14} /> {editingEventId ? 'Editing Event' : '＋ Create & Publish Event'}
           </button>
         </div>
 
@@ -6044,28 +6866,28 @@ function EventManagement({ user, logout, onNavigate }) {
                 </div>
               </div>
 
-              {/* Stats Summary Bar */}
+              {/* Stats Summary Bar Side-by-Side HUD */}
               {analyticsData?.stats && (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', marginBottom: '16px' }}>
-                  <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
-                    <small style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10px' }}>TOTAL REGISTERED</small>
-                    <strong style={{ color: 'var(--brand-primary)', fontSize: '16px' }}>{analyticsData.stats.totalRegistrations}</strong>
+                <div className="roster-stats-hud">
+                  <div className="roster-stat-card">
+                    <span className="roster-stat-label">TOTAL REGISTERED</span>
+                    <span className="roster-stat-value" style={{ color: 'var(--brand-primary)' }}>{analyticsData.stats.totalRegistrations}</span>
                   </div>
-                  <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
-                    <small style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10px' }}>CONFIRMED / PAID</small>
-                    <strong style={{ color: '#10b981', fontSize: '16px' }}>{analyticsData.stats.confirmed}</strong>
+                  <div className="roster-stat-card">
+                    <span className="roster-stat-label">CONFIRMED / PAID</span>
+                    <span className="roster-stat-value" style={{ color: '#10b981' }}>{analyticsData.stats.confirmed}</span>
                   </div>
-                  <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
-                    <small style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10px' }}>PENDING UTR</small>
-                    <strong style={{ color: '#f59e0b', fontSize: '16px' }}>{analyticsData.stats.pending}</strong>
+                  <div className="roster-stat-card">
+                    <span className="roster-stat-label">PENDING UTR</span>
+                    <span className="roster-stat-value" style={{ color: '#f59e0b' }}>{analyticsData.stats.pending}</span>
                   </div>
-                  <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
-                    <small style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10px' }}>VERIFIED REVENUE</small>
-                    <strong style={{ color: '#70ddb4', fontSize: '16px' }}>₹{analyticsData.stats.totalVerifiedRevenue}</strong>
+                  <div className="roster-stat-card">
+                    <span className="roster-stat-label">VERIFIED REVENUE</span>
+                    <span className="roster-stat-value" style={{ color: '#10b981' }}>₹{analyticsData.stats.totalVerifiedRevenue}</span>
                   </div>
-                  <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
-                    <small style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10px' }}>SEATS REMAINING</small>
-                    <strong style={{ color: 'var(--text-main)', fontSize: '16px' }}>{analyticsData.stats.seatsRemaining ?? '∞'}</strong>
+                  <div className="roster-stat-card">
+                    <span className="roster-stat-label">SEATS REMAINING</span>
+                    <span className="roster-stat-value" style={{ color: 'var(--text-main)' }}>{analyticsData.stats.seatsRemaining ?? '∞'}</span>
                   </div>
                 </div>
               )}
@@ -7314,14 +8136,51 @@ function PaymentManagement({ user, logout, onNavigate }) {
         {message && <p className="member-form-success">{message}</p>}
         {error && <p className="member-form-error">{error}</p>}
 
+        {/* Premium KPI Metrics HUD */}
+        <div className="roster-stats-hud">
+          <div className="roster-stat-card">
+            <span className="roster-stat-label">TOTAL ISSUED PASSES</span>
+            <span className="roster-stat-value" style={{ color: 'var(--brand-primary)' }}>{passes.length}</span>
+            <small style={{ color: 'var(--text-dim)', fontSize: '10px' }}>Active Access Tokens</small>
+          </div>
+          <div className="roster-stat-card">
+            <span className="roster-stat-label">VERIFIED / PAID</span>
+            <span className="roster-stat-value" style={{ color: '#10b981' }}>
+              {passes.filter(p => p.paymentStatus === 'PAID' || p.paymentStatus === 'VERIFIED' || p.isFree).length}
+            </span>
+            <small style={{ color: 'var(--text-dim)', fontSize: '10px' }}>Confirmed Attendees</small>
+          </div>
+          <div className="roster-stat-card">
+            <span className="roster-stat-label">PENDING UTR APPROVAL</span>
+            <span className="roster-stat-value" style={{ color: '#f59e0b' }}>
+              {passes.filter(p => p.paymentStatus === 'PENDING').length}
+            </span>
+            <small style={{ color: 'var(--text-dim)', fontSize: '10px' }}>Requires Review</small>
+          </div>
+          <div className="roster-stat-card">
+            <span className="roster-stat-label">VERIFIED PASS REVENUE</span>
+            <span className="roster-stat-value" style={{ color: '#10b981' }}>
+              ₹{passes.reduce((sum, p) => sum + ((p.paymentStatus === 'PAID' || p.paymentStatus === 'VERIFIED') ? (Number(p.totalAmount) || 0) : 0), 0)}
+            </span>
+            <small style={{ color: 'var(--text-dim)', fontSize: '10px' }}>Direct UPI Inflow</small>
+          </div>
+          <div className="roster-stat-card">
+            <span className="roster-stat-label">GATE CHECK-INS</span>
+            <span className="roster-stat-value" style={{ color: 'var(--text-main)' }}>
+              {passes.filter(p => p.attendanceMarked).length}
+            </span>
+            <small style={{ color: 'var(--text-dim)', fontSize: '10px' }}>Admitted Into Venues</small>
+          </div>
+        </div>
+
         {/* Search & Filter Command Strip */}
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr 1fr 1fr 1fr', gap: '10px', margin: '16px 0', alignItems: 'center' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', margin: '16px 0', alignItems: 'center' }}>
           <div>
             <input
-              placeholder="Search by student, member ID, pass ID, UTR, team..."
+              placeholder="Search student, member ID, pass, UTR, team..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)', padding: '0 12px', fontSize: '12px' }}
+              style={{ width: '100%', height: '40px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)', padding: '0 12px', fontSize: '12px' }}
             />
           </div>
           <div>
@@ -7329,7 +8188,7 @@ function PaymentManagement({ user, logout, onNavigate }) {
               value={eventFilter}
               onChange={e => setEventFilter(e.target.value)}
               className="member-select"
-              style={{ width: '100%', height: '38px', marginTop: 0 }}
+              style={{ width: '100%', height: '40px', marginTop: 0 }}
             >
               <option value="ALL">All Events ({events.length})</option>
               {events.map(ev => (
@@ -7342,7 +8201,7 @@ function PaymentManagement({ user, logout, onNavigate }) {
               value={paymentFilter}
               onChange={e => setPaymentFilter(e.target.value)}
               className="member-select"
-              style={{ width: '100%', height: '38px', marginTop: 0 }}
+              style={{ width: '100%', height: '40px', marginTop: 0 }}
             >
               <option value="ALL">All Payments</option>
               <option value="PAID">Verified / Paid</option>
@@ -7355,7 +8214,7 @@ function PaymentManagement({ user, logout, onNavigate }) {
               value={attendanceFilter}
               onChange={e => setAttendanceFilter(e.target.value)}
               className="member-select"
-              style={{ width: '100%', height: '38px', marginTop: 0 }}
+              style={{ width: '100%', height: '40px', marginTop: 0 }}
             >
               <option value="ALL">All Attendance</option>
               <option value="ATTENDED">Admitted / Present</option>
@@ -7367,7 +8226,7 @@ function PaymentManagement({ user, logout, onNavigate }) {
               value={modeFilter}
               onChange={e => setModeFilter(e.target.value)}
               className="member-select"
-              style={{ width: '100%', height: '38px', marginTop: 0 }}
+              style={{ width: '100%', height: '40px', marginTop: 0 }}
             >
               <option value="ALL">All Modes</option>
               <option value="INDIVIDUAL">Individual</option>
@@ -9187,6 +10046,8 @@ function TeamManagement({ user, logout, onNavigate }) {
   const [editPhotoPreview, setEditPhotoPreview] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
+  const [syncing, setSyncing] = useState(false)
+
   function loadTeam() {
     setLoading(true)
     adminApi.listClubTeam()
@@ -9201,6 +10062,22 @@ function TeamManagement({ user, logout, onNavigate }) {
   useEffect(() => {
     loadTeam()
   }, [])
+
+  async function handleSyncLeadersFromAccounts() {
+    setSyncing(true)
+    setMessage('')
+    setError('')
+    try {
+      const res = await adminApi.syncClubTeamFromAccounts()
+      const sorted = (res.team || []).slice().sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+      setTeam(sorted)
+      setMessage(res.message || '✓ Council showcase successfully synchronized from user accounts!')
+    } catch (err) {
+      setError(err.message || 'Failed to auto-sync council accounts.')
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   async function createMember(e) {
     e.preventDefault()
@@ -9322,18 +10199,30 @@ function TeamManagement({ user, logout, onNavigate }) {
             </button>
             <p className="eyebrow">COUNCIL SHOWCASE & PRIORITY</p>
             <h1>Team & Leadership Showcase</h1>
-            <p>Manage public club council member profiles, edit leader info, and configure display priority order.</p>
+            <p>Manage public club council member profiles, auto-sync from personal accounts, and configure display priority.</p>
           </div>
-          <button
-            type="button"
-            className="outline"
-            onClick={handleDownloadLeadersCsv}
-            disabled={team.length === 0}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
-            title="Download leadership directory as CSV"
-          >
-            <IconDownload size={14} /> DOWNLOAD LEADERS CSV
-          </button>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="primary"
+              onClick={handleSyncLeadersFromAccounts}
+              disabled={syncing}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px', background: 'linear-gradient(135deg, #10b981, #059669)' }}
+              title="Automatically scan and sync leadership council accounts into the team showcase based on role priority"
+            >
+              <IconSparkles size={14} /> {syncing ? 'SYNCING LEADERS…' : '⚡ AUTO-SYNC FROM ACCOUNTS'}
+            </button>
+            <button
+              type="button"
+              className="outline"
+              onClick={handleDownloadLeadersCsv}
+              disabled={team.length === 0}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+              title="Download leadership directory as CSV"
+            >
+              <IconDownload size={14} /> DOWNLOAD CSV
+            </button>
+          </div>
         </div>
 
         {message && <p className="member-form-success">{message}</p>}
@@ -9351,7 +10240,7 @@ function TeamManagement({ user, logout, onNavigate }) {
                 </label>
                 <label>
                   Council Role Title *
-                  <input name="roleTitle" required placeholder="e.g. Head of Cyber Defense" />
+                  <input name="roleTitle" required placeholder="e.g. Student Coordinator, Tech Lead" />
                 </label>
                 <label>
                   Official Email
@@ -9394,19 +10283,20 @@ function TeamManagement({ user, logout, onNavigate }) {
                 <p className="eyebrow">COUNCIL ROSTER & DISPLAY PRIORITY</p>
                 <h2>Active Leaders ({team.length})</h2>
               </div>
-              <button
-                type="button"
-                className="outline"
-                onClick={handleDownloadLeadersCsv}
-                disabled={team.length === 0}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
-                title="Download leadership directory as CSV"
-              >
-                <IconDownload size={14} /> DOWNLOAD LEADERS CSV
-              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="action-btn edit-btn"
+                  onClick={handleSyncLeadersFromAccounts}
+                  disabled={syncing}
+                  style={{ fontSize: '10px' }}
+                >
+                  {syncing ? 'Syncing…' : '⚡ Sync'}
+                </button>
+              </div>
             </div>
             <p style={{ color: '#7e95a7', fontSize: '11px', margin: '4px 0 14px' }}>
-              Use <b>▲ Up</b> and <b>▼ Down</b> to control display priority on the website and the onboarding fallback slideshow.
+              Priority order reflects hierarchy (President → VP → Student Coordinator → Leads). Use <b>▲ Up</b> and <b>▼ Down</b> to customize order.
             </p>
 
             {loading ? (
@@ -14394,11 +15284,52 @@ function CouncilChatView({ user, logout, onNavigate }) {
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(true)
   const [sending, setSending] = useState(false)
+  const [unreadBelow, setUnreadBelow] = useState(0)
+  const [showScrollBottom, setShowScrollBottom] = useState(false)
+
+  const chatContainerRef = useRef(null)
   const messagesEndRef = useRef(null)
+  const isAtBottomRef = useRef(true)
+  const initialScrollDone = useRef(false)
+
+  function scrollToBottom(smooth = true) {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' })
+      setUnreadBelow(0)
+      setShowScrollBottom(false)
+      isAtBottomRef.current = true
+    }
+  }
+
+  function handleScroll() {
+    if (!chatContainerRef.current) return
+    const { scrollTop, scrollHeight, clientHeight } = chatContainerRef.current
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight
+    const nearBottom = distanceFromBottom < 80
+    isAtBottomRef.current = nearBottom
+    setShowScrollBottom(!nearBottom)
+    if (nearBottom) {
+      setUnreadBelow(0)
+    }
+  }
 
   function loadMessages() {
     adminApi.listCouncilMessages()
-      .then(res => setMessages(res.messages || []))
+      .then(res => {
+        const incoming = res?.messages || []
+        setMessages(prev => {
+          if (
+            prev.length === incoming.length &&
+            prev[prev.length - 1]?.id === incoming[incoming.length - 1]?.id
+          ) {
+            return prev
+          }
+          if (prev.length > 0 && incoming.length > prev.length && !isAtBottomRef.current) {
+            setUnreadBelow(c => c + (incoming.length - prev.length))
+          }
+          return incoming
+        })
+      })
       .catch(() => {})
       .finally(() => setLoading(false))
   }
@@ -14410,7 +15341,13 @@ function CouncilChatView({ user, logout, onNavigate }) {
   }, [])
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (messages.length === 0) return
+    if (!initialScrollDone.current) {
+      scrollToBottom(false)
+      initialScrollDone.current = true
+    } else if (isAtBottomRef.current) {
+      scrollToBottom(true)
+    }
   }, [messages])
 
   async function handleSend(e) {
@@ -14421,6 +15358,7 @@ function CouncilChatView({ user, logout, onNavigate }) {
       const res = await adminApi.sendCouncilMessage(text.trim())
       setMessages(c => [...c, res.message])
       setText('')
+      setTimeout(() => scrollToBottom(true), 60)
     } catch (err) {
       alert(err.message)
     } finally {
@@ -14445,9 +15383,13 @@ function CouncilChatView({ user, logout, onNavigate }) {
           </span>
         </div>
 
-        <article className="account-form-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, padding: '16px' }}>
+        <article className="account-form-card" style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, padding: '16px', position: 'relative' }}>
           {/* Chat Feed */}
-          <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingRight: '6px', marginBottom: '14px' }}>
+          <div
+            ref={chatContainerRef}
+            onScroll={handleScroll}
+            style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '12px', paddingRight: '6px', marginBottom: '14px' }}
+          >
             {loading ? (
               <p className="directory-state" style={{ margin: 'auto' }}>Loading council communications...</p>
             ) : messages.length === 0 ? (
@@ -14495,8 +15437,40 @@ function CouncilChatView({ user, logout, onNavigate }) {
                 )
               })
             )}
-            <div ref={messagesEndRef} />
+            <div ref={messagesEndRef} style={{ height: 1 }} />
           </div>
+
+          {/* Floating Jump to Latest Button when Scrolled Up */}
+          {showScrollBottom && (
+            <div style={{ position: 'absolute', bottom: '70px', right: '28px', zIndex: 20 }}>
+              <button
+                type="button"
+                onClick={() => scrollToBottom(true)}
+                style={{
+                  background: 'var(--brand-primary)',
+                  color: '#000',
+                  border: 'none',
+                  borderRadius: '20px',
+                  padding: '7px 16px',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  boxShadow: '0 6px 20px rgba(0, 229, 255, 0.4), 0 2px 8px rgba(0, 0, 0, 0.6)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'transform 0.15s ease',
+                }}
+              >
+                <span>↓ Jump to Latest</span>
+                {unreadBelow > 0 && (
+                  <span style={{ background: '#000', color: 'var(--brand-primary)', borderRadius: '10px', padding: '1px 6px', fontSize: '10px' }}>
+                    +{unreadBelow}
+                  </span>
+                )}
+              </button>
+            </div>
+          )}
 
           {/* Message Input */}
           <form onSubmit={handleSend} style={{ display: 'flex', gap: '10px' }}>
@@ -14525,11 +15499,41 @@ function App() {
   const [screen, setScreen] = useState(resetToken ? 'reset-password' : 'login')
   const [checkingSession, setCheckingSession] = useState(true)
 
-  // Platform Mode & Permanent Light Theme
+  // Platform Mode & Theme System
   const [platformMode, setPlatformMode] = useState('CYBER_SECURITY_CLUB')
-  const themeMode = 'light'
-  const resolvedTheme = 'light'
-  const setThemeMode = () => {}
+  const [themeMode, setThemeModeState] = useState(() => {
+    return localStorage.getItem('app-theme-preference') || 'system'
+  })
+  const [systemDark, setSystemDark] = useState(() => {
+    return typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+  })
+
+  // Listen to OS theme changes
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const handler = e => setSystemDark(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+
+  const resolvedTheme = useMemo(() => {
+    if (themeMode === 'light') return 'light'
+    if (themeMode === 'dark') return 'dark'
+    return systemDark ? 'dark' : 'light'
+  }, [themeMode, systemDark])
+
+  const setThemeMode = (mode) => {
+    setThemeModeState(mode)
+    try {
+      localStorage.setItem('app-theme-preference', mode)
+    } catch {}
+  }
+
+  // Synchronize document attributes
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', resolvedTheme)
+  }, [resolvedTheme])
 
   // Experience & System flags
   const [showIntroVideo, setShowIntroVideo] = useState(false)
@@ -14550,6 +15554,24 @@ function App() {
   const reelsEnabled = clubSettings ? (clubSettings.reelsEnabled !== false && clubSettings.reelsEnabled !== 'false') : true
   const subEnabled = clubSettings ? (clubSettings.subscriptionEnabled === true || clubSettings.subscriptionEnabled === 'true') : false
 
+  const [activePersonaRole, setActivePersonaRole] = useState(null)
+
+  const effectiveUser = useMemo(() => {
+    if (!user) return null
+    const effectiveRole = activePersonaRole || user.role
+    const isEffectiveAdmin = effectiveRole !== 'STUDENT'
+    const dynamicPerms = getRolePermissions(effectiveRole)
+
+    return {
+      ...user,
+      role: effectiveRole,
+      originalRole: user.role,
+      isAdminUser: isEffectiveAdmin,
+      permissions: dynamicPerms,
+      canSwitchPersona: user.role === 'STUDENT_COORDINATOR' || user.isPrimaryAdmin || ['PRESIDENT', 'VICE_PRESIDENT', 'ADMIN'].includes(user.role),
+    }
+  }, [user, activePersonaRole])
+
   // Fetch initial public club settings to get current platformMode, reels, subscriptions
   useEffect(() => {
     let mounted = true
@@ -14567,18 +15589,15 @@ function App() {
     return () => { mounted = false }
   }, [])
 
-  // Synchronize document attributes (permanently locked to light mode)
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', 'light')
-  }, [])
 
   useEffect(() => {
     document.documentElement.setAttribute('data-platform', platformMode)
   }, [platformMode])
 
   function getScreenFromPath(role) {
-    const path = window.location.pathname.replace(/^\//, '').replace(/\/$/, '')
-    if (path.startsWith('event-detail/')) return path
+    const rawPath = window.location.pathname.replace(/^\//, '').replace(/\/$/, '')
+    const path = rawPath.toLowerCase()
+    if (path.startsWith('event-detail/')) return rawPath
     if (['events', 'student-events'].includes(path)) return 'student-events'
     if (['passes', 'student-passes', 'my-passes', 'registrations', 'student-registrations'].includes(path)) {
       return role === 'STUDENT' ? 'student-passes' : 'admin-passes'
@@ -14586,22 +15605,22 @@ function App() {
     if (['reels', 'student-reels'].includes(path)) return 'student-reels'
     if (['membership', 'student-membership'].includes(path)) return 'student-membership'
     if (['support', 'student-support'].includes(path)) return 'student-support'
-    if (['team', 'student-team'].includes(path)) return 'student-team'
+    if (['team', 'student-team', 'our-team'].includes(path)) return 'student-team'
     if (['gallery', 'student-gallery'].includes(path)) return 'student-gallery'
     if (['profile', 'student-profile'].includes(path)) return role === 'STUDENT' ? 'student-profile' : 'admin-profile'
-    if (['security'].includes(path)) return 'security'
-    if (['admin/members', 'admin-members'].includes(path)) return 'admin-members'
+    if (['security', 'admin/security', 'student/security'].includes(path)) return 'security'
+    if (['admin/members', 'admin-members', 'members'].includes(path)) return 'admin-members'
     if (['admin/qr-scanner', 'admin-qr-scanner', 'qr-scanner', 'gate'].includes(path)) return 'admin-qr-scanner'
     if (['admin/events', 'admin-events'].includes(path)) return 'admin-events'
-    if (['admin/passes', 'admin-passes', 'admin/payments', 'admin-payments'].includes(path)) return 'admin-passes'
-    if (['admin/subscriptions', 'admin-subscriptions'].includes(path)) return 'admin-subscriptions'
+    if (['admin/passes', 'admin-passes', 'admin/payments', 'admin-payments', 'payments'].includes(path)) return 'admin-passes'
+    if (['admin/subscriptions', 'admin-subscriptions', 'subscriptions'].includes(path)) return 'admin-subscriptions'
     if (['admin/support', 'admin-support'].includes(path)) return 'admin-support'
-    if (['admin/chat', 'admin-chat'].includes(path)) return 'admin-chat'
+    if (['admin/chat', 'admin-chat', 'chat'].includes(path)) return 'admin-chat'
     if (['admin/reels', 'admin-reels'].includes(path)) return 'admin-reels'
     if (['admin/team', 'admin-team'].includes(path)) return 'admin-team'
     if (['admin/gallery', 'admin-gallery'].includes(path)) return 'admin-gallery'
-    if (['admin/settings', 'admin-settings'].includes(path)) return 'admin-settings'
-    if (['admin/audit', 'admin-audit'].includes(path)) return 'admin-audit'
+    if (['admin/settings', 'admin-settings', 'settings'].includes(path)) return 'admin-settings'
+    if (['admin/audit', 'admin-audit', 'audit'].includes(path)) return 'admin-audit'
     if (['admin/profile', 'admin-profile'].includes(path)) return 'admin-profile'
     return role === 'STUDENT' ? 'student-dashboard' : 'admin-dashboard'
   }
@@ -14613,6 +15632,8 @@ function App() {
       urlPath = `/${nextScreen}`
     } else if (nextScreen === 'student-passes' || nextScreen === 'student-registrations') {
       urlPath = '/passes'
+    } else if (nextScreen === 'security') {
+      urlPath = '/security'
     } else if (nextScreen.startsWith('admin-')) {
       urlPath = `/${nextScreen.replace('admin-', 'admin/')}`
     } else if (nextScreen.startsWith('student-')) {
@@ -14623,6 +15644,18 @@ function App() {
     window.history.pushState({}, '', urlPath)
   }
 
+  // Popstate history listener for back/forward browser buttons
+  useEffect(() => {
+    const handlePop = () => {
+      if (effectiveUser) {
+        setScreen(getScreenFromPath(effectiveUser.role))
+      }
+    }
+    window.addEventListener('popstate', handlePop)
+    return () => window.removeEventListener('popstate', handlePop)
+  }, [effectiveUser])
+
+  // Session bootstrap
   useEffect(() => {
     if (resetToken) {
       setCheckingSession(false)
@@ -14634,6 +15667,7 @@ function App() {
         if (!mounted) return
         const portalUser = toPortalUser(authUser)
         setUser(portalUser)
+        setIsHibernating(false)
 
         try {
           const status = await memberApi.getSessionStatus()
@@ -14669,6 +15703,7 @@ function App() {
     }
     const portalUser = toPortalUser(result.user)
     setUser(portalUser)
+    setActivePersonaRole(null)
     setIsHibernating(false)
     setAdminLoginModal(false)
 
@@ -14688,6 +15723,7 @@ function App() {
     const { user: authUser } = await authApi.verifyTwoFactor(code)
     const portalUser = toPortalUser(authUser)
     setUser(portalUser)
+    setActivePersonaRole(null)
     navigateTo(portalUser.role === 'STUDENT' ? 'student-dashboard' : 'admin-dashboard')
   }
 
@@ -14696,6 +15732,7 @@ function App() {
       await authApi.logout()
     } finally {
       setUser(null)
+      setActivePersonaRole(null)
       setShowIntroVideo(false)
       setShowWaitingQueue(false)
       setScreen('login')
@@ -14714,7 +15751,7 @@ function App() {
     }
 
     // Hibernation Mode: shown to unauthenticated users and students
-    if (isHibernating && (!user || user.role === 'STUDENT') && !adminLoginModal) {
+    if (isHibernating && (!effectiveUser || effectiveUser.role === 'STUDENT') && !adminLoginModal) {
       return <HibernationScreen onAdminLogin={() => setAdminLoginModal(true)} />
     }
 
@@ -14722,7 +15759,7 @@ function App() {
     if (screen === 'password-reset-request') return <PasswordResetRequest onBack={() => setScreen('login')} />
     if (screen === 'two-factor') return <TwoFactorLogin onVerify={verifyTwoFactor} onBack={() => setScreen('login')} />
 
-    if (user) {
+    if (effectiveUser) {
       if (showIntroVideo) {
         return <IntroVideoExperience onComplete={() => setShowIntroVideo(false)} />
       }
@@ -14733,38 +15770,42 @@ function App() {
 
       if (screen.startsWith('event-detail/')) {
         const eventId = screen.replace('event-detail/', '')
-        return <StudentEventDetail user={user} eventId={eventId} logout={logout} onNavigate={navigateTo} />
+        return <StudentEventDetail user={effectiveUser} eventId={eventId} logout={logout} onNavigate={navigateTo} />
+      }
+
+      // Universal Security & Authenticator View (For All Members & Leaders)
+      if (screen === 'security') {
+        return <AccountSecurity user={effectiveUser} logout={logout} onNavigate={navigateTo} />
       }
 
       // Admin Screens
-      if (user.isAdminUser) {
-        if (screen === 'admin-members') return <MemberManagement user={user} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-qr-scanner') return <AdminQrScanner user={user} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-events') return <EventManagement user={user} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-payments' || screen === 'admin-passes' || screen === 'passes') return <PaymentManagement user={user} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-subscriptions') return <SubscriptionManagement user={user} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-support') return <SupportDeskView user={user} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-chat') return <CouncilChatView user={user} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-gallery') return <GalleryManagement user={user} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-reels') return <ReelsManagement user={user} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-team') return <TeamManagement user={user} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-settings') return <ClubSettingsManager user={user} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-audit') return <AuditLogView user={user} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-profile') return <UniversalProfileView user={user} logout={logout} onNavigate={navigateTo} onProfileUpdated={u => setUser(toPortalUser(u))} />
-        if (screen === 'security') return <AccountSecurity user={user} logout={logout} onNavigate={navigateTo} />
-        return <LivePresidentDashboard user={user} logout={logout} onNavigate={navigateTo} />
+      if (effectiveUser.isAdminUser) {
+        if (screen === 'admin-members' || screen === 'members') return <MemberManagement user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-qr-scanner' || screen === 'qr-scanner') return <AdminQrScanner user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-events' || screen === 'events') return <EventManagement user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-payments' || screen === 'admin-passes' || screen === 'passes') return <PaymentManagement user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-subscriptions' || screen === 'subscriptions') return <SubscriptionManagement user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-support' || screen === 'support') return <SupportDeskView user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-chat' || screen === 'chat') return <CouncilChatView user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-gallery' || screen === 'gallery') return <GalleryManagement user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-reels' || screen === 'reels') return <ReelsManagement user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-team' || screen === 'team') return <TeamManagement user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-settings' || screen === 'settings') return <ClubSettingsManager user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-audit' || screen === 'audit') return <AuditLogView user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        if (screen === 'admin-profile') return <UniversalProfileView user={effectiveUser} logout={logout} onNavigate={navigateTo} onProfileUpdated={u => setUser(toPortalUser(u))} />
+        return <LivePresidentDashboard user={effectiveUser} logout={logout} onNavigate={navigateTo} onSwitchPersonaRole={setActivePersonaRole} />
       }
 
       // Student Screens
-      if (screen === 'student-events') return <StudentEvents user={user} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'student-passes' || screen === 'student-registrations' || screen === 'passes') return <StudentRegistrations user={user} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'student-reels') return <StudentReels user={user} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'student-membership') return <StudentMembership user={user} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'student-support') return <SupportDeskView user={user} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'student-team') return <OurTeamShowcase user={user} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'student-gallery') return <StudentGallery user={user} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'student-profile') return <UniversalProfileView user={user} logout={logout} onNavigate={navigateTo} onProfileUpdated={u => setUser(toPortalUser(u))} />
-      return <LiveStudentDashboard user={user} logout={logout} onNavigate={navigateTo} />
+      if (screen === 'student-events' || screen === 'events') return <StudentEvents user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+      if (screen === 'student-passes' || screen === 'student-registrations' || screen === 'passes') return <StudentRegistrations user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+      if (screen === 'student-reels' || screen === 'reels') return <StudentReels user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+      if (screen === 'student-membership' || screen === 'membership') return <StudentMembership user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+      if (screen === 'student-support' || screen === 'support') return <SupportDeskView user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+      if (screen === 'student-team' || screen === 'team') return <OurTeamShowcase user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+      if (screen === 'student-gallery' || screen === 'gallery') return <StudentGallery user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+      if (screen === 'student-profile' || screen === 'profile') return <UniversalProfileView user={effectiveUser} logout={logout} onNavigate={navigateTo} onProfileUpdated={u => setUser(toPortalUser(u))} />
+      return <LiveStudentDashboard user={effectiveUser} logout={logout} onNavigate={navigateTo} onSwitchPersonaRole={setActivePersonaRole} />
     }
 
     return <FinalLogin onSignIn={signedIn} onForgotPassword={() => setScreen('password-reset-request')} />
@@ -14781,6 +15822,7 @@ function App() {
       setClubSettings,
       reelsEnabled,
       subEnabled,
+      onSwitchPersonaRole: setActivePersonaRole,
     }}>
       {renderContent()}
     </PlatformThemeContext.Provider>

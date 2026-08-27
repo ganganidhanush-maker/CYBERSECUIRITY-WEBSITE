@@ -337,3 +337,33 @@ export async function disableTwoFactor(request, response) {
   await tryWriteAuditLog({ actorUserId: request.user.id, action: 'TWO_FACTOR_DISABLED', ...auditRequest(request) })
   return response.status(204).end()
 }
+
+export async function changePassword(request, response) {
+  const { currentPassword, newPassword } = request.body || {}
+  if (!currentPassword || !newPassword) {
+    return response.status(400).json({ message: 'Current password and new password are required.' })
+  }
+  if (newPassword.length < 8) {
+    return response.status(400).json({ message: 'New password must be at least 8 characters long.' })
+  }
+
+  const valid = await bcrypt.compare(currentPassword, request.user.passwordHash)
+  if (!valid) {
+    return response.status(400).json({ message: 'Incorrect current password. Please try again.' })
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, env.bcryptRounds)
+  await prisma.user.update({
+    where: { id: request.user.id },
+    data: { passwordHash },
+  })
+
+  await tryWriteAuditLog({
+    actorUserId: request.user.id,
+    action: 'PASSWORD_CHANGED',
+    ...auditRequest(request),
+  })
+
+  return response.status(200).json({ message: 'Password updated successfully!' })
+}
+

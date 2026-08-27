@@ -290,12 +290,47 @@ export const bulkStudentItemSchema = z.object({
   name: z.string().trim().min(1, 'Student name is required.').max(120),
   memberId: z.string().trim().min(4, 'Roll Number / Member ID must be at least 4 characters.').max(32),
   password: z.string().min(8, 'Password must be at least 8 characters.').max(128),
+  role: z.union([
+    z.enum([
+      'PRESIDENT',
+      'VICE_PRESIDENT',
+      'STUDENT_COORDINATOR',
+      'TREASURER',
+      'EVENT_MANAGEMENT',
+      'MEDIA_LEAD',
+      'SOCIAL_MEDIA_LEAD',
+      'TECH_TEAM',
+      'PR_TEAM',
+      'CULTURAL',
+      'SECRETARY',
+      'ADMIN',
+      'STUDENT',
+    ]),
+    z.string(),
+    z.null(),
+    z.undefined(),
+  ]).transform(val => {
+    if (typeof val === 'string' && val.trim()) return val.trim().toUpperCase()
+    return 'STUDENT'
+  }),
   rollNumber: optionalText(64),
   department: optionalText(120),
   year: z.union([z.string(), z.number(), z.null(), z.undefined()]).transform(val => {
     if (!val) return null
     const num = Number(val)
     return Number.isFinite(num) ? num : null
+  }),
+  gender: z.union([z.enum(['MALE', 'FEMALE', 'OTHER']), z.string(), z.null(), z.undefined()]).transform(val => {
+    if (typeof val === 'string' && val.trim()) {
+      const u = val.trim().toUpperCase()
+      if (['MALE', 'FEMALE', 'OTHER'].includes(u)) return u
+    }
+    return 'MALE'
+  }),
+  age: z.union([z.string(), z.number(), z.null(), z.undefined()]).transform(val => {
+    if (!val) return null
+    const num = Number(val)
+    return Number.isFinite(num) && num >= 14 && num <= 99 ? num : null
   }),
   email: optionalEmail(),
   phone: optionalText(32),
