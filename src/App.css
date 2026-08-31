@@ -716,6 +716,10 @@ body {
   min-width: 640px;
 }
 
+.members-table {
+  min-width: 1060px;
+}
+
 .table-header {
   display: grid;
   grid-template-columns: 1.2fr 1.2fr 1.5fr 1.2fr;
@@ -728,6 +732,12 @@ body {
   font: 700 9px 'DM Mono', monospace;
   letter-spacing: .08em;
   text-transform: uppercase;
+}
+
+.members-table .table-header {
+  grid-template-columns: minmax(220px, 1.4fr) minmax(170px, 1.1fr) minmax(210px, 1.4fr) minmax(180px, 1.2fr) minmax(240px, 1.5fr);
+  gap: 16px;
+  padding: 12px 16px;
 }
 
 .events-table .table-header {
@@ -744,6 +754,12 @@ body {
   border: 1px solid #142334;
   border-radius: 8px;
   transition: border-color .2s;
+}
+
+.members-table .table-row {
+  grid-template-columns: minmax(220px, 1.4fr) minmax(170px, 1.1fr) minmax(210px, 1.4fr) minmax(180px, 1.2fr) minmax(240px, 1.5fr);
+  gap: 16px;
+  padding: 12px 16px;
 }
 
 .events-table .table-row {

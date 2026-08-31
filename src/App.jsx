@@ -4331,7 +4331,7 @@ function MemberManagement({ user, logout, onNavigate }) {
             ) : (
               <div className="table-scroll-container" style={{ marginTop: '16px' }}>
                 <div className="members-table">
-                  <div className="table-header" style={{ gridTemplateColumns: '1.4fr 1.3fr 1.2fr 1.5fr 1.3fr', gap: '14px' }}>
+                  <div className="table-header">
                     <span>MEMBER &amp; ROLL NO</span>
                     <span>{isMrdu ? 'MRDU ROLE & 2FA' : 'CLUB ROLE & 2FA'}</span>
                     <span>DEPARTMENT &amp; YEAR</span>
@@ -4341,7 +4341,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                   {filteredMembers.map(m => {
                     const isEditing = editingId === m.id
                     return (
-                      <div className={`table-row ${isEditing ? 'editing' : ''}`} key={m.id} style={{ gridTemplateColumns: isEditing ? '1fr' : '1.4fr 1.3fr 1.2fr 1.5fr 1.3fr', gap: '14px' }}>
+                      <div className={`table-row ${isEditing ? 'editing' : ''}`} key={m.id} style={isEditing ? { gridTemplateColumns: '1fr' } : undefined}>
                         {isEditing ? (
                           <div>
                             <div className="edit-fields-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
@@ -4378,86 +4378,86 @@ function MemberManagement({ user, logout, onNavigate }) {
                         ) : (
                           <>
                             {/* Member & Roll No */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
                               {m.profileImage ? (
-                                <img src={m.profileImage} alt={m.name} style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--brand-border-subtle)', flexShrink: 0 }} />
+                                <img src={m.profileImage} alt={m.name} style={{ width: '38px', height: '38px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid var(--brand-border-subtle)', flexShrink: 0 }} />
                               ) : (
-                                <span style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'var(--panel-subtle)', display: 'grid', placeItems: 'center', color: 'var(--brand-primary)', font: '700 11px Syne', border: '1px solid var(--line)', flexShrink: 0 }}>
-                                  {m.initials}
+                                <span style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'linear-gradient(135deg, rgba(82, 187, 245, 0.22), rgba(20, 80, 140, 0.4))', display: 'grid', placeItems: 'center', color: 'var(--brand-primary)', font: '700 12px Syne', border: '1.5px solid var(--brand-border-subtle)', flexShrink: 0 }}>
+                                  {m.initials || m.name?.slice(0, 2).toUpperCase() || 'ID'}
                                 </span>
                               )}
-                              <div style={{ minWidth: 0 }}>
+                              <div style={{ minWidth: 0, overflow: 'hidden' }}>
                                 <b style={{ color: 'var(--text-main)', fontSize: '13px', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.name}</b>
-                                <span style={{ color: 'var(--brand-primary)', font: '600 11px "DM Mono", monospace', display: 'block' }}>{m.memberId}</span>
+                                <span style={{ color: 'var(--brand-primary)', font: '700 11px "DM Mono", monospace', display: 'block' }}>{m.memberId}</span>
                                 {(m.rollNumber || m.profile?.rollNumber) && (
-                                  <small style={{ color: 'var(--text-dim)', fontSize: '10px', display: 'block' }}>Roll: {m.rollNumber || m.profile?.rollNumber}</small>
+                                  <small style={{ color: 'var(--text-dim)', fontSize: '10.5px', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Roll: {m.rollNumber || m.profile?.rollNumber}</small>
                                 )}
                               </div>
                             </div>
 
                             {/* Role & 2FA */}
-                            <div>
+                            <div style={{ minWidth: 0 }}>
                               <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
-                                <span className={`badge ${m.isPrimaryAdmin ? 'badge-president' : m.role === 'STUDENT' ? 'badge-student' : 'badge-admin'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <span className={`badge ${m.isPrimaryAdmin ? 'badge-president' : m.role === 'STUDENT' ? 'badge-student' : 'badge-admin'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
                                   {m.isPrimaryAdmin ? <><IconCrown size={12} /> PRESIDENT</> : getRoleLabel(m.role)}
                                 </span>
                                 {m.twoFactorEnabled && (
-                                  <span className="badge badge-active" style={{ fontSize: '9px', display: 'inline-flex', alignItems: 'center', gap: '3px', background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.3)' }}>
+                                  <span className="badge badge-active" style={{ fontSize: '9px', display: 'inline-flex', alignItems: 'center', gap: '3px', background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.3)', whiteSpace: 'nowrap' }}>
                                     <Icon8 name="authentication" size={10} /> 2FA ON
                                   </span>
                                 )}
                               </div>
                               {!m.isPrimaryAdmin && (
-                                <small style={{ color: 'var(--text-dim)', fontSize: '10px', display: 'block', marginTop: '4px' }}>
+                                <small style={{ color: 'var(--text-dim)', fontSize: '10.5px', display: 'block', marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                   {isMrdu
-                                    ? `CSC Club Role: ${getRoleLabel(m.cscRole || 'STUDENT')}`
-                                    : `MRDU Mode: ${getRoleLabel(m.mrduRole || 'STUDENT')}`}
+                                    ? `CSC: ${getRoleLabel(m.cscRole || 'STUDENT')}`
+                                    : `MRDU: ${getRoleLabel(m.mrduRole || 'STUDENT')}`}
                                 </small>
                               )}
                             </div>
 
                             {/* Department & Academic Year */}
-                            <div>
-                              <span style={{ color: 'var(--text-main)', fontSize: '12px', fontWeight: 600, display: 'block' }}>
+                            <div style={{ minWidth: 0 }}>
+                              <span style={{ color: 'var(--text-main)', fontSize: '12px', fontWeight: 600, display: 'block', lineHeight: 1.3, wordBreak: 'break-word' }}>
                                 {m.department || m.profile?.department || 'General'}
                               </span>
-                              <small style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block', marginTop: '2px' }}>
+                              <small style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block', marginTop: '3px' }}>
                                 {m.year || m.profile?.year ? `Year ${m.year || m.profile?.year}` : 'Undergraduate'}
                               </small>
                             </div>
 
                             {/* Contact Info (Properly separated, never squished!) */}
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: m.email ? 'var(--text-main)' : 'var(--text-dim)', fontSize: '11.5px' }}>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: m.email ? 'var(--text-main)' : 'var(--text-dim)', fontSize: '11.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 <IconMail size={12} style={{ flexShrink: 0, color: 'var(--brand-primary)' }} />
-                                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.email || 'No email provided'}</span>
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.email || 'No email provided'}</span>
                               </div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: m.phone ? 'var(--text-muted)' : 'var(--text-dim)', fontSize: '11px', marginTop: '4px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: m.phone ? 'var(--text-muted)' : 'var(--text-dim)', fontSize: '11px', marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 <IconHeadset size={12} style={{ flexShrink: 0, color: 'var(--text-dim)' }} />
-                                <span>{m.phone || 'No phone provided'}</span>
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.phone || 'No phone provided'}</span>
                               </div>
                             </div>
 
                             {/* Actions */}
-                            <div className="action-buttons" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                            <div className="action-buttons" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', justifyContent: 'flex-start', minWidth: 0 }}>
                               {m.isPrimaryAdmin && !user.isPrimaryAdmin ? (
-                                <span style={{ fontSize: '10.5px', color: '#ffd54f', background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.4)', padding: '5px 12px', borderRadius: '6px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                <span style={{ fontSize: '10.5px', color: '#ffd54f', background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.4)', padding: '5px 12px', borderRadius: '6px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
                                   🛡️ IMMUTABLE PROTECTED
                                 </span>
                               ) : (
                                 <>
-                                  <button className="action-btn edit-btn" onClick={() => { setEditingId(m.id); setEditData({}) }} title="Edit profile information">Edit</button>
-                                  <button className="action-btn toggle-status-btn" onClick={() => toggleStatus(m)} disabled={m.isPrimaryAdmin} title="Toggle account activation">
+                                  <button className="action-btn edit-btn" onClick={() => { setEditingId(m.id); setEditData({}) }} title="Edit profile information" style={{ whiteSpace: 'nowrap' }}>Edit</button>
+                                  <button className="action-btn toggle-status-btn" onClick={() => toggleStatus(m)} disabled={m.isPrimaryAdmin} title="Toggle account activation" style={{ whiteSpace: 'nowrap' }}>
                                     {m.accountStatus === 'ACTIVE' ? 'Active' : 'Disabled'}
                                   </button>
-                                  <button className="action-btn edit-btn" onClick={() => setResetModalUser(m)} disabled={m.isPrimaryAdmin && !user.isPrimaryAdmin} title="Reset member password">Password</button>
+                                  <button className="action-btn edit-btn" onClick={() => setResetModalUser(m)} disabled={m.isPrimaryAdmin && !user.isPrimaryAdmin} title="Reset member password" style={{ whiteSpace: 'nowrap' }}>Password</button>
                                   {m.twoFactorEnabled && (
-                                    <button className="action-btn cancel-btn" onClick={() => handleDisable2FA(m)} disabled={m.isPrimaryAdmin && !user.isPrimaryAdmin} title="Disable 2FA if member is locked out">
+                                    <button className="action-btn cancel-btn" onClick={() => handleDisable2FA(m)} disabled={m.isPrimaryAdmin && !user.isPrimaryAdmin} title="Disable 2FA if member is locked out" style={{ whiteSpace: 'nowrap' }}>
                                       Reset 2FA
                                     </button>
                                   )}
                                   {!m.isPrimaryAdmin && (
-                                    <button className="action-btn delete-btn" onClick={() => removeMember(m)} title="Permanently delete account">Delete</button>
+                                    <button className="action-btn delete-btn" onClick={() => removeMember(m)} title="Permanently delete account" style={{ whiteSpace: 'nowrap' }}>Delete</button>
                                   )}
                                 </>
                               )}
