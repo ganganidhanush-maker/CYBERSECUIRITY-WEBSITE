@@ -1242,21 +1242,23 @@ function Sidebar({ user, logout, activeTab, onNavigate, isOpen, onClose }) {
   const perms = user.permissions || []
   const has = perm => user.isPrimaryAdmin || perms.includes(perm)
 
+  const isSuper = user.isPrimaryAdmin || user.role === 'PRESIDENT' || user.role === 'STUDENT_COORDINATOR' || user.role === 'ADMIN'
+
   const navItems = user.isAdminUser
     ? [
         [<Icon8 name="protect" size={17} />, isMrdu ? 'Portal Home' : 'Dashboard', 'admin-dashboard', true],
         [<Icon8 name="faceId" size={17} />, 'QR Entry Gate', 'admin-qr-scanner', has('EVENTS_VIEW') || has('EVENT_MANAGE') || user.isAdminUser],
-        [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Participants' : 'Members', 'admin-members', has('ACCOUNT_MANAGEMENT') || user.isPrimaryAdmin || ['PRESIDENT', 'VICE_PRESIDENT', 'STUDENT_COORDINATOR', 'ADMIN', 'SECRETARY'].includes(user.role)],
-        [<Icon8 name="realtime" size={17} />, 'Event Studio', 'admin-events', has('EVENTS_VIEW') || has('EVENT_MANAGE')],
-        [<Icon8 name="access" size={17} />, isMrdu ? 'Pass Subscriptions' : 'Subscriptions', 'admin-subscriptions', has('PAYMENTS_VIEW') || user.role === 'TREASURER' || user.role === 'PRESIDENT'],
+        [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Participants' : 'Members', 'admin-members', has('ACCOUNT_MANAGEMENT') || isSuper || ['VICE_PRESIDENT', 'SECRETARY'].includes(user.role)],
+        [<Icon8 name="realtime" size={17} />, 'Event Studio', 'admin-events', has('EVENTS_VIEW') || has('EVENT_MANAGE') || isSuper],
+        [<Icon8 name="access" size={17} />, isMrdu ? 'Pass Subscriptions' : 'Subscriptions', 'admin-subscriptions', has('PAYMENTS_VIEW') || user.role === 'TREASURER' || isSuper],
         [<Icon8 name="authentication" size={17} />, isMrdu ? 'Passes & Payments' : 'Passes & Check-in', 'admin-passes', has('PAYMENTS_VIEW') || has('EVENTS_VIEW') || user.isAdminUser],
         [<Icon8 name="captcha" size={17} />, 'Helpdesk & Doubts', 'admin-support', true],
         [<Icon8 name="protect" size={17} />, 'Council Room', 'admin-chat', true],
-        [<Icon8 name="irisScan" size={17} />, isMrdu ? 'Event Gallery' : 'Gallery', 'admin-gallery', has('GALLERY_VIEW') || has('GALLERY_MANAGE')],
-        [<Icon8 name="realtime" size={17} />, isMrdu ? 'MRDU Reels Studio' : 'Reels Studio', 'admin-reels', has('REELS_MANAGE') || has('GALLERY_MANAGE') || user.isPrimaryAdmin || ['PRESIDENT', 'VICE_PRESIDENT', 'STUDENT_COORDINATOR', 'PR_TEAM', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'ADMIN'].includes(user.role)],
-        [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Organizing Team' : 'Team / Leaders', 'admin-team', has('TEAM_MANAGE') || ['PRESIDENT', 'VICE_PRESIDENT', 'STUDENT_COORDINATOR', 'ADMIN'].includes(user.role)],
-        [<Icon8 name="keySecurity" size={17} />, 'Settings & Links', 'admin-settings', has('SETTINGS_MANAGE') || user.role === 'PRESIDENT'],
-        [<Icon8 name="showPassword" size={17} />, 'Audit Log', 'admin-audit', has('AUDIT_VIEW') || user.role === 'PRESIDENT'],
+        [<Icon8 name="irisScan" size={17} />, isMrdu ? 'Event Gallery' : 'Gallery', 'admin-gallery', has('GALLERY_VIEW') || has('GALLERY_MANAGE') || isSuper],
+        [<Icon8 name="realtime" size={17} />, isMrdu ? 'MRDU Reels Studio' : 'Reels Studio', 'admin-reels', has('REELS_MANAGE') || has('GALLERY_MANAGE') || isSuper || ['VICE_PRESIDENT', 'PR_TEAM', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD'].includes(user.role)],
+        [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Organizing Team' : 'Team / Leaders', 'admin-team', has('TEAM_MANAGE') || isSuper || ['VICE_PRESIDENT'].includes(user.role)],
+        [<Icon8 name="keySecurity" size={17} />, 'Settings & Links', 'admin-settings', has('SETTINGS_MANAGE') || isSuper],
+        [<Icon8 name="showPassword" size={17} />, 'Audit Log', 'admin-audit', has('AUDIT_VIEW') || isSuper],
         [<Icon8 name="fingerprint" size={17} />, 'My Profile', 'admin-profile', true],
         [<Icon8 name="password" size={17} />, 'Security & PIN', 'security', true],
       ].filter(item => item[3])
