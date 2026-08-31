@@ -1,33 +1,42 @@
 import crypto from 'node:crypto'
 import session from 'express-session'
 import MySQLStoreFactory from 'express-mysql-session'
+import mysql from 'mysql2/promise'
 import { env } from './env.js'
 
 const CIPHER = 'aes-256-gcm'
 
-function sessionDatabaseOptions() {
+function createMysqlSessionPool() {
   const connection = new URL(env.databaseUrl)
   const sslParam = connection.searchParams.get('ssl') || connection.searchParams.get('sslmode') || connection.searchParams.get('sslaccept')
   let ssl = undefined
-  if (sslParam) {
-    const lower = sslParam.toLowerCase()
-    if (lower === 'true' || lower === 'require' || lower === 'strict') ssl = true
-    else if (lower === 'accept-invalid-certs' || lower === 'prefer' || lower === 'no-verify') ssl = { rejectUnauthorized: false }
-    else if (lower === 'false' || lower === 'disable') ssl = false
-    else {
-      try { ssl = JSON.parse(sslParam) } catch { ssl = true }
+  const isCloudHost = connection.hostname.includes('tidbcloud.com') ||
+                      connection.hostname.includes('aivencloud.com') ||
+                      connection.hostname.includes('rlwy.net') ||
+                      connection.hostname.includes('railway.app')
+
+  if (sslParam || isCloudHost) {
+    const lower = (sslParam || 'strict').toLowerCase()
+    if (lower === 'accept-invalid-certs' || lower === 'prefer' || lower === 'no-verify') {
+      ssl = { rejectUnauthorized: false }
+    } else if (lower === 'false' || lower === 'disable') {
+      ssl = false
+    } else {
+      ssl = { rejectUnauthorized: true }
     }
   }
 
-  return {
+  return mysql.createPool({
     host: connection.hostname,
     port: Number(connection.port || 3306),
     user: decodeURIComponent(connection.username),
     password: decodeURIComponent(connection.password),
     database: connection.pathname.slice(1),
-    allowPublicKeyRetrieval: true,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0,
     ...(ssl !== undefined ? { ssl } : {}),
-  }
+  })
 }
 
 function encrypt(value) {
@@ -83,14 +92,14 @@ export const sessionCookieOptions = Object.freeze({
 
 export function createSessionManager() {
   const MySQLStore = MySQLStoreFactory(session)
+  const pool = createMysqlSessionPool()
   const mysqlStore = new MySQLStore({
-    ...sessionDatabaseOptions(),
     clearExpired: true,
     checkExpirationInterval: 900_000,
     expiration: env.sessionMaxAgeMs,
     createDatabaseTable: true,
     schema: { tableName: 'sessions', columnNames: { session_id: 'session_id', expires: 'expires', data: 'data' } },
-  })
+  }, pool)
   const store = new EncryptedSessionStore(mysqlStore)
 
   const middleware = session({
@@ -106,6 +115,11 @@ export function createSessionManager() {
 
   return {
     middleware,
-    close: () => new Promise(resolve => store.close(() => resolve())),
+    close: () => new Promise(resolve => {
+      store.close(async () => {
+        try { await pool.end() } catch {}
+        resolve()
+      })
+    }),
   }
 }
