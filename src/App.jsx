@@ -3368,6 +3368,20 @@ function MemberManagement({ user, logout, onNavigate }) {
 
     const isGenderString = str => ['MALE', 'FEMALE', 'OTHER'].includes(String(str || '').trim().toUpperCase())
 
+    const validRoleKeys = ['PRESIDENT', 'VICE_PRESIDENT', 'STUDENT_COORDINATOR', 'COORDINATOR', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT']
+    const normalizeRole = (r) => {
+      const up = String(r || '').trim().toUpperCase().replace(/[\s-]+/g, '_')
+      if (up === 'COORDINATOR' || up === 'STUDENT_COORDINATOR' || up === 'LEAD_COORDINATOR') return 'STUDENT_COORDINATOR'
+      if (up === 'VICE_PRESIDENT' || up === 'VP') return 'VICE_PRESIDENT'
+      if (up === 'EVENT_LEAD' || up === 'EVENTS' || up === 'EVENT_MANAGEMENT') return 'EVENT_MANAGEMENT'
+      if (up === 'TECH' || up === 'TECH_LEAD' || up === 'TECH_TEAM') return 'TECH_TEAM'
+      if (up === 'MEDIA' || up === 'MEDIA_LEAD') return 'MEDIA_LEAD'
+      if (up === 'SOCIAL_MEDIA' || up === 'SOCIAL_MEDIA_LEAD') return 'SOCIAL_MEDIA_LEAD'
+      if (up === 'PR' || up === 'PR_LEAD' || up === 'PR_TEAM') return 'PR_TEAM'
+      if (validRoleKeys.includes(up)) return up
+      return null
+    }
+
     return dataLines.map((line, index) => {
       let parts = []
       if (line.includes('\t')) {
@@ -3379,12 +3393,32 @@ function MemberManagement({ user, logout, onNavigate }) {
         parts = line.split(/\s{2,}/).map(p => p.trim())
       }
 
-      const name = String(parts[0] || '').trim()
-      const rawMemberId = String(parts[1] || '').trim().toUpperCase()
-      let rawPassword = String(parts[2] || '').trim()
-      const part3 = String(parts[3] || '').trim()
-      const part4 = String(parts[4] || '').trim()
-      const part5 = String(parts[5] || '').trim()
+      let parsedRole = null
+      let name = ''
+      let rawMemberId = ''
+      let rawPassword = ''
+      let part3 = ''
+      let part4 = ''
+      let part5 = ''
+
+      // Auto-detect if column 1 is Role (e.g. Role \t Name \t ID \t Password)
+      const roleFromPart0 = normalizeRole(parts[0])
+      if (roleFromPart0 && parts.length >= 3) {
+        parsedRole = roleFromPart0
+        name = String(parts[1] || '').trim()
+        rawMemberId = String(parts[2] || '').trim().toUpperCase()
+        rawPassword = String(parts[3] || '').trim()
+        part3 = String(parts[4] || '').trim()
+        part4 = String(parts[5] || '').trim()
+        part5 = String(parts[6] || '').trim()
+      } else {
+        name = String(parts[0] || '').trim()
+        rawMemberId = String(parts[1] || '').trim().toUpperCase()
+        rawPassword = String(parts[2] || '').trim()
+        part3 = String(parts[3] || '').trim()
+        part4 = String(parts[4] || '').trim()
+        part5 = String(parts[5] || '').trim()
+      }
 
       let gender = bulkDefaultGender
       let email = null
@@ -3406,7 +3440,7 @@ function MemberManagement({ user, logout, onNavigate }) {
         rawPassword = generateAutoPassword(rawMemberId)
       }
 
-      const role = bulkDefaultRole
+      const role = parsedRole || bulkDefaultRole
       const department = bulkDepartment
       const year = Number(bulkYear) || 1
       const age = bulkDefaultAge ? Number(bulkDefaultAge) : null
