@@ -12789,6 +12789,11 @@ function AdminQrScanner({ user, logout, onNavigate }) {
   const [cameraActive, setCameraActive] = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [laserActive, setLaserActive] = useState(false)
+  const [cameraFacingMode, setCameraFacingMode] = useState('environment') // 'environment' (Back) or 'user' (Front)
+  const [availableCameras, setAvailableCameras] = useState([])
+  const [selectedDeviceId, setSelectedDeviceId] = useState('')
+  const [torchOn, setTorchOn] = useState(false)
+  const [hasTorch, setHasTorch] = useState(false)
 
   const videoRef = useRef(null)
   const streamRef = useRef(null)
@@ -12815,9 +12820,46 @@ function AdminQrScanner({ user, logout, onNavigate }) {
     } catch {}
   }
 
-  // Real-time Camera Stream and jsQR Frame Processor
+  async function refreshCameraDevices() {
+    try {
+      if (!navigator.mediaDevices?.enumerateDevices) return
+      const devices = await navigator.mediaDevices.enumerateDevices()
+      const videoDevices = devices.filter(d => d.kind === 'videoinput')
+      setAvailableCameras(videoDevices)
+    } catch {}
+  }
+
+  async function handleToggleTorch() {
+    if (!streamRef.current) return
+    const track = streamRef.current.getVideoTracks()[0]
+    if (!track) return
+    try {
+      const nextState = !torchOn
+      await track.applyConstraints({
+        advanced: [{ torch: nextState }],
+      })
+      setTorchOn(nextState)
+    } catch (e) {
+      console.warn('Torch toggle not supported:', e)
+    }
+  }
+
+  function handleToggleCameraFacing() {
+    setTorchOn(false)
+    setSelectedDeviceId('')
+    setCameraFacingMode(prev => (prev === 'environment' ? 'user' : 'environment'))
+  }
+
+  function handleSelectCameraDevice(deviceId) {
+    setTorchOn(false)
+    setSelectedDeviceId(deviceId)
+  }
+
+  // Real-time Camera Stream and Hardware-Accelerated + jsQR Frame Processor
   useEffect(() => {
     if (!cameraActive) {
+      setTorchOn(false)
+      setHasTorch(false)
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(t => t.stop())
         streamRef.current = null
@@ -12834,68 +12876,122 @@ function AdminQrScanner({ user, logout, onNavigate }) {
     async function startCamera() {
       setError('')
       try {
-        const constraints = {
-          video: {
-            facingMode: 'user',
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(t => t.stop())
+          streamRef.current = null
         }
-        const stream = await navigator.mediaDevices.getUserMedia(constraints)
+
+        const videoConstraints = selectedDeviceId
+          ? { deviceId: { exact: selectedDeviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+          : { facingMode: { ideal: cameraFacingMode }, width: { ideal: 1280 }, height: { ideal: 720 } }
+
+        const stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints })
         if (!isMounted) {
           stream.getTracks().forEach(t => t.stop())
           return
         }
         streamRef.current = stream
+
+        // Check if torch/flashlight is supported
+        const track = stream.getVideoTracks()[0]
+        if (track && typeof track.getCapabilities === 'function') {
+          const caps = track.getCapabilities()
+          setHasTorch(Boolean(caps?.torch))
+        } else {
+          setHasTorch(false)
+        }
+
+        refreshCameraDevices()
+
         if (videoRef.current) {
           videoRef.current.srcObject = stream
           videoRef.current.setAttribute('playsinline', 'true')
           await videoRef.current.play().catch(() => {})
         }
 
-        // Set up continuous canvas-based decoding with jsQR
+        // Initialize Native Hardware-Accelerated BarcodeDetector if available
+        let nativeDetector = null
+        if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
+          try {
+            nativeDetector = new window.BarcodeDetector({ formats: ['qr_code'] })
+          } catch {}
+        }
+
+        // High efficiency scanning canvas with optimal downscaling
         const canvas = document.createElement('canvas')
         const ctx = canvas.getContext('2d', { willReadFrequently: true })
 
-        function scanTick() {
+        let scanningBusy = false
+        let frameCount = 0
+
+        async function scanTick() {
           if (!isMounted) return
+          frameCount++
 
           const video = videoRef.current
-          if (video && video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0) {
-            canvas.width = video.videoWidth
-            canvas.height = video.videoHeight
+          if (video && video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0 && !scanningBusy) {
+            // Process every frame with native detector, or throttle every 2nd frame for jsQR
+            if (nativeDetector || frameCount % 2 === 0) {
+              scanningBusy = true
+              try {
+                let detectedText = null
 
-            // 1. Direct raw frame pass
-            ctx.clearRect(0, 0, canvas.width, canvas.height)
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-            const rawData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-            let code = jsQR(rawData.data, rawData.width, rawData.height, {
-              inversionAttempts: 'attemptBoth',
-            })
+                // 1. Try Hardware-Accelerated Native BarcodeDetector first (<2ms detection)
+                if (nativeDetector) {
+                  try {
+                    const barcodes = await nativeDetector.detect(video)
+                    if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+                      detectedText = barcodes[0].rawValue.trim()
+                    }
+                  } catch {}
+                }
 
-            // 2. Horizontal Flip Pass (in case pass is mirrored)
-            if (!code) {
-              ctx.clearRect(0, 0, canvas.width, canvas.height)
-              ctx.save()
-              ctx.translate(canvas.width, 0)
-              ctx.scale(-1, 1)
-              ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
-              ctx.restore()
-              const flippedH = ctx.getImageData(0, 0, canvas.width, canvas.height)
-              code = jsQR(flippedH.data, flippedH.width, flippedH.height, {
-                inversionAttempts: 'attemptBoth',
-              })
-            }
+                // 2. High-Performance jsQR Fallback (optimized downscale)
+                if (!detectedText) {
+                  const scale = Math.min(1, 640 / video.videoWidth)
+                  const targetW = Math.round(video.videoWidth * scale)
+                  const targetH = Math.round(video.videoHeight * scale)
 
-            if (code && code.data && code.data.trim()) {
-              const detected = code.data.trim()
-              const now = Date.now()
-              if (detected !== lastScannedRef.current.code || now - lastScannedRef.current.time > 2500) {
-                lastScannedRef.current = { code: detected, time: now }
-                playScanBeep()
-                setLaserActive(true)
-                setTimeout(() => setLaserActive(false), 800)
-                handleProcessScan(detected)
+                  canvas.width = targetW
+                  canvas.height = targetH
+
+                  ctx.drawImage(video, 0, 0, targetW, targetH)
+                  const imgData = ctx.getImageData(0, 0, targetW, targetH)
+
+                  let code = jsQR(imgData.data, imgData.width, imgData.height, {
+                    inversionAttempts: 'attemptBoth',
+                  })
+
+                  // If user camera is flipped, check horizontal mirror pass
+                  if (!code && cameraFacingMode === 'user') {
+                    ctx.save()
+                    ctx.translate(targetW, 0)
+                    ctx.scale(-1, 1)
+                    ctx.drawImage(video, 0, 0, targetW, targetH)
+                    ctx.restore()
+                    const flippedData = ctx.getImageData(0, 0, targetW, targetH)
+                    code = jsQR(flippedData.data, flippedData.width, flippedData.height, {
+                      inversionAttempts: 'attemptBoth',
+                    })
+                  }
+
+                  if (code && code.data && code.data.trim()) {
+                    detectedText = code.data.trim()
+                  }
+                }
+
+                if (detectedText) {
+                  const now = Date.now()
+                  if (detectedText !== lastScannedRef.current.code || now - lastScannedRef.current.time > 2200) {
+                    lastScannedRef.current = { code: detectedText, time: now }
+                    playScanBeep()
+                    setLaserActive(true)
+                    setTimeout(() => setLaserActive(false), 800)
+                    handleProcessScan(detectedText)
+                  }
+                }
+              } finally {
+                scanningBusy = false
               }
             }
           }
@@ -12923,7 +13019,7 @@ function AdminQrScanner({ user, logout, onNavigate }) {
         animFrameRef.current = null
       }
     }
-  }, [cameraActive])
+  }, [cameraActive, cameraFacingMode, selectedDeviceId])
 
   async function handleProcessScan(codeToScan) {
     const rawCode = String(codeToScan || '').trim()
@@ -13116,12 +13212,82 @@ function AdminQrScanner({ user, logout, onNavigate }) {
             {/* Camera Viewport */}
             {cameraActive ? (
               <article className="account-form-card" style={{ padding: '16px', textAlign: 'center', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                  <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                  <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block', boxShadow: '0 0 8px #10b981' }} />
-                    LIVE SCANNER ACTIVE (DEFAULT MIRROR)
+                    {cameraFacingMode === 'environment' ? '📷 BACK CAMERA (ENVIRONMENT)' : '🤳 FRONT CAMERA (USER)'}
                   </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {hasTorch && (
+                      <button
+                        type="button"
+                        onClick={handleToggleTorch}
+                        style={{
+                          background: torchOn ? '#f59e0b' : 'var(--panel-subtle)',
+                          color: torchOn ? '#000' : 'var(--text-main)',
+                          border: '1px solid var(--line)',
+                          borderRadius: '6px',
+                          padding: '4px 10px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                        }}
+                        title="Toggle Flashlight / Torch"
+                      >
+                        ⚡ {torchOn ? 'TORCH ON' : 'TORCH OFF'}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleToggleCameraFacing}
+                      style={{
+                        background: 'var(--brand-badge-bg)',
+                        color: 'var(--brand-primary)',
+                        border: '1px solid var(--brand-border-subtle)',
+                        borderRadius: '6px',
+                        padding: '4px 10px',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                      }}
+                      title="Switch between front and back camera"
+                    >
+                      🔄 FLIP CAMERA
+                    </button>
+                  </div>
                 </div>
+
+                {availableCameras.length > 1 && (
+                  <div style={{ marginBottom: '10px', textAlign: 'left' }}>
+                    <select
+                      value={selectedDeviceId}
+                      onChange={e => handleSelectCameraDevice(e.target.value)}
+                      style={{
+                        width: '100%',
+                        height: '32px',
+                        background: 'var(--bg-input)',
+                        color: 'var(--text-main)',
+                        border: '1px solid var(--line)',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        padding: '0 8px',
+                      }}
+                    >
+                      <option value="">Default ({cameraFacingMode === 'environment' ? 'Back' : 'Front'} Camera)</option>
+                      {availableCameras.map((cam, idx) => (
+                        <option key={cam.deviceId || idx} value={cam.deviceId}>
+                          {cam.label || `Camera ${idx + 1}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div style={{ position: 'relative', width: '100%', height: '280px', background: '#000', borderRadius: '12px', overflow: 'hidden', border: laserActive ? '2px solid #10b981' : '2px solid var(--brand-primary)', boxShadow: laserActive ? '0 0 24px rgba(16, 185, 129, 0.5)' : 'none', transition: 'all 0.2s' }}>
                   <video
@@ -13133,7 +13299,7 @@ function AdminQrScanner({ user, logout, onNavigate }) {
                       width: '100%',
                       height: '100%',
                       objectFit: 'cover',
-                      transform: 'scaleX(-1)',
+                      transform: cameraFacingMode === 'user' ? 'scaleX(-1)' : 'none',
                       transition: 'transform 0.2s ease',
                     }}
                   />
@@ -13156,7 +13322,7 @@ function AdminQrScanner({ user, logout, onNavigate }) {
                   />
                 </div>
                 <small style={{ display: 'block', marginTop: '8px', color: 'var(--text-muted)', fontSize: '11px' }}>
-                  Point camera steadily at the Event Pass QR code · Auto-decoder is active
+                  Point camera steadily at the Event Pass QR code · Hardware accelerated scanning active
                 </small>
               </article>
             ) : null}
