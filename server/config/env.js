@@ -7,11 +7,14 @@ const integer = (fallback, min, max) => z.coerce.number().int().min(min).max(max
 
 const currentEnv = process.env.NODE_ENV || 'production'
 
+const renderDomain = process.env.RENDER_EXTERNAL_URL || (process.env.RENDER_EXTERNAL_HOSTNAME ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME}` : null)
 const railwayDomain = process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null
+const vercelDomain = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null
+const platformDomain = renderDomain || railwayDomain || vercelDomain
 
 const optionalUrlList = z.string().trim().optional().transform(value => {
   if (value) return value.split(',').map(origin => origin.trim()).filter(Boolean)
-  if (railwayDomain) return [railwayDomain]
+  if (platformDomain) return [platformDomain]
   return []
 })
 
