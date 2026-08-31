@@ -11,6 +11,7 @@ import {
   createGalleryAlbum,
   createMember,
   deleteClubTeamMember,
+  deleteCouncilMessage,
   deleteEvent,
   deleteGalleryAlbum,
   deleteGalleryPhoto,
@@ -151,6 +152,7 @@ adminRouter.put('/support/:id/status', adminWriteRateLimiter, asyncHandler(updat
 // Executive Council Chat (Leads Only)
 adminRouter.get('/chat/messages', asyncHandler(listCouncilMessages))
 adminRouter.post('/chat/messages', adminWriteRateLimiter, asyncHandler(sendCouncilMessage))
+adminRouter.delete('/chat/messages/:id', adminWriteRateLimiter, asyncHandler(deleteCouncilMessage))
 
 // Complaints / Feedback
 adminRouter.get('/complaints', asyncHandler(listComplaints))

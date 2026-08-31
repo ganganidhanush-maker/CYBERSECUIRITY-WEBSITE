@@ -217,6 +217,10 @@ export const adminApi = {
   // Executive Council Chat (Leads Only)
   listCouncilMessages: () => request('/admin/chat/messages'),
   sendCouncilMessage: message => request('/admin/chat/messages', { method: 'POST', body: JSON.stringify({ message }) }),
+  deleteCouncilMessage: messageId => request(`/admin/chat/messages/${messageId}`, { method: 'DELETE' }),
+
+  // Full Database Backup & Disaster Recovery
+  exportDatabaseSql: password => request('/admin/database/export-sql', { method: 'POST', body: JSON.stringify({ password }) }),
 
   // Complaints & Audits
   listComplaints: () => request('/admin/complaints'),

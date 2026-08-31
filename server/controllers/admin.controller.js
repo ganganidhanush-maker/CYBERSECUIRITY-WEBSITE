@@ -362,6 +362,18 @@ export async function adminResetPassword(request, response) {
   const target = await prisma.user.findUnique({ where: { id: request.params.id }, include: { profile: true } })
   if (!target) return response.status(404).json({ message: 'Resource not found' })
 
+  // Strict Primary President Shield: Primary President credentials can NEVER be reset by other accounts
+  if (target.isPrimaryAdmin && target.id !== request.user.id) {
+    await tryWriteAuditLog({
+      actorUserId: request.user.id,
+      action: 'UNAUTHORIZED_PRIMARY_PRESIDENT_MODIFICATION_BLOCKED',
+      targetUserId: target.id,
+      metadata: { targetMemberId: target.memberId, attemptedAction: 'ADMIN_RESET_PASSWORD' },
+      ...auditRequest(request),
+    })
+    return response.status(403).json({ message: 'Access Denied: The Primary President account is immutable and protected from password resets by other users.' })
+  }
+
   const parsed = adminResetPasswordSchema.safeParse(request.body)
   if (!parsed.success) {
     return response.status(400).json({ message: parsed.error.issues[0]?.message || 'Provide a valid new password (12+ chars, upper, lower, number, symbol).' })
@@ -1525,6 +1537,10 @@ export async function disableMemberTwoFactor(request, response) {
   const target = await prisma.user.findUnique({ where: { id }, include: { profile: true } })
   if (!target) return response.status(404).json({ message: 'Member not found.' })
 
+  if (target.isPrimaryAdmin && target.id !== request.user.id) {
+    return response.status(403).json({ message: 'Access Denied: The Primary President 2FA security cannot be altered by other administrators.' })
+  }
+
   await prisma.user.update({
     where: { id },
     data: {
@@ -1754,6 +1770,32 @@ export async function sendCouncilMessage(request, response) {
   })
 
   return response.status(201).json({ message: created })
+}
+
+export async function deleteCouncilMessage(request, response) {
+  const { id } = request.params
+  const message = await prisma.councilMessage.findUnique({ where: { id } })
+  if (!message) {
+    return response.status(404).json({ message: 'Council message not found.' })
+  }
+
+  const isAuthor = message.userId === request.user.id
+  const isPresident = request.user.isPrimaryAdmin || request.user.role === 'PRESIDENT'
+
+  if (!isAuthor && !isPresident) {
+    return response.status(403).json({ message: 'You can only delete your own council messages.' })
+  }
+
+  await prisma.councilMessage.delete({ where: { id } })
+
+  await tryWriteAuditLog({
+    actorUserId: request.user.id,
+    action: 'COUNCIL_MESSAGE_DELETED',
+    metadata: { messageId: id, authorUserId: message.userId, isPresidentModerator: isPresident && !isAuthor },
+    ...auditRequest(request),
+  })
+
+  return response.status(200).json({ message: 'Message deleted successfully.', id })
 }
 
 // ----------------------------------------------------

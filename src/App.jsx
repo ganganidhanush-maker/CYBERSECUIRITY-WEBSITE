@@ -4403,19 +4403,27 @@ function MemberManagement({ user, logout, onNavigate }) {
                             </div>
 
                             {/* Actions */}
-                            <div className="action-buttons" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                              <button className="action-btn edit-btn" onClick={() => { setEditingId(m.id); setEditData({}) }} title="Edit profile information">Edit</button>
-                              <button className="action-btn toggle-status-btn" onClick={() => toggleStatus(m)} disabled={m.isPrimaryAdmin} title="Toggle account activation">
-                                {m.accountStatus === 'ACTIVE' ? 'Active' : 'Disabled'}
-                              </button>
-                              <button className="action-btn edit-btn" onClick={() => setResetModalUser(m)} title="Reset member password">Password</button>
-                              {m.twoFactorEnabled && (
-                                <button className="action-btn cancel-btn" onClick={() => handleDisable2FA(m)} title="Disable 2FA if member is locked out">
-                                  Reset 2FA
-                                </button>
-                              )}
-                              {!m.isPrimaryAdmin && (
-                                <button className="action-btn delete-btn" onClick={() => removeMember(m)} title="Permanently delete account">Delete</button>
+                            <div className="action-buttons" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                              {m.isPrimaryAdmin && !user.isPrimaryAdmin ? (
+                                <span style={{ fontSize: '10.5px', color: '#ffd54f', background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.4)', padding: '5px 12px', borderRadius: '6px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                  🛡️ IMMUTABLE PROTECTED
+                                </span>
+                              ) : (
+                                <>
+                                  <button className="action-btn edit-btn" onClick={() => { setEditingId(m.id); setEditData({}) }} title="Edit profile information">Edit</button>
+                                  <button className="action-btn toggle-status-btn" onClick={() => toggleStatus(m)} disabled={m.isPrimaryAdmin} title="Toggle account activation">
+                                    {m.accountStatus === 'ACTIVE' ? 'Active' : 'Disabled'}
+                                  </button>
+                                  <button className="action-btn edit-btn" onClick={() => setResetModalUser(m)} disabled={m.isPrimaryAdmin && !user.isPrimaryAdmin} title="Reset member password">Password</button>
+                                  {m.twoFactorEnabled && (
+                                    <button className="action-btn cancel-btn" onClick={() => handleDisable2FA(m)} disabled={m.isPrimaryAdmin && !user.isPrimaryAdmin} title="Disable 2FA if member is locked out">
+                                      Reset 2FA
+                                    </button>
+                                  )}
+                                  {!m.isPrimaryAdmin && (
+                                    <button className="action-btn delete-btn" onClick={() => removeMember(m)} title="Permanently delete account">Delete</button>
+                                  )}
+                                </>
                               )}
                             </div>
                           </>
@@ -15366,6 +15374,16 @@ function CouncilChatView({ user, logout, onNavigate }) {
     }
   }
 
+  async function handleDeleteMessage(id) {
+    if (!window.confirm('Delete this message from the council room?')) return
+    try {
+      await adminApi.deleteCouncilMessage(id)
+      setMessages(prev => prev.filter(m => m.id !== id))
+    } catch (err) {
+      alert(err.message || 'Failed to delete message.')
+    }
+  }
+
   return (
     <LivePortal user={user} logout={logout} activeTab="admin-chat" onNavigate={onNavigate} title="COUNCIL ROOM">
       <section className="member-management" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)' }}>
@@ -15398,6 +15416,7 @@ function CouncilChatView({ user, logout, onNavigate }) {
               messages.map(m => {
                 const isMe = m.userId === user.id
                 const isPresident = m.user?.isPrimaryAdmin || m.user?.role === 'PRESIDENT'
+                const canDelete = isMe || user.isPrimaryAdmin || user.role === 'PRESIDENT'
                 return (
                   <div
                     key={m.id}
@@ -15425,9 +15444,34 @@ function CouncilChatView({ user, logout, onNavigate }) {
                         <span className="badge" style={{ fontSize: '8px', padding: '1px 5px' }}>
                           {isPresident ? 'PRESIDENT' : getRoleLabel(m.user?.role)}
                         </span>
-                        <small style={{ color: 'var(--text-dim)', fontSize: '9px', marginLeft: 'auto' }}>
-                          {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </small>
+                        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <small style={{ color: 'var(--text-dim)', fontSize: '9px' }}>
+                            {new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </small>
+                          {canDelete && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteMessage(m.id)}
+                              title={isMe ? 'Delete your message' : 'Delete message (President Moderation)'}
+                              style={{
+                                background: 'transparent',
+                                border: 'none',
+                                color: 'var(--text-dim)',
+                                cursor: 'pointer',
+                                padding: '2px 4px',
+                                borderRadius: '4px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                opacity: 0.7,
+                                transition: 'all 0.15s ease',
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.opacity = '1' }}
+                              onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim)'; e.currentTarget.style.opacity = '0.7' }}
+                            >
+                              <IconTrash size={11} />
+                            </button>
+                          )}
+                        </div>
                       </div>
                       <p style={{ color: 'var(--text-main)', fontSize: '12px', margin: 0, lineHeight: '1.5', whiteSpace: 'pre-wrap' }}>
                         {m.message}
