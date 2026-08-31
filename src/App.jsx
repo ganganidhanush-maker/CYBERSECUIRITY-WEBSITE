@@ -15648,7 +15648,7 @@ function App() {
       originalRole: user.role,
       isAdminUser: isEffectiveAdmin,
       permissions: dynamicPerms,
-      canSwitchPersona: user.role === 'STUDENT_COORDINATOR' || user.isPrimaryAdmin || ['PRESIDENT', 'VICE_PRESIDENT', 'ADMIN'].includes(user.role),
+      canSwitchPersona: (user.originalRole || user.role) === 'STUDENT_COORDINATOR',
     }
   }, [user, activePersonaRole])
 
