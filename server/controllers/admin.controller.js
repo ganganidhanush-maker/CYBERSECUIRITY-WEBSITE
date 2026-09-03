@@ -64,7 +64,8 @@ async function verifyPresidentActionCode(target, authenticationCode) {
 export async function listMembers(request, response) {
   const platformMode = request.platformMode || await getActivePlatformMode()
   const users = await prisma.user.findMany({ include: userInclude, orderBy: { createdAt: 'desc' } })
-  return response.status(200).json({ users: users.map(u => flattenMember(u, platformMode)) })
+  const mapped = users.map(u => flattenMember(u, platformMode))
+  return response.status(200).json({ users: mapped, members: mapped })
 }
 
 export async function createMember(request, response) {

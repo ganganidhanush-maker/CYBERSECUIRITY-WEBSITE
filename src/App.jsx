@@ -4878,7 +4878,10 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
   function loadMembers() {
     setLoading(true)
     adminApi.listMembers()
-      .then(res => setMembers(res.members || []))
+      .then(res => {
+        const list = Array.isArray(res?.users) ? res.users : (Array.isArray(res?.members) ? res.members : (Array.isArray(res) ? res : []))
+        setMembers(list)
+      })
       .catch(err => setError(err.message || 'Failed to load leaders.'))
       .finally(() => setLoading(false))
   }
@@ -4887,9 +4890,17 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
     loadMembers()
   }, [])
 
-  const leaders = useMemo(() => {
-    return members.filter(m => m.role !== 'STUDENT')
+  const allLeadersList = useMemo(() => {
+    const list = members.filter(m => m.role !== 'STUDENT' || (m.permissions && m.permissions.length > 0))
+    return list.length > 0 ? list : members
   }, [members])
+
+  const leaders = useMemo(() => {
+    if (roleFilter === 'EVERYONE') return members
+    if (roleFilter === 'STUDENT') return members.filter(m => m.role === 'STUDENT')
+    if (roleFilter !== 'ALL') return members.filter(m => m.role === roleFilter)
+    return allLeadersList
+  }, [members, roleFilter, allLeadersList])
 
   const filteredLeaders = useMemo(() => {
     return leaders.filter(m => {
@@ -4899,10 +4910,9 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
         (m.memberId || '').toLowerCase().includes(q) ||
         (m.role || '').toLowerCase().includes(q) ||
         (m.department || '').toLowerCase().includes(q)
-      const matchesRole = roleFilter === 'ALL' || m.role === roleFilter
-      return matchesSearch && matchesRole
+      return matchesSearch
     })
-  }, [leaders, search, roleFilter])
+  }, [leaders, search])
 
   function getLeaderPerms(leader) {
     const existing = (leader.permissions || []).map(p => (typeof p === 'string' ? p : p.permission))
@@ -4983,10 +4993,10 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
     }
   }
 
-  const scannerCount = leaders.filter(l => getLeaderPerms(l).includes('QR_PASSES_VIEW')).length
-  const eventCount = leaders.filter(l => getLeaderPerms(l).includes('EVENT_MANAGE')).length
-  const financeCount = leaders.filter(l => getLeaderPerms(l).includes('PAYMENTS_VERIFY')).length
-  const mediaCount = leaders.filter(l => getLeaderPerms(l).includes('GALLERY_MANAGE') || getLeaderPerms(l).includes('REELS_MANAGE')).length
+  const scannerCount = members.filter(l => getLeaderPerms(l).includes('QR_PASSES_VIEW')).length
+  const eventCount = members.filter(l => getLeaderPerms(l).includes('EVENT_MANAGE')).length
+  const financeCount = members.filter(l => getLeaderPerms(l).includes('PAYMENTS_VERIFY')).length
+  const mediaCount = members.filter(l => getLeaderPerms(l).includes('GALLERY_MANAGE') || getLeaderPerms(l).includes('REELS_MANAGE')).length
 
   return (
     <LivePortal user={user} logout={logout} activeTab="admin-coordinator" onNavigate={onNavigate} title="COORDINATOR CONSOLE">
@@ -5044,8 +5054,8 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '12px', marginBottom: '20px' }}>
           <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '10px', padding: '14px 16px' }}>
             <span style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>Active Leaders</span>
-            <b style={{ color: 'var(--text-main)', fontSize: '24px', display: 'block', marginTop: '2px' }}>{leaders.length}</b>
-            <small style={{ color: 'var(--brand-primary)', fontSize: '10.5px' }}>Club Officers & Leads</small>
+            <b style={{ color: 'var(--text-main)', fontSize: '24px', display: 'block', marginTop: '2px' }}>{allLeadersList.length}</b>
+            <small style={{ color: 'var(--brand-primary)', fontSize: '10.5px' }}>{allLeadersList.length} of {members.length} Members</small>
           </div>
 
           <div style={{ background: 'var(--panel-subtle)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '10px', padding: '14px 16px' }}>
@@ -5111,17 +5121,21 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
               onChange={e => setRoleFilter(e.target.value)}
               style={{ fontSize: '12px', padding: '7px 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)' }}
             >
-              <option value="ALL">All Roles ({leaders.length})</option>
+              <option value="ALL">Active Leaders & Squads ({allLeadersList.length})</option>
+              <option value="EVERYONE">Show All Members & Students ({members.length})</option>
+              <option value="STUDENT">Student Volunteers ({members.filter(m => m.role === 'STUDENT').length})</option>
               <option value="STUDENT_COORDINATOR">Student Coordinator</option>
               <option value="PRESIDENT">President</option>
               <option value="VICE_PRESIDENT">Vice President</option>
               <option value="SECRETARY">Secretary</option>
               <option value="TREASURER">Treasurer</option>
               <option value="EVENT_MANAGEMENT">Event Management</option>
-              <option value="TECHNICAL_LEAD">Technical Lead</option>
+              <option value="TECH_TEAM">Tech Team Lead</option>
               <option value="MEDIA_LEAD">Media Lead</option>
+              <option value="SOCIAL_MEDIA_LEAD">Social Media Lead</option>
               <option value="PR_TEAM">PR Team</option>
-              <option value="SECURITY_LEAD">Security Lead</option>
+              <option value="CULTURAL">Cultural</option>
+              <option value="ADMIN">Administrator</option>
             </select>
           </div>
         </div>
