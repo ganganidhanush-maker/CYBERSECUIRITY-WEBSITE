@@ -91,6 +91,8 @@ const ROLE_PERMISSIONS_MAP = {
   ],
 }
 
+const ROLE_DEFAULT_PERMISSIONS = ROLE_PERMISSIONS_MAP
+
 function getRolePermissions(role) {
   return ROLE_PERMISSIONS_MAP[role] || ROLE_PERMISSIONS_MAP.STUDENT
 }
