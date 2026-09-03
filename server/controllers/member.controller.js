@@ -4,6 +4,7 @@ import { prisma } from '../db/prisma.js'
 import { tryWriteAuditLog } from '../services/audit.service.js'
 import { createUserNotification } from '../services/notification.service.js'
 import { toSafeUser } from '../utils/safe-user.js'
+import { authUserCache } from '../services/auth-cache.service.js'
 import { eventRegistrationSchema, profileUpdateSchema } from '../validators/member.validator.js'
 
 function auditRequest(request) {
@@ -686,6 +687,7 @@ export async function updateProfile(request, response) {
     ...auditRequest(request),
   })
 
+  authUserCache.invalidate(request.user.id)
   return response.status(200).json({ user: toSafeUser(user) })
 }
 

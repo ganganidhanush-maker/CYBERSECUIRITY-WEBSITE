@@ -79,13 +79,24 @@ export function createApp() {
   app.use(sessionManager.middleware)
   app.use(csrfProtection)
 
+  let lastDbCheck = 0
+  let dbHealthy = true
+
   app.get(['/api/v1/health', '/api/health'], async (request, response) => {
-    try {
-      await prisma.$queryRaw`SELECT 1`
-      response.status(200).json({ status: 'ok', uptime: Math.floor(process.uptime()), timestamp: Date.now() })
-    } catch {
-      response.status(503).json({ status: 'unavailable', timestamp: Date.now() })
+    const now = Date.now()
+    if (now - lastDbCheck > 60_000) {
+      try {
+        await prisma.$queryRaw`SELECT 1`
+        dbHealthy = true
+      } catch {
+        dbHealthy = false
+      }
+      lastDbCheck = now
     }
+    if (dbHealthy) {
+      return response.status(200).json({ status: 'ok', uptime: Math.floor(process.uptime()), timestamp: Date.now() })
+    }
+    return response.status(503).json({ status: 'unavailable', timestamp: Date.now() })
   })
   app.get(['/api/v1/docs', '/api/docs'], (request, response) => response.status(200).json(getOpenApiDocument()))
   app.use(['/api/v1/auth', '/api/auth'], authRouter)

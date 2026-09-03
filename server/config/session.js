@@ -61,25 +61,52 @@ class EncryptedSessionStore extends session.Store {
   constructor(store) {
     super()
     this.store = store
+    this.memoryCache = new Map()
   }
 
   get(sessionId, callback) {
+    const cached = this.memoryCache.get(sessionId)
+    if (cached && Date.now() < cached.expiresAt) {
+      return callback(null, cached.data)
+    }
     this.store.get(sessionId, (error, encryptedSession) => {
       if (error || !encryptedSession) return callback(error, encryptedSession)
-      try { return callback(null, decrypt(encryptedSession)) } catch { return callback(null, null) }
+      try {
+        const decrypted = decrypt(encryptedSession)
+        this.memoryCache.set(sessionId, { data: decrypted, expiresAt: Date.now() + 30_000 })
+        if (this.memoryCache.size > 2000) {
+          const oldestKey = this.memoryCache.keys().next().value
+          this.memoryCache.delete(oldestKey)
+        }
+        return callback(null, decrypted)
+      } catch {
+        return callback(null, null)
+      }
     })
   }
 
   set(sessionId, sessionData, callback) {
+    this.memoryCache.set(sessionId, { data: sessionData, expiresAt: Date.now() + 30_000 })
     return this.store.set(sessionId, encrypt(sessionData), callback)
   }
 
   touch(sessionId, sessionData, callback) {
+    const cached = this.memoryCache.get(sessionId)
+    if (cached) {
+      cached.expiresAt = Date.now() + 30_000
+    }
     return this.set(sessionId, sessionData, callback)
   }
 
-  destroy(sessionId, callback) { return this.store.destroy(sessionId, callback) }
-  close(callback) { return this.store.close(callback) }
+  destroy(sessionId, callback) {
+    this.memoryCache.delete(sessionId)
+    return this.store.destroy(sessionId, callback)
+  }
+
+  close(callback) {
+    this.memoryCache.clear()
+    return this.store.close(callback)
+  }
 }
 
 export const sessionCookieOptions = Object.freeze({

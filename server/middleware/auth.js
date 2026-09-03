@@ -1,14 +1,22 @@
 import { prisma } from '../db/prisma.js'
 import { canManageReels, hasPermission, isAdmin, isPresident, isPrimaryPresident } from '../utils/safe-user.js'
 import { getActivePlatformMode, resolveUserPlatformRole } from '../services/platform-role.service.js'
+import { authUserCache } from '../services/auth-cache.service.js'
 
 export async function requireAuth(request, response, next) {
   const userId = request.session?.userId
   if (!userId) return response.status(401).json({ message: 'Session expired. Please log in again.' })
 
   try {
-    const user = await prisma.user.findUnique({ where: { id: userId }, include: { profile: true, permissions: true } })
+    let user = authUserCache.get(userId)
+    if (!user) {
+      user = await prisma.user.findUnique({ where: { id: userId }, include: { profile: true, permissions: true } })
+      if (user && user.accountStatus === 'ACTIVE') {
+        authUserCache.set(userId, user)
+      }
+    }
     if (!user || user.accountStatus !== 'ACTIVE') {
+      authUserCache.invalidate(userId)
       request.session.destroy(() => {})
       return response.status(401).json({ message: 'Session expired. Please log in again.' })
     }

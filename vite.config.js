@@ -14,6 +14,19 @@ export default defineConfig({
   },
   build: {
     sourcemap: false,
+    chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+            return 'vendor-react'
+          }
+          if (id.includes('node_modules/qrcode') || id.includes('node_modules/canvas-confetti')) {
+            return 'vendor-utils'
+          }
+        },
+      },
+    },
   },
   oxc: {
     drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],

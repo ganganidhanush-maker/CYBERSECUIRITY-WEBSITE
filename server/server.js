@@ -5,6 +5,7 @@ import { bootstrapDatabase } from './db/bootstrap.js'
 import { verifyMailConfiguration } from './services/mailer.service.js'
 import { startAuditRetentionJob } from './services/audit-retention.service.js'
 import { startInactivityMonitorJob } from './services/inactivity.service.js'
+import { startKeepAliveService } from './services/keep-alive.service.js'
 import { ensureLocalDatabase } from '../scripts/ensure-local-db.js'
 
 assertRuntimeConfiguration()
@@ -57,6 +58,7 @@ try {
 const app = createApp()
 const auditRetentionTimer = startAuditRetentionJob()
 const inactivityMonitorTimer = startInactivityMonitorJob()
+const keepAliveService = startKeepAliveService()
 const server = app.listen(env.port, () => console.log(`CSC API listening on port ${env.port}`))
 // High-concurrency socket & keep-alive tuning to prevent connection hangs under sudden load
 server.keepAliveTimeout = 65000
@@ -77,6 +79,7 @@ async function shutdown(signal) {
   console.info(`Received ${signal}; draining active connections.`)
   clearInterval(auditRetentionTimer)
   clearInterval(inactivityMonitorTimer)
+  keepAliveService?.stop()
   const forcedShutdown = setTimeout(() => {
     for (const socket of sockets) socket.destroy()
   }, 30_000)

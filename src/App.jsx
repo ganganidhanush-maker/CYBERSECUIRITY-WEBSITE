@@ -3647,7 +3647,17 @@ function MemberManagement({ user, logout, onNavigate }) {
 
   useEffect(() => {
     loadMembers()
-  }, [platformMode])
+    const interval = setInterval(() => {
+      if (document.hidden || editingId || permissionsModalUser || resetModalUser) return
+      adminApi.listMembers()
+        .then(res => {
+          const list = Array.isArray(res?.users) ? res.users : (Array.isArray(res?.members) ? res.members : (Array.isArray(res) ? res : []))
+          if (list.length > 0) setMembers(list)
+        })
+        .catch(() => {})
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [platformMode, editingId, permissionsModalUser, resetModalUser])
 
   async function createAccount(e) {
     e.preventDefault()
@@ -5132,7 +5142,17 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
 
   useEffect(() => {
     loadMembers()
-  }, [])
+    const interval = setInterval(() => {
+      if (document.hidden || savingId) return
+      adminApi.listMembers()
+        .then(res => {
+          const list = Array.isArray(res?.users) ? res.users : (Array.isArray(res?.members) ? res.members : (Array.isArray(res) ? res : []))
+          if (list.length > 0) setMembers(list)
+        })
+        .catch(() => {})
+    }, 8000)
+    return () => clearInterval(interval)
+  }, [savingId])
 
   const allLeadersList = useMemo(() => {
     const list = members.filter(m => m.role !== 'STUDENT' || (m.permissions && m.permissions.length > 0))
@@ -7074,12 +7094,37 @@ function EventManagement({ user, logout, onNavigate }) {
 
   useEffect(() => {
     let mounted = true
-    adminApi.listEvents()
-      .then(({ events: list }) => { if (mounted) setEvents(list || []) })
-      .catch(err => { if (mounted) setError(err.message) })
-      .finally(() => { if (mounted) setLoading(false) })
-    return () => { mounted = false }
-  }, [])
+    function fetchEvents() {
+      if (document.hidden || editingEventId) return
+      adminApi.listEvents()
+        .then(({ events: list }) => { if (mounted) setEvents(list || []) })
+        .catch(err => { if (mounted) setError(err.message) })
+        .finally(() => { if (mounted) setLoading(false) })
+    }
+    fetchEvents()
+    const interval = setInterval(fetchEvents, 8000)
+    return () => {
+      mounted = false
+      clearInterval(interval)
+    }
+  }, [editingEventId])
+
+  // Live Auto-Refresh for Attendee Roster Modal (fetches new registrations in seconds)
+  useEffect(() => {
+    if (!analyticsModalEvent) return
+    let mounted = true
+    function refreshRoster() {
+      if (document.hidden) return
+      adminApi.getEventDetailsWithStats(analyticsModalEvent.id)
+        .then(data => { if (mounted) setAnalyticsData(data) })
+        .catch(() => {})
+    }
+    const interval = setInterval(refreshRoster, 6000)
+    return () => {
+      mounted = false
+      clearInterval(interval)
+    }
+  }, [analyticsModalEvent])
 
   function updateFormField(field, value) {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -9974,8 +10019,19 @@ function PaymentManagement({ user, logout, onNavigate }) {
   }
 
   useEffect(() => {
-    return loadPasses()
-  }, [eventFilter, paymentFilter, attendanceFilter])
+    loadPasses()
+    const interval = setInterval(() => {
+      if (document.hidden || selectedPass) return
+      adminApi.listAllPasses({
+        eventId: eventFilter,
+        paymentStatus: paymentFilter,
+        attendanceStatus: attendanceFilter,
+      }).then(passRes => {
+        if (passRes?.passes) setPasses(passRes.passes)
+      }).catch(() => {})
+    }, 6000)
+    return () => clearInterval(interval)
+  }, [eventFilter, paymentFilter, attendanceFilter, selectedPass])
 
   async function handleVerifyUTR(passId) {
     setError('')
@@ -13237,10 +13293,19 @@ function StudentEvents({ user, logout, onNavigate }) {
 
   useEffect(() => {
     let mounted = true
-    memberApi.listEvents()
-      .then(({ events: list }) => { if (mounted) setEvents(list || []) })
-      .finally(() => { if (mounted) setLoading(false) })
-    return () => { mounted = false }
+    function fetchEvents() {
+      if (document.hidden) return
+      memberApi.listEvents()
+        .then(({ events: list }) => { if (mounted) setEvents(list || []) })
+        .catch(() => {})
+        .finally(() => { if (mounted) setLoading(false) })
+    }
+    fetchEvents()
+    const interval = setInterval(fetchEvents, 8000)
+    return () => {
+      mounted = false
+      clearInterval(interval)
+    }
   }, [])
 
   return (
@@ -13333,35 +13398,43 @@ function StudentRegistrations({ user, logout, onNavigate }) {
 
   useEffect(() => {
     let mounted = true
-    memberApi.listRegistrations()
-      .then(({ registrations: list }) => {
-        if (!mounted) return
-        const regList = list || []
-        setRegistrations(regList)
-        setIsOfflineCached(false)
-        try {
-          localStorage.setItem(cacheKey, JSON.stringify(regList))
-        } catch {}
-        const params = new URLSearchParams(window.location.search)
-        const targetId = params.get('passId') || params.get('id')
-        if (targetId) {
-          const match = regList.find(p => p.id === targetId || p.event?.id === targetId)
-          if (match) setSelectedPass(match)
-        }
-      })
-      .catch(() => {
-        if (!mounted) return
-        try {
-          const cached = localStorage.getItem(cacheKey)
-          if (cached && JSON.parse(cached).length > 0) {
-            setIsOfflineCached(true)
-            return
+    function fetchRegistrations() {
+      if (document.hidden) return
+      memberApi.listRegistrations()
+        .then(({ registrations: list }) => {
+          if (!mounted) return
+          const regList = list || []
+          setRegistrations(regList)
+          setIsOfflineCached(false)
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify(regList))
+          } catch {}
+          const params = new URLSearchParams(window.location.search)
+          const targetId = params.get('passId') || params.get('id')
+          if (targetId) {
+            const match = regList.find(p => p.id === targetId || p.event?.id === targetId)
+            if (match) setSelectedPass(match)
           }
-        } catch {}
-        setRegistrations([])
-      })
-      .finally(() => { if (mounted) setLoading(false) })
-    return () => { mounted = false }
+        })
+        .catch(() => {
+          if (!mounted) return
+          try {
+            const cached = localStorage.getItem(cacheKey)
+            if (cached && JSON.parse(cached).length > 0) {
+              setIsOfflineCached(true)
+              return
+            }
+          } catch {}
+          setRegistrations([])
+        })
+        .finally(() => { if (mounted) setLoading(false) })
+    }
+    fetchRegistrations()
+    const interval = setInterval(fetchRegistrations, 6000)
+    return () => {
+      mounted = false
+      clearInterval(interval)
+    }
   }, [cacheKey])
 
   function handleCopyPassId(id) {

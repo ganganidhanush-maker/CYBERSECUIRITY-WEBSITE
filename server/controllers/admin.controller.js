@@ -9,6 +9,7 @@ import { env } from '../config/env.js'
 import { getRolePermissions } from '../config/permissions.js'
 import { createUserNotification } from '../services/notification.service.js'
 import { getActivePlatformMode, invalidatePlatformModeCache } from '../services/platform-role.service.js'
+import { authUserCache } from '../services/auth-cache.service.js'
 import { generateFullDatabaseSqlDump } from '../services/database-dump.service.js'
 import {
   accountStatusSchema,
@@ -36,8 +37,12 @@ function auditRequest(request) {
   return { ipAddress: request.ip, userAgent: request.get('user-agent') || null }
 }
 
-function flattenMember(user, platformMode = 'CYBER_SECURITY_CLUB') {
+function flattenMember(user, platformMode = 'CYBER_SECURITY_CLUB', { omitHeavyImages = false } = {}) {
   const safe = toSafeUser(user, platformMode)
+  let profileImage = safe.profile?.profileImage || null
+  if (omitHeavyImages && typeof profileImage === 'string' && profileImage.startsWith('data:image/') && profileImage.length > 40000) {
+    profileImage = null // Strip multi-megabyte base64 images from batch listings to ensure instant responses
+  }
   return {
     ...safe,
     isPrimaryAdmin: Boolean(user.isPrimaryAdmin),
@@ -46,7 +51,7 @@ function flattenMember(user, platformMode = 'CYBER_SECURITY_CLUB') {
     name: safe.profile?.name || null,
     email: safe.profile?.email || null,
     phone: safe.profile?.phone || null,
-    profileImage: safe.profile?.profileImage || null,
+    profileImage,
   }
 }
 
@@ -64,7 +69,7 @@ async function verifyPresidentActionCode(target, authenticationCode) {
 export async function listMembers(request, response) {
   const platformMode = request.platformMode || await getActivePlatformMode()
   const users = await prisma.user.findMany({ include: userInclude, orderBy: { createdAt: 'desc' } })
-  const mapped = users.map(u => flattenMember(u, platformMode))
+  const mapped = users.map(u => flattenMember(u, platformMode, { omitHeavyImages: true }))
   return response.status(200).json({ users: mapped, members: mapped })
 }
 
@@ -272,6 +277,7 @@ export async function changeAccountStatus(request, response) {
 
   const platformMode = request.platformMode || await getActivePlatformMode()
   const user = await prisma.user.update({ where: { id: target.id }, data: { accountStatus: parsed.data.accountStatus }, include: userInclude })
+  authUserCache.invalidate(target.id)
   await tryWriteAuditLog({ actorUserId: request.user.id, action: 'ACCOUNT_STATUS_CHANGED', targetUserId: target.id, metadata: { from: target.accountStatus, to: parsed.data.accountStatus }, ...auditRequest(request) })
   return response.status(200).json({ user: flattenMember(user, platformMode) })
 }
@@ -281,6 +287,7 @@ export async function activateAllAccounts(request, response) {
     where: { accountStatus: { not: 'ACTIVE' } },
     data: { accountStatus: 'ACTIVE' },
   })
+  authUserCache.clear()
 
   await tryWriteAuditLog({
     actorUserId: request.user.id,
@@ -320,6 +327,7 @@ export async function changeMemberPermissions(request, response) {
     data: { permissions: { deleteMany: {}, create: permsToSave.map(permission => ({ permission })) } },
     include: userInclude,
   })
+  authUserCache.invalidate(target.id)
   await tryWriteAuditLog({ actorUserId: request.user.id, action: 'ACCOUNT_PERMISSIONS_CHANGED', targetUserId: target.id, metadata: { from: target.permissions.map(entry => entry.permission), to: permsToSave }, ...auditRequest(request) })
   return response.status(200).json({ user: flattenMember(user, platformMode) })
 }
@@ -379,6 +387,7 @@ export async function editMember(request, response) {
       },
       include: userInclude,
     })
+    authUserCache.invalidate(target.id)
     await tryWriteAuditLog({ actorUserId: request.user.id, action: 'ACCOUNT_UPDATED', targetUserId: target.id, metadata: { memberId: target.memberId, updatedFields: Object.keys(request.body) }, ...auditRequest(request) })
     return response.status(200).json({ user: flattenMember(user, platformMode) })
   } catch (error) {
@@ -420,6 +429,7 @@ export async function adminResetPassword(request, response) {
       lastLogoutAllDevicesAt: new Date(),
     },
   })
+  authUserCache.invalidate(target.id)
 
   await tryWriteAuditLog({
     actorUserId: request.user.id,

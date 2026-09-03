@@ -11,6 +11,7 @@ import { createTotpSecret, createTotpUri, verifyTotp } from '../services/totp.se
 import { toSafeUser } from '../utils/safe-user.js'
 import { issueCsrfToken } from '../middleware/csrf.js'
 import { getActivePlatformMode } from '../services/platform-role.service.js'
+import { authUserCache } from '../services/auth-cache.service.js'
 import { loginSchema, passwordConfirmationSchema, passwordResetRequestSchema, passwordResetSchema, totpCodeSchema } from '../validators/auth.validator.js'
 
 const invalidCredentials = { message: 'Invalid Member ID or password.' }
@@ -238,6 +239,7 @@ export async function me(request, response) {
 
 export async function logout(request, response) {
   const userId = request.session?.userId
+  if (userId) authUserCache.invalidate(userId)
   await destroySession(request)
   response.clearCookie('csc.sid', sessionCookieOptions)
   if (userId) await tryWriteAuditLog({ actorUserId: userId, action: 'LOGOUT', ...auditRequest(request) })
@@ -245,6 +247,7 @@ export async function logout(request, response) {
 }
 
 export async function logoutAllDevices(request, response) {
+  authUserCache.invalidate(request.user.id)
   await prisma.user.update({ where: { id: request.user.id }, data: { lastLogoutAllDevicesAt: new Date() } })
   await destroySession(request)
   response.clearCookie('csc.sid', sessionCookieOptions)
@@ -398,6 +401,7 @@ export async function switchAccount(request, response) {
   // Set the session: preserve original admin ID
   request.session.originalAdminUserId = adminId
   request.session.userId = targetUser.id
+  authUserCache.invalidate(targetUser.id)
   await saveSession(request)
 
   const platformMode = request.platformMode || await getActivePlatformMode()
@@ -448,6 +452,7 @@ export async function switchBackToAdmin(request, response) {
   // Restore the original admin in session
   request.session.userId = originalAdminId
   delete request.session.originalAdminUserId
+  authUserCache.invalidate(originalAdminId)
   await saveSession(request)
 
   const platformMode = request.platformMode || await getActivePlatformMode()
