@@ -71,9 +71,9 @@ export function createApp() {
   app.get(['/api/v1/health', '/api/health'], async (request, response) => {
     try {
       await prisma.$queryRaw`SELECT 1`
-      response.status(200).json({ status: 'ok', database: 'connected', requestId: request.id })
+      response.status(200).json({ status: 'ok', uptime: Math.floor(process.uptime()), timestamp: Date.now() })
     } catch {
-      response.status(503).json({ status: 'unavailable', database: 'unavailable', requestId: request.id })
+      response.status(503).json({ status: 'unavailable', timestamp: Date.now() })
     }
   })
   app.get(['/api/v1/docs', '/api/docs'], (request, response) => response.status(200).json(getOpenApiDocument()))

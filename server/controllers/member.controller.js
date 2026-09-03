@@ -69,6 +69,8 @@ function serializeEventForStudent(event, userId) {
       paymentReference: userRegistration.paymentReference,
       teamName: userRegistration.teamName,
       isTeamLeader: userRegistration.isTeamLeader,
+      formData: userRegistration.formData,
+      github: userRegistration.github,
     } : null,
     userTeam: userTeam ? {
       id: userTeam.id,
@@ -1138,6 +1140,43 @@ export async function recordReelView(request, response) {
   }
 
   return response.status(200).json({ viewsCount: currentViews, isWatched: true })
+}
+
+export async function submitEventCompletion(request, response) {
+  const { eventId } = request.params
+  const { projectUrl, demoUrl, completionConfirmed, notes } = request.body || {}
+
+  const registration = await prisma.eventRegistration.findUnique({
+    where: { eventId_userId: { eventId, userId: request.user.id } },
+  })
+
+  if (!registration) {
+    return response.status(404).json({ message: 'No active event registration found for this user.' })
+  }
+
+  const existingFormData = (typeof registration.formData === 'object' && registration.formData) || {}
+  const updatedFormData = {
+    ...existingFormData,
+    completionConfirmed: Boolean(completionConfirmed ?? true),
+    completionSubmittedAt: new Date().toISOString(),
+    projectUrl: projectUrl || existingFormData.projectUrl || null,
+    demoUrl: demoUrl || existingFormData.demoUrl || null,
+    completionNotes: notes || existingFormData.completionNotes || null,
+  }
+
+  const updated = await prisma.eventRegistration.update({
+    where: { id: registration.id },
+    data: {
+      formData: updatedFormData,
+      status: 'COMPLETED',
+      ...(projectUrl ? { github: projectUrl } : {}),
+    },
+  })
+
+  return response.status(200).json({
+    message: '✓ Hackathon project and event completion submitted successfully! Your participation is marked complete.',
+    registration: updated,
+  })
 }
 
 

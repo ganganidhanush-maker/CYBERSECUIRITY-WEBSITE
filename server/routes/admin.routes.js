@@ -70,16 +70,19 @@ import {
   requirePresident,
   requirePrimaryPresident,
   requireReelsManager,
+  requireRole,
 } from '../middleware/auth.js'
 import { adminWriteRateLimiter, authenticatedRateLimiter } from '../middleware/rate-limit.js'
 import { validateUserIdParam } from '../middleware/validate.js'
 import { asyncHandler } from '../utils/async-handler.js'
 
 export const adminRouter = Router()
-adminRouter.use(requireAuth, requireAdmin)
+
+// Member directory & accounts
+adminRouter.use(requireAuth)
+adminRouter.use(requireAdmin)
 adminRouter.use(authenticatedRateLimiter)
 
-// Member & Account Management
 adminRouter.get('/members', requirePermission('ACCOUNT_MANAGEMENT'), asyncHandler(listMembers))
 adminRouter.get('/members/export-csv', requirePermission('ACCOUNT_MANAGEMENT'), asyncHandler(exportMembersCsv))
 adminRouter.post('/members', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, asyncHandler(createMember))
@@ -87,7 +90,7 @@ adminRouter.post('/members/bulk', requirePermission('ACCOUNT_MANAGEMENT'), admin
 adminRouter.put('/members/:id', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, validateUserIdParam, asyncHandler(editMember))
 adminRouter.delete('/members/:id', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, validateUserIdParam, asyncHandler(deleteMember))
 adminRouter.put('/members/:id/status', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, validateUserIdParam, asyncHandler(changeAccountStatus))
-adminRouter.put('/members/:id/permissions', requirePresident, adminWriteRateLimiter, validateUserIdParam, asyncHandler(changeMemberPermissions))
+adminRouter.put('/members/:id/permissions', requireRole('PRESIDENT', 'STUDENT_COORDINATOR', 'ADMIN'), adminWriteRateLimiter, validateUserIdParam, asyncHandler(changeMemberPermissions))
 adminRouter.post('/members/:id/reset-password', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, validateUserIdParam, asyncHandler(adminResetPassword))
 adminRouter.post('/members/:id/disable-2fa', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, validateUserIdParam, asyncHandler(disableMemberTwoFactor))
 adminRouter.post('/members/transfer-president', requirePrimaryPresident, adminWriteRateLimiter, asyncHandler(transferPresidentRole))

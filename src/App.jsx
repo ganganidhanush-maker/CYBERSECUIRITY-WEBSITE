@@ -3273,9 +3273,71 @@ function MemberManagement({ user, logout, onNavigate }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [editData, setEditData] = useState({})
-  // View Mode: 'ROSTER' (Active Directory) vs 'CREATE' (Account Provisioning Studio)
+  // View Mode: 'ROSTER' (Active Directory) vs 'CREATE' (Account Provisioning Studio) vs 'LEADER_ACCESS' (Student Coordinator Leader Management)
   const [managementView, setManagementView] = useState('ROSTER')
   const [roleFilter, setRoleFilter] = useState('ALL')
+
+  // Leader Access Management State (Student Coordinator & President feature)
+  const [selectedLeader, setSelectedLeader] = useState(null)
+  const [leaderPerms, setLeaderPerms] = useState([])
+  const [savingLeaderPerms, setSavingLeaderPerms] = useState(false)
+  const [leaderPermMessage, setLeaderPermMessage] = useState('')
+  const [leaderPermError, setLeaderPermError] = useState('')
+
+  const AVAILABLE_LEADER_PERMISSIONS = [
+    { key: 'QR_PASSES_VIEW', label: '🎟️ Pass Scanner Access', desc: 'Can scan and check-in attendee QR passes at event venues and sessions.' },
+    { key: 'EVENT_MANAGE', label: '📅 Event Studio & Creation', desc: 'Can create, edit, schedule, and publish events, workshops, and hackathons.' },
+    { key: 'PAYMENTS_VERIFY', label: '💰 Payment & UTR Verification', desc: 'Can verify student UPI payment reference numbers and activate passes.' },
+    { key: 'ACCOUNT_MANAGEMENT', label: '👥 Member & Account Directory', desc: 'Can provision and manage student accounts and member records.' },
+    { key: 'GALLERY_MANAGE', label: '📸 Photo Gallery Studio', desc: 'Can upload event photos and manage club gallery albums.' },
+    { key: 'REELS_MANAGE', label: '🎬 Campus Reels & Video Studio', desc: 'Can upload, curate, and publish video reels to campus feed.' },
+    { key: 'REGISTRATIONS_VIEW', label: '📊 Registrations & Attendance Roster', desc: 'Can view event registrants, attendance status, and export rosters.' },
+    { key: 'CHAT_USE', label: '💬 Live Club Chat & Broadcasts', desc: 'Can send official announcements and participate in club chat.' },
+    { key: 'SETTINGS_MANAGE', label: '⚙️ Platform Settings & Hibernation', desc: 'Can configure platform rules, timer switches, and club settings.' },
+    { key: 'AUDIT_VIEW', label: '🛡️ Security Audit Logs', desc: 'Can review administrative activity and security audit records.' },
+  ]
+
+  function openLeaderAccess(leader) {
+    setSelectedLeader(leader)
+    const existing = (leader.permissions || []).map(p => (typeof p === 'string' ? p : p.permission))
+    const defaults = ROLE_DEFAULT_PERMISSIONS[leader.role] || []
+    setLeaderPerms(Array.from(new Set([...defaults, ...existing])))
+    setLeaderPermMessage('')
+    setLeaderPermError('')
+    setManagementView('LEADER_ACCESS')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  function toggleLeaderPerm(permKey) {
+    setLeaderPerms(prev =>
+      prev.includes(permKey) ? prev.filter(p => p !== permKey) : [...prev, permKey]
+    )
+  }
+
+  async function handleSaveLeaderPermissions() {
+    if (!selectedLeader) return
+    if (selectedLeader.isPrimaryAdmin) {
+      setLeaderPermError('Primary President permissions cannot be altered.')
+      return
+    }
+    if (leaderPerms.length === 0) {
+      setLeaderPermError('Please select at least one permission for this leader.')
+      return
+    }
+    setSavingLeaderPerms(true)
+    setLeaderPermError('')
+    setLeaderPermMessage('')
+    try {
+      await adminApi.updateMemberPermissions(selectedLeader.id, leaderPerms)
+      setLeaderPermMessage(`✓ Permissions successfully updated for ${selectedLeader.name} (${selectedLeader.memberId})!`)
+      setMembers(c => c.map(m => (m.id === selectedLeader.id ? { ...m, permissions: leaderPerms } : m)))
+      setSelectedLeader(prev => (prev ? { ...prev, permissions: leaderPerms } : null))
+    } catch (err) {
+      setLeaderPermError(err.message || 'Failed to update leader permissions.')
+    } finally {
+      setSavingLeaderPerms(false)
+    }
+  }
 
   // Bulk Account Creation States
   const [accountMode, setAccountMode] = useState('single')
@@ -3782,6 +3844,20 @@ function MemberManagement({ user, logout, onNavigate }) {
             >
               <IconDownload size={13} /> Export Roster CSV
             </button>
+            <button
+              type="button"
+              className={managementView === 'LEADER_ACCESS' ? 'primary' : 'outline'}
+              onClick={() => {
+                setManagementView('LEADER_ACCESS')
+                if (!selectedLeader) {
+                  const firstLeader = members.find(m => m.role !== 'STUDENT' && !m.isPrimaryAdmin) || members.find(m => m.role !== 'STUDENT')
+                  if (firstLeader) openLeaderAccess(firstLeader)
+                }
+              }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '7px 14px', borderColor: 'var(--brand-primary)', color: managementView === 'LEADER_ACCESS' ? '#07121c' : 'var(--brand-primary)' }}
+            >
+              <IconShieldCheck size={13} /> 🛡️ Leader Access & Permissions
+            </button>
           </div>
         </div>
 
@@ -3802,6 +3878,19 @@ function MemberManagement({ user, logout, onNavigate }) {
             onClick={() => setManagementView('CREATE')}
           >
             <IconUserSvg size={14} /> ＋ Provision New Account
+          </button>
+          <button
+            type="button"
+            className={managementView === 'LEADER_ACCESS' ? 'primary active' : 'outline'}
+            onClick={() => {
+              setManagementView('LEADER_ACCESS')
+              if (!selectedLeader) {
+                const firstLeader = members.find(m => m.role !== 'STUDENT' && !m.isPrimaryAdmin) || members.find(m => m.role !== 'STUDENT')
+                if (firstLeader) openLeaderAccess(firstLeader)
+              }
+            }}
+          >
+            <IconShieldCheck size={14} /> 🛡️ Manage Leader Access ({members.filter(m => m.role !== 'STUDENT').length} Leaders)
           </button>
         </div>
 
@@ -4246,6 +4335,213 @@ function MemberManagement({ user, logout, onNavigate }) {
               </div>
             )}
           </article>
+        ) : managementView === 'LEADER_ACCESS' ? (
+          /* Leader Access & Permissions Control Console */
+          <article className="account-form-card" style={{ maxWidth: '1060px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <IconShieldCheck size={14} /> COORDINATOR & LEADER ACCESS CONTROL
+                </p>
+                <h2>Manage Leader Permissions & Capabilities</h2>
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
+                  Configure what each club coordinator or leader can access (Pass Scanner, Event Studio, Payment Verification, Member Directory, etc.).
+                </p>
+              </div>
+              <button
+                type="button"
+                className="outline"
+                onClick={() => setManagementView('ROSTER')}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}
+              >
+                ← BACK TO MEMBER DIRECTORY
+              </button>
+            </div>
+
+            {leaderPermMessage && <p className="member-form-success" style={{ marginBottom: '14px' }}>{leaderPermMessage}</p>}
+            {leaderPermError && <p className="member-form-error" style={{ marginBottom: '14px' }}>{leaderPermError}</p>}
+
+            {/* Leader Account Selector Cards */}
+            <div style={{ marginBottom: '20px' }}>
+              <b style={{ color: 'var(--text-main)', fontSize: '12px', display: 'block', marginBottom: '10px' }}>
+                1. SELECT A LEADER / COORDINATOR TO CONFIGURE:
+              </b>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px' }}>
+                {members.filter(m => m.role !== 'STUDENT').map(leader => {
+                  const isSelected = selectedLeader?.id === leader.id
+                  const permCount = (leader.permissions || []).length || (ROLE_DEFAULT_PERMISSIONS[leader.role] || []).length
+                  return (
+                    <div
+                      key={leader.id}
+                      onClick={() => openLeaderAccess(leader)}
+                      style={{
+                        padding: '12px',
+                        borderRadius: '8px',
+                        border: isSelected ? '1.5px solid var(--brand-primary)' : '1px solid var(--line)',
+                        background: isSelected ? 'var(--brand-glow)' : 'var(--panel-subtle)',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '10px',
+                        transition: 'all 0.15s ease',
+                      }}
+                    >
+                      <span style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '50%',
+                        background: 'linear-gradient(135deg, rgba(82, 187, 245, 0.22), rgba(20, 80, 140, 0.4))',
+                        display: 'grid',
+                        placeItems: 'center',
+                        color: 'var(--brand-primary)',
+                        font: '700 12px Syne',
+                        flexShrink: 0,
+                      }}>
+                        {leader.initials || leader.name?.slice(0, 2).toUpperCase() || 'LD'}
+                      </span>
+                      <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                        <b style={{ color: 'var(--text-main)', fontSize: '12px', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {leader.name}
+                        </b>
+                        <small style={{ color: 'var(--brand-primary)', fontSize: '10.5px', display: 'block', fontFamily: 'monospace' }}>
+                          {leader.memberId}
+                        </small>
+                        <span className="badge" style={{ fontSize: '9px', padding: '2px 6px', marginTop: '4px', display: 'inline-block' }}>
+                          {getRoleLabel(leader.role)} · {permCount} Perms
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Selected Leader Permissions Matrix */}
+            {selectedLeader ? (
+              <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '12px', padding: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', borderBottom: '1px solid var(--line)', paddingBottom: '14px', marginBottom: '16px' }}>
+                  <div>
+                    <span className="eyebrow">CUSTOMIZING CAPABILITIES FOR:</span>
+                    <h3 style={{ margin: '2px 0 0', color: 'var(--text-main)', fontSize: '16px' }}>
+                      {selectedLeader.name} <span style={{ color: 'var(--brand-primary)', fontFamily: 'monospace' }}>({selectedLeader.memberId})</span>
+                    </h3>
+                    <small style={{ color: 'var(--text-muted)', fontSize: '11.5px' }}>
+                      Club Role: <b>{getRoleLabel(selectedLeader.role)}</b> · Department: {selectedLeader.department || selectedLeader.profile?.department || 'General'}
+                    </small>
+                  </div>
+
+                  {/* 1-Click Role Presets */}
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="outline"
+                      onClick={() => setLeaderPerms(['QR_PASSES_VIEW', 'EVENTS_VIEW', 'DASHBOARD_VIEW'])}
+                      style={{ fontSize: '10.5px', padding: '4px 8px' }}
+                    >
+                      🎟️ Scanner Only
+                    </button>
+                    <button
+                      type="button"
+                      className="outline"
+                      onClick={() => setLeaderPerms(['EVENT_MANAGE', 'EVENTS_VIEW', 'QR_PASSES_VIEW', 'REGISTRATIONS_VIEW', 'DASHBOARD_VIEW'])}
+                      style={{ fontSize: '10.5px', padding: '4px 8px' }}
+                    >
+                      📅 Event Lead
+                    </button>
+                    <button
+                      type="button"
+                      className="outline"
+                      onClick={() => setLeaderPerms(['PAYMENTS_VERIFY', 'PAYMENTS_VIEW', 'REGISTRATIONS_VIEW', 'DASHBOARD_VIEW'])}
+                      style={{ fontSize: '10.5px', padding: '4px 8px' }}
+                    >
+                      💰 Finance Lead
+                    </button>
+                    <button
+                      type="button"
+                      className="outline"
+                      onClick={() => setLeaderPerms(['GALLERY_MANAGE', 'REELS_MANAGE', 'GALLERY_VIEW', 'EVENTS_VIEW', 'DASHBOARD_VIEW'])}
+                      style={{ fontSize: '10.5px', padding: '4px 8px' }}
+                    >
+                      📸 Media & PR
+                    </button>
+                    <button
+                      type="button"
+                      className="outline"
+                      onClick={() => setLeaderPerms(AVAILABLE_LEADER_PERMISSIONS.map(p => p.key))}
+                      style={{ fontSize: '10.5px', padding: '4px 8px', borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' }}
+                    >
+                      ⭐ Full Access
+                    </button>
+                  </div>
+                </div>
+
+                {/* Permissions Grid */}
+                <b style={{ color: 'var(--text-main)', fontSize: '12px', display: 'block', marginBottom: '10px' }}>
+                  2. TOGGLE SPECIFIC PERMISSIONS & CAPABILITIES:
+                </b>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px', marginBottom: '20px' }}>
+                  {AVAILABLE_LEADER_PERMISSIONS.map(p => {
+                    const isChecked = leaderPerms.includes(p.key)
+                    return (
+                      <label
+                        key={p.key}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'flex-start',
+                          gap: '10px',
+                          padding: '12px',
+                          borderRadius: '8px',
+                          border: isChecked ? '1px solid #10b98188' : '1px solid var(--line)',
+                          background: isChecked ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-input)',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleLeaderPerm(p.key)}
+                          style={{ marginTop: '2px', cursor: 'pointer', accentColor: '#10b981' }}
+                        />
+                        <div>
+                          <b style={{ color: isChecked ? '#10b981' : 'var(--text-main)', fontSize: '12px', display: 'block' }}>
+                            {p.label}
+                          </b>
+                          <small style={{ color: 'var(--text-muted)', fontSize: '10.5px', display: 'block', marginTop: '2px', lineHeight: 1.3 }}>
+                            {p.desc}
+                          </small>
+                        </div>
+                      </label>
+                    )
+                  })}
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                  <button
+                    type="button"
+                    className="outline"
+                    onClick={() => setManagementView('ROSTER')}
+                    style={{ fontSize: '11px', padding: '8px 16px' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={savingLeaderPerms || leaderPerms.length === 0}
+                    onClick={handleSaveLeaderPermissions}
+                    style={{ fontSize: '12px', padding: '8px 20px', fontWeight: 700 }}
+                  >
+                    {savingLeaderPerms ? 'SAVING PERMISSIONS…' : `✓ SAVE PERMISSIONS FOR ${selectedLeader.name.toUpperCase()}`}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
+                Select a leader from the cards above to configure their access rights.
+              </p>
+            )}
+          </article>
         ) : (
           /* Full-Width Member List Directory Card */
           <article className="member-list-card" style={{ width: '100%' }}>
@@ -4447,6 +4743,16 @@ function MemberManagement({ user, logout, onNavigate }) {
                               ) : (
                                 <>
                                   <button className="action-btn edit-btn" onClick={() => { setEditingId(m.id); setEditData({}) }} title="Edit profile information" style={{ whiteSpace: 'nowrap' }}>Edit</button>
+                                  {m.role !== 'STUDENT' && !m.isPrimaryAdmin && (
+                                    <button
+                                      className="action-btn"
+                                      onClick={() => openLeaderAccess(m)}
+                                      title="Manage leader permissions & capabilities"
+                                      style={{ background: 'rgba(82, 187, 245, 0.15)', color: 'var(--brand-primary)', borderColor: 'var(--brand-border-subtle)', whiteSpace: 'nowrap' }}
+                                    >
+                                      🛡️ Access
+                                    </button>
+                                  )}
                                   <button className="action-btn toggle-status-btn" onClick={() => toggleStatus(m)} disabled={m.isPrimaryAdmin} title="Toggle account activation" style={{ whiteSpace: 'nowrap' }}>
                                     {m.accountStatus === 'ACTIVE' ? 'Active' : 'Disabled'}
                                   </button>
@@ -5991,7 +6297,9 @@ const initialEventForm = {
   location: '',
   shortDescription: '',
   description: '',
-  notes: '', // Registration Form URL (Google Form / External link)
+  registrationFormUrl: '',
+  completionFormUrl: '',
+  notes: '', // Serialized JSON or fallback link
   agenda: '',
   rules: '',
   capacity: '',
@@ -6066,6 +6374,7 @@ function EventManagement({ user, logout, onNavigate }) {
   }
 
   function startEditEvent(ev) {
+    const formUrls = getEventFormUrls(ev)
     setEditingEventId(ev.id)
     setFormData({
       title: ev.title || '',
@@ -6076,6 +6385,8 @@ function EventManagement({ user, logout, onNavigate }) {
       location: ev.location || '',
       shortDescription: ev.shortDescription || '',
       description: ev.description || '',
+      registrationFormUrl: formUrls.registrationFormUrl || '',
+      completionFormUrl: formUrls.completionFormUrl || '',
       notes: ev.notes || '',
       agenda: ev.agenda || '',
       rules: ev.rules || '',
@@ -6177,7 +6488,12 @@ function EventManagement({ user, logout, onNavigate }) {
       activities: formData.hasMultipleActivities
         ? activities.map(a => ({ name: a.name, description: a.description || null, price: Number(a.price || 0), capacity: a.capacity ? Number(a.capacity) : null }))
         : [],
-      notes: String(formData.notes || '').trim() || null,
+      notes: (formData.registrationFormUrl || formData.completionFormUrl)
+        ? JSON.stringify({
+            registrationFormUrl: String(formData.registrationFormUrl || '').trim() || null,
+            completionFormUrl: String(formData.completionFormUrl || '').trim() || null,
+          })
+        : (String(formData.notes || '').trim() || null),
       formFields,
     }
 
@@ -6570,18 +6886,51 @@ function EventManagement({ user, logout, onNavigate }) {
                       style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '12px' }}
                     />
                   </label>
-                  <label className="form-wide" style={{ gridColumn: '1 / -1' }}>
-                    Official Registration Form Link (Google Form / External Form URL)
-                    <input
-                      name="notes"
-                      placeholder="e.g. https://forms.gle/... or https://docs.google.com/forms/..."
-                      value={formData.notes || ''}
-                      onChange={e => updateFormField('notes', e.target.value)}
-                    />
-                    <small style={{ color: 'var(--text-muted)', fontSize: '11px', marginTop: '4px', display: 'block' }}>
-                      Students will be required to open & submit this form first (Step 1) before payment & pass generation. You can also paste the link directly in the Detailed Description above.
-                    </small>
-                  </label>
+                  <div className="form-wide" style={{ gridColumn: '1 / -1', background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '10px', padding: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                      <span style={{ fontSize: '18px' }}>📋</span>
+                      <div>
+                        <b style={{ color: 'var(--text-main)', fontSize: '13px', display: 'block' }}>Event Two-Form Workflow (Pre-Registration & Post-Completion)</b>
+                        <small style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Attach official Google Forms or external links for attendee pre-registration and post-event hackathon project submissions.</small>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span className="badge" style={{ background: 'rgba(82, 187, 245, 0.15)', color: 'var(--brand-primary)', fontSize: '10px' }}>FORM 1</span>
+                          Pre-Registration Form Link (Google Form / External)
+                        </span>
+                        <input
+                          name="registrationFormUrl"
+                          placeholder="https://forms.gle/... (Required before payment & pass generation)"
+                          value={formData.registrationFormUrl || ''}
+                          onChange={e => updateFormField('registrationFormUrl', e.target.value)}
+                          style={{ width: '100%', marginTop: '4px' }}
+                        />
+                        <small style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 400 }}>
+                          Students must open & submit this form first during Step 1 of registration.
+                        </small>
+                      </label>
+
+                      <label style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px', fontWeight: 600, color: 'var(--text-main)' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontSize: '10px' }}>FORM 2</span>
+                          Post-Completion / Hackathon Submission Form Link
+                        </span>
+                        <input
+                          name="completionFormUrl"
+                          placeholder="https://forms.gle/... (Post-hackathon project submission / feedback)"
+                          value={formData.completionFormUrl || ''}
+                          onChange={e => updateFormField('completionFormUrl', e.target.value)}
+                          style={{ width: '100%', marginTop: '4px' }}
+                        />
+                        <small style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 400 }}>
+                          Attendees fill this after completing the hackathon to submit project repo, demo & verify participation.
+                        </small>
+                      </label>
+                    </div>
+                  </div>
                   <div className="form-wide" style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
                     <button type="button" className="action-btn save-btn" onClick={() => setActiveTab('teams')}>Next: Participation & Teams →</button>
                   </div>
@@ -7282,26 +7631,50 @@ function EventManagement({ user, logout, onNavigate }) {
 }
 
 // ----------------------------------------------------
-// Event Form URL Utilities
+// Event Form URL Utilities (Two-Form Support: Pre-Registration & Post-Completion)
 // ----------------------------------------------------
-function extractFormUrl(ev) {
-  if (!ev) return null
-  if (ev.notes && /^https?:\/\//i.test(ev.notes.trim())) {
-    return ev.notes.trim()
-  }
-  const texts = [ev.description, ev.notes, ev.rules, ev.agenda, ev.shortDescription]
-  for (const text of texts) {
-    if (!text) continue
-    const matches = text.match(/https?:\/\/[^\s<>"')]+/gi)
-    if (matches && matches.length > 0) {
-      const formMatch = matches.find(url =>
-        /forms\.gle|docs\.google\.com\/forms|forms\.office\.com|typeform\.com|tally\.so|airtable\.com|surveymonkey\.com/i.test(url)
-      )
-      if (formMatch) return formMatch.replace(/[.,;)]+$/, '')
-      return matches[0].replace(/[.,;)]+$/, '')
+function getEventFormUrls(ev) {
+  if (!ev) return { registrationFormUrl: null, completionFormUrl: null }
+  let registrationFormUrl = null
+  let completionFormUrl = null
+
+  if (ev.notes) {
+    try {
+      const parsed = JSON.parse(ev.notes)
+      if (parsed && typeof parsed === 'object') {
+        registrationFormUrl = parsed.registrationFormUrl || parsed.preRegistrationFormUrl || null
+        completionFormUrl = parsed.completionFormUrl || parsed.postCompletionFormUrl || null
+      }
+    } catch {
+      if (/^https?:\/\//i.test(ev.notes.trim())) {
+        registrationFormUrl = ev.notes.trim()
+      }
     }
   }
-  return null
+
+  if (!registrationFormUrl || !completionFormUrl) {
+    const texts = [ev.description, ev.rules, ev.agenda, ev.shortDescription]
+    for (const text of texts) {
+      if (!text) continue
+      const matches = text.match(/https?:\/\/[^\s<>"')]+/gi)
+      if (matches && matches.length > 0) {
+        for (const rawUrl of matches) {
+          const cleanUrl = rawUrl.replace(/[.,;)]+$/, '')
+          if (!registrationFormUrl) {
+            registrationFormUrl = cleanUrl
+          } else if (!completionFormUrl && cleanUrl !== registrationFormUrl) {
+            completionFormUrl = cleanUrl
+          }
+        }
+      }
+    }
+  }
+
+  return { registrationFormUrl, completionFormUrl }
+}
+
+function extractFormUrl(ev) {
+  return getEventFormUrls(ev).registrationFormUrl
 }
 
 function getEmbeddableFormUrl(url) {
@@ -7370,6 +7743,16 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
   const [copiedFormUrl, setCopiedFormUrl] = useState(false)
   const [customFormAnswers, setCustomFormAnswers] = useState({})
 
+  // Attendee & Hackathon Demographics State (Mandatory Details)
+  const [fullName, setFullName] = useState(user.profile?.name || user.name || '')
+  const [rollNumber, setRollNumber] = useState(user.profile?.rollNumber || user.memberId || '')
+  const [department, setDepartment] = useState(user.profile?.department || 'Cyber Security')
+  const [academicYear, setAcademicYear] = useState(user.profile?.year || 2)
+  const [phone, setPhone] = useState(user.profile?.phone || '')
+  const [collegeName, setCollegeName] = useState('Malla Reddy (MR) Deemed to be University')
+  const [githubUrl, setGithubUrl] = useState(user.profile?.githubUrl || '')
+  const [projectDomain, setProjectDomain] = useState('Cyber Security / Ethical Hacking')
+
   // Logistics & Demographics State
   const [gender, setGender] = useState(user.profile?.gender || 'MALE')
   const [age, setAge] = useState(user.profile?.age || 19)
@@ -7378,6 +7761,15 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
   const [hostelType, setHostelType] = useState('COLLEGE_HOSTEL')
   const [emergencyContact, setEmergencyContact] = useState('')
   const [paymentReference, setPaymentReference] = useState('')
+
+  // Post-Completion & Hackathon Project Submission Form (Form 2) State
+  const [completionConfirmed, setCompletionConfirmed] = useState(false)
+  const [completionProjectUrl, setCompletionProjectUrl] = useState('')
+  const [completionDemoUrl, setCompletionDemoUrl] = useState('')
+  const [completionNotes, setCompletionNotes] = useState('')
+  const [submittingCompletion, setSubmittingCompletion] = useState(false)
+  const [completionMessage, setCompletionMessage] = useState('')
+  const [showEmbedCompletionForm, setShowEmbedCompletionForm] = useState(false)
 
   // Team Formation State
   const [teamNameInput, setTeamNameInput] = useState('')
@@ -7537,11 +7929,38 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
       }
     }
 
-    const formUrl = extractFormUrl(event)
+    const formUrls = getEventFormUrls(event)
+    const formUrl = formUrls.registrationFormUrl
+
+    // Attendee & Hackathon Details Validation (Strict - Cannot bypass)
+    if (!fullName.trim()) {
+      setError('Please enter your Full Name in Step 1.')
+      return
+    }
+    if (!rollNumber.trim()) {
+      setError('Please enter your Roll Number / Student ID in Step 1.')
+      return
+    }
+    if (!phone.trim() || phone.replace(/\D/g, '').length < 10) {
+      setError('Please enter a valid 10-digit contact mobile / WhatsApp number in Step 1.')
+      return
+    }
+    if (!department.trim()) {
+      setError('Please select or specify your department / branch in Step 1.')
+      return
+    }
+    if (isHackathonOrTech && !githubUrl.trim()) {
+      setError('GitHub Profile URL is required for Hackathon & technical events. Please provide your GitHub link in Step 1.')
+      return
+    }
+    if (!emergencyContact.trim() || emergencyContact.replace(/\D/g, '').length < 10) {
+      setError('Please enter a valid 10-digit emergency contact phone number in Step 1.')
+      return
+    }
 
     // Form completion validation if a registration form link exists
     if (formUrl && !formAcknowledged) {
-      setError('Please open and complete the official Event Registration Form (Step 1), then check the confirmation box before registering.')
+      setError('Please open and complete the official Pre-Registration Google Form (Step 1), then check the confirmation box before registering.')
       return
     }
 
@@ -7554,6 +7973,8 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
       selectedActivityIds: selectedActivities,
       paymentReference: paymentReference.trim() || null,
       paymentProofUrl: proofPreview || null,
+      branch: department.trim(),
+      year: Number(academicYear) || 1,
       gender,
       age: age ? Number(age) : null,
       residencyType,
@@ -7563,8 +7984,17 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
       teamName: event.userTeam?.teamName || null,
       teamId: event.userTeam?.id || null,
       isTeamLeader: Boolean(event.userTeam?.isLeader),
+      github: githubUrl.trim() || null,
       formData: {
-        formUrl: formUrl || null,
+        fullName: fullName.trim(),
+        rollNumber: rollNumber.trim(),
+        department: department.trim(),
+        academicYear: Number(academicYear),
+        phone: phone.trim(),
+        collegeName: collegeName.trim(),
+        githubUrl: githubUrl.trim(),
+        projectDomain: projectDomain.trim(),
+        registrationFormUrl: formUrl || null,
         formAcknowledged: Boolean(formAcknowledged),
         customAnswers: customFormAnswers,
       },
@@ -7584,6 +8014,31 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
       setError(err.message)
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function handleSubmitCompletion(e) {
+    e?.preventDefault?.()
+    setError('')
+    setCompletionMessage('')
+    if (!completionConfirmed) {
+      setError('Please check the confirmation box confirming you have submitted your project on the post-completion form.')
+      return
+    }
+    setSubmittingCompletion(true)
+    try {
+      const res = await memberApi.submitEventCompletion(eventId, {
+        projectUrl: completionProjectUrl.trim() || null,
+        demoUrl: completionDemoUrl.trim() || null,
+        completionConfirmed: true,
+        notes: completionNotes.trim() || null,
+      })
+      setCompletionMessage(res.message || '✓ Hackathon project and event completion submitted successfully!')
+      loadEventAndInvites()
+    } catch (err) {
+      setError(err.message || 'Failed to submit event completion.')
+    } finally {
+      setSubmittingCompletion(false)
     }
   }
 
@@ -7780,23 +8235,149 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
               </div>
 
               {event.isRegistered ? (
-                <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                  {event.paymentStatus === 'SUBMITTED' ? (
-                    <span className="badge" style={{ fontSize: '12px', padding: '6px 14px', background: '#78350f', color: '#fef08a', border: '1px solid #eab308' }}>
-                      PENDING VERIFICATION (UTR SUBMITTED)
-                    </span>
-                  ) : (
-                    <span className="badge badge-registered" style={{ fontSize: '12px', padding: '6px 14px' }}>
-                      PASS ACTIVE & VERIFIED
-                    </span>
+                <div style={{ padding: '16px 0' }}>
+                  <div style={{ textAlign: 'center', padding: '16px', background: 'var(--panel-subtle)', borderRadius: '12px', border: '1px solid var(--line)', marginBottom: '16px' }}>
+                    {event.paymentStatus === 'SUBMITTED' ? (
+                      <span className="badge" style={{ fontSize: '12px', padding: '6px 14px', background: '#78350f', color: '#fef08a', border: '1px solid #eab308' }}>
+                        PENDING VERIFICATION (UTR SUBMITTED)
+                      </span>
+                    ) : (
+                      <span className="badge badge-registered" style={{ fontSize: '12px', padding: '6px 14px' }}>
+                        PASS ACTIVE & VERIFIED
+                      </span>
+                    )}
+                    <p style={{ color: '#829bb0', fontSize: '12px', marginTop: '10px' }}>
+                      {event.userRegistration?.teamName ? `Team: ${event.userRegistration.teamName} · ` : ''}
+                      Your digital pass QR is available in your Pass Wallet.
+                    </p>
+                    <button className="outline" type="button" onClick={() => onNavigate('student-registrations')} style={{ marginTop: '8px' }}>
+                      VIEW MY PASSES →
+                    </button>
+                  </div>
+
+                  {/* FORM 2: POST-COMPLETION / HACKATHON PROJECT SUBMISSION */}
+                  {completionFormUrl && (
+                    <div>
+                      {isCompletionSubmitted ? (
+                        <div style={{ padding: '18px', background: 'rgba(16, 185, 129, 0.12)', border: '1.5px solid #10b981', borderRadius: '12px', textAlign: 'center' }}>
+                          <span style={{ fontSize: '32px', display: 'block', marginBottom: '6px' }}>🏆</span>
+                          <b style={{ color: '#10b981', fontSize: '14px', display: 'block' }}>
+                            Full Hackathon & Event Participation Completed!
+                          </b>
+                          <p style={{ color: 'var(--text-muted)', fontSize: '11.5px', margin: '6px 0 10px' }}>
+                            Your project submission and post-completion form have been recorded and verified. You are eligible for the official event certificate.
+                          </p>
+                          {event.userRegistration?.github && (
+                            <small style={{ color: 'var(--brand-primary)', display: 'block', fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                              Repository: {event.userRegistration.github}
+                            </small>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{ padding: '18px', background: 'var(--panel-subtle)', border: '1.5px solid #10b98188', borderRadius: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginBottom: '10px' }}>
+                            <b style={{ color: '#10b981', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>🚀</span> 2. HACKATHON PROJECT SUBMISSION
+                            </b>
+                            <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.18)', color: '#10b981', fontSize: '9px', fontWeight: 700 }}>
+                              FORM 2 REQUIRED
+                            </span>
+                          </div>
+
+                          <p style={{ color: 'var(--text-muted)', fontSize: '11.5px', margin: '0 0 12px', lineHeight: 1.4 }}>
+                            After attending the hackathon or event, submit your final project details and the completion form below to conclude your participation.
+                          </p>
+
+                          {/* Direct Button to Open Form 2 */}
+                          <a
+                            href={completionFormUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="form-open-btn"
+                            style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', textAlign: 'center', display: 'block', marginBottom: '10px', textDecoration: 'none' }}
+                          >
+                            <span>👉</span> OPEN {isGoogleCompletionForm ? 'GOOGLE COMPLETION FORM' : 'POST-COMPLETION FORM'} ↗
+                          </a>
+
+                          <button
+                            type="button"
+                            className="outline"
+                            onClick={() => setShowEmbedCompletionForm(prev => !prev)}
+                            style={{ width: '100%', padding: '6px', fontSize: '11px', marginBottom: '12px' }}
+                          >
+                            {showEmbedCompletionForm ? '▲ Hide Inline Form' : '▼ Fill Completion Form Inline'}
+                          </button>
+
+                          {showEmbedCompletionForm && (
+                            <div className="form-embed-container" style={{ marginBottom: '12px' }}>
+                              <iframe
+                                src={getEmbeddableFormUrl(completionFormUrl)}
+                                title="Post-Completion Form"
+                                loading="lazy"
+                              />
+                            </div>
+                          )}
+
+                          {/* Project Details Inputs */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                            <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                              Project GitHub Repository URL
+                              <input
+                                type="url"
+                                placeholder="https://github.com/your-username/your-project"
+                                value={completionProjectUrl}
+                                onChange={e => setCompletionProjectUrl(e.target.value)}
+                                style={{ width: '100%', marginTop: '3px', height: '34px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '11.5px' }}
+                              />
+                            </label>
+
+                            <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                              Project Live Demo / Drive Presentation Link (Optional)
+                              <input
+                                type="url"
+                                placeholder="https://your-demo.vercel.app"
+                                value={completionDemoUrl}
+                                onChange={e => setCompletionDemoUrl(e.target.value)}
+                                style={{ width: '100%', marginTop: '3px', height: '34px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '11.5px' }}
+                              />
+                            </label>
+                          </div>
+
+                          <label className="form-ack-checkbox" style={{
+                            background: completionConfirmed ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-card)',
+                            border: completionConfirmed ? '1px solid #10b98166' : '1px solid var(--line)',
+                            marginBottom: '12px',
+                          }}>
+                            <input
+                              type="checkbox"
+                              checked={completionConfirmed}
+                              onChange={e => setCompletionConfirmed(e.target.checked)}
+                            />
+                            <div>
+                              <b style={{ color: completionConfirmed ? '#10b981' : 'var(--text-main)', display: 'block', fontSize: '11.5px' }}>
+                                I confirm I have submitted the hackathon project & completion form
+                              </b>
+                              <small style={{ color: 'var(--text-muted)', fontSize: '10.5px' }}>
+                                Tick this box once you have submitted your project on the Google Form.
+                              </small>
+                            </div>
+                          </label>
+
+                          <button
+                            type="button"
+                            className="primary"
+                            disabled={submittingCompletion || !completionConfirmed}
+                            onClick={handleSubmitCompletion}
+                            style={{ width: '100%', background: '#10b981', color: '#07121c', fontWeight: 700 }}
+                          >
+                            {submittingCompletion ? 'FINALIZING SUBMISSION…' : '✓ SUBMIT PROJECT & COMPLETE PARTICIPATION'}
+                          </button>
+
+                          {completionMessage && <p className="member-form-success" style={{ marginTop: '10px' }}>{completionMessage}</p>}
+                        </div>
+                      )}
+                    </div>
                   )}
-                  <p style={{ color: '#829bb0', fontSize: '12px', marginTop: '10px' }}>
-                    {event.userRegistration?.teamName ? `Team: ${event.userRegistration.teamName} · ` : ''}
-                    Your digital pass QR is available in your Pass Wallet.
-                  </p>
-                  <button className="outline" type="button" onClick={() => onNavigate('student-registrations')} style={{ marginTop: '12px' }}>
-                    VIEW MY PASSES →
-                  </button>
                 </div>
               ) : (
                 <div>
@@ -8107,10 +8688,127 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                           </div>
                         )}
 
+                        {/* Attendee Identity & Hackathon Details Grid (Mandatory) */}
+                        <div style={{ margin: '14px 0', padding: '14px', background: 'var(--panel-subtle)', borderRadius: '10px', border: '1px solid var(--line)' }}>
+                          <b style={{ color: 'var(--brand-primary)', fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+                            <IconSparkles size={13} /> ATTENDEE & PARTICIPANT DETAILS (REQUIRED)
+                          </b>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+                            <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                              Full Name *
+                              <input
+                                type="text"
+                                required
+                                placeholder="Enter your full name"
+                                value={fullName}
+                                onChange={e => setFullName(e.target.value)}
+                                style={{ width: '100%', marginTop: '3px', height: '34px', background: 'var(--bg-input)', border: !fullName.trim() ? '1px solid #ef444466' : '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px' }}
+                              />
+                            </label>
+
+                            <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                              Roll Number / Student ID *
+                              <input
+                                type="text"
+                                required
+                                placeholder="e.g. 25EU07R0015"
+                                value={rollNumber}
+                                onChange={e => setRollNumber(e.target.value.toUpperCase())}
+                                style={{ width: '100%', marginTop: '3px', height: '34px', background: 'var(--bg-input)', border: !rollNumber.trim() ? '1px solid #ef444466' : '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px', fontFamily: 'monospace' }}
+                              />
+                            </label>
+
+                            <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                              Contact Mobile / WhatsApp *
+                              <input
+                                type="tel"
+                                required
+                                placeholder="10-digit mobile number"
+                                value={phone}
+                                onChange={e => setPhone(e.target.value)}
+                                style={{ width: '100%', marginTop: '3px', height: '34px', background: 'var(--bg-input)', border: (!phone.trim() || phone.replace(/\D/g, '').length < 10) ? '1px solid #ef444466' : '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px' }}
+                              />
+                            </label>
+
+                            <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                              Department / Branch *
+                              <select
+                                value={department}
+                                onChange={e => setDepartment(e.target.value)}
+                                className="member-select"
+                                style={{ width: '100%', marginTop: '3px', height: '34px' }}
+                              >
+                                <option value="Cyber Security">Cyber Security</option>
+                                <option value="Computer Science (CSE)">Computer Science (CSE)</option>
+                                <option value="AI & Data Science (AI&DS)">AI & Data Science (AI&DS)</option>
+                                <option value="Information Technology (IT)">Information Technology (IT)</option>
+                                <option value="Electronics & Comm. (ECE)">Electronics & Comm. (ECE)</option>
+                                <option value="Other Engineering">Other Engineering</option>
+                              </select>
+                            </label>
+
+                            <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                              Academic Year *
+                              <select
+                                value={academicYear}
+                                onChange={e => setAcademicYear(Number(e.target.value))}
+                                className="member-select"
+                                style={{ width: '100%', marginTop: '3px', height: '34px' }}
+                              >
+                                <option value={1}>1st Year</option>
+                                <option value={2}>2nd Year</option>
+                                <option value={3}>3rd Year</option>
+                                <option value={4}>4th Year</option>
+                              </select>
+                            </label>
+
+                            <label style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                              College / Institute Name *
+                              <input
+                                type="text"
+                                required
+                                placeholder="e.g. Malla Reddy University"
+                                value={collegeName}
+                                onChange={e => setCollegeName(e.target.value)}
+                                style={{ width: '100%', marginTop: '3px', height: '34px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px' }}
+                              />
+                            </label>
+
+                            <label style={{ fontSize: '11px', color: isHackathonOrTech ? 'var(--brand-primary)' : 'var(--text-muted)', gridColumn: '1 / -1' }}>
+                              <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <span>GitHub Profile URL {isHackathonOrTech ? '*' : '(Optional)'}</span>
+                                {isHackathonOrTech && <span className="badge" style={{ fontSize: '9px', background: 'rgba(82, 187, 245, 0.2)', color: 'var(--brand-primary)' }}>REQUIRED FOR HACKATHONS</span>}
+                              </span>
+                              <input
+                                type="url"
+                                required={isHackathonOrTech}
+                                placeholder="https://github.com/your-username"
+                                value={githubUrl}
+                                onChange={e => setGithubUrl(e.target.value)}
+                                style={{ width: '100%', marginTop: '3px', height: '34px', background: 'var(--bg-input)', border: isHackathonOrTech && !githubUrl.trim() ? '1.5px solid var(--brand-primary)' : '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px', fontFamily: 'monospace' }}
+                              />
+                            </label>
+
+                            {isHackathonOrTech && (
+                              <label style={{ fontSize: '11px', color: 'var(--text-muted)', gridColumn: '1 / -1' }}>
+                                Project Domain / Technical Track
+                                <input
+                                  type="text"
+                                  placeholder="e.g. Web3, AI/ML, Cyber Defense, Full Stack Web, Cloud Security"
+                                  value={projectDomain}
+                                  onChange={e => setProjectDomain(e.target.value)}
+                                  style={{ width: '100%', marginTop: '3px', height: '34px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px' }}
+                                />
+                              </label>
+                            )}
+                          </div>
+                        </div>
+
                         {/* Attendee Logistics & Demographics */}
                         <div>
                           <b style={{ color: 'var(--brand-primary)', fontSize: '11.5px', display: 'block', marginBottom: '8px' }}>
-                            ATTENDEE DETAILS & LOGISTICS
+                            ATTENDEE LOGISTICS & EMERGENCY CONTACT
                           </b>
 
                           <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '10px', marginBottom: '10px' }}>
@@ -8216,6 +8914,21 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                               </select>
                             </div>
                           )}
+
+                          {/* Emergency Contact */}
+                          <div style={{ marginBottom: '10px' }}>
+                            <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                              Emergency Contact / Parent Mobile Number *
+                            </label>
+                            <input
+                              type="tel"
+                              required
+                              placeholder="10-digit emergency contact number"
+                              value={emergencyContact}
+                              onChange={e => setEmergencyContact(e.target.value)}
+                              style={{ width: '100%', height: '36px', background: 'var(--bg-input)', border: (!emergencyContact.trim() || emergencyContact.replace(/\D/g, '').length < 10) ? '1px solid #ef444466' : '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px' }}
+                            />
+                          </div>
                         </div>
 
                         {/* Multi-Track Sub-Activities (if any) */}
@@ -8242,13 +8955,13 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                       </div>
 
                       {/* ============================================================ */}
-                      {/* STEP 2: PAYMENT DETAILS (DISPLAYED SECOND)                   */}
+                      {/* STEP 2: PAYMENT DETAILS & MONEY QR (DISPLAYED SECOND)        */}
                       {/* ============================================================ */}
                       {event.requiresPayment ? (
                         <div className="registration-step-card">
                           <div className="step-card-header">
                             <h4 className="step-title">
-                              <span>💳</span> 2. PAYMENT DETAILS & UPI
+                              <span>💳</span> 2. PAYMENT DETAILS & MONEY QR
                             </h4>
                             <span className="step-badge">STEP 2</span>
                           </div>
@@ -8258,30 +8971,48 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                             <span>₹{totalPrice.toFixed(2)}</span>
                           </div>
 
-                          {event.paymentQrUrl && (
-                            <div style={{ textAlign: 'center', margin: '14px 0' }}>
-                              <img src={event.paymentQrUrl} alt="Payment QR" style={{ maxWidth: '150px', borderRadius: '8px', border: '1px solid var(--line)', background: '#fff', padding: '6px' }} />
-                              {event.paymentUpiId && (
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '8px' }}>
-                                  <span style={{ color: 'var(--brand-primary)', fontSize: '12px', fontWeight: 600 }}>
-                                    UPI ID: {event.paymentUpiId}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    className="outline"
-                                    onClick={() => {
-                                      navigator.clipboard?.writeText(event.paymentUpiId)
-                                      setCopiedUpi(true)
-                                      setTimeout(() => setCopiedUpi(false), 2000)
-                                    }}
-                                    style={{ padding: '2px 8px', fontSize: '10px' }}
-                                  >
-                                    {copiedUpi ? '✓ Copied' : 'Copy'}
-                                  </button>
-                                </div>
-                              )}
+                          {/* Guaranteed High-Visibility Money QR Code */}
+                          <div style={{
+                            textAlign: 'center',
+                            margin: '14px 0',
+                            padding: '16px',
+                            background: '#ffffff',
+                            borderRadius: '12px',
+                            border: '2px solid var(--brand-primary)',
+                            boxShadow: '0 6px 20px rgba(0,0,0,0.3)',
+                          }}>
+                            <b style={{ color: '#07121c', fontSize: '12.5px', display: 'block', marginBottom: '8px', letterSpacing: '0.4px', fontWeight: 800 }}>
+                              SCAN MONEY QR TO PAY VIA ANY UPI APP
+                            </b>
+                            <div style={{ display: 'inline-block', padding: '6px', background: '#fff', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                              <img
+                                src={event.paymentQrUrl || `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`upi://pay?pa=${event.paymentUpiId || 'club@upi'}&pn=CyberSecurityClub&am=${totalPrice}&cu=INR`)}`}
+                                alt="Money QR Code"
+                                style={{ maxWidth: '170px', height: 'auto', display: 'block', margin: '0 auto' }}
+                              />
                             </div>
-                          )}
+                            {event.paymentUpiId && (
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '10px' }}>
+                                <span style={{ color: '#07121c', fontSize: '13px', fontWeight: 700, fontFamily: 'monospace' }}>
+                                  UPI: {event.paymentUpiId}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard?.writeText(event.paymentUpiId)
+                                    setCopiedUpi(true)
+                                    setTimeout(() => setCopiedUpi(false), 2000)
+                                  }}
+                                  style={{ padding: '3px 10px', fontSize: '10.5px', background: 'var(--brand-primary)', color: '#07121c', fontWeight: 700, borderRadius: '4px', border: 'none', cursor: 'pointer' }}
+                                >
+                                  {copiedUpi ? '✓ COPIED' : '📋 COPY UPI ID'}
+                                </button>
+                              </div>
+                            )}
+                            <small style={{ color: '#64748b', fontSize: '11px', display: 'block', marginTop: '6px' }}>
+                              Scan via Google Pay, PhonePe, Paytm, BHIM, Cred, or any Banking App
+                            </small>
+                          </div>
 
                           {event.paymentInstructions && (
                             <p style={{ margin: '8px 0', padding: '8px 10px', background: 'var(--bg-card)', borderRadius: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
@@ -8289,15 +9020,15 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                             </p>
                           )}
 
-                          <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', marginTop: '10px' }}>
+                          <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-main)', fontWeight: 600, marginBottom: '4px', marginTop: '10px' }}>
                             12-Digit UPI Reference / UTR Number *
                           </label>
                           <input
                             required
                             value={paymentReference}
-                            onChange={e => setPaymentReference(e.target.value)}
-                            placeholder="e.g. 523412984512 (from PhonePe / GPay / Paytm)"
-                            style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px' }}
+                            onChange={e => setPaymentReference(e.target.value.replace(/\s+/g, ''))}
+                            placeholder="e.g. 523412984512 (from PhonePe / GPay / Paytm receipt)"
+                            style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: paymentReference.length >= 10 ? '1.5px solid #10b981' : '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12.5px', fontFamily: 'monospace', letterSpacing: '1px' }}
                           />
                           <small style={{ display: 'block', marginTop: '4px', color: 'var(--text-muted)', fontSize: '10.5px' }}>
                             Required for attendance pass activation. Checked against bank statement.
@@ -8327,6 +9058,9 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                           <span style={{ color: !formUrl || formAcknowledged ? '#10b981' : '#f59e0b', display: 'flex', alignItems: 'center', gap: '6px' }}>
                             {!formUrl || formAcknowledged ? '✓' : '○'} Registration Form: {!formUrl ? 'Ready' : formAcknowledged ? 'Completed & Confirmed' : 'Complete Step 1 Above'}
                           </span>
+                          <span style={{ color: fullName.trim() && rollNumber.trim() && phone.trim() && department.trim() && (!isHackathonOrTech || githubUrl.trim()) ? '#10b981' : '#f59e0b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {fullName.trim() && rollNumber.trim() && phone.trim() && department.trim() && (!isHackathonOrTech || githubUrl.trim()) ? '✓' : '○'} Attendee Details: {fullName.trim() && rollNumber.trim() && phone.trim() && department.trim() && (!isHackathonOrTech || githubUrl.trim()) ? 'All Required Details Filled' : 'Fill Required Fields in Step 1'}
+                          </span>
                           {event.requiresPayment && (
                             <span style={{ color: paymentReference.trim() ? '#10b981' : '#f59e0b', display: 'flex', alignItems: 'center', gap: '6px' }}>
                               {paymentReference.trim() ? '✓' : '○'} Payment: {paymentReference.trim() ? 'UTR Reference Entered' : 'Enter 12-Digit UTR in Step 2'}
@@ -8342,7 +9076,18 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                         <button
                           className="primary"
                           type="submit"
-                          disabled={submitting || (event.isTeamEvent && !isLeader)}
+                          disabled={
+                            submitting ||
+                            (event.isTeamEvent && !isLeader) ||
+                            (formUrl && !formAcknowledged) ||
+                            !fullName.trim() ||
+                            !rollNumber.trim() ||
+                            !phone.trim() ||
+                            !department.trim() ||
+                            (isHackathonOrTech && !githubUrl.trim()) ||
+                            (!emergencyContact.trim() || emergencyContact.replace(/\D/g, '').length < 10) ||
+                            (event.requiresPayment && !paymentReference.trim())
+                          }
                           style={{
                             width: '100%',
                             minHeight: '46px',

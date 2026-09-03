@@ -8,7 +8,7 @@ export function getOpenApiDocument() {
       schemas: { Error: { type: 'object', properties: { message: { type: 'string' }, errorId: { type: 'string' } } } },
     },
     paths: {
-      '/health': { get: { summary: 'Database health check', responses: { 200: { description: 'Healthy' }, 503: { description: 'Database unavailable' } } } },
+      '/health': { get: { summary: 'Service health status', responses: { 200: { description: 'Healthy' }, 503: { description: 'Service unavailable' } } } },
       '/auth/csrf': { get: { summary: 'Issue a CSRF token', responses: { 200: { description: 'CSRF token' } } } },
       '/auth/login': { post: { summary: 'Password login', responses: { 200: { description: 'Authenticated or MFA required' }, 401: { description: 'Invalid credentials' }, 429: { description: 'Rate limited' } } } },
       '/auth/verify-2fa': { post: { summary: 'Complete MFA login', responses: { 200: { description: 'Authenticated' }, 401: { description: 'Invalid code' } } } },

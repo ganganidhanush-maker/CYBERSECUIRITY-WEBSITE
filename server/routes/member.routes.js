@@ -27,6 +27,7 @@ import {
   respondTeamInvite,
   removeTeamMember,
   listMyTeamInvites,
+  submitEventCompletion,
 } from '../controllers/member.controller.js'
 import {
   scanQrCode,
@@ -65,6 +66,7 @@ memberRouter.post('/subscription/submit', submitStudentSubscription)
 memberRouter.get('/events', requirePermission('EVENTS_VIEW'), listPublishedEvents)
 memberRouter.get('/events/:eventId', requirePermission('EVENTS_VIEW'), getEventDetails)
 memberRouter.post('/events/:eventId/register', requirePermission('EVENT_REGISTER'), requireActiveSubscription, registerForEvent)
+memberRouter.post('/events/:eventId/submit-completion', requirePermission('EVENT_REGISTER'), submitEventCompletion)
 memberRouter.get('/registrations', requirePermission('REGISTRATIONS_VIEW'), listMyRegistrations)
 
 // Team Participation & Formation
