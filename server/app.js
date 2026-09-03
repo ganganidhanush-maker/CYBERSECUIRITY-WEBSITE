@@ -1,4 +1,5 @@
 import cors from 'cors'
+import compression from 'compression'
 import express from 'express'
 import helmet from 'helmet'
 import path from 'node:path'
@@ -34,7 +35,17 @@ export function createApp() {
   const app = express()
   if (env.isProduction) app.set('trust proxy', 1)
   app.disable('x-powered-by')
+  app.use(compression({ threshold: 1024 }))
   app.use(requestContext)
+  // Prevent connection hanging on slow networks: 30s timeout guard for APIs
+  app.use('/api', (request, response, next) => {
+    request.setTimeout(30_000, () => {
+      if (!response.headersSent) {
+        response.status(504).json({ error: 'GATEWAY_TIMEOUT', message: 'Request timed out due to slow network.' })
+      }
+    })
+    next()
+  })
   app.use(helmet({
     contentSecurityPolicy: {
       directives: {
@@ -83,7 +94,22 @@ export function createApp() {
 
   if (env.isProduction) {
     const distDirectory = path.join(workspaceRoot, 'dist')
-    app.use(express.static(distDirectory, { index: false, maxAge: '1h', etag: true }))
+    // Immutable 1-year caching for hashed JS/CSS assets (loads instantly on slow internet from browser cache)
+    app.use('/assets', express.static(path.join(distDirectory, 'assets'), {
+      maxAge: '1y',
+      immutable: true,
+      etag: true,
+    }))
+    app.use(express.static(distDirectory, {
+      index: false,
+      maxAge: '1h',
+      etag: true,
+      setHeaders(response, filePath) {
+        if (filePath.endsWith('.html')) {
+          response.setHeader('Cache-Control', 'no-cache, must-revalidate')
+        }
+      },
+    }))
     app.use((request, response, next) => {
       if (request.method !== 'GET' || request.path.startsWith('/api/')) return next()
       response.sendFile(path.join(distDirectory, 'index.html'))

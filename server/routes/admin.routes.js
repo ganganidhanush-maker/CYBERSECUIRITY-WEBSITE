@@ -73,7 +73,7 @@ import {
   requireReelsManager,
   requireRole,
 } from '../middleware/auth.js'
-import { adminWriteRateLimiter, authenticatedRateLimiter } from '../middleware/rate-limit.js'
+import { adminWriteRateLimiter, authenticatedRateLimiter, scannerRateLimiter } from '../middleware/rate-limit.js'
 import { validateUserIdParam } from '../middleware/validate.js'
 import { asyncHandler } from '../utils/async-handler.js'
 
@@ -171,6 +171,6 @@ adminRouter.post('/audit-logs/clear', requirePrimaryPresident, adminWriteRateLim
 adminRouter.post('/database/export-sql', requireAuth, requirePrimaryPresident, adminWriteRateLimiter, asyncHandler(exportDatabaseSql))
 
 // QR Code Scanner & Event Entry Gate (Admins & Coordinators)
-adminRouter.get('/qr/scan', asyncHandler(scanQrCode))
-adminRouter.post('/qr/scan', asyncHandler(scanQrCode))
-adminRouter.post('/qr/grant-entry', adminWriteRateLimiter, asyncHandler(grantEventEntry))
+adminRouter.get('/qr/scan', scannerRateLimiter, asyncHandler(scanQrCode))
+adminRouter.post('/qr/scan', scannerRateLimiter, asyncHandler(scanQrCode))
+adminRouter.post('/qr/grant-entry', scannerRateLimiter, asyncHandler(grantEventEntry))

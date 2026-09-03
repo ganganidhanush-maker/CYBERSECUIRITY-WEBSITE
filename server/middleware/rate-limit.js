@@ -46,3 +46,11 @@ export const adminWriteRateLimiter = rateLimit({
   ...standard,
   message: { message: 'Too many administrative changes. Please try again shortly.' },
 })
+
+export const scannerRateLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 600, // 10 scans per second for high-traffic gate entry with no hanging
+  keyGenerator: request => request.user?.id || request.ip,
+  ...standard,
+  message: { message: 'High scanner traffic detected. Please wait a moment.' },
+})

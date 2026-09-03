@@ -1,5 +1,41 @@
 let currentCsrfToken = null
 
+async function fetchWithTimeoutAndRetry(url, fetchOptions, retries = 1, timeoutMs = 20000) {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+    try {
+      const response = await fetch(url, {
+        ...fetchOptions,
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+      return response
+    } catch (err) {
+      clearTimeout(timeoutId)
+      const isAbort = err.name === 'AbortError'
+      const isNetworkError = err instanceof TypeError || isAbort
+      const isIdempotent = !fetchOptions.method || fetchOptions.method === 'GET'
+      // Automatically retry idempotent GET requests when on slow or flaky mobile network
+      if (isNetworkError && isIdempotent && attempt < retries) {
+        await new Promise(res => setTimeout(res, 500 * (attempt + 1)))
+        continue
+      }
+      if (isAbort) {
+        const timeoutError = new Error('Slow internet connection: The request timed out. Please retry.')
+        timeoutError.isTimeout = true
+        throw timeoutError
+      }
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        const offlineError = new Error('Internet disconnected: You are currently offline.')
+        offlineError.isOffline = true
+        throw offlineError
+      }
+      throw err
+    }
+  }
+}
+
 async function request(path, options = {}) {
   const headers = new Headers(options.headers || {})
   headers.set('X-Requested-With', 'XMLHttpRequest')
@@ -10,11 +46,17 @@ async function request(path, options = {}) {
     headers.set('Content-Type', 'application/json')
   }
 
-  const response = await fetch(`/api${path}`, {
-    ...options,
-    headers,
-    credentials: 'same-origin',
-  })
+  const isGet = !options.method || options.method === 'GET'
+  const response = await fetchWithTimeoutAndRetry(
+    `/api${path}`,
+    {
+      ...options,
+      headers,
+      credentials: 'same-origin',
+    },
+    isGet ? 1 : 0, // Auto-retry once on GET requests for weak mobile connections
+    options.timeoutMs || 22000
+  )
 
   if (response.status === 204) return {}
 

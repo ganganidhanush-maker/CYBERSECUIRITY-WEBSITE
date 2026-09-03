@@ -58,6 +58,11 @@ const app = createApp()
 const auditRetentionTimer = startAuditRetentionJob()
 const inactivityMonitorTimer = startInactivityMonitorJob()
 const server = app.listen(env.port, () => console.log(`CSC API listening on port ${env.port}`))
+// High-concurrency socket & keep-alive tuning to prevent connection hangs under sudden load
+server.keepAliveTimeout = 65000
+server.headersTimeout = 66000
+server.requestTimeout = 30000
+
 const sockets = new Set()
 let shuttingDown = false
 

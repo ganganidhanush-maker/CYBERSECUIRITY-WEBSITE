@@ -12926,8 +12926,23 @@ function StudentEvents({ user, logout, onNavigate }) {
 function StudentRegistrations({ user, logout, onNavigate }) {
   const { platformMode } = usePlatformTheme()
   const isMrdu = platformMode === 'MRDU_EVENTS'
-  const [registrations, setRegistrations] = useState([])
-  const [loading, setLoading] = useState(true)
+  const cacheKey = `csc_passes_cache_${user?.id || 'guest'}`
+  const [isOfflineCached, setIsOfflineCached] = useState(false)
+  const [registrations, setRegistrations] = useState(() => {
+    try {
+      const cached = localStorage.getItem(cacheKey)
+      if (cached) return JSON.parse(cached)
+    } catch {}
+    return []
+  })
+  const [loading, setLoading] = useState(() => {
+    try {
+      const cached = localStorage.getItem(cacheKey)
+      return !cached || JSON.parse(cached).length === 0
+    } catch {
+      return true
+    }
+  })
   const [selectedPass, setSelectedPass] = useState(null)
   const [copiedId, setCopiedId] = useState(false)
 
@@ -12938,6 +12953,10 @@ function StudentRegistrations({ user, logout, onNavigate }) {
         if (!mounted) return
         const regList = list || []
         setRegistrations(regList)
+        setIsOfflineCached(false)
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(regList))
+        } catch {}
         const params = new URLSearchParams(window.location.search)
         const targetId = params.get('passId') || params.get('id')
         if (targetId) {
@@ -12945,10 +12964,20 @@ function StudentRegistrations({ user, logout, onNavigate }) {
           if (match) setSelectedPass(match)
         }
       })
-      .catch(() => { if (mounted) setRegistrations([]) })
+      .catch(() => {
+        if (!mounted) return
+        try {
+          const cached = localStorage.getItem(cacheKey)
+          if (cached && JSON.parse(cached).length > 0) {
+            setIsOfflineCached(true)
+            return
+          }
+        } catch {}
+        setRegistrations([])
+      })
       .finally(() => { if (mounted) setLoading(false) })
     return () => { mounted = false }
-  }, [])
+  }, [cacheKey])
 
   function handleCopyPassId(id) {
     if (!id) return
@@ -12973,6 +13002,13 @@ function StudentRegistrations({ user, logout, onNavigate }) {
             <p>{isMrdu ? 'Your confirmed attendance passes and digital entrance verification for all MRDU events.' : 'Your confirmed attendance records and entry passes for all club sessions.'}</p>
           </div>
         </div>
+
+        {isOfflineCached && (
+          <div style={{ background: 'rgba(16, 185, 129, 0.12)', border: '1px solid #10b981', borderRadius: '10px', padding: '10px 16px', margin: '16px 0', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#10b981' }}>
+            <span>⚡</span>
+            <span><strong>Offline / Low-Network Mode:</strong> Your event passes and entrance QR codes are safely loaded from device cache. They can be scanned at the venue gate even without internet.</span>
+          </div>
+        )}
 
         {loading ? (
           <p className="directory-state">Loading your passes...</p>
