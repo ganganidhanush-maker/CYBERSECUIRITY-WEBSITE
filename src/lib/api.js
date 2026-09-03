@@ -166,6 +166,7 @@ export const adminApi = {
   editMember: (id, member) => request(`/admin/members/${id}`, { method: 'PUT', body: JSON.stringify(member) }),
   updateMemberPermissions: (id, permissions) => request(`/admin/members/${id}/permissions`, { method: 'PUT', body: JSON.stringify({ permissions }) }),
   updateMemberStatus: (id, accountStatus) => request(`/admin/members/${id}/status`, { method: 'PUT', body: JSON.stringify({ accountStatus }) }),
+  activateAllAccounts: () => request('/admin/members/activate-all', { method: 'POST' }),
   deleteMember: id => request(`/admin/members/${id}`, { method: 'DELETE' }),
   adminResetPassword: (id, newPassword) => request(`/admin/members/${id}/reset-password`, { method: 'POST', body: JSON.stringify({ newPassword, password: newPassword }) }),
   disableMemberTwoFactor: id => request(`/admin/members/${id}/disable-2fa`, { method: 'POST' }),

@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import {
+  activateAllAccounts,
   addGalleryPhoto,
   adminResetPassword,
   bulkCreateMembers,
@@ -90,6 +91,7 @@ adminRouter.post('/members/bulk', requirePermission('ACCOUNT_MANAGEMENT'), admin
 adminRouter.put('/members/:id', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, validateUserIdParam, asyncHandler(editMember))
 adminRouter.delete('/members/:id', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, validateUserIdParam, asyncHandler(deleteMember))
 adminRouter.put('/members/:id/status', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, validateUserIdParam, asyncHandler(changeAccountStatus))
+adminRouter.post('/members/activate-all', requireRole('PRESIDENT', 'STUDENT_COORDINATOR', 'ADMIN'), adminWriteRateLimiter, asyncHandler(activateAllAccounts))
 adminRouter.put('/members/:id/permissions', requireRole('PRESIDENT', 'STUDENT_COORDINATOR', 'ADMIN'), adminWriteRateLimiter, validateUserIdParam, asyncHandler(changeMemberPermissions))
 adminRouter.post('/members/:id/reset-password', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, validateUserIdParam, asyncHandler(adminResetPassword))
 adminRouter.post('/members/:id/disable-2fa', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, validateUserIdParam, asyncHandler(disableMemberTwoFactor))

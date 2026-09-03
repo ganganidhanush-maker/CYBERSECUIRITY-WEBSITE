@@ -81,35 +81,7 @@ export async function login(request, response) {
     return response.status(401).json(invalidCredentials)
   }
 
-  // 1. Auto-disable check for accounts inactive for > 3 days (72 hours)
-  // Primary President is protected from auto-disabling
-  if (!user.isPrimaryAdmin && user.accountStatus === 'ACTIVE') {
-    const lastActive = user.lastLogin || user.createdAt
-    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000
-    const inactiveDurationMs = Date.now() - new Date(lastActive).getTime()
-
-    if (inactiveDurationMs > THREE_DAYS_MS) {
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { accountStatus: 'DISABLED' },
-      })
-      user.accountStatus = 'DISABLED'
-      await tryWriteAuditLog({
-        actorUserId: user.id,
-        action: 'ACCOUNT_AUTO_DISABLED_INACTIVITY',
-        metadata: {
-          memberId: user.memberId,
-          name: user.profile?.name || user.name,
-          reason: 'INACTIVE_OVER_3_DAYS',
-          daysInactive: Math.floor(inactiveDurationMs / (24 * 60 * 60 * 1000)),
-          lastActiveAt: lastActive,
-        },
-        ...auditRequest(request),
-      })
-    }
-  }
-
-  // 2. Specific Disabled Account Check
+  // Account Disabled Check (manual admin disables only - no auto-disabling for inactivity)
   if (user.accountStatus !== 'ACTIVE') {
     await tryWriteAuditLog({
       actorUserId: user.id,
@@ -120,7 +92,7 @@ export async function login(request, response) {
     return response.status(403).json({
       error: 'ACCOUNT_DISABLED',
       code: 'ACCOUNT_DISABLED',
-      message: 'Account Disabled: Your account is disabled due to inactivity (no login for over 3 days) or administrative policy. You cannot log in without Technical Team permission. Please contact the Cyber Security Club Technical Team / Helpdesk to request account reactivation.',
+      message: 'Account Disabled: Your account is currently disabled. Please contact the Cyber Security Club Coordinator or President to reactivate your account.',
     })
   }
 

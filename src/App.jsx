@@ -3628,6 +3628,24 @@ function MemberManagement({ user, logout, onNavigate }) {
     }
   }
 
+  const [activatingAll, setActivatingAll] = useState(false)
+  const disabledCount = useMemo(() => members.filter(m => m.accountStatus !== 'ACTIVE').length, [members])
+
+  async function handleActivateAllAccounts() {
+    setActivatingAll(true)
+    setMessage('')
+    setError('')
+    try {
+      const res = await adminApi.activateAllAccounts()
+      setMembers(c => c.map(m => ({ ...m, accountStatus: 'ACTIVE' })))
+      setMessage(res.message || '✓ All accounts have been activated successfully!')
+    } catch (err) {
+      setError(err.message || 'Failed to activate accounts.')
+    } finally {
+      setActivatingAll(false)
+    }
+  }
+
   async function handleDisable2FA(member) {
     if (!confirm(`Are you sure you want to disable 2FA for ${member.name} (${member.memberId})?`)) return
     try {
@@ -3782,6 +3800,26 @@ function MemberManagement({ user, logout, onNavigate }) {
               title="Download member roster as CSV"
             >
               <IconDownload size={13} /> Export Roster CSV
+            </button>
+            <button
+              type="button"
+              className="primary"
+              onClick={handleActivateAllAccounts}
+              disabled={activatingAll}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                fontSize: '11px',
+                padding: '7px 14px',
+                background: disabledCount > 0 ? '#10b981' : 'rgba(16, 185, 129, 0.15)',
+                borderColor: '#10b981',
+                color: disabledCount > 0 ? '#fff' : '#10b981',
+                fontWeight: 700,
+              }}
+              title="Activate all member accounts immediately in 1 click"
+            >
+              ⚡ {activatingAll ? 'ACTIVATING ALL…' : disabledCount > 0 ? `ACTIVATE ALL (${disabledCount} DISABLED)` : 'ACTIVATE ALL ACCOUNTS'}
             </button>
             {(user.role === 'STUDENT_COORDINATOR' || user.isPrimaryAdmin || user.role === 'PRESIDENT') && (
               <button
@@ -4794,6 +4832,23 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
     }
   }
 
+  const [activatingAll, setActivatingAll] = useState(false)
+
+  async function handleActivateAll() {
+    setActivatingAll(true)
+    setMessage('')
+    setError('')
+    try {
+      const res = await adminApi.activateAllAccounts()
+      setMembers(prev => prev.map(m => ({ ...m, accountStatus: 'ACTIVE' })))
+      setMessage(res.message || '✓ All accounts have been activated successfully!')
+    } catch (err) {
+      setError(err.message || 'Failed to activate accounts.')
+    } finally {
+      setActivatingAll(false)
+    }
+  }
+
   const scannerCount = leaders.filter(l => getLeaderPerms(l).includes('QR_PASSES_VIEW')).length
   const eventCount = leaders.filter(l => getLeaderPerms(l).includes('EVENT_MANAGE')).length
   const financeCount = leaders.filter(l => getLeaderPerms(l).includes('PAYMENTS_VERIFY')).length
@@ -4814,6 +4869,23 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
             <p>Directly manage operational permissions and delegate squad roles across all club leaders.</p>
           </div>
           <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="primary"
+              onClick={handleActivateAll}
+              disabled={activatingAll}
+              style={{
+                fontSize: '11px',
+                padding: '7px 14px',
+                background: '#10b981',
+                borderColor: '#059669',
+                color: '#fff',
+                fontWeight: 700,
+              }}
+              title="Activate all club accounts immediately in 1 click"
+            >
+              ⚡ {activatingAll ? 'ACTIVATING ALL…' : 'ACTIVATE ALL ACCOUNTS'}
+            </button>
             <button
               type="button"
               className="outline"

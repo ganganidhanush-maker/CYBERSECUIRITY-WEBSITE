@@ -275,6 +275,32 @@ export async function changeAccountStatus(request, response) {
   return response.status(200).json({ user: flattenMember(user, platformMode) })
 }
 
+export async function activateAllAccounts(request, response) {
+  const result = await prisma.user.updateMany({
+    where: { accountStatus: { not: 'ACTIVE' } },
+    data: { accountStatus: 'ACTIVE' },
+  })
+
+  await tryWriteAuditLog({
+    actorUserId: request.user.id,
+    action: 'ALL_ACCOUNTS_ACTIVATED',
+    metadata: {
+      activatedCount: result.count,
+      activatedBy: request.user.memberId,
+      role: request.user.role,
+    },
+    ...auditRequest(request),
+  })
+
+  return response.status(200).json({
+    success: true,
+    message: result.count > 0
+      ? `Successfully activated ${result.count} account(s). All member accounts are now ACTIVE.`
+      : 'All member accounts are already ACTIVE.',
+    activatedCount: result.count,
+  })
+}
+
 export async function changeMemberPermissions(request, response) {
   const parsed = memberPermissionsSchema.safeParse(request.body)
   if (!parsed.success) return response.status(400).json({ message: 'Choose at least one valid permission.' })
