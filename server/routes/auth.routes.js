@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { changePassword, confirmTwoFactorSetup, disableTwoFactor, login, logout, logoutAllDevices, me, requestPasswordReset, resetPassword, startTwoFactorSetup, verifyTwoFactorLogin } from '../controllers/auth.controller.js'
+import { changePassword, confirmTwoFactorSetup, disableTwoFactor, login, logout, logoutAllDevices, me, requestPasswordReset, resetPassword, startTwoFactorSetup, switchAccount, switchBackToAdmin, verifyTwoFactorLogin } from '../controllers/auth.controller.js'
 import { registerGuestAccount } from '../controllers/guest.controller.js'
 import { getPublicClubSettings } from '../controllers/member.controller.js'
 import { csrfToken } from '../middleware/csrf.js'
@@ -22,3 +22,5 @@ authRouter.post('/two-factor/setup', requireAuth, asyncHandler(startTwoFactorSet
 authRouter.post('/two-factor/confirm', requireAuth, asyncHandler(confirmTwoFactorSetup))
 authRouter.post('/two-factor/disable', requireAuth, asyncHandler(disableTwoFactor))
 authRouter.get('/me', requireAuth, me)
+authRouter.post('/switch-account/:id', requireAuth, asyncHandler(switchAccount))
+authRouter.post('/switch-back', requireAuth, asyncHandler(switchBackToAdmin))

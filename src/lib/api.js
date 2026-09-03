@@ -198,6 +198,8 @@ export const authApi = {
   disableTwoFactor: (password, code) => request('/auth/two-factor/disable', { method: 'POST', body: JSON.stringify({ password, code }) }),
   changePassword: (currentPassword, newPassword) => request('/auth/change-password', { method: 'POST', body: JSON.stringify({ currentPassword, newPassword }) }),
   logoutAllSessions: () => request('/auth/logout-all-devices', { method: 'POST' }),
+  switchAccount: targetId => request(`/auth/switch-account/${targetId}`, { method: 'POST' }),
+  switchBack: () => request('/auth/switch-back', { method: 'POST' }),
 }
 
 export const adminApi = {

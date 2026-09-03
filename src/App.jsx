@@ -24,6 +24,8 @@ export const PlatformThemeContext = createContext({
   reelsEnabled: true,
   subEnabled: false,
   onSwitchPersonaRole: () => {},
+  onSwitchAccount: async () => {},
+  onSwitchBackToAdmin: async () => {},
 })
 
 export function usePlatformTheme() {
@@ -556,6 +558,8 @@ function toPortalUser(user) {
     permissions: user.permissions || [],
     twoFactorEnabled: user.twoFactorEnabled || false,
     profile: user.profile || {},
+    isImpersonating: Boolean(user.isImpersonating),
+    originalAdmin: user.originalAdmin || null,
   }
 }
 
@@ -1316,7 +1320,10 @@ function Sidebar({ user, logout, activeTab, onNavigate, isOpen, onClose }) {
 }
 
 function RolePersonaSwitcher({ user, onSwitchRole, onNavigate }) {
+  const { onSwitchAccount, onSwitchBackToAdmin } = usePlatformTheme()
   const [open, setOpen] = useState(false)
+  const [targetInput, setTargetInput] = useState('')
+  const [switching, setSwitching] = useState(false)
   const dropdownRef = useRef(null)
 
   const activePersona = PERSONA_ROLES.find(r => r.id === user.role) || {
@@ -1338,6 +1345,19 @@ function RolePersonaSwitcher({ user, onSwitchRole, onNavigate }) {
     }
   }, [open])
 
+  async function handleFastSwitch(memberId) {
+    if (!memberId || !memberId.trim()) return
+    setSwitching(true)
+    try {
+      if (onSwitchAccount) await onSwitchAccount(memberId.trim())
+      setOpen(false)
+      setTargetInput('')
+    } catch {
+    } finally {
+      setSwitching(false)
+    }
+  }
+
   return (
     <div className="role-persona-switcher-container" ref={dropdownRef}>
       <button
@@ -1346,14 +1366,18 @@ function RolePersonaSwitcher({ user, onSwitchRole, onNavigate }) {
         onClick={() => setOpen(o => !o)}
         aria-expanded={open}
         aria-haspopup="listbox"
-        title="Click to switch between club roles and student view"
+        title="Click to switch between club roles or switch accounts"
+        style={{
+          border: user.isImpersonating ? '1.5px solid #f59e0b' : undefined,
+          background: user.isImpersonating ? 'rgba(245, 158, 11, 0.15)' : undefined,
+        }}
       >
-        <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--brand-primary)', fontFamily: '"DM Mono", monospace' }}>
-          SWITCH ROLE:
+        <span style={{ fontSize: '10px', fontWeight: 800, color: user.isImpersonating ? '#f59e0b' : 'var(--brand-primary)', fontFamily: '"DM Mono", monospace' }}>
+          {user.isImpersonating ? 'SWITCHED:' : 'SWITCH:'}
         </span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
           <span style={{ fontSize: '13px' }}>{activePersona.emoji}</span>
-          <span style={{ color: 'var(--text-main)' }}>{activePersona.label}</span>
+          <span style={{ color: 'var(--text-main)' }}>{user.name?.split(' ')[0] || activePersona.label}</span>
         </span>
         <span style={{ fontSize: '9px', opacity: 0.7, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }}>
           ▼
@@ -1361,9 +1385,101 @@ function RolePersonaSwitcher({ user, onSwitchRole, onNavigate }) {
       </button>
 
       {open && (
-        <div className="role-persona-dropdown-menu" role="listbox">
-          <div style={{ padding: '6px 8px 4px', fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.5px', textTransform: 'uppercase', borderBottom: '1px solid var(--line)', marginBottom: '4px' }}>
-            Switch Active Persona
+        <div className="role-persona-dropdown-menu" role="listbox" style={{ width: '290px', maxHeight: '460px' }}>
+          {user.isImpersonating && (
+            <div style={{ padding: '6px', marginBottom: '8px', background: 'rgba(245, 158, 11, 0.15)', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.4)' }}>
+              <div style={{ fontSize: '10px', color: '#fef08a', fontWeight: 700, marginBottom: '4px' }}>
+                ⇄ Switched from: {user.originalAdmin?.name || 'Admin'}
+              </div>
+              <button
+                type="button"
+                onClick={async () => {
+                  setOpen(false)
+                  if (onSwitchBackToAdmin) await onSwitchBackToAdmin()
+                }}
+                style={{
+                  width: '100%',
+                  padding: '6px 10px',
+                  background: '#f59e0b',
+                  color: '#000',
+                  fontWeight: 800,
+                  borderRadius: '5px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '11px',
+                }}
+              >
+                ⇄ SWITCH BACK TO ADMIN
+              </button>
+            </div>
+          )}
+
+          <div style={{ padding: '4px 8px', fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.5px', textTransform: 'uppercase', borderBottom: '1px solid var(--line)', marginBottom: '6px' }}>
+            Switch Account
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', padding: '0 4px 8px' }}>
+            <button
+              type="button"
+              disabled={switching}
+              onClick={() => handleFastSwitch('25EU07R0015')}
+              style={{
+                padding: '6px 8px',
+                borderRadius: '6px',
+                border: '1px solid var(--line)',
+                background: 'var(--bg-input)',
+                color: 'var(--text-main)',
+                fontSize: '10.5px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+              title="Switch to Primary President (25EU07R0015)"
+            >
+              👑 President<br/>
+              <small style={{ color: 'var(--brand-primary)', fontFamily: 'monospace', fontSize: '9.5px' }}>25EU07R0015</small>
+            </button>
+
+            <button
+              type="button"
+              disabled={switching}
+              onClick={() => handleFastSwitch('25EU07R0016')}
+              style={{
+                padding: '6px 8px',
+                borderRadius: '6px',
+                border: '1px solid var(--line)',
+                background: 'var(--bg-input)',
+                color: 'var(--text-main)',
+                fontSize: '10.5px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+              title="Switch to Student Coordinator (25EU07R0016)"
+            >
+              🎓 Coordinator<br/>
+              <small style={{ color: 'var(--brand-primary)', fontFamily: 'monospace', fontSize: '9.5px' }}>25EU07R0016</small>
+            </button>
+          </div>
+
+          <form onSubmit={e => { e.preventDefault(); handleFastSwitch(targetInput) }} style={{ display: 'flex', gap: '4px', padding: '0 4px 8px', borderBottom: '1px solid var(--line)' }}>
+            <input
+              type="text"
+              placeholder="Roll No or Member ID"
+              value={targetInput}
+              onChange={e => setTargetInput(e.target.value.toUpperCase())}
+              style={{ flex: 1, height: '28px', padding: '0 8px', fontSize: '11px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '4px', color: 'var(--text-main)', fontFamily: 'monospace' }}
+            />
+            <button
+              type="submit"
+              disabled={switching || !targetInput.trim()}
+              style={{ height: '28px', padding: '0 10px', fontSize: '11px', fontWeight: 800, background: 'var(--brand-primary)', color: '#000', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+            >
+              {switching ? '…' : '⇄ Go'}
+            </button>
+          </form>
+
+          <div style={{ padding: '6px 8px 4px', fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '4px' }}>
+            Switch Role Persona
           </div>
           {PERSONA_ROLES.map(r => {
             const isSelected = r.id === user.role
@@ -1378,7 +1494,7 @@ function RolePersonaSwitcher({ user, onSwitchRole, onNavigate }) {
                   setOpen(false)
                   if (onSwitchRole) onSwitchRole(r.id)
                   if (onNavigate) {
-                    onNavigate(r.id === 'STUDENT' ? 'student-dashboard' : 'admin-dashboard')
+                    onNavigate(r.id === 'STUDENT' ? 'student-dashboard' : (r.id === 'STUDENT_COORDINATOR' ? 'admin-coordinator' : 'admin-dashboard'))
                   }
                 }}
               >
@@ -3261,8 +3377,15 @@ function AccountSecurity({ user, logout, onNavigate }) {
 // Member Management & Leadership Directory
 // ----------------------------------------------------
 function MemberManagement({ user, logout, onNavigate }) {
-  const { platformMode } = usePlatformTheme()
+  const { platformMode, onSwitchAccount } = usePlatformTheme()
   const isMrdu = platformMode === 'MRDU_EVENTS'
+
+  async function handleSwitchToMember(targetMember) {
+    if (!window.confirm(`Switch into account for ${targetMember.name} (${targetMember.memberId})?`)) return
+    if (onSwitchAccount) {
+      await onSwitchAccount(targetMember.id || targetMember.memberId)
+    }
+  }
   const [members, setMembers] = useState([])
   const [role, setRole] = useState('STUDENT')
   const [passwordInput, setPasswordInput] = useState('')
@@ -4496,6 +4619,17 @@ function MemberManagement({ user, logout, onNavigate }) {
                               ) : (
                                 <>
                                   <button className="action-btn edit-btn" onClick={() => { setEditingId(m.id); setEditData({}) }} title="Edit profile information" style={{ whiteSpace: 'nowrap' }}>Edit</button>
+                                  {m.id !== user.id && (
+                                    <button
+                                      type="button"
+                                      className="action-btn"
+                                      onClick={() => handleSwitchToMember(m)}
+                                      title={`Switch into ${m.name}'s account (${m.memberId})`}
+                                      style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.4)', fontWeight: 700, whiteSpace: 'nowrap' }}
+                                    >
+                                      ⇄ Switch
+                                    </button>
+                                  )}
                                   {m.role !== 'STUDENT' && !m.isPrimaryAdmin && (
                                     <button
                                       className="action-btn"
@@ -17418,17 +17552,28 @@ function App() {
 
   const effectiveUser = useMemo(() => {
     if (!user) return null
+    const baseRole = user.originalRole || user.role
     const effectiveRole = activePersonaRole || user.role
     const isEffectiveAdmin = effectiveRole !== 'STUDENT'
     const dynamicPerms = getRolePermissions(effectiveRole)
 
+    const canSwitch = Boolean(
+      user.isPrimaryAdmin ||
+      user.isAdminUser ||
+      baseRole === 'PRESIDENT' ||
+      baseRole === 'ADMIN' ||
+      baseRole === 'STUDENT_COORDINATOR' ||
+      baseRole !== 'STUDENT' ||
+      user.isImpersonating
+    )
+
     return {
       ...user,
       role: effectiveRole,
-      originalRole: user.role,
+      originalRole: baseRole,
       isAdminUser: isEffectiveAdmin,
       permissions: dynamicPerms,
-      canSwitchPersona: (user.originalRole || user.role) === 'STUDENT_COORDINATOR',
+      canSwitchPersona: canSwitch,
     }
   }, [user, activePersonaRole])
 
@@ -17600,6 +17745,33 @@ function App() {
     }
   }
 
+  async function handleSwitchAccount(targetId) {
+    try {
+      const res = await authApi.switchAccount(targetId)
+      if (res.user) {
+        setUser(toPortalUser(res.user))
+        setActivePersonaRole(null)
+        const nextRole = res.user.role
+        navigateTo(nextRole === 'STUDENT' ? 'student-dashboard' : (nextRole === 'STUDENT_COORDINATOR' ? 'admin-coordinator' : 'admin-dashboard'))
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to switch account.')
+    }
+  }
+
+  async function handleSwitchBackToAdmin() {
+    try {
+      const res = await authApi.switchBack()
+      if (res.user) {
+        setUser(toPortalUser(res.user))
+        setActivePersonaRole(null)
+        navigateTo('admin-dashboard')
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to switch back to admin account.')
+    }
+  }
+
   function renderContent() {
     if (checkingSession) {
       return (
@@ -17620,53 +17792,92 @@ function App() {
     if (screen === 'two-factor') return <TwoFactorLogin onVerify={verifyTwoFactor} onBack={() => setScreen('login')} />
 
     if (effectiveUser) {
+      let pageContent = null
       if (showIntroVideo) {
-        return <IntroVideoExperience onComplete={() => setShowIntroVideo(false)} />
-      }
-
-      if (showWaitingQueue) {
-        return <ConcurrentWaitingQueue onComplete={() => setShowWaitingQueue(false)} />
-      }
-
-      if (screen.startsWith('event-detail/')) {
+        pageContent = <IntroVideoExperience onComplete={() => setShowIntroVideo(false)} />
+      } else if (showWaitingQueue) {
+        pageContent = <ConcurrentWaitingQueue onComplete={() => setShowWaitingQueue(false)} />
+      } else if (screen.startsWith('event-detail/')) {
         const eventId = screen.replace('event-detail/', '')
-        return <StudentEventDetail user={effectiveUser} eventId={eventId} logout={logout} onNavigate={navigateTo} />
+        pageContent = <StudentEventDetail user={effectiveUser} eventId={eventId} logout={logout} onNavigate={navigateTo} />
+      } else if (screen === 'security') {
+        pageContent = <AccountSecurity user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+      } else if (effectiveUser.isAdminUser) {
+        if (screen === 'admin-coordinator' || screen === 'coordinator') pageContent = <CoordinatorConsole user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        else if (screen === 'admin-members' || screen === 'members') pageContent = <MemberManagement user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        else if (screen === 'admin-qr-scanner' || screen === 'qr-scanner') pageContent = <AdminQrScanner user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        else if (screen === 'admin-events' || screen === 'events') pageContent = <EventManagement user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        else if (screen === 'admin-payments' || screen === 'admin-passes' || screen === 'passes') pageContent = <PaymentManagement user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        else if (screen === 'admin-subscriptions' || screen === 'subscriptions') pageContent = <SubscriptionManagement user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        else if (screen === 'admin-support' || screen === 'support') pageContent = <SupportDeskView user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        else if (screen === 'admin-chat' || screen === 'chat') pageContent = <CouncilChatView user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        else if (screen === 'admin-gallery' || screen === 'gallery') pageContent = <GalleryManagement user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        else if (screen === 'admin-reels' || screen === 'reels') pageContent = <ReelsManagement user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        else if (screen === 'admin-team' || screen === 'team') pageContent = <TeamManagement user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        else if (screen === 'admin-settings' || screen === 'settings') pageContent = <ClubSettingsManager user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        else if (screen === 'admin-audit' || screen === 'audit') pageContent = <AuditLogView user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        else if (screen === 'admin-profile') pageContent = <UniversalProfileView user={effectiveUser} logout={logout} onNavigate={navigateTo} onProfileUpdated={u => setUser(toPortalUser(u))} />
+        else pageContent = <LivePresidentDashboard user={effectiveUser} logout={logout} onNavigate={navigateTo} onSwitchPersonaRole={setActivePersonaRole} />
+      } else {
+        if (screen === 'student-events' || screen === 'events') pageContent = <StudentEvents user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        else if (screen === 'student-passes' || screen === 'student-registrations' || screen === 'passes') pageContent = <StudentRegistrations user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        else if (screen === 'student-reels' || screen === 'reels') pageContent = <StudentReels user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        else if (screen === 'student-membership' || screen === 'membership') pageContent = <StudentMembership user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        else if (screen === 'student-support' || screen === 'support') pageContent = <SupportDeskView user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        else if (screen === 'student-team' || screen === 'team') pageContent = <OurTeamShowcase user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        else if (screen === 'student-gallery' || screen === 'gallery') pageContent = <StudentGallery user={effectiveUser} logout={logout} onNavigate={navigateTo} />
+        else if (screen === 'student-profile' || screen === 'profile') pageContent = <UniversalProfileView user={effectiveUser} logout={logout} onNavigate={navigateTo} onProfileUpdated={u => setUser(toPortalUser(u))} />
+        else pageContent = <LiveStudentDashboard user={effectiveUser} logout={logout} onNavigate={navigateTo} onSwitchPersonaRole={setActivePersonaRole} />
       }
 
-      // Universal Security & Authenticator View (For All Members & Leaders)
-      if (screen === 'security') {
-        return <AccountSecurity user={effectiveUser} logout={logout} onNavigate={navigateTo} />
-      }
-
-      // Admin Screens
-      if (effectiveUser.isAdminUser) {
-        if (screen === 'admin-coordinator' || screen === 'coordinator') return <CoordinatorConsole user={effectiveUser} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-members' || screen === 'members') return <MemberManagement user={effectiveUser} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-qr-scanner' || screen === 'qr-scanner') return <AdminQrScanner user={effectiveUser} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-events' || screen === 'events') return <EventManagement user={effectiveUser} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-payments' || screen === 'admin-passes' || screen === 'passes') return <PaymentManagement user={effectiveUser} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-subscriptions' || screen === 'subscriptions') return <SubscriptionManagement user={effectiveUser} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-support' || screen === 'support') return <SupportDeskView user={effectiveUser} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-chat' || screen === 'chat') return <CouncilChatView user={effectiveUser} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-gallery' || screen === 'gallery') return <GalleryManagement user={effectiveUser} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-reels' || screen === 'reels') return <ReelsManagement user={effectiveUser} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-team' || screen === 'team') return <TeamManagement user={effectiveUser} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-settings' || screen === 'settings') return <ClubSettingsManager user={effectiveUser} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-audit' || screen === 'audit') return <AuditLogView user={effectiveUser} logout={logout} onNavigate={navigateTo} />
-        if (screen === 'admin-profile') return <UniversalProfileView user={effectiveUser} logout={logout} onNavigate={navigateTo} onProfileUpdated={u => setUser(toPortalUser(u))} />
-        return <LivePresidentDashboard user={effectiveUser} logout={logout} onNavigate={navigateTo} onSwitchPersonaRole={setActivePersonaRole} />
-      }
-
-      // Student Screens
-      if (screen === 'student-events' || screen === 'events') return <StudentEvents user={effectiveUser} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'student-passes' || screen === 'student-registrations' || screen === 'passes') return <StudentRegistrations user={effectiveUser} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'student-reels' || screen === 'reels') return <StudentReels user={effectiveUser} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'student-membership' || screen === 'membership') return <StudentMembership user={effectiveUser} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'student-support' || screen === 'support') return <SupportDeskView user={effectiveUser} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'student-team' || screen === 'team') return <OurTeamShowcase user={effectiveUser} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'student-gallery' || screen === 'gallery') return <StudentGallery user={effectiveUser} logout={logout} onNavigate={navigateTo} />
-      if (screen === 'student-profile' || screen === 'profile') return <UniversalProfileView user={effectiveUser} logout={logout} onNavigate={navigateTo} onProfileUpdated={u => setUser(toPortalUser(u))} />
-      return <LiveStudentDashboard user={effectiveUser} logout={logout} onNavigate={navigateTo} onSwitchPersonaRole={setActivePersonaRole} />
+      return (
+        <>
+          {effectiveUser.isImpersonating && (
+            <div style={{
+              background: 'linear-gradient(90deg, #78350f, #92400e)',
+              color: '#fef3c7',
+              padding: '8px 16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              borderBottom: '1px solid #d97706',
+              fontSize: '12px',
+              fontWeight: 600,
+              position: 'sticky',
+              top: 0,
+              zIndex: 9999,
+              boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '15px' }}>⇄</span>
+                <span>SWITCHED ACCOUNT: Viewing as <b>{effectiveUser.name}</b> ({effectiveUser.memberId} · {getRoleLabel(effectiveUser.role)})</span>
+                {effectiveUser.originalAdmin && (
+                  <span style={{ opacity: 0.85, fontSize: '11px' }}>
+                    · Switched from: {effectiveUser.originalAdmin.name} ({effectiveUser.originalAdmin.memberId})
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleSwitchBackToAdmin}
+                style={{
+                  background: '#f59e0b',
+                  color: '#000',
+                  border: 'none',
+                  borderRadius: '5px',
+                  padding: '5px 12px',
+                  fontWeight: 800,
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                }}
+              >
+                ⇄ SWITCH BACK TO ADMIN
+              </button>
+            </div>
+          )}
+          {pageContent}
+        </>
+      )
     }
 
     return <FinalLogin onSignIn={signedIn} onForgotPassword={() => setScreen('password-reset-request')} />
@@ -17684,6 +17895,8 @@ function App() {
       reelsEnabled,
       subEnabled,
       onSwitchPersonaRole: setActivePersonaRole,
+      onSwitchAccount: handleSwitchAccount,
+      onSwitchBackToAdmin: handleSwitchBackToAdmin,
     }}>
       <PortalErrorBoundary onReset={() => setScreen(effectiveUser?.isAdminUser ? 'admin-dashboard' : 'student-events')}>
         {renderContent()}

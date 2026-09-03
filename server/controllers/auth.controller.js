@@ -215,7 +215,25 @@ export async function verifyTwoFactorLogin(request, response) {
 
 export async function me(request, response) {
   const platformMode = request.platformMode || await getActivePlatformMode()
-  return response.status(200).json({ user: toSafeUser(request.user, platformMode) })
+  const safeUser = toSafeUser(request.user, platformMode)
+
+  if (request.session?.originalAdminUserId) {
+    const originalAdmin = await prisma.user.findUnique({
+      where: { id: request.session.originalAdminUserId },
+      include: { profile: true },
+    })
+    if (originalAdmin) {
+      safeUser.isImpersonating = true
+      safeUser.originalAdmin = {
+        id: originalAdmin.id,
+        memberId: originalAdmin.memberId,
+        name: originalAdmin.profile?.name || originalAdmin.name,
+        role: originalAdmin.role,
+      }
+    }
+  }
+
+  return response.status(200).json({ user: safeUser })
 }
 
 export async function logout(request, response) {
@@ -337,5 +355,116 @@ export async function changePassword(request, response) {
   })
 
   return response.status(200).json({ message: 'Password updated successfully!' })
+}
+
+export async function switchAccount(request, response) {
+  const adminId = request.session?.originalAdminUserId || request.user?.id
+  if (!adminId) {
+    return response.status(401).json({ message: 'Authentication required.' })
+  }
+
+  const adminUser = await prisma.user.findUnique({
+    where: { id: adminId },
+    include: userInclude,
+  })
+
+  if (!adminUser || (!adminUser.isAdminUser && adminUser.role === 'STUDENT')) {
+    return response.status(403).json({ message: 'Only administrators and coordinators can switch accounts.' })
+  }
+
+  const targetIdentifier = String(request.params.id || '').trim()
+  if (!targetIdentifier) {
+    return response.status(400).json({ message: 'Target user ID or Member ID is required.' })
+  }
+
+  const targetUser = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { id: targetIdentifier },
+        { memberId: targetIdentifier.toUpperCase() },
+      ],
+    },
+    include: userInclude,
+  })
+
+  if (!targetUser) {
+    return response.status(404).json({ message: `Account "${targetIdentifier}" not found.` })
+  }
+
+  if (targetUser.accountStatus !== 'ACTIVE') {
+    return response.status(400).json({ message: 'Cannot switch to an inactive or disabled account.' })
+  }
+
+  // Set the session: preserve original admin ID
+  request.session.originalAdminUserId = adminId
+  request.session.userId = targetUser.id
+  await saveSession(request)
+
+  const platformMode = request.platformMode || await getActivePlatformMode()
+  const safeTarget = toSafeUser(targetUser, platformMode)
+
+  await tryWriteAuditLog({
+    actorUserId: adminId,
+    action: 'ADMIN_SWITCHED_ACCOUNT',
+    targetUserId: targetUser.id,
+    metadata: {
+      fromAdmin: adminUser.memberId,
+      toMemberId: targetUser.memberId,
+      toRole: targetUser.role,
+    },
+    ...auditRequest(request),
+  })
+
+  return response.status(200).json({
+    message: `Switched account to ${targetUser.profile?.name || targetUser.memberId}`,
+    user: {
+      ...safeTarget,
+      isImpersonating: true,
+      originalAdmin: {
+        id: adminUser.id,
+        memberId: adminUser.memberId,
+        name: adminUser.profile?.name || adminUser.name,
+        role: adminUser.role,
+      },
+    },
+  })
+}
+
+export async function switchBackToAdmin(request, response) {
+  const originalAdminId = request.session?.originalAdminUserId
+  if (!originalAdminId) {
+    return response.status(400).json({ message: 'Not currently switched into another account.' })
+  }
+
+  const adminUser = await prisma.user.findUnique({
+    where: { id: originalAdminId },
+    include: userInclude,
+  })
+
+  if (!adminUser) {
+    return response.status(404).json({ message: 'Original administrator account not found.' })
+  }
+
+  // Restore the original admin in session
+  request.session.userId = originalAdminId
+  delete request.session.originalAdminUserId
+  await saveSession(request)
+
+  const platformMode = request.platformMode || await getActivePlatformMode()
+  const safeAdmin = toSafeUser(adminUser, platformMode)
+
+  await tryWriteAuditLog({
+    actorUserId: originalAdminId,
+    action: 'ADMIN_SWITCHED_BACK',
+    metadata: {
+      adminMemberId: adminUser.memberId,
+    },
+    ...auditRequest(request),
+  })
+
+  return response.status(200).json({
+    message: `Returned to ${adminUser.profile?.name || adminUser.memberId}`,
+    user: safeAdmin,
+  })
 }
 
