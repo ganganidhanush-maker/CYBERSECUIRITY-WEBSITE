@@ -1626,6 +1626,131 @@ body {
   margin: 14px 0;
 }
 
+/* Event Registration Step Flow */
+.event-registration-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.registration-step-card {
+  background: var(--panel-subtle);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  position: relative;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.registration-step-card.active {
+  border-color: var(--brand-border-subtle);
+}
+
+.step-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.step-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 700 10px 'DM Mono', monospace;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--brand-glow);
+  color: var(--brand-primary);
+  border: 1px solid var(--brand-border-subtle);
+}
+
+.step-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-callout-box {
+  background: linear-gradient(135deg, rgba(82, 187, 245, 0.08), rgba(20, 80, 140, 0.15));
+  border: 1.5px solid var(--brand-border-subtle);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.form-open-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 16px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, var(--brand-primary), #0284c7);
+  color: #fff;
+  font-weight: 700;
+  font-size: 12.5px;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(82, 187, 245, 0.25);
+  transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+  border: none;
+}
+
+.form-open-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(82, 187, 245, 0.35);
+  filter: brightness(1.08);
+}
+
+.form-embed-container {
+  width: 100%;
+  height: 480px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  margin-top: 10px;
+  background: #fff;
+}
+
+.form-embed-container iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.form-ack-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-top: 10px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-main);
+  user-select: none;
+}
+
+.form-ack-checkbox input[type="checkbox"] {
+  margin-top: 2px;
+  cursor: pointer;
+  accent-color: var(--brand-primary);
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
 /* ==========================================================================
    TEAM & GALLERY
    ========================================================================== */

@@ -5991,6 +5991,7 @@ const initialEventForm = {
   location: '',
   shortDescription: '',
   description: '',
+  notes: '', // Registration Form URL (Google Form / External link)
   agenda: '',
   rules: '',
   capacity: '',
@@ -6075,6 +6076,7 @@ function EventManagement({ user, logout, onNavigate }) {
       location: ev.location || '',
       shortDescription: ev.shortDescription || '',
       description: ev.description || '',
+      notes: ev.notes || '',
       agenda: ev.agenda || '',
       rules: ev.rules || '',
       capacity: ev.capacity != null ? String(ev.capacity) : '',
@@ -6175,6 +6177,7 @@ function EventManagement({ user, logout, onNavigate }) {
       activities: formData.hasMultipleActivities
         ? activities.map(a => ({ name: a.name, description: a.description || null, price: Number(a.price || 0), capacity: a.capacity ? Number(a.capacity) : null }))
         : [],
+      notes: String(formData.notes || '').trim() || null,
       formFields,
     }
 
@@ -6566,6 +6569,18 @@ function EventManagement({ user, logout, onNavigate }) {
                       onChange={e => updateFormField('description', e.target.value)}
                       style={{ width: '100%', padding: '10px 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '12px' }}
                     />
+                  </label>
+                  <label className="form-wide" style={{ gridColumn: '1 / -1' }}>
+                    Official Registration Form Link (Google Form / External Form URL)
+                    <input
+                      name="notes"
+                      placeholder="e.g. https://forms.gle/... or https://docs.google.com/forms/..."
+                      value={formData.notes || ''}
+                      onChange={e => updateFormField('notes', e.target.value)}
+                    />
+                    <small style={{ color: 'var(--text-muted)', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+                      Students will be required to open & submit this form first (Step 1) before payment & pass generation. You can also paste the link directly in the Detailed Description above.
+                    </small>
                   </label>
                   <div className="form-wide" style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
                     <button type="button" className="action-btn save-btn" onClick={() => setActiveTab('teams')}>Next: Participation & Teams →</button>
@@ -7267,8 +7282,74 @@ function EventManagement({ user, logout, onNavigate }) {
 }
 
 // ----------------------------------------------------
-// Event Detail & Registration Page (Student)
+// Event Form URL Utilities
 // ----------------------------------------------------
+function extractFormUrl(ev) {
+  if (!ev) return null
+  if (ev.notes && /^https?:\/\//i.test(ev.notes.trim())) {
+    return ev.notes.trim()
+  }
+  const texts = [ev.description, ev.notes, ev.rules, ev.agenda, ev.shortDescription]
+  for (const text of texts) {
+    if (!text) continue
+    const matches = text.match(/https?:\/\/[^\s<>"')]+/gi)
+    if (matches && matches.length > 0) {
+      const formMatch = matches.find(url =>
+        /forms\.gle|docs\.google\.com\/forms|forms\.office\.com|typeform\.com|tally\.so|airtable\.com|surveymonkey\.com/i.test(url)
+      )
+      if (formMatch) return formMatch.replace(/[.,;)]+$/, '')
+      return matches[0].replace(/[.,;)]+$/, '')
+    }
+  }
+  return null
+}
+
+function getEmbeddableFormUrl(url) {
+  if (!url) return null
+  try {
+    const u = new URL(url)
+    if (u.hostname.includes('docs.google.com') && u.pathname.includes('/forms/')) {
+      if (!u.pathname.endsWith('/viewform')) {
+        u.pathname = u.pathname.replace(/\/+$/, '') + '/viewform'
+      }
+      u.searchParams.set('embedded', 'true')
+      return u.toString()
+    }
+  } catch {}
+  return url
+}
+
+function renderTextWithLinks(text) {
+  if (!text) return null
+  const urlRegex = /(https?:\/\/[^\s<]+)/g
+  const parts = text.split(urlRegex)
+  return parts.map((part, i) => {
+    if (part.match(urlRegex)) {
+      const cleanUrl = part.replace(/[.,;)]+$/, '')
+      const trailing = part.slice(cleanUrl.length)
+      return (
+        <span key={i}>
+          <a
+            href={cleanUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: 'var(--brand-primary)',
+              textDecoration: 'underline',
+              wordBreak: 'break-all',
+              fontWeight: 600,
+            }}
+          >
+            {cleanUrl} ↗
+          </a>
+          {trailing}
+        </span>
+      )
+    }
+    return part
+  })
+}
+
 // ----------------------------------------------------
 // Event Detail & Registration Page (Student)
 // ----------------------------------------------------
@@ -7281,6 +7362,13 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
   const [selectedActivities, setSelectedActivities] = useState([])
   const [proofPreview, setProofPreview] = useState('')
   const [subRequired, setSubRequired] = useState(false)
+
+  // Step 1: Form and Custom Fields State
+  const [formAcknowledged, setFormAcknowledged] = useState(false)
+  const [showEmbedForm, setShowEmbedForm] = useState(false)
+  const [copiedUpi, setCopiedUpi] = useState(false)
+  const [copiedFormUrl, setCopiedFormUrl] = useState(false)
+  const [customFormAnswers, setCustomFormAnswers] = useState({})
 
   // Logistics & Demographics State
   const [gender, setGender] = useState(user.profile?.gender || 'MALE')
@@ -7449,8 +7537,16 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
       }
     }
 
+    const formUrl = extractFormUrl(event)
+
+    // Form completion validation if a registration form link exists
+    if (formUrl && !formAcknowledged) {
+      setError('Please open and complete the official Event Registration Form (Step 1), then check the confirmation box before registering.')
+      return
+    }
+
     if (totalPrice > 0 && !paymentReference.trim()) {
-      setError('Please enter your 12-digit UPI UTR / Transaction Reference ID for payment verification.')
+      setError('Please enter your 12-digit UPI UTR / Transaction Reference ID for payment verification (Step 2).')
       return
     }
 
@@ -7467,6 +7563,11 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
       teamName: event.userTeam?.teamName || null,
       teamId: event.userTeam?.id || null,
       isTeamLeader: Boolean(event.userTeam?.isLeader),
+      formData: {
+        formUrl: formUrl || null,
+        formAcknowledged: Boolean(formAcknowledged),
+        customAnswers: customFormAnswers,
+      },
     }
 
     setSubmitting(true)
@@ -7515,6 +7616,10 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
   const satisfiesMinTeam = !event.isTeamEvent || (userTeam && acceptedMembersCount >= (event.minTeamSize || 2))
   const ruleRequiresFemale = event.isTeamEvent && event.teamRules && /female|girl|woman/i.test(event.teamRules)
   const hasFemaleMember = userTeam && (userTeam.members.some(m => m.gender === 'FEMALE') || gender === 'FEMALE')
+
+  const formUrl = extractFormUrl(event)
+  const embeddableFormUrl = getEmbeddableFormUrl(formUrl)
+  const isGoogleForm = formUrl && (formUrl.includes('forms.gle') || formUrl.includes('docs.google.com/forms'))
 
   return (
     <LivePortal user={user} logout={logout} activeTab="student-events" onNavigate={onNavigate} title="EVENT DETAILS">
@@ -7574,7 +7679,57 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
               </div>
 
               <h1 style={{ font: '700 clamp(24px, 3vw, 36px) Syne', color: 'var(--text-main)', margin: '14px 0 8px' }}>{event.title}</h1>
-              <p style={{ color: 'var(--text-muted)', fontSize: '14px', lineHeight: '1.7' }}>{event.description || event.shortDescription}</p>
+
+              {/* Form Callout Banner on Left Column */}
+              {formUrl && (
+                <div style={{
+                  margin: '16px 0',
+                  padding: '14px 16px',
+                  borderRadius: '10px',
+                  background: 'linear-gradient(135deg, rgba(82, 187, 245, 0.12), rgba(20, 80, 140, 0.2))',
+                  border: '1.5px solid var(--brand-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '22px' }}>📝</span>
+                    <div>
+                      <b style={{ color: 'var(--text-main)', fontSize: '13px' }}>
+                        {isGoogleForm ? 'Official Google Form Attached' : 'Official Registration Form Attached'}
+                      </b>
+                      <p style={{ margin: '2px 0 0', color: 'var(--text-muted)', fontSize: '11.5px' }}>
+                        Required for event participation. Complete Step 1 on the right or click below.
+                      </p>
+                    </div>
+                  </div>
+                  <a
+                    href={formUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      background: 'var(--brand-primary)',
+                      color: '#07121c',
+                      padding: '8px 14px',
+                      borderRadius: '6px',
+                      fontSize: '11.5px',
+                      fontWeight: 700,
+                      textDecoration: 'none',
+                    }}
+                  >
+                    Open Form ↗
+                  </a>
+                </div>
+              )}
+
+              <div style={{ color: 'var(--text-muted)', fontSize: '14px', lineHeight: '1.7', whiteSpace: 'pre-line' }}>
+                {renderTextWithLinks(event.description || event.shortDescription)}
+              </div>
 
               {event.teamRules && (
                 <div style={{ marginTop: '20px', padding: '14px', borderRadius: '8px', background: 'var(--panel-subtle)', border: '1px solid var(--line)' }}>
@@ -7808,184 +7963,407 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                     </div>
                   )}
 
-                  {/* Main Event Registration Form */}
+                  {/* Main Event Registration Form - Sequential Step Flow */}
                   <form onSubmit={handleRegister}>
-                    {/* Mandatory Demographic & Logistics Section */}
-                    <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '10px', padding: '14px', marginBottom: '16px' }}>
-                      <b style={{ color: 'var(--brand-primary)', fontSize: '12px', display: 'block', marginBottom: '10px' }}>
-                        ATTENDEE LOGISTICS & DETAILS
-                      </b>
+                    <div className="event-registration-steps">
 
-                      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '10px', marginBottom: '12px' }}>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>Gender *</label>
-                          <select
-                            value={gender}
-                            onChange={e => setGender(e.target.value)}
-                            className="member-select"
-                            style={{ width: '100%', height: '36px', marginTop: 0 }}
-                          >
-                            <option value="MALE">Male</option>
-                            <option value="FEMALE">Female</option>
-                            <option value="OTHER">Other</option>
-                          </select>
+                      {/* ============================================================ */}
+                      {/* STEP 1: REGISTRATION FORM (DISPLAYED FIRST)                   */}
+                      {/* ============================================================ */}
+                      <div className="registration-step-card active">
+                        <div className="step-card-header">
+                          <h4 className="step-title">
+                            <span>📝</span> 1. REGISTRATION FORM
+                          </h4>
+                          <span className="step-badge">STEP 1</span>
                         </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>Age *</label>
-                          <input
-                            type="number"
-                            min="15"
-                            max="60"
-                            required
-                            value={age}
-                            onChange={e => setAge(e.target.value)}
-                            style={{ width: '100%', height: '36px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px' }}
-                          />
-                        </div>
-                      </div>
 
-                      {/* Residency Selector */}
-                      <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                        Residency Type *
-                      </label>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
-                        <button
-                          type="button"
-                          onClick={() => setResidencyType('DAY_SCHOLAR')}
-                          style={{
-                            padding: '8px',
-                            borderRadius: '6px',
-                            fontSize: '11px',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            border: residencyType === 'DAY_SCHOLAR' ? '1px solid var(--brand-primary)' : '1px solid var(--line)',
-                            background: residencyType === 'DAY_SCHOLAR' ? 'var(--brand-glow)' : 'var(--bg-input)',
-                            color: residencyType === 'DAY_SCHOLAR' ? 'var(--brand-primary)' : 'var(--text-muted)',
-                          }}
-                        >
-                          Day Scholar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setResidencyType('HOSTELLER')}
-                          style={{
-                            padding: '8px',
-                            borderRadius: '6px',
-                            fontSize: '11px',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            border: residencyType === 'HOSTELLER' ? '1px solid var(--brand-primary)' : '1px solid var(--line)',
-                            background: residencyType === 'HOSTELLER' ? 'var(--brand-glow)' : 'var(--bg-input)',
-                            color: residencyType === 'HOSTELLER' ? 'var(--brand-primary)' : 'var(--text-muted)',
-                          }}
-                        >
-                          Hosteller
-                        </button>
-                      </div>
-
-                      {/* If Day Scholar: Commute mode */}
-                      {residencyType === 'DAY_SCHOLAR' && (
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                            Daily Commute Mode *
-                          </label>
-                          <select
-                            value={transportMode}
-                            onChange={e => setTransportMode(e.target.value)}
-                            className="member-select"
-                            style={{ width: '100%', height: '36px', marginTop: 0 }}
-                          >
-                            <option value="COLLEGE_BUS">College Bus</option>
-                            <option value="PUBLIC_BUS">Public Bus / RTC</option>
-                            <option value="OWN_TRANSPORT">Own Transport / Personal Vehicle</option>
-                          </select>
-                        </div>
-                      )}
-
-                      {/* If Hosteller: Hostel type */}
-                      {residencyType === 'HOSTELLER' && (
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                            Hostel Accommodation *
-                          </label>
-                          <select
-                            value={hostelType}
-                            onChange={e => setHostelType(e.target.value)}
-                            className="member-select"
-                            style={{ width: '100%', height: '36px', marginTop: 0 }}
-                          >
-                            <option value="COLLEGE_HOSTEL">College Campus Hostel</option>
-                            <option value="PRIVATE_HOSTEL">Private Hostel / PG</option>
-                          </select>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Multi-Track Sub-Activities */}
-                    {event.activities && event.activities.length > 0 && (
-                      <div style={{ margin: '14px 0' }}>
-                        <b style={{ color: 'var(--brand-primary)', fontSize: '12px' }}>Select Optional Track:</b>
-                        <div className="activity-selector-list" style={{ marginTop: '8px' }}>
-                          {event.activities.map(act => (
-                            <div
-                              key={act.id}
-                              className={`activity-option ${selectedActivities.includes(act.id) ? 'selected' : ''}`}
-                              onClick={() => toggleActivity(act.id)}
-                            >
+                        {/* If an external form URL (e.g. Google Form) was provided in description/notes */}
+                        {formUrl ? (
+                          <div className="form-callout-box">
+                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', marginBottom: '8px' }}>
                               <div>
-                                <b>{act.name}</b>
-                                {act.description && <small style={{ display: 'block', color: '#7e95a7' }}>{act.description}</small>}
+                                <b style={{ color: 'var(--text-main)', fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  {isGoogleForm ? 'Google Form Registration' : 'Official Event Registration Form'}
+                                </b>
+                                <small style={{ color: 'var(--text-muted)', fontSize: '11px', display: 'block', marginTop: '2px' }}>
+                                  Please fill out and submit the official form before confirming pass generation.
+                                </small>
                               </div>
-                              <span className="activity-price">{act.price > 0 ? `₹${act.price}` : 'INCLUDED'}</span>
+                              <span className="badge badge-president" style={{ fontSize: '9px' }}>REQUIRED</span>
                             </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
 
-                    {/* Paid Event Payment Gateway */}
-                    {event.requiresPayment && (
-                      <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '10px', padding: '14px', margin: '16px 0' }}>
-                        <div className="total-price-badge">
-                          <span>Total Registration Fee:</span>
-                          <span>₹{totalPrice.toFixed(2)}</span>
-                        </div>
+                            {/* Direct Action Button to Open Form */}
+                            <a
+                              href={formUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="form-open-btn"
+                              onClick={() => {
+                                setMessage('Form opened in a new tab! Once submitted, tick the confirmation checkbox below.')
+                              }}
+                            >
+                              <span>👉</span> OPEN {isGoogleForm ? 'GOOGLE FORM' : 'REGISTRATION FORM'} ↗
+                            </a>
 
-                        {event.paymentQrUrl && (
-                          <div style={{ textAlign: 'center', margin: '14px 0' }}>
-                            <img src={event.paymentQrUrl} alt="Payment QR" style={{ maxWidth: '140px', borderRadius: '8px', border: '1px solid var(--line)', background: '#fff', padding: '6px' }} />
-                            {event.paymentUpiId && (
-                              <p style={{ margin: '6px 0 0', color: 'var(--brand-primary)', fontSize: '12px', fontWeight: 600 }}>
-                                UPI ID: {event.paymentUpiId}
-                              </p>
+                            {/* Secondary Actions: Embed Toggle & Copy Link */}
+                            <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                              <button
+                                type="button"
+                                className="outline"
+                                onClick={() => setShowEmbedForm(prev => !prev)}
+                                style={{ flex: 1, padding: '6px 10px', fontSize: '11px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                              >
+                                {showEmbedForm ? '▲ Hide Inline Form' : '▼ Fill / Preview Form Inline'}
+                              </button>
+                              <button
+                                type="button"
+                                className="outline"
+                                onClick={() => {
+                                  navigator.clipboard?.writeText(formUrl)
+                                  setCopiedFormUrl(true)
+                                  setTimeout(() => setCopiedFormUrl(false), 2000)
+                                }}
+                                style={{ padding: '6px 10px', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                title="Copy Form URL"
+                              >
+                                {copiedFormUrl ? '✓ Copied' : '📋 Copy Link'}
+                              </button>
+                            </div>
+
+                            {/* Embedded iframe if student prefers to fill right on the page */}
+                            {showEmbedForm && (
+                              <div className="form-embed-container">
+                                <iframe
+                                  src={embeddableFormUrl}
+                                  title="Event Registration Form"
+                                  loading="lazy"
+                                />
+                              </div>
                             )}
+
+                            {/* Mandatory Form Submission Checkbox */}
+                            <label className="form-ack-checkbox" style={{
+                              background: formAcknowledged ? 'rgba(16, 185, 129, 0.12)' : 'var(--bg-card)',
+                              border: formAcknowledged ? '1px solid #10b98166' : '1px solid var(--line)',
+                            }}>
+                              <input
+                                type="checkbox"
+                                checked={formAcknowledged}
+                                onChange={e => setFormAcknowledged(e.target.checked)}
+                              />
+                              <div>
+                                <b style={{ color: formAcknowledged ? '#10b981' : 'var(--text-main)', display: 'block' }}>
+                                  {formAcknowledged ? '✓ I have submitted the registration form' : 'I confirm I have submitted the official registration form'}
+                                </b>
+                                <small style={{ color: 'var(--text-muted)', fontSize: '10.5px' }}>
+                                  Check this box after completing and submitting the Google Form above.
+                                </small>
+                              </div>
+                            </label>
+                          </div>
+                        ) : null}
+
+                        {/* Custom Event Fields (if configured on event) */}
+                        {event.formFields && event.formFields.length > 0 && (
+                          <div style={{ marginBottom: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <b style={{ color: 'var(--text-main)', fontSize: '11.5px' }}>ADDITIONAL REGISTRATION QUESTIONS:</b>
+                            {event.formFields.map(ff => (
+                              <div key={ff.id}>
+                                <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                                  {ff.fieldName} {ff.isRequired ? '*' : '(Optional)'}
+                                </label>
+                                {ff.fieldType === 'select' && ff.options ? (
+                                  <select
+                                    className="member-select"
+                                    required={ff.isRequired}
+                                    value={customFormAnswers[ff.fieldName] || ''}
+                                    onChange={e => setCustomFormAnswers(prev => ({ ...prev, [ff.fieldName]: e.target.value }))}
+                                  >
+                                    <option value="">Select an option</option>
+                                    {ff.options.split(',').map((opt, i) => (
+                                      <option key={i} value={opt.trim()}>{opt.trim()}</option>
+                                    ))}
+                                  </select>
+                                ) : ff.fieldType === 'textarea' ? (
+                                  <textarea
+                                    rows={2}
+                                    required={ff.isRequired}
+                                    value={customFormAnswers[ff.fieldName] || ''}
+                                    onChange={e => setCustomFormAnswers(prev => ({ ...prev, [ff.fieldName]: e.target.value }))}
+                                    style={{ width: '100%', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '6px 10px', fontSize: '12px' }}
+                                  />
+                                ) : (
+                                  <input
+                                    type={ff.fieldType || 'text'}
+                                    required={ff.isRequired}
+                                    value={customFormAnswers[ff.fieldName] || ''}
+                                    onChange={e => setCustomFormAnswers(prev => ({ ...prev, [ff.fieldName]: e.target.value }))}
+                                    style={{ width: '100%', height: '36px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px' }}
+                                  />
+                                )}
+                              </div>
+                            ))}
                           </div>
                         )}
 
-                        <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                          12-Digit UPI Reference / UTR Number *
-                        </label>
-                        <input
-                          required
-                          value={paymentReference}
-                          onChange={e => setPaymentReference(e.target.value)}
-                          placeholder="e.g. 523412984512 (from PhonePe / GPay / Paytm)"
-                          style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px' }}
-                        />
-                        <small style={{ display: 'block', marginTop: '4px', color: 'var(--text-muted)', fontSize: '10px' }}>
-                          Payment reference will be verified by the club coordinators.
-                        </small>
-                      </div>
-                    )}
+                        {/* Attendee Logistics & Demographics */}
+                        <div>
+                          <b style={{ color: 'var(--brand-primary)', fontSize: '11.5px', display: 'block', marginBottom: '8px' }}>
+                            ATTENDEE DETAILS & LOGISTICS
+                          </b>
 
-                    <button
-                      className="primary"
-                      type="submit"
-                      disabled={submitting || (event.isTeamEvent && !isLeader)}
-                      style={{ width: '100%', minHeight: '44px', marginTop: '12px', fontSize: '12px', fontWeight: 700 }}
-                    >
-                      {submitting ? 'CONFIRMING PASS…' : event.isTeamEvent ? 'CONFIRM & ISSUE TEAM PASSES' : 'CONFIRM REGISTRATION & GET PASS'}
-                    </button>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '10px', marginBottom: '10px' }}>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>Gender *</label>
+                              <select
+                                value={gender}
+                                onChange={e => setGender(e.target.value)}
+                                className="member-select"
+                                style={{ width: '100%', height: '36px', marginTop: 0 }}
+                              >
+                                <option value="MALE">Male</option>
+                                <option value="FEMALE">Female</option>
+                                <option value="OTHER">Other</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>Age *</label>
+                              <input
+                                type="number"
+                                min="15"
+                                max="60"
+                                required
+                                value={age}
+                                onChange={e => setAge(e.target.value)}
+                                style={{ width: '100%', height: '36px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px' }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Residency Selector */}
+                          <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                            Residency Type *
+                          </label>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
+                            <button
+                              type="button"
+                              onClick={() => setResidencyType('DAY_SCHOLAR')}
+                              style={{
+                                padding: '8px',
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                border: residencyType === 'DAY_SCHOLAR' ? '1px solid var(--brand-primary)' : '1px solid var(--line)',
+                                background: residencyType === 'DAY_SCHOLAR' ? 'var(--brand-glow)' : 'var(--bg-input)',
+                                color: residencyType === 'DAY_SCHOLAR' ? 'var(--brand-primary)' : 'var(--text-muted)',
+                              }}
+                            >
+                              Day Scholar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setResidencyType('HOSTELLER')}
+                              style={{
+                                padding: '8px',
+                                borderRadius: '6px',
+                                fontSize: '11px',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                border: residencyType === 'HOSTELLER' ? '1px solid var(--brand-primary)' : '1px solid var(--line)',
+                                background: residencyType === 'HOSTELLER' ? 'var(--brand-glow)' : 'var(--bg-input)',
+                                color: residencyType === 'HOSTELLER' ? 'var(--brand-primary)' : 'var(--text-muted)',
+                              }}
+                            >
+                              Hosteller
+                            </button>
+                          </div>
+
+                          {/* If Day Scholar: Commute mode */}
+                          {residencyType === 'DAY_SCHOLAR' && (
+                            <div style={{ marginBottom: '10px' }}>
+                              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                                Daily Commute Mode *
+                              </label>
+                              <select
+                                value={transportMode}
+                                onChange={e => setTransportMode(e.target.value)}
+                                className="member-select"
+                                style={{ width: '100%', height: '36px', marginTop: 0 }}
+                              >
+                                <option value="COLLEGE_BUS">College Bus</option>
+                                <option value="PUBLIC_BUS">Public Bus / RTC</option>
+                                <option value="OWN_TRANSPORT">Own Transport / Personal Vehicle</option>
+                              </select>
+                            </div>
+                          )}
+
+                          {/* If Hosteller: Hostel type */}
+                          {residencyType === 'HOSTELLER' && (
+                            <div style={{ marginBottom: '10px' }}>
+                              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                                Hostel Accommodation *
+                              </label>
+                              <select
+                                value={hostelType}
+                                onChange={e => setHostelType(e.target.value)}
+                                className="member-select"
+                                style={{ width: '100%', height: '36px', marginTop: 0 }}
+                              >
+                                <option value="COLLEGE_HOSTEL">College Campus Hostel</option>
+                                <option value="PRIVATE_HOSTEL">Private Hostel / PG</option>
+                              </select>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Multi-Track Sub-Activities (if any) */}
+                        {event.activities && event.activities.length > 0 && (
+                          <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px solid var(--line)' }}>
+                            <b style={{ color: 'var(--brand-primary)', fontSize: '11.5px' }}>Select Optional Track:</b>
+                            <div className="activity-selector-list" style={{ marginTop: '8px' }}>
+                              {event.activities.map(act => (
+                                <div
+                                  key={act.id}
+                                  className={`activity-option ${selectedActivities.includes(act.id) ? 'selected' : ''}`}
+                                  onClick={() => toggleActivity(act.id)}
+                                >
+                                  <div>
+                                    <b>{act.name}</b>
+                                    {act.description && <small style={{ display: 'block', color: '#7e95a7' }}>{act.description}</small>}
+                                  </div>
+                                  <span className="activity-price">{act.price > 0 ? `₹${act.price}` : 'INCLUDED'}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* ============================================================ */}
+                      {/* STEP 2: PAYMENT DETAILS (DISPLAYED SECOND)                   */}
+                      {/* ============================================================ */}
+                      {event.requiresPayment ? (
+                        <div className="registration-step-card">
+                          <div className="step-card-header">
+                            <h4 className="step-title">
+                              <span>💳</span> 2. PAYMENT DETAILS & UPI
+                            </h4>
+                            <span className="step-badge">STEP 2</span>
+                          </div>
+
+                          <div className="total-price-badge">
+                            <span>Registration Fee:</span>
+                            <span>₹{totalPrice.toFixed(2)}</span>
+                          </div>
+
+                          {event.paymentQrUrl && (
+                            <div style={{ textAlign: 'center', margin: '14px 0' }}>
+                              <img src={event.paymentQrUrl} alt="Payment QR" style={{ maxWidth: '150px', borderRadius: '8px', border: '1px solid var(--line)', background: '#fff', padding: '6px' }} />
+                              {event.paymentUpiId && (
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '8px' }}>
+                                  <span style={{ color: 'var(--brand-primary)', fontSize: '12px', fontWeight: 600 }}>
+                                    UPI ID: {event.paymentUpiId}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="outline"
+                                    onClick={() => {
+                                      navigator.clipboard?.writeText(event.paymentUpiId)
+                                      setCopiedUpi(true)
+                                      setTimeout(() => setCopiedUpi(false), 2000)
+                                    }}
+                                    style={{ padding: '2px 8px', fontSize: '10px' }}
+                                  >
+                                    {copiedUpi ? '✓ Copied' : 'Copy'}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {event.paymentInstructions && (
+                            <p style={{ margin: '8px 0', padding: '8px 10px', background: 'var(--bg-card)', borderRadius: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                              ℹ️ {event.paymentInstructions}
+                            </p>
+                          )}
+
+                          <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', marginTop: '10px' }}>
+                            12-Digit UPI Reference / UTR Number *
+                          </label>
+                          <input
+                            required
+                            value={paymentReference}
+                            onChange={e => setPaymentReference(e.target.value)}
+                            placeholder="e.g. 523412984512 (from PhonePe / GPay / Paytm)"
+                            style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px' }}
+                          />
+                          <small style={{ display: 'block', marginTop: '4px', color: 'var(--text-muted)', fontSize: '10.5px' }}>
+                            Required for attendance pass activation. Checked against bank statement.
+                          </small>
+                        </div>
+                      ) : (
+                        <div className="registration-step-card" style={{ padding: '12px 14px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid #10b98144' }}>
+                          <span style={{ fontSize: '12px', color: '#10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            ✓ FREE EVENT · NO PAYMENT REQUIRED
+                          </span>
+                        </div>
+                      )}
+
+                      {/* ============================================================ */}
+                      {/* STEP 3: REGISTER BUTTON (DISPLAYED THIRD / LAST)             */}
+                      {/* ============================================================ */}
+                      <div className="registration-step-card">
+                        <div className="step-card-header">
+                          <h4 className="step-title">
+                            <span>🎟️</span> {event.requiresPayment ? '3.' : '2.'} CONFIRM & GET PASS
+                          </h4>
+                          <span className="step-badge">{event.requiresPayment ? 'STEP 3' : 'FINAL STEP'}</span>
+                        </div>
+
+                        {/* Step checklist overview */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', fontSize: '11.5px', marginBottom: '12px', padding: '8px 10px', background: 'var(--bg-card)', borderRadius: '6px' }}>
+                          <span style={{ color: !formUrl || formAcknowledged ? '#10b981' : '#f59e0b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {!formUrl || formAcknowledged ? '✓' : '○'} Registration Form: {!formUrl ? 'Ready' : formAcknowledged ? 'Completed & Confirmed' : 'Complete Step 1 Above'}
+                          </span>
+                          {event.requiresPayment && (
+                            <span style={{ color: paymentReference.trim() ? '#10b981' : '#f59e0b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              {paymentReference.trim() ? '✓' : '○'} Payment: {paymentReference.trim() ? 'UTR Reference Entered' : 'Enter 12-Digit UTR in Step 2'}
+                            </span>
+                          )}
+                          {event.isTeamEvent && (
+                            <span style={{ color: satisfiesMinTeam ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              {satisfiesMinTeam ? '✓' : '○'} Team Squad: {satisfiesMinTeam ? `${acceptedMembersCount} members accepted` : `Requires ${event.minTeamSize} members`}
+                            </span>
+                          )}
+                        </div>
+
+                        <button
+                          className="primary"
+                          type="submit"
+                          disabled={submitting || (event.isTeamEvent && !isLeader)}
+                          style={{
+                            width: '100%',
+                            minHeight: '46px',
+                            fontSize: '12.5px',
+                            fontWeight: 800,
+                            letterSpacing: '0.04em',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                          }}
+                        >
+                          {submitting
+                            ? 'CONFIRMING PASS…'
+                            : event.isTeamEvent
+                            ? 'CONFIRM & ISSUE TEAM PASSES ➔'
+                            : 'CONFIRM REGISTRATION & GET EVENT PASS ➔'}
+                        </button>
+                      </div>
+
+                    </div>
                   </form>
                 </div>
               )}
