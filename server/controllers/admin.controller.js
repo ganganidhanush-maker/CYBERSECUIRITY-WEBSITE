@@ -501,8 +501,13 @@ export async function createEvent(request, response) {
   if (!parsed.success) return response.status(400).json({ message: parsed.error.issues[0]?.message || 'Enter valid event details.' })
 
   const data = parsed.data
-  if (data.requiresPayment && !data.activities?.length && (!data.paymentAmount || !data.paymentQrUrl)) {
-    return response.status(400).json({ message: 'Paid events require a registration fee or activities and a payment QR image.' })
+  if (data.requiresPayment && !data.activities?.length) {
+    if (!data.paymentQrUrl && data.paymentUpiId && data.paymentAmount) {
+      data.paymentQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`upi://pay?pa=${data.paymentUpiId}&pn=CyberSecurityClub&am=${data.paymentAmount}&cu=INR`)}`
+    }
+    if (!data.paymentAmount || !data.paymentQrUrl) {
+      return response.status(400).json({ message: 'Paid events require a registration fee and a payment QR image or Club UPI ID.' })
+    }
   }
 
   const event = await prisma.event.create({

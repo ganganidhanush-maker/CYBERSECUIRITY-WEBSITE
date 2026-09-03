@@ -1249,6 +1249,7 @@ function Sidebar({ user, logout, activeTab, onNavigate, isOpen, onClose }) {
         [<Icon8 name="protect" size={17} />, isMrdu ? 'Portal Home' : 'Dashboard', 'admin-dashboard', true],
         [<Icon8 name="faceId" size={17} />, 'QR Entry Gate', 'admin-qr-scanner', has('EVENTS_VIEW') || has('EVENT_MANAGE') || user.isAdminUser],
         [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Participants' : 'Members', 'admin-members', has('ACCOUNT_MANAGEMENT') || isSuper || ['VICE_PRESIDENT', 'SECRETARY'].includes(user.role)],
+        [<IconShieldCheck size={17} />, 'Coordinator Console', 'admin-coordinator', user.role === 'STUDENT_COORDINATOR' || user.isPrimaryAdmin || user.role === 'PRESIDENT' || user.role === 'ADMIN'],
         [<Icon8 name="realtime" size={17} />, 'Event Studio', 'admin-events', has('EVENTS_VIEW') || has('EVENT_MANAGE') || isSuper],
         [<Icon8 name="access" size={17} />, isMrdu ? 'Pass Subscriptions' : 'Subscriptions', 'admin-subscriptions', has('PAYMENTS_VIEW') || user.role === 'TREASURER' || isSuper],
         [<Icon8 name="authentication" size={17} />, isMrdu ? 'Passes & Payments' : 'Passes & Check-in', 'admin-passes', has('PAYMENTS_VIEW') || has('EVENTS_VIEW') || user.isAdminUser],
@@ -3273,71 +3274,9 @@ function MemberManagement({ user, logout, onNavigate }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [editData, setEditData] = useState({})
-  // View Mode: 'ROSTER' (Active Directory) vs 'CREATE' (Account Provisioning Studio) vs 'LEADER_ACCESS' (Student Coordinator Leader Management)
+  // View Mode: 'ROSTER' (Active Directory) vs 'CREATE' (Account Provisioning Studio)
   const [managementView, setManagementView] = useState('ROSTER')
   const [roleFilter, setRoleFilter] = useState('ALL')
-
-  // Leader Access Management State (Student Coordinator & President feature)
-  const [selectedLeader, setSelectedLeader] = useState(null)
-  const [leaderPerms, setLeaderPerms] = useState([])
-  const [savingLeaderPerms, setSavingLeaderPerms] = useState(false)
-  const [leaderPermMessage, setLeaderPermMessage] = useState('')
-  const [leaderPermError, setLeaderPermError] = useState('')
-
-  const AVAILABLE_LEADER_PERMISSIONS = [
-    { key: 'QR_PASSES_VIEW', label: '🎟️ Pass Scanner Access', desc: 'Can scan and check-in attendee QR passes at event venues and sessions.' },
-    { key: 'EVENT_MANAGE', label: '📅 Event Studio & Creation', desc: 'Can create, edit, schedule, and publish events, workshops, and hackathons.' },
-    { key: 'PAYMENTS_VERIFY', label: '💰 Payment & UTR Verification', desc: 'Can verify student UPI payment reference numbers and activate passes.' },
-    { key: 'ACCOUNT_MANAGEMENT', label: '👥 Member & Account Directory', desc: 'Can provision and manage student accounts and member records.' },
-    { key: 'GALLERY_MANAGE', label: '📸 Photo Gallery Studio', desc: 'Can upload event photos and manage club gallery albums.' },
-    { key: 'REELS_MANAGE', label: '🎬 Campus Reels & Video Studio', desc: 'Can upload, curate, and publish video reels to campus feed.' },
-    { key: 'REGISTRATIONS_VIEW', label: '📊 Registrations & Attendance Roster', desc: 'Can view event registrants, attendance status, and export rosters.' },
-    { key: 'CHAT_USE', label: '💬 Live Club Chat & Broadcasts', desc: 'Can send official announcements and participate in club chat.' },
-    { key: 'SETTINGS_MANAGE', label: '⚙️ Platform Settings & Hibernation', desc: 'Can configure platform rules, timer switches, and club settings.' },
-    { key: 'AUDIT_VIEW', label: '🛡️ Security Audit Logs', desc: 'Can review administrative activity and security audit records.' },
-  ]
-
-  function openLeaderAccess(leader) {
-    setSelectedLeader(leader)
-    const existing = (leader.permissions || []).map(p => (typeof p === 'string' ? p : p.permission))
-    const defaults = ROLE_DEFAULT_PERMISSIONS[leader.role] || []
-    setLeaderPerms(Array.from(new Set([...defaults, ...existing])))
-    setLeaderPermMessage('')
-    setLeaderPermError('')
-    setManagementView('LEADER_ACCESS')
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
-
-  function toggleLeaderPerm(permKey) {
-    setLeaderPerms(prev =>
-      prev.includes(permKey) ? prev.filter(p => p !== permKey) : [...prev, permKey]
-    )
-  }
-
-  async function handleSaveLeaderPermissions() {
-    if (!selectedLeader) return
-    if (selectedLeader.isPrimaryAdmin) {
-      setLeaderPermError('Primary President permissions cannot be altered.')
-      return
-    }
-    if (leaderPerms.length === 0) {
-      setLeaderPermError('Please select at least one permission for this leader.')
-      return
-    }
-    setSavingLeaderPerms(true)
-    setLeaderPermError('')
-    setLeaderPermMessage('')
-    try {
-      await adminApi.updateMemberPermissions(selectedLeader.id, leaderPerms)
-      setLeaderPermMessage(`✓ Permissions successfully updated for ${selectedLeader.name} (${selectedLeader.memberId})!`)
-      setMembers(c => c.map(m => (m.id === selectedLeader.id ? { ...m, permissions: leaderPerms } : m)))
-      setSelectedLeader(prev => (prev ? { ...prev, permissions: leaderPerms } : null))
-    } catch (err) {
-      setLeaderPermError(err.message || 'Failed to update leader permissions.')
-    } finally {
-      setSavingLeaderPerms(false)
-    }
-  }
 
   // Bulk Account Creation States
   const [accountMode, setAccountMode] = useState('single')
@@ -3844,20 +3783,16 @@ function MemberManagement({ user, logout, onNavigate }) {
             >
               <IconDownload size={13} /> Export Roster CSV
             </button>
-            <button
-              type="button"
-              className={managementView === 'LEADER_ACCESS' ? 'primary' : 'outline'}
-              onClick={() => {
-                setManagementView('LEADER_ACCESS')
-                if (!selectedLeader) {
-                  const firstLeader = members.find(m => m.role !== 'STUDENT' && !m.isPrimaryAdmin) || members.find(m => m.role !== 'STUDENT')
-                  if (firstLeader) openLeaderAccess(firstLeader)
-                }
-              }}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '7px 14px', borderColor: 'var(--brand-primary)', color: managementView === 'LEADER_ACCESS' ? '#07121c' : 'var(--brand-primary)' }}
-            >
-              <IconShieldCheck size={13} /> 🛡️ Leader Access & Permissions
-            </button>
+            {(user.role === 'STUDENT_COORDINATOR' || user.isPrimaryAdmin || user.role === 'PRESIDENT') && (
+              <button
+                type="button"
+                className="outline"
+                onClick={() => onNavigate('admin-coordinator')}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '7px 14px', borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' }}
+              >
+                <IconShieldCheck size={13} /> 🛡️ Coordinator Console →
+              </button>
+            )}
           </div>
         </div>
 
@@ -3878,19 +3813,6 @@ function MemberManagement({ user, logout, onNavigate }) {
             onClick={() => setManagementView('CREATE')}
           >
             <IconUserSvg size={14} /> ＋ Provision New Account
-          </button>
-          <button
-            type="button"
-            className={managementView === 'LEADER_ACCESS' ? 'primary active' : 'outline'}
-            onClick={() => {
-              setManagementView('LEADER_ACCESS')
-              if (!selectedLeader) {
-                const firstLeader = members.find(m => m.role !== 'STUDENT' && !m.isPrimaryAdmin) || members.find(m => m.role !== 'STUDENT')
-                if (firstLeader) openLeaderAccess(firstLeader)
-              }
-            }}
-          >
-            <IconShieldCheck size={14} /> 🛡️ Manage Leader Access ({members.filter(m => m.role !== 'STUDENT').length} Leaders)
           </button>
         </div>
 
@@ -4335,213 +4257,6 @@ function MemberManagement({ user, logout, onNavigate }) {
               </div>
             )}
           </article>
-        ) : managementView === 'LEADER_ACCESS' ? (
-          /* Leader Access & Permissions Control Console */
-          <article className="account-form-card" style={{ maxWidth: '1060px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px', flexWrap: 'wrap', gap: '12px' }}>
-              <div>
-                <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <IconShieldCheck size={14} /> COORDINATOR & LEADER ACCESS CONTROL
-                </p>
-                <h2>Manage Leader Permissions & Capabilities</h2>
-                <p style={{ margin: '4px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
-                  Configure what each club coordinator or leader can access (Pass Scanner, Event Studio, Payment Verification, Member Directory, etc.).
-                </p>
-              </div>
-              <button
-                type="button"
-                className="outline"
-                onClick={() => setManagementView('ROSTER')}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}
-              >
-                ← BACK TO MEMBER DIRECTORY
-              </button>
-            </div>
-
-            {leaderPermMessage && <p className="member-form-success" style={{ marginBottom: '14px' }}>{leaderPermMessage}</p>}
-            {leaderPermError && <p className="member-form-error" style={{ marginBottom: '14px' }}>{leaderPermError}</p>}
-
-            {/* Leader Account Selector Cards */}
-            <div style={{ marginBottom: '20px' }}>
-              <b style={{ color: 'var(--text-main)', fontSize: '12px', display: 'block', marginBottom: '10px' }}>
-                1. SELECT A LEADER / COORDINATOR TO CONFIGURE:
-              </b>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '10px' }}>
-                {members.filter(m => m.role !== 'STUDENT').map(leader => {
-                  const isSelected = selectedLeader?.id === leader.id
-                  const permCount = (leader.permissions || []).length || (ROLE_DEFAULT_PERMISSIONS[leader.role] || []).length
-                  return (
-                    <div
-                      key={leader.id}
-                      onClick={() => openLeaderAccess(leader)}
-                      style={{
-                        padding: '12px',
-                        borderRadius: '8px',
-                        border: isSelected ? '1.5px solid var(--brand-primary)' : '1px solid var(--line)',
-                        background: isSelected ? 'var(--brand-glow)' : 'var(--panel-subtle)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        transition: 'all 0.15s ease',
-                      }}
-                    >
-                      <span style={{
-                        width: '36px',
-                        height: '36px',
-                        borderRadius: '50%',
-                        background: 'linear-gradient(135deg, rgba(82, 187, 245, 0.22), rgba(20, 80, 140, 0.4))',
-                        display: 'grid',
-                        placeItems: 'center',
-                        color: 'var(--brand-primary)',
-                        font: '700 12px Syne',
-                        flexShrink: 0,
-                      }}>
-                        {leader.initials || leader.name?.slice(0, 2).toUpperCase() || 'LD'}
-                      </span>
-                      <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                        <b style={{ color: 'var(--text-main)', fontSize: '12px', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {leader.name}
-                        </b>
-                        <small style={{ color: 'var(--brand-primary)', fontSize: '10.5px', display: 'block', fontFamily: 'monospace' }}>
-                          {leader.memberId}
-                        </small>
-                        <span className="badge" style={{ fontSize: '9px', padding: '2px 6px', marginTop: '4px', display: 'inline-block' }}>
-                          {getRoleLabel(leader.role)} · {permCount} Perms
-                        </span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-
-            {/* Selected Leader Permissions Matrix */}
-            {selectedLeader ? (
-              <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '12px', padding: '20px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', borderBottom: '1px solid var(--line)', paddingBottom: '14px', marginBottom: '16px' }}>
-                  <div>
-                    <span className="eyebrow">CUSTOMIZING CAPABILITIES FOR:</span>
-                    <h3 style={{ margin: '2px 0 0', color: 'var(--text-main)', fontSize: '16px' }}>
-                      {selectedLeader.name} <span style={{ color: 'var(--brand-primary)', fontFamily: 'monospace' }}>({selectedLeader.memberId})</span>
-                    </h3>
-                    <small style={{ color: 'var(--text-muted)', fontSize: '11.5px' }}>
-                      Club Role: <b>{getRoleLabel(selectedLeader.role)}</b> · Department: {selectedLeader.department || selectedLeader.profile?.department || 'General'}
-                    </small>
-                  </div>
-
-                  {/* 1-Click Role Presets */}
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                    <button
-                      type="button"
-                      className="outline"
-                      onClick={() => setLeaderPerms(['QR_PASSES_VIEW', 'EVENTS_VIEW', 'DASHBOARD_VIEW'])}
-                      style={{ fontSize: '10.5px', padding: '4px 8px' }}
-                    >
-                      🎟️ Scanner Only
-                    </button>
-                    <button
-                      type="button"
-                      className="outline"
-                      onClick={() => setLeaderPerms(['EVENT_MANAGE', 'EVENTS_VIEW', 'QR_PASSES_VIEW', 'REGISTRATIONS_VIEW', 'DASHBOARD_VIEW'])}
-                      style={{ fontSize: '10.5px', padding: '4px 8px' }}
-                    >
-                      📅 Event Lead
-                    </button>
-                    <button
-                      type="button"
-                      className="outline"
-                      onClick={() => setLeaderPerms(['PAYMENTS_VERIFY', 'PAYMENTS_VIEW', 'REGISTRATIONS_VIEW', 'DASHBOARD_VIEW'])}
-                      style={{ fontSize: '10.5px', padding: '4px 8px' }}
-                    >
-                      💰 Finance Lead
-                    </button>
-                    <button
-                      type="button"
-                      className="outline"
-                      onClick={() => setLeaderPerms(['GALLERY_MANAGE', 'REELS_MANAGE', 'GALLERY_VIEW', 'EVENTS_VIEW', 'DASHBOARD_VIEW'])}
-                      style={{ fontSize: '10.5px', padding: '4px 8px' }}
-                    >
-                      📸 Media & PR
-                    </button>
-                    <button
-                      type="button"
-                      className="outline"
-                      onClick={() => setLeaderPerms(AVAILABLE_LEADER_PERMISSIONS.map(p => p.key))}
-                      style={{ fontSize: '10.5px', padding: '4px 8px', borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' }}
-                    >
-                      ⭐ Full Access
-                    </button>
-                  </div>
-                </div>
-
-                {/* Permissions Grid */}
-                <b style={{ color: 'var(--text-main)', fontSize: '12px', display: 'block', marginBottom: '10px' }}>
-                  2. TOGGLE SPECIFIC PERMISSIONS & CAPABILITIES:
-                </b>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '10px', marginBottom: '20px' }}>
-                  {AVAILABLE_LEADER_PERMISSIONS.map(p => {
-                    const isChecked = leaderPerms.includes(p.key)
-                    return (
-                      <label
-                        key={p.key}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'flex-start',
-                          gap: '10px',
-                          padding: '12px',
-                          borderRadius: '8px',
-                          border: isChecked ? '1px solid #10b98188' : '1px solid var(--line)',
-                          background: isChecked ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-input)',
-                          cursor: 'pointer',
-                          transition: 'all 0.15s ease',
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => toggleLeaderPerm(p.key)}
-                          style={{ marginTop: '2px', cursor: 'pointer', accentColor: '#10b981' }}
-                        />
-                        <div>
-                          <b style={{ color: isChecked ? '#10b981' : 'var(--text-main)', fontSize: '12px', display: 'block' }}>
-                            {p.label}
-                          </b>
-                          <small style={{ color: 'var(--text-muted)', fontSize: '10.5px', display: 'block', marginTop: '2px', lineHeight: 1.3 }}>
-                            {p.desc}
-                          </small>
-                        </div>
-                      </label>
-                    )
-                  })}
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                  <button
-                    type="button"
-                    className="outline"
-                    onClick={() => setManagementView('ROSTER')}
-                    style={{ fontSize: '11px', padding: '8px 16px' }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    className="primary"
-                    disabled={savingLeaderPerms || leaderPerms.length === 0}
-                    onClick={handleSaveLeaderPermissions}
-                    style={{ fontSize: '12px', padding: '8px 20px', fontWeight: 700 }}
-                  >
-                    {savingLeaderPerms ? 'SAVING PERMISSIONS…' : `✓ SAVE PERMISSIONS FOR ${selectedLeader.name.toUpperCase()}`}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <p style={{ color: 'var(--text-muted)', fontSize: '12px' }}>
-                Select a leader from the cards above to configure their access rights.
-              </p>
-            )}
-          </article>
         ) : (
           /* Full-Width Member List Directory Card */
           <article className="member-list-card" style={{ width: '100%' }}>
@@ -4746,11 +4461,11 @@ function MemberManagement({ user, logout, onNavigate }) {
                                   {m.role !== 'STUDENT' && !m.isPrimaryAdmin && (
                                     <button
                                       className="action-btn"
-                                      onClick={() => openLeaderAccess(m)}
-                                      title="Manage leader permissions & capabilities"
+                                      onClick={() => onNavigate('admin-coordinator')}
+                                      title="Open Coordinator Console"
                                       style={{ background: 'rgba(82, 187, 245, 0.15)', color: 'var(--brand-primary)', borderColor: 'var(--brand-border-subtle)', whiteSpace: 'nowrap' }}
                                     >
-                                      🛡️ Access
+                                      🛡️ Coordinator Hub
                                     </button>
                                   )}
                                   <button className="action-btn toggle-status-btn" onClick={() => toggleStatus(m)} disabled={m.isPrimaryAdmin} title="Toggle account activation" style={{ whiteSpace: 'nowrap' }}>
@@ -4954,6 +4669,558 @@ function MemberManagement({ user, logout, onNavigate }) {
                 CLOSE SUMMARY
               </button>
             </div>
+          </div>
+        )}
+      </section>
+    </LivePortal>
+  )
+}
+
+// ----------------------------------------------------
+// Dedicated Student Coordinator & Leadership Console
+// ----------------------------------------------------
+function CoordinatorConsole({ user, logout, onNavigate }) {
+  const { platformMode } = usePlatformTheme()
+  const isMrdu = platformMode === 'MRDU_EVENTS'
+  const [members, setMembers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState('ALL')
+  const [activeView, setActiveView] = useState('matrix') // 'matrix' | 'squads'
+  const [savingId, setSavingId] = useState(null)
+  const [message, setMessage] = useState('')
+  const [error, setError] = useState('')
+
+  const CAPABILITIES = [
+    { key: 'QR_PASSES_VIEW', label: 'Pass Scanner', short: '🎟️ Scanner', desc: 'Scan and check-in attendee QR passes at venue gates', squadTitle: '🎟️ Gate Entry & Pass Scanner Squad', color: '#10b981' },
+    { key: 'EVENT_MANAGE', label: 'Event Studio', short: '📅 Events', desc: 'Create, edit, schedule, and publish events & hackathons', squadTitle: '📅 Event Creators & Workshop Managers', color: '#52bbf5' },
+    { key: 'PAYMENTS_VERIFY', label: 'Verify Payments', short: '💰 Payments', desc: 'Verify UPI UTR numbers and activate paid passes', squadTitle: '💰 Finance & UPI Payment Verifiers', color: '#f59e0b' },
+    { key: 'ACCOUNT_MANAGEMENT', label: 'Member Admin', short: '👥 Members', desc: 'Provision and manage student accounts and member roster', squadTitle: '👥 Member Directory & Account Administrators', color: '#8b5cf6' },
+    { key: 'GALLERY_MANAGE', label: 'Gallery Studio', short: '📸 Gallery', desc: 'Upload event photo albums and manage gallery', squadTitle: '📸 Photo Gallery & Media Managers', color: '#ec4899' },
+    { key: 'REELS_MANAGE', label: 'Reels Studio', short: '🎬 Reels', desc: 'Upload, curate, and publish short video reels to feed', squadTitle: '🎬 Campus Reels & Video Creators', color: '#06b6d4' },
+    { key: 'REGISTRATIONS_VIEW', label: 'Attendee Rosters', short: '📊 Rosters', desc: 'View event registrants, track attendance, export CSV', squadTitle: '📊 Attendance & Registration Officers', color: '#6366f1' },
+    { key: 'CHAT_USE', label: 'Live Chat', short: '💬 Chat', desc: 'Send official council broadcasts and live club chat', squadTitle: '💬 Official Communicators & Announcers', color: '#14b8a6' },
+    { key: 'SETTINGS_MANAGE', label: 'Platform Settings', short: '⚙️ Settings', desc: 'Configure platform rules, switches, and club settings', squadTitle: '⚙️ System & Platform Administrators', color: '#64748b' },
+  ]
+
+  function loadMembers() {
+    setLoading(true)
+    adminApi.listMembers()
+      .then(res => setMembers(res.members || []))
+      .catch(err => setError(err.message || 'Failed to load leaders.'))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadMembers()
+  }, [])
+
+  const leaders = useMemo(() => {
+    return members.filter(m => m.role !== 'STUDENT')
+  }, [members])
+
+  const filteredLeaders = useMemo(() => {
+    return leaders.filter(m => {
+      const q = search.trim().toLowerCase()
+      const matchesSearch = !q ||
+        (m.name || '').toLowerCase().includes(q) ||
+        (m.memberId || '').toLowerCase().includes(q) ||
+        (m.role || '').toLowerCase().includes(q) ||
+        (m.department || '').toLowerCase().includes(q)
+      const matchesRole = roleFilter === 'ALL' || m.role === roleFilter
+      return matchesSearch && matchesRole
+    })
+  }, [leaders, search, roleFilter])
+
+  function getLeaderPerms(leader) {
+    const existing = (leader.permissions || []).map(p => (typeof p === 'string' ? p : p.permission))
+    const defaults = ROLE_DEFAULT_PERMISSIONS[leader.role] || []
+    return Array.from(new Set([...defaults, ...existing]))
+  }
+
+  async function togglePermission(leader, permKey) {
+    if (leader.isPrimaryAdmin) {
+      setError('Primary President permissions cannot be altered.')
+      return
+    }
+    const current = getLeaderPerms(leader)
+    const next = current.includes(permKey)
+      ? current.filter(p => p !== permKey)
+      : [...current, permKey]
+
+    if (next.length === 0) {
+      setError('A leader must have at least one assigned capability.')
+      return
+    }
+
+    setSavingId(leader.id)
+    setError('')
+    setMessage('')
+    try {
+      await adminApi.updateMemberPermissions(leader.id, next)
+      setMembers(prev => prev.map(m => (m.id === leader.id ? { ...m, permissions: next } : m)))
+      setMessage(`✓ Updated access for ${leader.name} (${leader.memberId})`)
+    } catch (err) {
+      setError(err.message || 'Failed to update permission.')
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  async function applyPreset(leader, presetType) {
+    if (leader.isPrimaryAdmin) {
+      setError('Primary President permissions cannot be altered.')
+      return
+    }
+    let perms = []
+    if (presetType === 'SCANNER') perms = ['QR_PASSES_VIEW', 'EVENTS_VIEW', 'DASHBOARD_VIEW']
+    if (presetType === 'EVENTS') perms = ['EVENT_MANAGE', 'EVENTS_VIEW', 'QR_PASSES_VIEW', 'REGISTRATIONS_VIEW', 'DASHBOARD_VIEW']
+    if (presetType === 'FINANCE') perms = ['PAYMENTS_VERIFY', 'PAYMENTS_VIEW', 'REGISTRATIONS_VIEW', 'DASHBOARD_VIEW']
+    if (presetType === 'MEDIA') perms = ['GALLERY_MANAGE', 'REELS_MANAGE', 'GALLERY_VIEW', 'EVENTS_VIEW', 'DASHBOARD_VIEW']
+    if (presetType === 'FULL') perms = CAPABILITIES.map(p => p.key)
+    if (presetType === 'DEFAULT') perms = ROLE_DEFAULT_PERMISSIONS[leader.role] || ['DASHBOARD_VIEW']
+
+    setSavingId(leader.id)
+    setError('')
+    setMessage('')
+    try {
+      await adminApi.updateMemberPermissions(leader.id, perms)
+      setMembers(prev => prev.map(m => (m.id === leader.id ? { ...m, permissions: perms } : m)))
+      setMessage(`✓ Applied ${presetType} preset to ${leader.name}!`)
+    } catch (err) {
+      setError(err.message || 'Failed to apply preset.')
+    } finally {
+      setSavingId(null)
+    }
+  }
+
+  const scannerCount = leaders.filter(l => getLeaderPerms(l).includes('QR_PASSES_VIEW')).length
+  const eventCount = leaders.filter(l => getLeaderPerms(l).includes('EVENT_MANAGE')).length
+  const financeCount = leaders.filter(l => getLeaderPerms(l).includes('PAYMENTS_VERIFY')).length
+  const mediaCount = leaders.filter(l => getLeaderPerms(l).includes('GALLERY_MANAGE') || getLeaderPerms(l).includes('REELS_MANAGE')).length
+
+  return (
+    <LivePortal user={user} logout={logout} activeTab="admin-coordinator" onNavigate={onNavigate} title="COORDINATOR CONSOLE">
+      <section className="member-management" style={{ maxWidth: '1440px', margin: '0 auto' }}>
+        <div className="member-heading">
+          <div>
+            <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
+              ← BACK TO DASHBOARD
+            </button>
+            <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <IconShieldCheck size={14} /> STUDENT COORDINATOR OPERATIONS HUB
+            </p>
+            <h1>Coordinator Console & Leader Access Control</h1>
+            <p>Directly manage operational permissions and delegate squad roles across all club leaders.</p>
+          </div>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="outline"
+              onClick={loadMembers}
+              disabled={loading}
+              style={{ fontSize: '11px', padding: '7px 14px' }}
+            >
+              ↻ Refresh Roster
+            </button>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => onNavigate('admin-members')}
+              style={{ fontSize: '11px', padding: '7px 14px' }}
+            >
+              Member Directory →
+            </button>
+          </div>
+        </div>
+
+        {/* Operational Squad Stats Bar */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+          <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '10px', padding: '14px 16px' }}>
+            <span style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>Active Leaders</span>
+            <b style={{ color: 'var(--text-main)', fontSize: '24px', display: 'block', marginTop: '2px' }}>{leaders.length}</b>
+            <small style={{ color: 'var(--brand-primary)', fontSize: '10.5px' }}>Club Officers & Leads</small>
+          </div>
+
+          <div style={{ background: 'var(--panel-subtle)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '10px', padding: '14px 16px' }}>
+            <span style={{ color: '#10b981', fontSize: '11px', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>🎟️ Gate Scanner Squad</span>
+            <b style={{ color: '#10b981', fontSize: '24px', display: 'block', marginTop: '2px' }}>{scannerCount}</b>
+            <small style={{ color: 'var(--text-muted)', fontSize: '10.5px' }}>Authorized for Entry Gates</small>
+          </div>
+
+          <div style={{ background: 'var(--panel-subtle)', border: '1px solid rgba(82, 187, 245, 0.3)', borderRadius: '10px', padding: '14px 16px' }}>
+            <span style={{ color: 'var(--brand-primary)', fontSize: '11px', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>📅 Event Studio Leads</span>
+            <b style={{ color: 'var(--brand-primary)', fontSize: '24px', display: 'block', marginTop: '2px' }}>{eventCount}</b>
+            <small style={{ color: 'var(--text-muted)', fontSize: '10.5px' }}>Can Publish Events</small>
+          </div>
+
+          <div style={{ background: 'var(--panel-subtle)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '10px', padding: '14px 16px' }}>
+            <span style={{ color: '#f59e0b', fontSize: '11px', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>💰 Finance & UTR Leads</span>
+            <b style={{ color: '#f59e0b', fontSize: '24px', display: 'block', marginTop: '2px' }}>{financeCount}</b>
+            <small style={{ color: 'var(--text-muted)', fontSize: '10.5px' }}>Payment Verification</small>
+          </div>
+
+          <div style={{ background: 'var(--panel-subtle)', border: '1px solid rgba(236, 72, 153, 0.3)', borderRadius: '10px', padding: '14px 16px' }}>
+            <span style={{ color: '#ec4899', fontSize: '11px', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>🎬 Media & Reels Team</span>
+            <b style={{ color: '#ec4899', fontSize: '24px', display: 'block', marginTop: '2px' }}>{mediaCount}</b>
+            <small style={{ color: 'var(--text-muted)', fontSize: '10.5px' }}>Gallery & Video Feed</small>
+          </div>
+        </div>
+
+        {message && <p className="member-form-success" style={{ marginBottom: '14px' }}>{message}</p>}
+        {error && <p className="member-form-error" style={{ marginBottom: '14px' }}>{error}</p>}
+
+        {/* View Switcher: Matrix vs Squads */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+          <div className="member-view-switcher" style={{ margin: 0 }}>
+            <button
+              type="button"
+              className={activeView === 'matrix' ? 'primary active' : 'outline'}
+              onClick={() => setActiveView('matrix')}
+              style={{ fontSize: '11.5px', padding: '8px 16px' }}
+            >
+              📊 All-in-One Leader Matrix ({filteredLeaders.length})
+            </button>
+            <button
+              type="button"
+              className={activeView === 'squads' ? 'primary active' : 'outline'}
+              onClick={() => setActiveView('squads')}
+              style={{ fontSize: '11.5px', padding: '8px 16px' }}
+            >
+              ⚡ Delegate by Squad / Capability
+            </button>
+          </div>
+
+          {/* Search & Filter */}
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              placeholder="Search leader by name, roll no, role…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{ width: '250px', fontSize: '12px', padding: '7px 12px' }}
+            />
+            <select
+              value={roleFilter}
+              onChange={e => setRoleFilter(e.target.value)}
+              style={{ fontSize: '12px', padding: '7px 12px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)' }}
+            >
+              <option value="ALL">All Roles ({leaders.length})</option>
+              <option value="STUDENT_COORDINATOR">Student Coordinator</option>
+              <option value="PRESIDENT">President</option>
+              <option value="VICE_PRESIDENT">Vice President</option>
+              <option value="SECRETARY">Secretary</option>
+              <option value="TREASURER">Treasurer</option>
+              <option value="EVENT_MANAGEMENT">Event Management</option>
+              <option value="TECHNICAL_LEAD">Technical Lead</option>
+              <option value="MEDIA_LEAD">Media Lead</option>
+              <option value="PR_TEAM">PR Team</option>
+              <option value="SECURITY_LEAD">Security Lead</option>
+            </select>
+          </div>
+        </div>
+
+        {loading ? (
+          <p className="directory-state">Loading leadership team and permissions…</p>
+        ) : filteredLeaders.length === 0 ? (
+          <div style={{ padding: '40px', textAlign: 'center', background: 'var(--panel-subtle)', borderRadius: '10px', border: '1px solid var(--line)' }}>
+            <p style={{ color: 'var(--text-muted)' }}>No leaders matching search criteria.</p>
+          </div>
+        ) : activeView === 'matrix' ? (
+          /* View 1: Comprehensive All-in-One Leader Access Matrix */
+          <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 4px 16px rgba(0,0,0,0.1)' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: 'var(--bg-input)', borderBottom: '1px solid var(--line)' }}>
+                    <th style={{ padding: '12px 14px', color: 'var(--text-main)', fontWeight: 700, minWidth: '180px' }}>LEADER / COORDINATOR</th>
+                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}>🎟️ SCANNER</th>
+                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}>📅 EVENTS</th>
+                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}>💰 FINANCE</th>
+                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}>👥 MEMBERS</th>
+                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}>📸 GALLERY</th>
+                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}>🎬 REELS</th>
+                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}>📊 ROSTER</th>
+                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}>💬 CHAT</th>
+                    <th style={{ padding: '12px 14px', color: 'var(--text-main)', fontWeight: 700, minWidth: '220px' }}>1-CLICK PRESETS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredLeaders.map(leader => {
+                    const activePerms = getLeaderPerms(leader)
+                    const isSaving = savingId === leader.id
+                    const isProtected = leader.isPrimaryAdmin
+
+                    return (
+                      <tr
+                        key={leader.id}
+                        style={{
+                          borderBottom: '1px solid var(--line)',
+                          background: isSaving ? 'rgba(82, 187, 245, 0.08)' : 'transparent',
+                          transition: 'background 0.2s ease',
+                        }}
+                      >
+                        {/* Leader Info */}
+                        <td style={{ padding: '12px 14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{
+                              width: '32px',
+                              height: '32px',
+                              borderRadius: '50%',
+                              background: 'linear-gradient(135deg, rgba(82, 187, 245, 0.25), rgba(20, 80, 140, 0.4))',
+                              display: 'grid',
+                              placeItems: 'center',
+                              color: 'var(--brand-primary)',
+                              font: '700 11px Syne',
+                              flexShrink: 0,
+                            }}>
+                              {leader.initials || leader.name?.slice(0, 2).toUpperCase() || 'LD'}
+                            </span>
+                            <div>
+                              <b style={{ color: 'var(--text-main)', fontSize: '12px', display: 'block' }}>
+                                {leader.name}
+                              </b>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                                <small style={{ color: 'var(--brand-primary)', fontSize: '10px', fontFamily: 'monospace' }}>
+                                  {leader.memberId}
+                                </small>
+                                <span className="badge" style={{ fontSize: '9px', padding: '1px 5px' }}>
+                                  {getRoleLabel(leader.role)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Direct Toggle Buttons for each Capability */}
+                        {CAPABILITIES.filter(c => c.key !== 'SETTINGS_MANAGE').map(cap => {
+                          const isEnabled = activePerms.includes(cap.key)
+                          return (
+                            <td key={cap.key} style={{ padding: '8px', textAlign: 'center' }}>
+                              {isProtected ? (
+                                <span style={{ color: '#10b981', fontSize: '14px', fontWeight: 800 }}>✓</span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={isSaving}
+                                  onClick={() => togglePermission(leader, cap.key)}
+                                  title={`Click to ${isEnabled ? 'revoke' : 'grant'} ${cap.label} for ${leader.name}`}
+                                  style={{
+                                    width: '34px',
+                                    height: '34px',
+                                    borderRadius: '8px',
+                                    border: isEnabled ? `1.5px solid ${cap.color}` : '1px solid var(--line)',
+                                    background: isEnabled ? `${cap.color}22` : 'var(--bg-input)',
+                                    color: isEnabled ? cap.color : 'var(--text-dim)',
+                                    cursor: 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontWeight: 700,
+                                    fontSize: '13px',
+                                    transition: 'all 0.15s ease',
+                                  }}
+                                >
+                                  {isEnabled ? '✓' : '·'}
+                                </button>
+                              )}
+                            </td>
+                          )
+                        })}
+
+                        {/* 1-Click Presets */}
+                        <td style={{ padding: '8px 14px' }}>
+                          {isProtected ? (
+                            <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontSize: '10px', padding: '4px 8px' }}>
+                              🛡️ IMMUTABLE PROTECTED
+                            </span>
+                          ) : (
+                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                              <button
+                                type="button"
+                                className="outline"
+                                disabled={isSaving}
+                                onClick={() => applyPreset(leader, 'SCANNER')}
+                                title="Grant Scanner & Entry rights only"
+                                style={{ fontSize: '9.5px', padding: '3px 6px', lineHeight: 1 }}
+                              >
+                                🎟️ Scan
+                              </button>
+                              <button
+                                type="button"
+                                className="outline"
+                                disabled={isSaving}
+                                onClick={() => applyPreset(leader, 'EVENTS')}
+                                title="Grant Event Studio & Scheduling rights"
+                                style={{ fontSize: '9.5px', padding: '3px 6px', lineHeight: 1 }}
+                              >
+                                📅 Event
+                              </button>
+                              <button
+                                type="button"
+                                className="outline"
+                                disabled={isSaving}
+                                onClick={() => applyPreset(leader, 'FINANCE')}
+                                title="Grant Payment Verification rights"
+                                style={{ fontSize: '9.5px', padding: '3px 6px', lineHeight: 1 }}
+                              >
+                                💰 Pay
+                              </button>
+                              <button
+                                type="button"
+                                className="outline"
+                                disabled={isSaving}
+                                onClick={() => applyPreset(leader, 'MEDIA')}
+                                title="Grant Gallery & Reels rights"
+                                style={{ fontSize: '9.5px', padding: '3px 6px', lineHeight: 1 }}
+                              >
+                                📸 Media
+                              </button>
+                              <button
+                                type="button"
+                                className="outline"
+                                disabled={isSaving}
+                                onClick={() => applyPreset(leader, 'FULL')}
+                                title="Grant all operational permissions"
+                                style={{ fontSize: '9.5px', padding: '3px 6px', lineHeight: 1, borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' }}
+                              >
+                                ⭐ Full
+                              </button>
+                              <button
+                                type="button"
+                                className="outline"
+                                disabled={isSaving}
+                                onClick={() => applyPreset(leader, 'DEFAULT')}
+                                title="Reset to role default"
+                                style={{ fontSize: '9.5px', padding: '3px 6px', lineHeight: 1, color: 'var(--text-dim)' }}
+                              >
+                                ↺ Reset
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          /* View 2: Squad-by-Squad Delegation Cards (No Need to Select Each Person!) */
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '20px' }}>
+            {CAPABILITIES.map(cap => {
+              const assignedLeaders = leaders.filter(l => getLeaderPerms(l).includes(cap.key))
+
+              return (
+                <div
+                  key={cap.key}
+                  style={{
+                    background: 'var(--panel-subtle)',
+                    border: `1px solid ${cap.color}44`,
+                    borderRadius: '12px',
+                    padding: '20px',
+                    boxShadow: '0 4px 14px rgba(0,0,0,0.08)',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px', borderBottom: '1px solid var(--line)', paddingBottom: '12px' }}>
+                    <div>
+                      <b style={{ color: cap.color, fontSize: '13.5px', display: 'block' }}>
+                        {cap.squadTitle}
+                      </b>
+                      <small style={{ color: 'var(--text-muted)', fontSize: '11px', display: 'block', marginTop: '3px' }}>
+                        {cap.desc}
+                      </small>
+                    </div>
+                    <span className="badge" style={{ background: `${cap.color}22`, color: cap.color, fontSize: '11px', padding: '3px 8px', fontWeight: 700 }}>
+                      {assignedLeaders.length} ACTIVE
+                    </span>
+                  </div>
+
+                  {/* Leader Checklist for this squad */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '320px', overflowY: 'auto' }}>
+                    {leaders.map(leader => {
+                      const isAssigned = getLeaderPerms(leader).includes(cap.key)
+                      const isProtected = leader.isPrimaryAdmin
+                      const isSaving = savingId === leader.id
+
+                      return (
+                        <div
+                          key={leader.id}
+                          onClick={() => {
+                            if (!isProtected && !isSaving) togglePermission(leader, cap.key)
+                          }}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '8px 12px',
+                            borderRadius: '8px',
+                            border: isAssigned ? `1px solid ${cap.color}66` : '1px solid var(--line)',
+                            background: isAssigned ? `${cap.color}11` : 'var(--bg-input)',
+                            cursor: isProtected ? 'default' : 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                            <span style={{
+                              width: '26px',
+                              height: '26px',
+                              borderRadius: '50%',
+                              background: 'var(--line)',
+                              display: 'grid',
+                              placeItems: 'center',
+                              fontSize: '10px',
+                              fontWeight: 700,
+                              color: 'var(--text-main)',
+                              flexShrink: 0,
+                            }}>
+                              {leader.initials || leader.name?.slice(0, 2).toUpperCase()}
+                            </span>
+                            <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                              <span style={{ color: 'var(--text-main)', fontSize: '11.5px', fontWeight: 600, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {leader.name}
+                              </span>
+                              <small style={{ color: 'var(--text-dim)', fontSize: '10px' }}>
+                                {getRoleLabel(leader.role)} · {leader.memberId}
+                              </small>
+                            </div>
+                          </div>
+
+                          <div>
+                            {isProtected ? (
+                              <span style={{ color: '#10b981', fontSize: '11px', fontWeight: 700 }}>IMMUTABLE</span>
+                            ) : (
+                              <span style={{
+                                display: 'inline-block',
+                                width: '38px',
+                                height: '22px',
+                                borderRadius: '12px',
+                                background: isAssigned ? cap.color : 'var(--line)',
+                                position: 'relative',
+                                transition: 'background 0.2s ease',
+                              }}>
+                                <span style={{
+                                  position: 'absolute',
+                                  top: '2px',
+                                  left: isAssigned ? '18px' : '2px',
+                                  width: '18px',
+                                  height: '18px',
+                                  borderRadius: '50%',
+                                  background: '#fff',
+                                  transition: 'left 0.2s ease',
+                                  boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                                }} />
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </section>
@@ -7085,6 +7352,79 @@ function EventManagement({ user, logout, onNavigate }) {
                             onChange={e => updateFormField('paymentInstructions', e.target.value)}
                           />
                         </label>
+
+                        {/* Payment QR Code Uploader */}
+                        <div className="form-wide" style={{ marginTop: '14px', padding: '16px', background: 'var(--panel-subtle)', borderRadius: '10px', border: '1px solid var(--line)' }}>
+                          <b style={{ color: 'var(--text-main)', fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                            <IconQrCode size={15} /> Payment UPI QR Code Image *
+                          </b>
+                          <p style={{ color: 'var(--text-muted)', fontSize: '11px', margin: '0 0 12px', lineHeight: 1.4 }}>
+                            Upload your official UPI QR image (PhonePe, Google Pay, Paytm, BHIM). Students scan this QR to pay the fee.
+                          </p>
+
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'flex-start' }}>
+                            <div style={{ flex: 1, minWidth: '220px' }}>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                id="payment-qr-file-input"
+                                onChange={e => {
+                                  const f = e.target.files?.[0]
+                                  if (f) readImageFile(f, setQrPreview)
+                                }}
+                                style={{ width: '100%' }}
+                              />
+                              <small style={{ color: 'var(--text-muted)', fontSize: '10.5px', display: 'block', marginTop: '4px' }}>
+                                Supports PNG, JPG, JPEG, WEBP.
+                              </small>
+
+                              {/* Auto-Generate Button from UPI ID */}
+                              {formData.paymentUpiId && (
+                                <button
+                                  type="button"
+                                  className="outline"
+                                  onClick={() => {
+                                    const upiUrl = `upi://pay?pa=${encodeURIComponent(formData.paymentUpiId)}&pn=${encodeURIComponent('CyberSecurityClub')}${formData.paymentAmount ? `&am=${encodeURIComponent(formData.paymentAmount)}` : ''}&cu=INR`
+                                    const autoQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiUrl)}`
+                                    setQrPreview(autoQrUrl)
+                                    setMessage('✓ Auto-generated UPI QR Code from your UPI ID!')
+                                  }}
+                                  style={{ marginTop: '10px', fontSize: '11px', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px', borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' }}
+                                >
+                                  ⚡ Auto-Generate UPI QR from Club UPI ID
+                                </button>
+                              )}
+                            </div>
+
+                            {/* QR Image Preview */}
+                            {qrPreview ? (
+                              <div style={{ textAlign: 'center', padding: '10px', background: '#fff', borderRadius: '8px', border: '2px solid var(--brand-primary)', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
+                                <img
+                                  src={qrPreview}
+                                  alt="Payment QR Preview"
+                                  style={{ width: '130px', height: '130px', objectFit: 'contain', display: 'block', margin: '0 auto' }}
+                                />
+                                <span style={{ color: '#059669', fontSize: '10.5px', fontWeight: 700, display: 'block', marginTop: '6px' }}>
+                                  ✓ QR CODE ATTACHED
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setQrPreview('')}
+                                  style={{ marginTop: '4px', fontSize: '10px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}
+                                >
+                                  Remove QR
+                                </button>
+                              </div>
+                            ) : (
+                              <div style={{ padding: '18px 24px', textAlign: 'center', background: 'var(--bg-input)', border: '1px dashed var(--line)', borderRadius: '8px', minWidth: '140px' }}>
+                                <span style={{ fontSize: '24px', opacity: 0.5, display: 'block' }}>📷</span>
+                                <small style={{ display: 'block', color: 'var(--text-dim)', fontSize: '10.5px', marginTop: '4px' }}>
+                                  No QR Image Uploaded
+                                </small>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -7736,6 +8076,14 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
   const [proofPreview, setProofPreview] = useState('')
   const [subRequired, setSubRequired] = useState(false)
 
+  const isHackathonOrTech = Boolean(
+    event?.title?.toLowerCase().includes('hack') ||
+    event?.eventType?.toLowerCase().includes('hack') ||
+    event?.eventType?.toLowerCase().includes('tech') ||
+    event?.isTeamEvent ||
+    /hackathon|coding|ctf|tech/i.test(`${event?.title || ''} ${event?.description || ''} ${event?.eventType || ''}`)
+  )
+
   // Step 1: Form and Custom Fields State
   const [formAcknowledged, setFormAcknowledged] = useState(false)
   const [showEmbedForm, setShowEmbedForm] = useState(false)
@@ -8072,9 +8420,16 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
   const ruleRequiresFemale = event.isTeamEvent && event.teamRules && /female|girl|woman/i.test(event.teamRules)
   const hasFemaleMember = userTeam && (userTeam.members.some(m => m.gender === 'FEMALE') || gender === 'FEMALE')
 
-  const formUrl = extractFormUrl(event)
+  const formUrls = getEventFormUrls(event)
+  const formUrl = formUrls.registrationFormUrl || extractFormUrl(event)
+  const completionFormUrl = formUrls.completionFormUrl
   const embeddableFormUrl = getEmbeddableFormUrl(formUrl)
   const isGoogleForm = formUrl && (formUrl.includes('forms.gle') || formUrl.includes('docs.google.com/forms'))
+  const isGoogleCompletionForm = completionFormUrl && (completionFormUrl.includes('forms.gle') || completionFormUrl.includes('docs.google.com/forms'))
+  const isCompletionSubmitted = Boolean(
+    event?.userRegistration?.formData?.completionConfirmed ||
+    event?.userRegistration?.status === 'COMPLETED'
+  )
 
   return (
     <LivePortal user={user} logout={logout} activeTab="student-events" onNavigate={onNavigate} title="EVENT DETAILS">
@@ -16860,6 +17215,42 @@ function CouncilChatView({ user, logout, onNavigate }) {
 }
 
 // ----------------------------------------------------
+// Safe View Boundary to Prevent Any Blank White Screen
+// ----------------------------------------------------
+class PortalErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error }
+  }
+  componentDidCatch(error, errorInfo) {}
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '40px 20px', maxWidth: '600px', margin: '60px auto', textAlign: 'center', background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '12px', boxShadow: '0 8px 24px rgba(0,0,0,0.2)' }}>
+          <span style={{ fontSize: '36px', display: 'block', marginBottom: '12px' }}>🛡️</span>
+          <h3 style={{ color: 'var(--text-main)', margin: '0 0 8px', fontSize: '18px' }}>Portal View Recovered</h3>
+          <p style={{ color: 'var(--text-muted)', fontSize: '12.5px', margin: '0 0 20px', lineHeight: 1.4 }}>
+            {this.state.error?.message || 'A temporary display exception occurred in this portal view.'}
+          </p>
+          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+            <button type="button" className="primary" onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload() }}>
+              ↻ Reload Application
+            </button>
+            <button type="button" className="outline" onClick={() => { this.setState({ hasError: false, error: null }); if (this.props.onReset) this.props.onReset() }}>
+              ← Return to Dashboard
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+// ----------------------------------------------------
 // Root App Controller with Path Preservation & Hibernation
 // ----------------------------------------------------
 function App() {
@@ -17149,6 +17540,7 @@ function App() {
 
       // Admin Screens
       if (effectiveUser.isAdminUser) {
+        if (screen === 'admin-coordinator' || screen === 'coordinator') return <CoordinatorConsole user={effectiveUser} logout={logout} onNavigate={navigateTo} />
         if (screen === 'admin-members' || screen === 'members') return <MemberManagement user={effectiveUser} logout={logout} onNavigate={navigateTo} />
         if (screen === 'admin-qr-scanner' || screen === 'qr-scanner') return <AdminQrScanner user={effectiveUser} logout={logout} onNavigate={navigateTo} />
         if (screen === 'admin-events' || screen === 'events') return <EventManagement user={effectiveUser} logout={logout} onNavigate={navigateTo} />
@@ -17193,7 +17585,9 @@ function App() {
       subEnabled,
       onSwitchPersonaRole: setActivePersonaRole,
     }}>
-      {renderContent()}
+      <PortalErrorBoundary onReset={() => setScreen(effectiveUser?.isAdminUser ? 'admin-dashboard' : 'student-events')}>
+        {renderContent()}
+      </PortalErrorBoundary>
     </PlatformThemeContext.Provider>
   )
 }

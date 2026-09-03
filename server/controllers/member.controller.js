@@ -572,11 +572,14 @@ export async function removeTeamMember(request, response) {
     return response.status(400).json({ message: 'Cannot modify team members after registration and pass issuance.' })
   }
 
+  if (memberId === request.user.id) {
+    return response.status(400).json({ message: 'Leader cannot remove themselves from the team.' })
+  }
+
   await prisma.eventTeamMember.deleteMany({
     where: {
       teamId,
       userId: memberId,
-      userId: { not: request.user.id }, // Leader cannot remove themselves
     },
   })
 
