@@ -69,9 +69,12 @@ export function toSafeUser(user, platformMode = 'CYBER_SECURITY_CLUB') {
   const mrduRole = user?.mrduRole || (isPrimary ? 'PRESIDENT' : 'STUDENT')
   const effectiveRole = isPrimary ? 'PRESIDENT' : (isMrdu ? mrduRole : cscRole)
 
-  const explicitPerms = user?.permissions?.map(p => (typeof p === 'string' ? p : p.permission)) || []
   const defaultPerms = ROLE_DEFAULT_PERMISSIONS[effectiveRole] || []
-  const allPermissions = Array.from(new Set([...defaultPerms, ...explicitPerms]))
+  const hasStored = Boolean(user?.permissions && user.permissions.length > 0)
+  const explicitPerms = hasStored
+    ? user.permissions.map(p => (typeof p === 'string' ? p : p.permission))
+    : defaultPerms
+  const allPermissions = isPrimary ? (ROLE_DEFAULT_PERMISSIONS.PRESIDENT || defaultPerms) : explicitPerms
 
   return {
     id: user.id,
@@ -130,14 +133,17 @@ export function canManageReels(user) {
 export function hasPermission(user, permission) {
   if (!user) return false
   if (isPrimaryPresident(user)) return true
+
+  // If user has customized stored permissions in DB, honor them directly (allows adding or removing access)
+  if (user.permissions && user.permissions.length > 0) {
+    return user.permissions.some(p => {
+      const name = typeof p === 'string' ? p : p.permission
+      return name === permission
+    })
+  }
+
+  // Fallback to role defaults if user has no stored permissions records
   if (user?.role === 'PRESIDENT' || user?.role === 'ADMIN' || user?.role === 'STUDENT_COORDINATOR') return true
-
   const defaultPerms = ROLE_DEFAULT_PERMISSIONS[user?.role] || []
-  if (defaultPerms.includes(permission)) return true
-
-  const explicitPerms = user?.permissions || []
-  return explicitPerms.some(p => {
-    const name = typeof p === 'string' ? p : p.permission
-    return name === permission
-  })
+  return defaultPerms.includes(permission)
 }

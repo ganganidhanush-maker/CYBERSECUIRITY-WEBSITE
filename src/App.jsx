@@ -3388,6 +3388,15 @@ function MemberManagement({ user, logout, onNavigate }) {
   }
   const [members, setMembers] = useState([])
   const [role, setRole] = useState('STUDENT')
+  const [customPermissions, setCustomPermissions] = useState(() => ROLE_DEFAULT_PERMISSIONS['STUDENT'] || [])
+  const [permissionsModalUser, setPermissionsModalUser] = useState(null)
+  const [modalPerms, setModalPerms] = useState([])
+  const [savingModalPerms, setSavingModalPerms] = useState(false)
+
+  function handleRoleChange(newRole) {
+    setRole(newRole)
+    setCustomPermissions(ROLE_DEFAULT_PERMISSIONS[newRole] || [])
+  }
   const [passwordInput, setPasswordInput] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -3650,6 +3659,7 @@ function MemberManagement({ user, logout, onNavigate }) {
       memberId: String(form.get('memberId') || '').trim().toUpperCase(),
       password: passwordInput,
       role,
+      permissions: customPermissions,
       profile: {
         name: String(form.get('name') || '').trim(),
         gender: String(form.get('gender') || 'MALE'),
@@ -3669,6 +3679,7 @@ function MemberManagement({ user, logout, onNavigate }) {
       e.currentTarget.reset()
       setPasswordInput('')
       setRole('STUDENT')
+      setCustomPermissions(ROLE_DEFAULT_PERMISSIONS['STUDENT'] || [])
       setMessage(`Account created for ${created.name} (${getRoleLabel(created.role)}) · Member ID: ${created.memberId}`)
     } catch (err) {
       setError(err.message)
@@ -4056,7 +4067,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                       <select
                         className="member-select"
                         value={role}
-                        onChange={e => setRole(e.target.value)}
+                        onChange={e => handleRoleChange(e.target.value)}
                       >
                         {CLUB_ROLES.map(r => (
                           <option key={r.id} value={r.id}>
@@ -4157,6 +4168,102 @@ function MemberManagement({ user, logout, onNavigate }) {
                     <span className={`pwd-rule ${hasLower ? 'valid' : ''}`}><i>{hasLower ? '✓' : '○'}</i> Lowercase Letter</span>
                     <span className={`pwd-rule ${hasNumber ? 'valid' : ''}`}><i>{hasNumber ? '✓' : '○'}</i> Number</span>
                     <span className={`pwd-rule ${hasSymbol ? 'valid' : ''}`}><i>{hasSymbol ? '✓' : '○'}</i> Symbol (!@#$)</span>
+                  </div>
+
+                  {/* RBAC & Capabilities Delegation Panel */}
+                  <div style={{
+                    background: 'var(--panel-subtle)',
+                    border: '1px solid var(--line)',
+                    borderRadius: '10px',
+                    padding: '16px',
+                    margin: '18px 0',
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                      <div>
+                        <b style={{ color: 'var(--text-main)', fontSize: '13px', display: 'block' }}>
+                          🛡️ Role-Based Access Control (RBAC) & Additional Capabilities
+                        </b>
+                        <small style={{ color: 'var(--text-muted)', fontSize: '11px', display: 'block', marginTop: '3px' }}>
+                          Default RBAC permissions for <b>{getRoleLabel(role)}</b> are applied automatically. You can add or remove additional access below:
+                        </small>
+                      </div>
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          className="outline"
+                          onClick={() => setCustomPermissions(ROLE_DEFAULT_PERMISSIONS[role] || [])}
+                          style={{ fontSize: '10.5px', padding: '3px 8px' }}
+                          title="Reset to default permissions for this role"
+                        >
+                          ↺ Reset Role RBAC
+                        </button>
+                        <button
+                          type="button"
+                          className="outline"
+                          onClick={() => setCustomPermissions(['QR_PASSES_VIEW', 'EVENTS_VIEW', 'DASHBOARD_VIEW'])}
+                          style={{ fontSize: '10.5px', padding: '3px 8px' }}
+                        >
+                          🎟️ Scanner Squad
+                        </button>
+                        <button
+                          type="button"
+                          className="outline"
+                          onClick={() => setCustomPermissions(['EVENT_MANAGE', 'EVENTS_VIEW', 'QR_PASSES_VIEW', 'REGISTRATIONS_VIEW', 'DASHBOARD_VIEW'])}
+                          style={{ fontSize: '10.5px', padding: '3px 8px' }}
+                        >
+                          📅 Event Studio
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px' }}>
+                      {[
+                        { key: 'QR_PASSES_VIEW', label: '🎟️ Gate Pass Scanner', desc: 'Scan attendee QR passes at gates' },
+                        { key: 'EVENT_MANAGE', label: '📅 Event Studio & Scheduling', desc: 'Create, schedule & manage events' },
+                        { key: 'PAYMENTS_VERIFY', label: '💰 Verify Payments & UTR', desc: 'Verify paid registrations & passes' },
+                        { key: 'ACCOUNT_MANAGEMENT', label: '👥 Member Directory Admin', desc: 'Provision & manage student accounts' },
+                        { key: 'GALLERY_MANAGE', label: '📸 Photo Gallery Studio', desc: 'Upload event photo albums' },
+                        { key: 'REELS_MANAGE', label: '🎬 Campus Reels Feed', desc: 'Upload and curate video reels' },
+                        { key: 'REGISTRATIONS_VIEW', label: '📊 Attendee Rosters & CSV', desc: 'View registrants & export CSV' },
+                        { key: 'CHAT_USE', label: '💬 Council Live Chat', desc: 'Official broadcasts and live chat' },
+                        { key: 'SETTINGS_MANAGE', label: '⚙️ Platform Settings', desc: 'Configure club rules & switches' },
+                      ].map(cap => {
+                        const isChecked = customPermissions.includes(cap.key)
+                        return (
+                          <label
+                            key={cap.key}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'flex-start',
+                              gap: '8px',
+                              padding: '8px 10px',
+                              borderRadius: '8px',
+                              background: isChecked ? 'rgba(82, 187, 245, 0.12)' : 'var(--bg-input)',
+                              border: isChecked ? '1px solid var(--brand-primary)' : '1px solid var(--line)',
+                              cursor: 'pointer',
+                              fontSize: '11.5px',
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                setCustomPermissions(prev =>
+                                  prev.includes(cap.key)
+                                    ? prev.filter(k => k !== cap.key)
+                                    : [...prev, cap.key]
+                                )
+                              }}
+                              style={{ marginTop: '2px' }}
+                            />
+                            <div>
+                              <b style={{ display: 'block', color: isChecked ? 'var(--brand-primary)' : 'var(--text-main)' }}>{cap.label}</b>
+                              <small style={{ color: 'var(--text-muted)', fontSize: '10px', display: 'block' }}>{cap.desc}</small>
+                            </div>
+                          </label>
+                        )
+                      })}
+                    </div>
                   </div>
 
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -4630,6 +4737,22 @@ function MemberManagement({ user, logout, onNavigate }) {
                                       ⇄ Switch
                                     </button>
                                   )}
+                                  {!m.isPrimaryAdmin && (
+                                    <button
+                                      type="button"
+                                      className="action-btn"
+                                      onClick={() => {
+                                        const perms = (m.permissions || []).map(p => (typeof p === 'string' ? p : p.permission))
+                                        const defaults = ROLE_DEFAULT_PERMISSIONS[m.role] || []
+                                        setModalPerms(perms.length > 0 ? perms : defaults)
+                                        setPermissionsModalUser(m)
+                                      }}
+                                      title="Add or remove additional access permissions"
+                                      style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', borderColor: 'rgba(99, 102, 241, 0.3)', whiteSpace: 'nowrap', fontWeight: 600 }}
+                                    >
+                                      🛡️ Access
+                                    </button>
+                                  )}
                                   {m.role !== 'STUDENT' && !m.isPrimaryAdmin && (
                                     <button
                                       className="action-btn"
@@ -4843,6 +4966,125 @@ function MemberManagement({ user, logout, onNavigate }) {
             </div>
           </div>
         )}
+
+        {/* Permissions & Capabilities Delegation Modal */}
+        {permissionsModalUser && (
+          <div className="photo-lightbox" onClick={() => { if (!savingModalPerms) setPermissionsModalUser(null) }}>
+            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-modal)', padding: '24px', borderRadius: '12px', border: '1px solid var(--line)', maxWidth: '560px', width: '100%' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '1px solid var(--line)', paddingBottom: '10px' }}>
+                <div>
+                  <h3 style={{ margin: 0, font: '700 17px Syne', color: 'var(--text-main)' }}>
+                    🛡️ Access Control: {permissionsModalUser.name}
+                  </h3>
+                  <small style={{ color: 'var(--brand-primary)', fontSize: '11px', fontFamily: 'DM Mono, monospace' }}>
+                    {permissionsModalUser.memberId} · {getRoleLabel(permissionsModalUser.role)}
+                  </small>
+                </div>
+                <button type="button" className="lightbox-close" onClick={() => setPermissionsModalUser(null)} style={{ position: 'static' }}>✕</button>
+              </div>
+
+              <p style={{ color: 'var(--text-muted)', fontSize: '11.5px', margin: '0 0 14px' }}>
+                Add or remove operational access and squad permissions for this account. Changes take effect immediately.
+              </p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px', maxHeight: '340px', overflowY: 'auto', marginBottom: '16px' }}>
+                {[
+                  { key: 'QR_PASSES_VIEW', label: '🎟️ Gate Pass Scanner', desc: 'Scan attendee QR passes at gates' },
+                  { key: 'EVENT_MANAGE', label: '📅 Event Studio & Scheduling', desc: 'Create, schedule & manage events' },
+                  { key: 'PAYMENTS_VERIFY', label: '💰 Verify Payments & UTR', desc: 'Verify paid registrations & passes' },
+                  { key: 'ACCOUNT_MANAGEMENT', label: '👥 Member Directory Admin', desc: 'Provision & manage student accounts' },
+                  { key: 'GALLERY_MANAGE', label: '📸 Photo Gallery Studio', desc: 'Upload event photo albums' },
+                  { key: 'REELS_MANAGE', label: '🎬 Campus Reels Feed', desc: 'Upload and curate video reels' },
+                  { key: 'REGISTRATIONS_VIEW', label: '📊 Attendee Rosters & CSV', desc: 'View registrants & export CSV' },
+                  { key: 'CHAT_USE', label: '💬 Council Live Chat', desc: 'Official broadcasts and live chat' },
+                  { key: 'SETTINGS_MANAGE', label: '⚙️ Platform Settings', desc: 'Configure club rules & switches' },
+                ].map(cap => {
+                  const isChecked = modalPerms.includes(cap.key)
+                  return (
+                    <label
+                      key={cap.key}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '8px',
+                        padding: '8px 10px',
+                        borderRadius: '8px',
+                        background: isChecked ? 'rgba(82, 187, 245, 0.12)' : 'var(--bg-input)',
+                        border: isChecked ? '1px solid var(--brand-primary)' : '1px solid var(--line)',
+                        cursor: 'pointer',
+                        fontSize: '11.5px',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {
+                          setModalPerms(prev =>
+                            prev.includes(cap.key)
+                              ? prev.filter(k => k !== cap.key)
+                              : [...prev, cap.key]
+                          )
+                        }}
+                        style={{ marginTop: '2px' }}
+                      />
+                      <div>
+                        <b style={{ display: 'block', color: isChecked ? 'var(--brand-primary)' : 'var(--text-main)' }}>{cap.label}</b>
+                        <small style={{ color: 'var(--text-muted)', fontSize: '10px', display: 'block' }}>{cap.desc}</small>
+                      </div>
+                    </label>
+                  )
+                })}
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    type="button"
+                    className="outline"
+                    onClick={() => setModalPerms(ROLE_DEFAULT_PERMISSIONS[permissionsModalUser.role] || ['DASHBOARD_VIEW'])}
+                    style={{ fontSize: '11px', padding: '5px 10px' }}
+                    title="Reset to default permissions for this role"
+                  >
+                    ↺ Reset RBAC
+                  </button>
+                  <button
+                    type="button"
+                    className="outline"
+                    onClick={() => setModalPerms(['QR_PASSES_VIEW', 'EVENTS_VIEW', 'DASHBOARD_VIEW'])}
+                    style={{ fontSize: '11px', padding: '5px 10px' }}
+                  >
+                    🎟️ Scanner Squad
+                  </button>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button type="button" className="action-btn cancel-btn" disabled={savingModalPerms} onClick={() => setPermissionsModalUser(null)}>Cancel</button>
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={savingModalPerms}
+                    onClick={async () => {
+                      setSavingModalPerms(true)
+                      try {
+                        const safePerms = modalPerms.length > 0 ? modalPerms : ['DASHBOARD_VIEW']
+                        await adminApi.updateMemberPermissions(permissionsModalUser.id, safePerms)
+                        setMembers(prev => prev.map(m => m.id === permissionsModalUser.id ? { ...m, permissions: safePerms } : m))
+                        setMessage(`✓ Updated permissions for ${permissionsModalUser.name}!`)
+                        setPermissionsModalUser(null)
+                      } catch (err) {
+                        alert(err.message || 'Failed to save permissions.')
+                      } finally {
+                        setSavingModalPerms(false)
+                      }
+                    }}
+                    style={{ padding: '7px 18px', fontWeight: 700 }}
+                  >
+                    {savingModalPerms ? 'SAVING…' : 'SAVE PERMISSIONS'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </section>
     </LivePortal>
   )
@@ -4915,9 +5157,13 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
   }, [leaders, search])
 
   function getLeaderPerms(leader) {
-    const existing = (leader.permissions || []).map(p => (typeof p === 'string' ? p : p.permission))
-    const defaults = ROLE_DEFAULT_PERMISSIONS[leader.role] || []
-    return Array.from(new Set([...defaults, ...existing]))
+    if (leader.isPrimaryAdmin) {
+      return ROLE_DEFAULT_PERMISSIONS.PRESIDENT || []
+    }
+    if (leader.permissions && leader.permissions.length > 0) {
+      return leader.permissions.map(p => (typeof p === 'string' ? p : p.permission))
+    }
+    return ROLE_DEFAULT_PERMISSIONS[leader.role] || []
   }
 
   async function togglePermission(leader, permKey) {
@@ -4930,17 +5176,14 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
       ? current.filter(p => p !== permKey)
       : [...current, permKey]
 
-    if (next.length === 0) {
-      setError('A leader must have at least one assigned capability.')
-      return
-    }
+    const safeNext = next.length > 0 ? next : ['DASHBOARD_VIEW']
 
     setSavingId(leader.id)
     setError('')
     setMessage('')
     try {
-      await adminApi.updateMemberPermissions(leader.id, next)
-      setMembers(prev => prev.map(m => (m.id === leader.id ? { ...m, permissions: next } : m)))
+      await adminApi.updateMemberPermissions(leader.id, safeNext)
+      setMembers(prev => prev.map(m => (m.id === leader.id ? { ...m, permissions: safeNext } : m)))
       setMessage(`✓ Updated access for ${leader.name} (${leader.memberId})`)
     } catch (err) {
       setError(err.message || 'Failed to update permission.')

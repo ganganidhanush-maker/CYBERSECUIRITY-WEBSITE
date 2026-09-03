@@ -81,7 +81,7 @@ export const createMemberSchema = z.object({
 })
 
 export const memberPermissionsSchema = z.object({
-  permissions: z.array(memberPermissionSchema).min(1, 'Select at least one permission.').max(memberPermissions.length).refine(values => new Set(values).size === values.length, 'Duplicate permissions are not allowed.'),
+  permissions: z.array(memberPermissionSchema).max(memberPermissions.length).refine(values => new Set(values).size === values.length, 'Duplicate permissions are not allowed.'),
 })
 
 export const transferPresidentSchema = z.object({

@@ -304,19 +304,23 @@ export async function activateAllAccounts(request, response) {
 
 export async function changeMemberPermissions(request, response) {
   const parsed = memberPermissionsSchema.safeParse(request.body)
-  if (!parsed.success) return response.status(400).json({ message: 'Choose at least one valid permission.' })
+  if (!parsed.success) return response.status(400).json({ message: 'Please provide valid permission settings.' })
 
   const target = await prisma.user.findUnique({ where: { id: request.params.id }, include: userInclude })
   if (!target) return response.status(404).json({ message: 'Resource not found' })
   if (target.isPrimaryAdmin) return response.status(400).json({ message: 'Primary President permissions cannot be customized.' })
 
+  const permsToSave = parsed.data.permissions && parsed.data.permissions.length > 0
+    ? parsed.data.permissions
+    : ['DASHBOARD_VIEW']
+
   const platformMode = request.platformMode || await getActivePlatformMode()
   const user = await prisma.user.update({
     where: { id: target.id },
-    data: { permissions: { deleteMany: {}, create: parsed.data.permissions.map(permission => ({ permission })) } },
+    data: { permissions: { deleteMany: {}, create: permsToSave.map(permission => ({ permission })) } },
     include: userInclude,
   })
-  await tryWriteAuditLog({ actorUserId: request.user.id, action: 'ACCOUNT_PERMISSIONS_CHANGED', targetUserId: target.id, metadata: { from: target.permissions.map(entry => entry.permission), to: parsed.data.permissions }, ...auditRequest(request) })
+  await tryWriteAuditLog({ actorUserId: request.user.id, action: 'ACCOUNT_PERMISSIONS_CHANGED', targetUserId: target.id, metadata: { from: target.permissions.map(entry => entry.permission), to: permsToSave }, ...auditRequest(request) })
   return response.status(200).json({ user: flattenMember(user, platformMode) })
 }
 
