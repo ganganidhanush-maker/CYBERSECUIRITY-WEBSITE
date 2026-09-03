@@ -5,7 +5,7 @@ import { tryWriteAuditLog } from '../services/audit.service.js'
 import { createUserNotification } from '../services/notification.service.js'
 import { toSafeUser } from '../utils/safe-user.js'
 import { authUserCache } from '../services/auth-cache.service.js'
-import { eventRegistrationSchema, profileUpdateSchema } from '../validators/member.validator.js'
+import { eventRegistrationSchema, profileUpdateSchema, projectSubmissionSchema, resubmitPaymentSchema } from '../validators/member.validator.js'
 
 function auditRequest(request) {
   return { ipAddress: request.ip, userAgent: request.get('user-agent') || null }
@@ -57,6 +57,14 @@ function serializeEventForStudent(event, userId) {
     minTeamSize: event.minTeamSize || 1,
     maxTeamSize: event.maxTeamSize || 1,
     teamRules: event.teamRules || null,
+    registrationType: event.registrationType || (event.isTeamEvent ? 'TEAM' : 'INDIVIDUAL'),
+    externalFormUrl: event.externalFormUrl || null,
+    workflowConfig: event.workflowConfig || null,
+    teamConfig: event.teamConfig || null,
+    paymentConfig: event.paymentConfig || null,
+    submissionConfig: event.submissionConfig || null,
+    eligibilityConfig: event.eligibilityConfig || null,
+    customQuestions: event.customQuestions || null,
     registrationCount: event._count?.registrations ?? event.registrations?.length ?? 0,
     isRegistered: Boolean(userRegistration),
     registrationStatus: userRegistration?.status || null,
@@ -72,6 +80,12 @@ function serializeEventForStudent(event, userId) {
       isTeamLeader: userRegistration.isTeamLeader,
       formData: userRegistration.formData,
       github: userRegistration.github,
+      paymentOption: userRegistration.paymentOption,
+      amountPaid: userRegistration.amountPaid !== null && userRegistration.amountPaid !== undefined ? Number(userRegistration.amountPaid) : null,
+      paymentMethod: userRegistration.paymentMethod,
+      paymentSubmittedAt: userRegistration.paymentSubmittedAt,
+      paymentRejectionReason: userRegistration.paymentRejectionReason,
+      projectSubmission: userRegistration.projectSubmission,
     } : null,
     userTeam: userTeam ? {
       id: userTeam.id,
@@ -200,11 +214,142 @@ export async function registerForEvent(request, response) {
 
   const data = parsed.data
 
-  // Calculate total price server-side based on selected activities or base event fee
+  // 1. Determine if this is a team registration
+  const isTeam = data.registrationType === 'TEAM' || event.registrationType === 'TEAM' || Boolean(event.isTeamEvent) || Boolean(data.teamName) || Boolean(data.teamId) || (Array.isArray(data.teamMembers) && data.teamMembers.length > 0)
+  const teamConfig = (typeof event.teamConfig === 'object' && event.teamConfig) || {}
+  const minTeamSize = Number(teamConfig.minTeamSize || teamConfig.minSize || event.minTeamSize || 1)
+  const maxTeamSize = Number(teamConfig.maxTeamSize || teamConfig.maxSize || event.maxTeamSize || 1)
+
+  let teamUserIds = [request.user.id]
+  const rawMembers = Array.isArray(data.teamMembers) ? data.teamMembers : []
+  rawMembers.forEach(m => {
+    const uid = m.id || m.userId
+    if (uid && !teamUserIds.includes(uid)) teamUserIds.push(uid)
+  })
+
+  let existingTeam = null
+  if (data.teamId) {
+    existingTeam = await prisma.eventTeam.findUnique({
+      where: { id: data.teamId },
+      include: {
+        members: {
+          where: { status: 'ACCEPTED' },
+          include: { user: { include: { profile: true } } },
+        },
+      },
+    })
+    if (existingTeam) {
+      existingTeam.members.forEach(m => {
+        if (!teamUserIds.includes(m.userId)) teamUserIds.push(m.userId)
+      })
+    }
+  }
+
+  // 2. Validate Team Constraints if Team Registration
+  if (isTeam && (data.teamName || data.teamId || rawMembers.length > 0)) {
+    if (teamUserIds.length < minTeamSize) {
+      return response.status(400).json({
+        message: `Team requirement not met: Minimum ${minTeamSize} member(s) required for this event (current team size: ${teamUserIds.length}).`,
+      })
+    }
+    if (teamUserIds.length > maxTeamSize) {
+      return response.status(400).json({
+        message: `Team requirement not met: Maximum ${maxTeamSize} member(s) allowed for this event (current team size: ${teamUserIds.length}).`,
+      })
+    }
+
+    const dbMembers = await prisma.user.findMany({
+      where: { id: { in: teamUserIds } },
+      include: { profile: true },
+    })
+
+    // Prevent duplicate registrations
+    const registeredTeammates = await prisma.eventRegistration.findMany({
+      where: {
+        eventId: event.id,
+        userId: { in: teamUserIds },
+      },
+      include: { event: true },
+    })
+    if (registeredTeammates.length > 0) {
+      const existingUser = dbMembers.find(m => m.id === registeredTeammates[0].userId)
+      const name = existingUser?.profile?.name || existingUser?.memberId || 'A team member'
+      return response.status(409).json({
+        message: `Duplicate registration: ${name} is already registered for this event.`,
+      })
+    }
+
+    // Gender rules enforcement
+    const minFemale = Number(teamConfig.minFemale ?? (teamConfig.requireFemale ? 1 : 0))
+    const maxFemale = teamConfig.maxFemale !== null && teamConfig.maxFemale !== undefined && teamConfig.maxFemale !== '' ? Number(teamConfig.maxFemale) : null
+    const minMale = teamConfig.minMale !== null && teamConfig.minMale !== undefined && teamConfig.minMale !== '' ? Number(teamConfig.minMale) : null
+    const maxMale = teamConfig.maxMale !== null && teamConfig.maxMale !== undefined && teamConfig.maxMale !== '' ? Number(teamConfig.maxMale) : null
+
+    let femaleCount = 0
+    let maleCount = 0
+
+    dbMembers.forEach(m => {
+      const g = (m.profile?.gender || '').toUpperCase()
+      const effectiveG = (m.id === request.user.id && data.gender) ? data.gender.toUpperCase() : g
+      if (effectiveG === 'FEMALE') femaleCount++
+      else if (effectiveG === 'MALE') maleCount++
+    })
+
+    if (minFemale > 0 && femaleCount < minFemale) {
+      return response.status(400).json({
+        message: `Special Team Rule Violation: At least ${minFemale} female participant(s) required on the team (current female members: ${femaleCount}).`,
+      })
+    }
+    if (maxFemale !== null && femaleCount > maxFemale) {
+      return response.status(400).json({
+        message: `Special Team Rule Violation: Maximum ${maxFemale} female participant(s) allowed on the team (current: ${femaleCount}).`,
+      })
+    }
+    if (minMale !== null && maleCount < minMale) {
+      return response.status(400).json({
+        message: `Special Team Rule Violation: At least ${minMale} male participant(s) required on the team (current: ${maleCount}).`,
+      })
+    }
+    if (maxMale !== null && maleCount > maxMale) {
+      return response.status(400).json({
+        message: `Special Team Rule Violation: Maximum ${maxMale} male participant(s) allowed on the team (current: ${maleCount}).`,
+      })
+    }
+
+    // Department & Year rules
+    if (Array.isArray(teamConfig.allowedDepartments) && teamConfig.allowedDepartments.length > 0) {
+      const invalidDept = dbMembers.find(m => {
+        const dept = m.profile?.department || (m.id === request.user.id ? data.branch : null)
+        return dept && !teamConfig.allowedDepartments.includes(dept)
+      })
+      if (invalidDept) {
+        return response.status(400).json({
+          message: `Department Restriction: ${invalidDept.profile?.name || invalidDept.memberId} (${invalidDept.profile?.department}) is not eligible for this event.`,
+        })
+      }
+    }
+    if (Array.isArray(teamConfig.allowedYears) && teamConfig.allowedYears.length > 0) {
+      const invalidYear = dbMembers.find(m => {
+        const yr = m.profile?.year || (m.id === request.user.id ? data.year : null)
+        return yr && !teamConfig.allowedYears.includes(Number(yr))
+      })
+      if (invalidYear) {
+        return response.status(400).json({
+          message: `Year Restriction: ${invalidYear.profile?.name || invalidYear.memberId} (Year ${invalidYear.profile?.year}) is not eligible for this event.`,
+        })
+      }
+    }
+  }
+
+  // 3. Pricing & Payment Resolution
   let totalAmount = 0
+  let paymentOptionObj = null
   const selectedActivitiesList = []
 
-  if (event.activities && event.activities.length > 0 && data.selectedActivityIds && data.selectedActivityIds.length > 0) {
+  if (data.paymentOption && typeof data.paymentOption === 'object') {
+    paymentOptionObj = data.paymentOption
+    totalAmount = Number(data.paymentOption.amount ?? data.paymentOption.price ?? 0)
+  } else if (event.activities && event.activities.length > 0 && data.selectedActivityIds && data.selectedActivityIds.length > 0) {
     const activityMap = new Map(event.activities.map(a => [a.id, a]))
     const chosenIds = event.allowMultipleActivities ? data.selectedActivityIds : data.selectedActivityIds.slice(0, 1)
 
@@ -217,15 +362,34 @@ export async function registerForEvent(request, response) {
     }
   } else if (event.requiresPayment && event.paymentAmount) {
     totalAmount = Number(event.paymentAmount)
+  } else if (event.paymentConfig?.price) {
+    totalAmount = Number(event.paymentConfig.price)
   }
 
-  // Auto-accept form & auto-verify payment: no manual reverification needed
-  let paymentStatus = totalAmount > 0 ? 'VERIFIED' : 'FREE'
+  // Status mapping
+  let paymentStatus = 'FREE'
   let registrationStatus = 'REGISTERED'
-  const paymentVerifiedAt = totalAmount > 0 ? new Date() : null
-  const paymentVerifiedBy = totalAmount > 0 ? 'SYSTEM_AUTO_VERIFIED' : null
+  let paymentVerifiedAt = null
+  let paymentVerifiedBy = null
+  let paymentSubmittedAt = null
 
-  // Update gender & age in profile if provided and not set
+  if (totalAmount > 0) {
+    if (data.paymentReference && String(data.paymentReference).trim()) {
+      paymentStatus = 'UNDER_VERIFICATION'
+      registrationStatus = 'UNDER_VERIFICATION'
+      paymentSubmittedAt = new Date()
+    } else {
+      paymentStatus = 'PENDING'
+      registrationStatus = 'PAYMENT_PENDING'
+    }
+  } else {
+    paymentStatus = 'FREE'
+    registrationStatus = 'REGISTERED'
+    paymentVerifiedAt = new Date()
+    paymentVerifiedBy = 'SYSTEM_FREE'
+  }
+
+  // Update gender & age in profile if provided
   if (data.gender || data.age) {
     prisma.profile.update({
       where: { userId: request.user.id },
@@ -236,6 +400,7 @@ export async function registerForEvent(request, response) {
     }).catch(() => {})
   }
 
+  // Generate QR pass
   const regId = crypto.randomUUID()
   const qrPassPayload = `EVENT_PASS:${regId}`
   let qrCodeData = null
@@ -246,18 +411,46 @@ export async function registerForEvent(request, response) {
   const effectiveGender = data.gender || request.user.profile?.gender || null
   const effectiveAge = data.age || request.user.profile?.age || null
 
+  // Ensure EventTeam exists if teamName provided
+  let resolvedTeamId = data.teamId || null
+  const resolvedTeamName = data.teamName || existingTeam?.teamName || null
+  if (isTeam && resolvedTeamName && !resolvedTeamId) {
+    try {
+      const createdTeam = await prisma.eventTeam.create({
+        data: {
+          id: crypto.randomUUID(),
+          eventId: event.id,
+          leaderId: request.user.id,
+          teamName: resolvedTeamName.trim(),
+          status: 'REGISTERED',
+        },
+      })
+      resolvedTeamId = createdTeam.id
+    } catch {}
+  } else if (existingTeam) {
+    prisma.eventTeam.update({
+      where: { id: existingTeam.id },
+      data: { status: 'REGISTERED' },
+    }).catch(() => {})
+  }
+
   const registration = await prisma.eventRegistration.create({
     data: {
       id: regId,
       eventId: event.id,
       userId: request.user.id,
+      registrationType: isTeam ? 'TEAM' : 'INDIVIDUAL',
       selectedActivities: selectedActivitiesList.length ? selectedActivitiesList : undefined,
+      paymentOption: paymentOptionObj,
       totalAmount,
+      amountPaid: data.amountPaid !== null && data.amountPaid !== undefined ? Number(data.amountPaid) : (data.paymentReference ? totalAmount : null),
+      paymentMethod: data.paymentMethod || (totalAmount > 0 ? 'UPI' : null),
       paymentStatus,
-      paymentReference: data.paymentReference || (totalAmount > 0 ? 'AUTO_VERIFIED' : null),
+      paymentReference: data.paymentReference || null,
       paymentProofUrl: data.paymentProofUrl || null,
       paymentVerifiedAt,
       paymentVerifiedBy,
+      paymentSubmittedAt,
       branch: data.branch || request.user.profile?.department || null,
       section: data.section || null,
       year: data.year || request.user.profile?.year || null,
@@ -267,88 +460,96 @@ export async function registerForEvent(request, response) {
       transportMode: data.transportMode || null,
       hostelType: data.hostelType || null,
       emergencyContact: data.emergencyContact || null,
-      teamName: data.teamName || null,
-      teamId: data.teamId || null,
-      isTeamLeader: Boolean(data.isTeamLeader || (event.isTeamEvent && data.teamName)),
+      teamName: resolvedTeamName,
+      teamId: resolvedTeamId,
+      isTeamLeader: Boolean(data.isTeamLeader || (isTeam && resolvedTeamName)),
       github: data.github || null,
       formData: data.formData || null,
+      projectSubmission: data.projectSubmission || null,
       status: registrationStatus,
       attendanceMarked: false,
       qrCodeData,
     },
   })
 
-  // If team event and teamId is provided, also generate registrations for accepted team members!
-  if (event.isTeamEvent && data.teamId) {
-    try {
-      const team = await prisma.eventTeam.findUnique({
-        where: { id: data.teamId },
-        include: {
-          members: {
-            where: { status: 'ACCEPTED', userId: { not: request.user.id } },
-            include: { user: { include: { profile: true } } },
-          },
-        },
-      })
-
-      if (team) {
-        await prisma.eventTeam.update({
-          where: { id: team.id },
-          data: { status: 'REGISTERED' },
+  // Propagate registration to team members
+  const memberRecordsToCreate = []
+  if (isTeam && rawMembers.length > 0) {
+    rawMembers.forEach(m => {
+      const uid = m.id || m.userId
+      if (uid && uid !== request.user.id && !memberRecordsToCreate.some(x => x.userId === uid)) {
+        memberRecordsToCreate.push({
+          userId: uid,
+          name: m.name,
+          department: m.department,
+          year: m.year,
+          gender: m.gender,
         })
-
-        for (const member of team.members) {
-          const mExisting = await prisma.eventRegistration.findUnique({
-            where: { eventId_userId: { eventId: event.id, userId: member.userId } },
-          })
-          if (!mExisting) {
-            const mRegId = crypto.randomUUID()
-            let mQrCode = null
-            try {
-              mQrCode = await QRCode.toDataURL(`EVENT_PASS:${mRegId}`, { margin: 2, width: 300, color: { dark: '#000000', light: '#ffffff' } })
-            } catch {}
-
-            await prisma.eventRegistration.create({
-              data: {
-                id: mRegId,
-                eventId: event.id,
-                userId: member.userId,
-                selectedActivities: selectedActivitiesList.length ? selectedActivitiesList : undefined,
-                totalAmount: 0,
-                paymentStatus,
-                paymentReference: data.paymentReference || (totalAmount > 0 ? 'AUTO_VERIFIED' : null),
-                paymentProofUrl: data.paymentProofUrl || null,
-                paymentVerifiedAt,
-                paymentVerifiedBy,
-                branch: member.user?.profile?.department || null,
-                year: member.user?.profile?.year || null,
-                gender: member.user?.profile?.gender || null,
-                age: member.user?.profile?.age || null,
-                residencyType: data.residencyType || null,
-                transportMode: data.transportMode || null,
-                hostelType: data.hostelType || null,
-                teamName: team.teamName,
-                teamId: team.id,
-                isTeamLeader: false,
-                status: registrationStatus,
-                attendanceMarked: false,
-                qrCodeData: mQrCode,
-              },
-            })
-
-            // Notify member that team pass is ready
-            createUserNotification({
-              userId: member.userId,
-              type: 'EVENT_REGISTRATION',
-              title: `Team Pass Generated: ${event.title}`,
-              message: `Your team "${team.teamName}" has been successfully registered for "${event.title}" by team leader ${request.user.name}. Your digital pass is now ready in your pass wallet!`,
-              linkUrl: '/student-passes',
-            }).catch(() => {})
-          }
-        }
       }
-    } catch (teamErr) {
-      console.error('[TEAM REGISTRATION PROPAGATION ERROR]:', teamErr.message)
+    })
+  } else if (existingTeam?.members?.length) {
+    existingTeam.members.forEach(m => {
+      if (m.userId !== request.user.id && !memberRecordsToCreate.some(x => x.userId === m.userId)) {
+        memberRecordsToCreate.push({
+          userId: m.userId,
+          name: m.user?.profile?.name || m.user?.memberId,
+          department: m.user?.profile?.department,
+          year: m.user?.profile?.year,
+          gender: m.user?.profile?.gender,
+        })
+      }
+    })
+  }
+
+  for (const member of memberRecordsToCreate) {
+    const mExisting = await prisma.eventRegistration.findUnique({
+      where: { eventId_userId: { eventId: event.id, userId: member.userId } },
+    })
+    if (!mExisting) {
+      const mRegId = crypto.randomUUID()
+      let mQrCode = null
+      try {
+        mQrCode = await QRCode.toDataURL(`EVENT_PASS:${mRegId}`, { margin: 2, width: 300, color: { dark: '#000000', light: '#ffffff' } })
+      } catch {}
+
+      await prisma.eventRegistration.create({
+        data: {
+          id: mRegId,
+          eventId: event.id,
+          userId: member.userId,
+          registrationType: 'TEAM',
+          selectedActivities: selectedActivitiesList.length ? selectedActivitiesList : undefined,
+          paymentOption: paymentOptionObj,
+          totalAmount: 0,
+          amountPaid: 0,
+          paymentStatus,
+          paymentReference: data.paymentReference || null,
+          paymentProofUrl: data.paymentProofUrl || null,
+          paymentVerifiedAt,
+          paymentVerifiedBy,
+          paymentSubmittedAt,
+          branch: member.department || null,
+          year: member.year ? Number(member.year) : null,
+          gender: member.gender || null,
+          residencyType: data.residencyType || null,
+          transportMode: data.transportMode || null,
+          hostelType: data.hostelType || null,
+          teamName: resolvedTeamName,
+          teamId: resolvedTeamId,
+          isTeamLeader: false,
+          status: registrationStatus,
+          attendanceMarked: false,
+          qrCodeData: mQrCode,
+        },
+      }).catch(() => {})
+
+      createUserNotification({
+        userId: member.userId,
+        type: 'EVENT_REGISTRATION',
+        title: `Team Pass Generated: ${event.title}`,
+        message: `Your team "${resolvedTeamName}" was registered for "${event.title}". Your pass is available in your Pass Wallet!`,
+        linkUrl: '/student-passes',
+      }).catch(() => {})
     }
   }
 
@@ -1181,6 +1382,218 @@ export async function submitEventCompletion(request, response) {
     message: '✓ Hackathon project and event completion submitted successfully! Your participation is marked complete.',
     registration: updated,
   })
+}
+
+export async function searchStudentsForTeam(request, response) {
+  const q = String(request.query.q || request.query.query || '').trim()
+  if (!q || q.length < 2) {
+    return response.status(200).json({ students: [] })
+  }
+
+  const users = await prisma.user.findMany({
+    where: {
+      accountStatus: 'ACTIVE',
+      id: { not: request.user.id },
+      OR: [
+        { memberId: { contains: q } },
+        { profile: { name: { contains: q } } },
+        { profile: { rollNumber: { contains: q } } },
+      ],
+    },
+    include: { profile: true },
+    take: 15,
+  })
+
+  return response.status(200).json({
+    students: users.map(u => ({
+      id: u.id,
+      memberId: u.memberId,
+      name: u.profile?.name || u.memberId,
+      rollNumber: u.profile?.rollNumber || u.memberId,
+      department: u.profile?.department || 'CSE',
+      year: u.profile?.year || 1,
+      gender: u.profile?.gender || 'UNSPECIFIED',
+      profileImage: u.profile?.profileImage || null,
+    })),
+  })
+}
+
+export async function resubmitPayment(request, response) {
+  const { registrationId } = request.params
+  const parsed = resubmitPaymentSchema.safeParse(request.body)
+  if (!parsed.success) {
+    return response.status(400).json({ message: parsed.error.issues[0]?.message || 'Enter valid payment details.' })
+  }
+  const data = parsed.data
+
+  const registration = await prisma.eventRegistration.findFirst({
+    where: {
+      id: registrationId,
+      userId: request.user.id,
+    },
+    include: { event: true },
+  })
+  if (!registration) {
+    return response.status(404).json({ message: 'Registration not found or unauthorized.' })
+  }
+
+  const cleanUtr = String(data.paymentReference).trim()
+  const duplicateUtr = await prisma.eventRegistration.findFirst({
+    where: {
+      paymentReference: cleanUtr,
+      paymentStatus: { in: ['UNDER_VERIFICATION', 'VERIFIED', 'SUBMITTED'] },
+      id: { not: registrationId },
+      userId: { not: request.user.id },
+    },
+  })
+  if (duplicateUtr) {
+    return response.status(409).json({
+      message: `Transaction ID / UTR "${cleanUtr}" has already been submitted for another registration. Please enter your own unique payment UTR.`,
+    })
+  }
+
+  const updated = await prisma.eventRegistration.update({
+    where: { id: registrationId },
+    data: {
+      paymentReference: cleanUtr,
+      amountPaid: data.amountPaid,
+      paymentProofUrl: data.paymentProofUrl || registration.paymentProofUrl,
+      paymentMethod: data.paymentMethod || 'UPI',
+      paymentStatus: 'UNDER_VERIFICATION',
+      status: 'UNDER_VERIFICATION',
+      paymentSubmittedAt: new Date(),
+      paymentRejectionReason: null,
+    },
+  })
+
+  // Also sync to team members if team leader
+  if (registration.teamId && registration.isTeamLeader) {
+    await prisma.eventRegistration.updateMany({
+      where: { teamId: registration.teamId },
+      data: {
+        paymentReference: cleanUtr,
+        paymentStatus: 'UNDER_VERIFICATION',
+        status: 'UNDER_VERIFICATION',
+        paymentSubmittedAt: new Date(),
+        paymentRejectionReason: null,
+      },
+    }).catch(() => {})
+  }
+
+  return response.status(200).json({
+    message: '✓ Payment details re-submitted. Your transaction is now Under Verification by organizers.',
+    registration: updated,
+  })
+}
+
+export async function submitProject(request, response) {
+  const { eventId } = request.params
+  const parsed = projectSubmissionSchema.safeParse(request.body)
+  if (!parsed.success) {
+    return response.status(400).json({ message: parsed.error.issues[0]?.message || 'Invalid project submission details.' })
+  }
+  const data = parsed.data
+
+  const registration = await prisma.eventRegistration.findUnique({
+    where: { eventId_userId: { eventId, userId: request.user.id } },
+    include: { event: true },
+  })
+  if (!registration) {
+    return response.status(404).json({ message: 'No registration found for this event.' })
+  }
+
+  const submissionData = {
+    githubUrl: data.githubUrl || null,
+    websiteUrl: data.websiteUrl || null,
+    driveUrl: data.driveUrl || null,
+    zipUrl: data.zipUrl || null,
+    notes: data.notes || null,
+    submittedAt: new Date().toISOString(),
+    submittedBy: request.user.id,
+    submittedByName: request.user.profile?.name || request.user.memberId,
+  }
+
+  const updated = await prisma.eventRegistration.update({
+    where: { id: registration.id },
+    data: {
+      projectSubmission: submissionData,
+      status: 'PROJECT_SUBMITTED',
+      ...(data.githubUrl ? { github: data.githubUrl } : {}),
+    },
+  })
+
+  // If part of a team, sync project submission to EventTeam AND all teammates
+  if (registration.teamId) {
+    await prisma.eventTeam.update({
+      where: { id: registration.teamId },
+      data: { projectSubmission: submissionData },
+    }).catch(() => {})
+
+    await prisma.eventRegistration.updateMany({
+      where: { teamId: registration.teamId },
+      data: {
+        projectSubmission: submissionData,
+        status: 'PROJECT_SUBMITTED',
+        ...(data.githubUrl ? { github: data.githubUrl } : {}),
+      },
+    }).catch(() => {})
+  }
+
+  return response.status(200).json({
+    message: '✓ Hackathon project submitted successfully for the entire team!',
+    projectSubmission: submissionData,
+    registration: updated,
+  })
+}
+
+export async function saveRegistrationDraft(request, response) {
+  const { eventId } = request.params
+  const { registrationType, teamName, teamId, formData, selectedActivityIds, paymentOption } = request.body || {}
+
+  const event = await prisma.event.findUnique({ where: { id: eventId } })
+  if (!event) return response.status(404).json({ message: 'Event not found' })
+
+  let reg = await prisma.eventRegistration.findUnique({
+    where: { eventId_userId: { eventId, userId: request.user.id } },
+  })
+
+  const isTeam = registrationType === 'TEAM' || event.registrationType === 'TEAM' || Boolean(event.isTeamEvent) || Boolean(teamName)
+
+  if (reg) {
+    if (['REGISTERED', 'UNDER_VERIFICATION', 'COMPLETED', 'PROJECT_SUBMITTED'].includes(reg.status)) {
+      return response.status(200).json({ registration: reg, message: 'Existing active registration found.' })
+    }
+    reg = await prisma.eventRegistration.update({
+      where: { id: reg.id },
+      data: {
+        registrationType: isTeam ? 'TEAM' : 'INDIVIDUAL',
+        teamName: teamName || reg.teamName,
+        teamId: teamId || reg.teamId,
+        formData: formData || reg.formData,
+        paymentOption: paymentOption || reg.paymentOption,
+        selectedActivities: selectedActivityIds || reg.selectedActivities,
+      },
+    })
+  } else {
+    const regId = crypto.randomUUID()
+    reg = await prisma.eventRegistration.create({
+      data: {
+        id: regId,
+        eventId,
+        userId: request.user.id,
+        registrationType: isTeam ? 'TEAM' : 'INDIVIDUAL',
+        teamName: teamName || null,
+        teamId: teamId || null,
+        isTeamLeader: Boolean(isTeam && teamName),
+        formData: formData || null,
+        paymentOption: paymentOption || null,
+        paymentStatus: 'PENDING',
+        status: 'DRAFT',
+      },
+    })
+  }
+
+  return response.status(200).json({ registration: reg, message: 'Draft registration saved.' })
 }
 
 

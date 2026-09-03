@@ -28,6 +28,10 @@ import {
   removeTeamMember,
   listMyTeamInvites,
   submitEventCompletion,
+  searchStudentsForTeam,
+  resubmitPayment,
+  submitProject,
+  saveRegistrationDraft,
 } from '../controllers/member.controller.js'
 import {
   scanQrCode,
@@ -65,11 +69,15 @@ memberRouter.post('/subscription/submit', submitStudentSubscription)
 // Events & Registration (Registration requires active subscription when enabled)
 memberRouter.get('/events', requirePermission('EVENTS_VIEW'), listPublishedEvents)
 memberRouter.get('/events/:eventId', requirePermission('EVENTS_VIEW'), getEventDetails)
+memberRouter.post('/events/:eventId/draft', requirePermission('EVENT_REGISTER'), saveRegistrationDraft)
 memberRouter.post('/events/:eventId/register', requirePermission('EVENT_REGISTER'), requireActiveSubscription, registerForEvent)
 memberRouter.post('/events/:eventId/submit-completion', requirePermission('EVENT_REGISTER'), submitEventCompletion)
+memberRouter.post('/events/:eventId/submit-project', requirePermission('EVENT_REGISTER'), submitProject)
+memberRouter.post('/registrations/:registrationId/resubmit-payment', requirePermission('EVENT_REGISTER'), resubmitPayment)
 memberRouter.get('/registrations', requirePermission('REGISTRATIONS_VIEW'), listMyRegistrations)
 
 // Team Participation & Formation
+memberRouter.get('/members/search', searchStudentsForTeam)
 memberRouter.get('/members/lookup/:memberId', lookupMemberForTeam)
 memberRouter.post('/events/:eventId/teams', requirePermission('EVENT_REGISTER'), createEventTeam)
 memberRouter.post('/teams/invites/:inviteId/respond', respondTeamInvite)

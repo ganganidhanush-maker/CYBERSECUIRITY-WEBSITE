@@ -55,6 +55,8 @@ import {
   verifyPayment,
   listAllEventPasses,
   verifyRegistrationPaymentFast,
+  rejectRegistrationPayment,
+  markRegistrationPaymentPending,
   getPresidentDirectives,
   updatePresidentDirectives,
   togglePresidentDirectiveTodo,
@@ -115,6 +117,8 @@ adminRouter.get('/events/:eventId/registrations', requirePermission('REGISTRATIO
 // Event Passes & Attendance Roster
 adminRouter.get('/passes', requirePermission('REGISTRATIONS_VIEW'), asyncHandler(listAllEventPasses))
 adminRouter.post('/passes/:registrationId/verify-payment', requirePermission('PAYMENTS_VERIFY'), adminWriteRateLimiter, asyncHandler(verifyRegistrationPaymentFast))
+adminRouter.post('/passes/:registrationId/reject-payment', requirePermission('PAYMENTS_VERIFY'), adminWriteRateLimiter, asyncHandler(rejectRegistrationPayment))
+adminRouter.post('/passes/:registrationId/mark-pending', requirePermission('PAYMENTS_VERIFY'), adminWriteRateLimiter, asyncHandler(markRegistrationPaymentPending))
 
 // Payment & Subscription Management
 adminRouter.get('/payments', requirePermission('PAYMENTS_VIEW'), asyncHandler(listPayments))

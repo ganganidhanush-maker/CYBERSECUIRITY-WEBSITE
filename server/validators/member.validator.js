@@ -133,13 +133,29 @@ export const eventInputSchema = z.object({
     return Number.isFinite(num) && num >= 1 ? num : 1
   }),
   teamRules: optionalText(10000),
+  registrationType: z.enum(['INDIVIDUAL', 'TEAM', 'BOTH', 'EXTERNAL']).optional().default('INDIVIDUAL'),
+  externalFormUrl: optionalText(500),
+  workflowConfig: z.any().optional(),
+  teamConfig: z.any().optional(),
+  paymentConfig: z.any().optional(),
+  submissionConfig: z.any().optional(),
+  eligibilityConfig: z.any().optional(),
+  customQuestions: z.any().optional(),
   activities: z.array(eventActivityInputSchema).optional(),
   formFields: z.array(eventFormFieldInputSchema).optional(),
 })
 
 export const eventRegistrationSchema = z.object({
+  registrationType: z.enum(['INDIVIDUAL', 'TEAM']).optional().default('INDIVIDUAL'),
   selectedActivityIds: z.array(z.string()).optional(),
+  paymentOption: z.any().optional(),
   paymentReference: optionalText(120),
+  amountPaid: z.union([z.string(), z.number(), z.null(), z.undefined()]).transform(val => {
+    if (val === null || val === undefined || val === '') return null
+    const num = Number(val)
+    return Number.isFinite(num) && num >= 0 ? num : null
+  }),
+  paymentMethod: optionalText(50),
   paymentProofUrl: z.union([z.string(), z.null(), z.undefined()]).transform(value => normalizeImageUrl(value)),
   branch: optionalText(120),
   section: optionalText(64),
@@ -174,8 +190,29 @@ export const eventRegistrationSchema = z.object({
   teamId: optionalText(191),
   isTeamLeader: z.boolean().optional().default(false),
   invitedMemberIds: z.array(z.string()).optional(),
+  teamMembers: z.array(z.any()).optional(),
   github: optionalText(120),
   formData: z.record(z.any()).optional(),
+  projectSubmission: z.any().optional(),
+})
+
+export const rejectPaymentSchema = z.object({
+  rejectionReason: z.string().trim().min(3, 'Please provide a reason for rejecting the payment.').max(500),
+})
+
+export const resubmitPaymentSchema = z.object({
+  paymentReference: z.string().trim().min(3, 'Valid Transaction ID / UTR is required.').max(120),
+  amountPaid: z.union([z.string(), z.number()]).transform(val => Number(val)),
+  paymentProofUrl: z.union([z.string(), z.null(), z.undefined()]).transform(value => normalizeImageUrl(value)),
+  paymentMethod: optionalText(50),
+})
+
+export const projectSubmissionSchema = z.object({
+  githubUrl: optionalText(500),
+  websiteUrl: optionalText(500),
+  driveUrl: optionalText(500),
+  zipUrl: optionalText(500),
+  notes: optionalText(2000),
 })
 
 export const paymentVerificationSchema = z.object({

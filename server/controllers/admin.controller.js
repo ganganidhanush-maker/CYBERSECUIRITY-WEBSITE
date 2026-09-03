@@ -594,6 +594,14 @@ export async function createEvent(request, response) {
       minTeamSize: data.minTeamSize || 1,
       maxTeamSize: data.maxTeamSize || 1,
       teamRules: data.teamRules || null,
+      registrationType: data.registrationType || (data.isTeamEvent ? 'TEAM' : 'INDIVIDUAL'),
+      externalFormUrl: data.externalFormUrl || null,
+      workflowConfig: data.workflowConfig || null,
+      teamConfig: data.teamConfig || null,
+      paymentConfig: data.paymentConfig || null,
+      submissionConfig: data.submissionConfig || null,
+      eligibilityConfig: data.eligibilityConfig || null,
+      customQuestions: data.customQuestions || null,
       createdBy: request.user.id,
       activities: data.activities?.length ? {
         create: data.activities.map((act, index) => ({
@@ -678,6 +686,14 @@ export async function updateEvent(request, response) {
       ...(data.minTeamSize !== undefined && { minTeamSize: data.minTeamSize }),
       ...(data.maxTeamSize !== undefined && { maxTeamSize: data.maxTeamSize }),
       ...(data.teamRules !== undefined && { teamRules: data.teamRules }),
+      ...(data.registrationType !== undefined && { registrationType: data.registrationType }),
+      ...(data.externalFormUrl !== undefined && { externalFormUrl: data.externalFormUrl }),
+      ...(data.workflowConfig !== undefined && { workflowConfig: data.workflowConfig }),
+      ...(data.teamConfig !== undefined && { teamConfig: data.teamConfig }),
+      ...(data.paymentConfig !== undefined && { paymentConfig: data.paymentConfig }),
+      ...(data.submissionConfig !== undefined && { submissionConfig: data.submissionConfig }),
+      ...(data.eligibilityConfig !== undefined && { eligibilityConfig: data.eligibilityConfig }),
+      ...(data.customQuestions !== undefined && { customQuestions: data.customQuestions }),
       ...(data.activities !== undefined && {
         activities: {
           deleteMany: {},
@@ -962,9 +978,119 @@ export async function verifyRegistrationPaymentFast(request, response) {
     ...auditRequest(request),
   })
 
+  await prisma.paymentVerificationLog.create({
+    data: {
+      id: newId(),
+      registrationId,
+      adminId: request.user.id,
+      adminName: request.user.profile?.name || request.user.memberId,
+      action: 'VERIFIED',
+      amount: registration.totalAmount,
+      utr: registration.paymentReference,
+      reason: 'Payment verified and pass marked as ACTIVE',
+    },
+  }).catch(() => {})
+
   return response.status(200).json({
     success: true,
     message: 'Payment verified and pass marked as ACTIVE!',
+    registration: updated,
+  })
+}
+
+export async function rejectRegistrationPayment(request, response) {
+  const { registrationId } = request.params
+  const { rejectionReason } = request.body || {}
+  const reason = (rejectionReason && String(rejectionReason).trim()) || 'Transaction ID / UTR could not be verified in club bank statement.'
+
+  const registration = await prisma.eventRegistration.findUnique({
+    where: { id: registrationId },
+    include: { event: true },
+  })
+  if (!registration) return response.status(404).json({ message: 'Pass / Registration not found.' })
+
+  const updated = await prisma.eventRegistration.update({
+    where: { id: registrationId },
+    data: {
+      paymentStatus: 'REJECTED',
+      status: 'PAYMENT_REJECTED',
+      paymentRejectionReason: reason,
+      paymentVerifiedAt: null,
+      paymentVerifiedBy: request.user.id,
+    },
+  })
+
+  // If part of a team, update team members too
+  if (registration.teamId) {
+    await prisma.eventRegistration.updateMany({
+      where: { teamId: registration.teamId },
+      data: {
+        paymentStatus: 'REJECTED',
+        status: 'PAYMENT_REJECTED',
+        paymentRejectionReason: reason,
+      },
+    }).catch(() => {})
+  }
+
+  // Notify student with reason
+  createUserNotification({
+    userId: registration.userId,
+    type: 'PAYMENT_REJECTED',
+    title: `Payment Update: ${registration.event?.title || 'Event Pass'}`,
+    message: `Your payment could not be verified. Reason: "${reason}". Please open your passes dashboard to resubmit your transaction details.`,
+    linkUrl: '/student-passes',
+  }).catch(() => {})
+
+  await tryWriteAuditLog({
+    actorUserId: request.user.id,
+    action: 'REGISTRATION_PAYMENT_REJECTED',
+    targetUserId: registration.userId,
+    metadata: { registrationId, reason, paymentReference: registration.paymentReference },
+    ...auditRequest(request),
+  })
+
+  await prisma.paymentVerificationLog.create({
+    data: {
+      id: newId(),
+      registrationId,
+      adminId: request.user.id,
+      adminName: request.user.profile?.name || request.user.memberId,
+      action: 'REJECTED',
+      amount: registration.totalAmount,
+      utr: registration.paymentReference,
+      reason,
+    },
+  }).catch(() => {})
+
+  return response.status(200).json({
+    success: true,
+    message: 'Payment marked as rejected. Participant has been notified.',
+    registration: updated,
+  })
+}
+
+export async function markRegistrationPaymentPending(request, response) {
+  const { registrationId } = request.params
+
+  const registration = await prisma.eventRegistration.findUnique({
+    where: { id: registrationId },
+    include: { event: true },
+  })
+  if (!registration) return response.status(404).json({ message: 'Pass / Registration not found.' })
+
+  const updated = await prisma.eventRegistration.update({
+    where: { id: registrationId },
+    data: {
+      paymentStatus: 'UNDER_VERIFICATION',
+      status: 'UNDER_VERIFICATION',
+      paymentVerifiedAt: null,
+      paymentVerifiedBy: null,
+    },
+  })
+
+  return response.status(200).json({
+    success: true,
+    message: 'Payment status marked as Under Verification / Pending.',
     registration: updated,
   })
 }
@@ -1028,10 +1154,18 @@ export async function exportEventRegistrationsCsv(request, response) {
       'Team Name',
       'Is Team Leader',
       'Selected Activities',
-      'Registration Fee (₹)',
+      'Payment Option / Tier',
+      'Expected Fee (₹)',
+      'Amount Paid (₹)',
       'Payment Status',
       'Payment UTR Reference',
+      'Payment Rejection Reason',
       'Payment Proof URL',
+      'GitHub Project Link',
+      'Live Website Demo',
+      'Google Drive Link',
+      'Project Submission Notes',
+      'Custom Question Answers',
       'Gate Attendance',
       'Check-in Timestamp',
       'Registration Date',
@@ -1041,6 +1175,10 @@ export async function exportEventRegistrationsCsv(request, response) {
   event.registrations.forEach(reg => {
     const u = userMap.get(reg.userId)
     const activitiesStr = Array.isArray(reg.selectedActivities) ? reg.selectedActivities.map(a => a.name).join('; ') : ''
+    const paymentTierStr = reg.paymentOption?.name || (typeof reg.paymentOption === 'string' ? reg.paymentOption : '')
+    const projectSub = (typeof reg.projectSubmission === 'object' && reg.projectSubmission) || {}
+    const customAnswersStr = reg.formData?.customAnswers ? JSON.stringify(reg.formData.customAnswers) : ''
+
     rows.push([
       reg.id,
       u?.memberId,
@@ -1060,10 +1198,18 @@ export async function exportEventRegistrationsCsv(request, response) {
       reg.teamName,
       reg.isTeamLeader ? 'Yes' : 'No',
       activitiesStr,
+      paymentTierStr,
       Number(reg.totalAmount) || 0,
+      reg.amountPaid !== null ? Number(reg.amountPaid) : '',
       reg.paymentStatus,
       reg.paymentReference,
+      reg.paymentRejectionReason,
       reg.paymentProofUrl,
+      projectSub.githubUrl || reg.github,
+      projectSub.websiteUrl,
+      projectSub.driveUrl,
+      projectSub.notes,
+      customAnswersStr,
       reg.attendanceMarked ? 'Admitted / Present' : 'Not Admitted',
       reg.attendedAt ? new Date(reg.attendedAt).toLocaleString() : null,
       new Date(reg.registeredAt).toLocaleString(),

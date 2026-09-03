@@ -311,14 +311,20 @@ export const adminApi = {
     return request(`/admin/passes${q ? '?' + q : ''}`)
   },
   verifyPassPayment: registrationId => request(`/admin/passes/${registrationId}/verify-payment`, { method: 'POST' }),
+  rejectPassPayment: (registrationId, rejectionReason) => request(`/admin/passes/${registrationId}/reject-payment`, { method: 'POST', body: JSON.stringify({ rejectionReason }) }),
+  markPassPaymentPending: registrationId => request(`/admin/passes/${registrationId}/mark-pending`, { method: 'POST' }),
 }
 
 export const memberApi = {
   listEvents: () => request('/member/events'),
   getEventDetails: eventId => request(`/member/events/${eventId}`),
+  saveRegistrationDraft: (eventId, draftData) => request(`/member/events/${eventId}/draft`, { method: 'POST', body: JSON.stringify(draftData) }),
   registerForEvent: (eventId, registrationData) => request(`/member/events/${eventId}/register`, { method: 'POST', body: JSON.stringify(registrationData) }),
   submitEventCompletion: (eventId, data) => request(`/member/events/${eventId}/submit-completion`, { method: 'POST', body: JSON.stringify(data) }),
+  submitProject: (eventId, projectData) => request(`/member/events/${eventId}/submit-project`, { method: 'POST', body: JSON.stringify(projectData) }),
+  resubmitPayment: (registrationId, paymentData) => request(`/member/registrations/${registrationId}/resubmit-payment`, { method: 'POST', body: JSON.stringify(paymentData) }),
   listRegistrations: () => request('/member/registrations'),
+  searchStudents: q => request(`/member/members/search?q=${encodeURIComponent(q)}`),
   updateProfile: profile => request('/member/profile', { method: 'PUT', body: JSON.stringify(profile) }),
   createComplaint: complaint => request('/member/complaints', { method: 'POST', body: JSON.stringify(complaint) }),
   listGallery: () => request('/member/gallery'),

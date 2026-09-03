@@ -246,6 +246,14 @@ export async function bootstrapDatabase() {
     await prisma.$executeRawUnsafe(`ALTER TABLE events ADD COLUMN min_team_size INT NOT NULL DEFAULT 1`).catch(() => {})
     await prisma.$executeRawUnsafe(`ALTER TABLE events ADD COLUMN max_team_size INT NOT NULL DEFAULT 1`).catch(() => {})
     await prisma.$executeRawUnsafe(`ALTER TABLE events ADD COLUMN team_rules LONGTEXT NULL`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE events ADD COLUMN registration_type VARCHAR(50) NOT NULL DEFAULT 'INDIVIDUAL'`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE events ADD COLUMN external_form_url VARCHAR(500) NULL`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE events ADD COLUMN workflow_config JSON NULL`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE events ADD COLUMN team_config JSON NULL`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE events ADD COLUMN payment_config JSON NULL`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE events ADD COLUMN submission_config JSON NULL`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE events ADD COLUMN eligibility_config JSON NULL`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE events ADD COLUMN custom_questions JSON NULL`).catch(() => {})
 
     await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN gender VARCHAR(20) NULL`).catch(() => {})
     await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN age INT NULL`).catch(() => {})
@@ -258,8 +266,13 @@ export async function bootstrapDatabase() {
     await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN attended_at DATETIME(3) NULL`).catch(() => {})
     await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN attendance_verified_by VARCHAR(191) NULL`).catch(() => {})
     await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN qr_code_data LONGTEXT NULL`).catch(() => {})
-    // Auto-accept all registrations and payments: no reverification needed
-    await prisma.$executeRawUnsafe(`UPDATE event_registrations SET payment_status = 'VERIFIED', status = 'REGISTERED', payment_verified_at = NOW() WHERE payment_status IN ('SUBMITTED', 'PENDING')`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN registration_type VARCHAR(50) NOT NULL DEFAULT 'INDIVIDUAL'`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN payment_option JSON NULL`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN amount_paid DECIMAL(10, 2) NULL`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN payment_method VARCHAR(50) NULL`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN payment_submitted_at DATETIME(3) NULL`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN payment_rejection_reason VARCHAR(500) NULL`).catch(() => {})
+    await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN project_submission JSON NULL`).catch(() => {})
 
     // 9. event_teams & event_team_members
     await prisma.$executeRawUnsafe(`
@@ -293,6 +306,25 @@ export async function bootstrapDatabase() {
         INDEX event_team_members_user_id_idx (user_id),
         CONSTRAINT fk_team_members_team FOREIGN KEY (team_id) REFERENCES event_teams (id) ON DELETE CASCADE,
         CONSTRAINT fk_team_members_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `).catch(() => {})
+
+    await prisma.$executeRawUnsafe(`ALTER TABLE event_teams ADD COLUMN project_submission JSON NULL`).catch(() => {})
+
+    await prisma.$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS payment_verification_logs (
+        id VARCHAR(191) NOT NULL,
+        registration_id VARCHAR(191) NOT NULL,
+        admin_id VARCHAR(191) NOT NULL,
+        admin_name VARCHAR(120) NULL,
+        action VARCHAR(50) NOT NULL,
+        reason VARCHAR(500) NULL,
+        amount DECIMAL(10, 2) NULL,
+        utr VARCHAR(120) NULL,
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (id),
+        INDEX payment_verification_logs_reg_idx (registration_id),
+        INDEX payment_verification_logs_admin_idx (admin_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `).catch(() => {})
 
