@@ -258,6 +258,8 @@ export async function bootstrapDatabase() {
     await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN attended_at DATETIME(3) NULL`).catch(() => {})
     await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN attendance_verified_by VARCHAR(191) NULL`).catch(() => {})
     await prisma.$executeRawUnsafe(`ALTER TABLE event_registrations ADD COLUMN qr_code_data LONGTEXT NULL`).catch(() => {})
+    // Auto-accept all registrations and payments: no reverification needed
+    await prisma.$executeRawUnsafe(`UPDATE event_registrations SET payment_status = 'VERIFIED', status = 'REGISTERED', payment_verified_at = NOW() WHERE payment_status IN ('SUBMITTED', 'PENDING')`).catch(() => {})
 
     // 9. event_teams & event_team_members
     await prisma.$executeRawUnsafe(`

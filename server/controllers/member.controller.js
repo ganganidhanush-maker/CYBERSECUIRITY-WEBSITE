@@ -218,16 +218,11 @@ export async function registerForEvent(request, response) {
     totalAmount = Number(event.paymentAmount)
   }
 
-  let paymentStatus = 'FREE'
+  // Auto-accept form & auto-verify payment: no manual reverification needed
+  let paymentStatus = totalAmount > 0 ? 'VERIFIED' : 'FREE'
   let registrationStatus = 'REGISTERED'
-
-  if (totalAmount > 0) {
-    if (!data.paymentReference) {
-      return response.status(400).json({ message: 'UPI Reference ID (UTR / Transaction ID) is required for paid event registrations.' })
-    }
-    paymentStatus = 'SUBMITTED'
-    registrationStatus = 'PENDING_VERIFICATION'
-  }
+  const paymentVerifiedAt = totalAmount > 0 ? new Date() : null
+  const paymentVerifiedBy = totalAmount > 0 ? 'SYSTEM_AUTO_VERIFIED' : null
 
   // Update gender & age in profile if provided and not set
   if (data.gender || data.age) {
@@ -258,8 +253,10 @@ export async function registerForEvent(request, response) {
       selectedActivities: selectedActivitiesList.length ? selectedActivitiesList : undefined,
       totalAmount,
       paymentStatus,
-      paymentReference: data.paymentReference || null,
+      paymentReference: data.paymentReference || (totalAmount > 0 ? 'AUTO_VERIFIED' : null),
       paymentProofUrl: data.paymentProofUrl || null,
+      paymentVerifiedAt,
+      paymentVerifiedBy,
       branch: data.branch || request.user.profile?.department || null,
       section: data.section || null,
       year: data.year || request.user.profile?.year || null,
@@ -318,8 +315,10 @@ export async function registerForEvent(request, response) {
                 selectedActivities: selectedActivitiesList.length ? selectedActivitiesList : undefined,
                 totalAmount: 0,
                 paymentStatus,
-                paymentReference: data.paymentReference || null,
+                paymentReference: data.paymentReference || (totalAmount > 0 ? 'AUTO_VERIFIED' : null),
                 paymentProofUrl: data.paymentProofUrl || null,
+                paymentVerifiedAt,
+                paymentVerifiedBy,
                 branch: member.user?.profile?.department || null,
                 year: member.user?.profile?.year || null,
                 gender: member.user?.profile?.gender || null,

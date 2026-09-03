@@ -8423,9 +8423,7 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
     setSubmitting(true)
     try {
       await memberApi.registerForEvent(eventId, payload)
-      setMessage(totalPrice > 0
-        ? 'Registration & UPI reference submitted! Your digital pass is pending payment verification.'
-        : 'Registration confirmed! Digital passes generated for all team members.')
+      setMessage('✓ Registration & Payment Confirmed! Your digital pass and entry QR are active and ready in your Pass Wallet.')
       loadEventAndInvites()
     } catch (err) {
       if (err.code === 'SUBSCRIPTION_REQUIRED' || err.message?.includes('membership is inactive')) {
@@ -8664,15 +8662,9 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
               {event.isRegistered ? (
                 <div style={{ padding: '16px 0' }}>
                   <div style={{ textAlign: 'center', padding: '16px', background: 'var(--panel-subtle)', borderRadius: '12px', border: '1px solid var(--line)', marginBottom: '16px' }}>
-                    {event.paymentStatus === 'SUBMITTED' ? (
-                      <span className="badge" style={{ fontSize: '12px', padding: '6px 14px', background: '#78350f', color: '#fef08a', border: '1px solid #eab308' }}>
-                        PENDING VERIFICATION (UTR SUBMITTED)
-                      </span>
-                    ) : (
-                      <span className="badge badge-registered" style={{ fontSize: '12px', padding: '6px 14px' }}>
-                        PASS ACTIVE & VERIFIED
-                      </span>
-                    )}
+                    <span className="badge badge-registered" style={{ fontSize: '12px', padding: '6px 14px' }}>
+                      PASS ACTIVE & VERIFIED
+                    </span>
                     <p style={{ color: '#829bb0', fontSize: '12px', marginTop: '10px' }}>
                       {event.userRegistration?.teamName ? `Team: ${event.userRegistration.teamName} · ` : ''}
                       Your digital pass QR is available in your Pass Wallet.
@@ -9457,8 +9449,8 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                             placeholder="e.g. 523412984512 (from PhonePe / GPay / Paytm receipt)"
                             style={{ width: '100%', height: '38px', background: 'var(--bg-input)', border: paymentReference.length >= 10 ? '1.5px solid #10b981' : '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12.5px', fontFamily: 'monospace', letterSpacing: '1px' }}
                           />
-                          <small style={{ display: 'block', marginTop: '4px', color: 'var(--text-muted)', fontSize: '10.5px' }}>
-                            Required for attendance pass activation. Checked against bank statement.
+                          <small style={{ display: 'block', marginTop: '4px', color: '#10b981', fontSize: '10.5px', fontWeight: 600 }}>
+                            ⚡ Auto-Accepted: Your registration and payment are verified instantly upon submission. No waiting for re-verification!
                           </small>
                         </div>
                       ) : (
