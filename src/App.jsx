@@ -7613,7 +7613,7 @@ function EventManagement({ user, logout, onNavigate }) {
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '7px 14px' }}
               title="Scan attendee event passes and verify tickets"
             >
-              <Icon8 name="irisScan" size={14} /> Gate Scanner →
+              <Icon8 name="irisScan" size={14} /> Gate QR Capture →
             </button>
             <button
               type="button"
@@ -10407,7 +10407,7 @@ function PaymentManagement({ user, logout, onNavigate }) {
               onClick={() => onNavigate('admin-qr-scanner')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px' }}
             >
-              <Icon8 name="irisScan" size={16} /> GATE QR SCANNER
+              <Icon8 name="irisScan" size={16} /> GATE QR CAPTURE
             </button>
             <button
               type="button"
@@ -15382,6 +15382,13 @@ function AdminQrScanner({ user, logout, onNavigate }) {
   const [torchOn, setTorchOn] = useState(false)
   const [hasTorch, setHasTorch] = useState(false)
 
+  // QR Capture vs Auto-Scan Mode
+  const [scanMethod, setScanMethod] = useState('PHOTO') // 'PHOTO' (Leader Snap - Default) or 'AUTO' (Continuous)
+  const [capturedSnapshot, setCapturedSnapshot] = useState(null)
+  const [isCapturing, setIsCapturing] = useState(false)
+  const [shutterFlash, setShutterFlash] = useState(false)
+  const [duplicateWarning, setDuplicateWarning] = useState('')
+
   const videoRef = useRef(null)
   const streamRef = useRef(null)
   const animFrameRef = useRef(null)
@@ -15404,6 +15411,26 @@ function AdminQrScanner({ user, logout, onNavigate }) {
       osc.start()
       osc.stop(ctx.currentTime + 0.16)
       navigator.vibrate?.([90])
+    } catch {}
+  }
+
+  function playShutterSound() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext
+      if (!AudioCtx) return
+      const ctx = new AudioCtx()
+      const osc = ctx.createOscillator()
+      const gain = ctx.createGain()
+      osc.type = 'triangle'
+      osc.frequency.setValueAtTime(500, ctx.currentTime)
+      osc.frequency.exponentialRampToValueAtTime(120, ctx.currentTime + 0.08)
+      gain.gain.setValueAtTime(0.3, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.08)
+      osc.connect(gain)
+      gain.connect(ctx.destination)
+      osc.start()
+      osc.stop(ctx.currentTime + 0.08)
+      navigator.vibrate?.([40])
     } catch {}
   }
 
@@ -15442,11 +15469,12 @@ function AdminQrScanner({ user, logout, onNavigate }) {
     setSelectedDeviceId(deviceId)
   }
 
-  // Real-time Camera Stream and Hardware-Accelerated + jsQR Frame Processor
+  // Real-time Camera Stream and Hardware-Accelerated / jsQR Snapshot Processor
   useEffect(() => {
     if (!cameraActive) {
       setTorchOn(false)
       setHasTorch(false)
+      setCapturedSnapshot(null)
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(t => t.stop())
         streamRef.current = null
@@ -15496,97 +15524,96 @@ function AdminQrScanner({ user, logout, onNavigate }) {
           await videoRef.current.play().catch(() => {})
         }
 
-        // Initialize Native Hardware-Accelerated BarcodeDetector if available
-        let nativeDetector = null
-        if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
-          try {
-            nativeDetector = new window.BarcodeDetector({ formats: ['qr_code'] })
-          } catch {}
-        }
+        // Only run continuous live auto-scan if scanMethod is explicitly 'AUTO'
+        if (scanMethod === 'AUTO') {
+          let nativeDetector = null
+          if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
+            try {
+              nativeDetector = new window.BarcodeDetector({ formats: ['qr_code'] })
+            } catch {}
+          }
 
-        // High efficiency scanning canvas with optimal downscaling
-        const canvas = document.createElement('canvas')
-        const ctx = canvas.getContext('2d', { willReadFrequently: true })
+          const canvas = document.createElement('canvas')
+          const ctx = canvas.getContext('2d', { willReadFrequently: true })
+          let scanningBusy = false
+          let frameCount = 0
 
-        let scanningBusy = false
-        let frameCount = 0
+          async function scanTick() {
+            if (!isMounted || scanMethod !== 'AUTO') return
+            frameCount++
 
-        async function scanTick() {
-          if (!isMounted) return
-          frameCount++
+            const video = videoRef.current
+            if (video && video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0 && !scanningBusy) {
+              if (nativeDetector || frameCount % 2 === 0) {
+                scanningBusy = true
+                try {
+                  let detectedText = null
 
-          const video = videoRef.current
-          if (video && video.readyState >= 2 && video.videoWidth > 0 && video.videoHeight > 0 && !scanningBusy) {
-            // Process every frame with native detector, or throttle every 2nd frame for jsQR
-            if (nativeDetector || frameCount % 2 === 0) {
-              scanningBusy = true
-              try {
-                let detectedText = null
+                  if (nativeDetector) {
+                    try {
+                      const barcodes = await nativeDetector.detect(video)
+                      if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+                        detectedText = barcodes[0].rawValue.trim()
+                      }
+                    } catch {}
+                  }
 
-                // 1. Try Hardware-Accelerated Native BarcodeDetector first (<2ms detection)
-                if (nativeDetector) {
-                  try {
-                    const barcodes = await nativeDetector.detect(video)
-                    if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
-                      detectedText = barcodes[0].rawValue.trim()
-                    }
-                  } catch {}
-                }
+                  if (!detectedText) {
+                    const scale = Math.min(1, 640 / video.videoWidth)
+                    const targetW = Math.round(video.videoWidth * scale)
+                    const targetH = Math.round(video.videoHeight * scale)
 
-                // 2. High-Performance jsQR Fallback (optimized downscale)
-                if (!detectedText) {
-                  const scale = Math.min(1, 640 / video.videoWidth)
-                  const targetW = Math.round(video.videoWidth * scale)
-                  const targetH = Math.round(video.videoHeight * scale)
+                    canvas.width = targetW
+                    canvas.height = targetH
 
-                  canvas.width = targetW
-                  canvas.height = targetH
-
-                  ctx.drawImage(video, 0, 0, targetW, targetH)
-                  const imgData = ctx.getImageData(0, 0, targetW, targetH)
-
-                  let code = jsQR(imgData.data, imgData.width, imgData.height, {
-                    inversionAttempts: 'attemptBoth',
-                  })
-
-                  // If user camera is flipped, check horizontal mirror pass
-                  if (!code && cameraFacingMode === 'user') {
-                    ctx.save()
-                    ctx.translate(targetW, 0)
-                    ctx.scale(-1, 1)
                     ctx.drawImage(video, 0, 0, targetW, targetH)
-                    ctx.restore()
-                    const flippedData = ctx.getImageData(0, 0, targetW, targetH)
-                    code = jsQR(flippedData.data, flippedData.width, flippedData.height, {
+                    const imgData = ctx.getImageData(0, 0, targetW, targetH)
+
+                    let code = jsQR(imgData.data, imgData.width, imgData.height, {
                       inversionAttempts: 'attemptBoth',
                     })
+
+                    if (!code && cameraFacingMode === 'user') {
+                      ctx.save()
+                      ctx.translate(targetW, 0)
+                      ctx.scale(-1, 1)
+                      ctx.drawImage(video, 0, 0, targetW, targetH)
+                      ctx.restore()
+                      const flippedData = ctx.getImageData(0, 0, targetW, targetH)
+                      code = jsQR(flippedData.data, flippedData.width, flippedData.height, {
+                        inversionAttempts: 'attemptBoth',
+                      })
+                    }
+
+                    if (code && code.data && code.data.trim()) {
+                      detectedText = code.data.trim()
+                    }
                   }
 
-                  if (code && code.data && code.data.trim()) {
-                    detectedText = code.data.trim()
+                  if (detectedText) {
+                    const now = Date.now()
+                    // Strict anti-duplicate window (4.5s debounce to avoid rapid same-second double scans)
+                    if (detectedText === lastScannedRef.current.code && now - lastScannedRef.current.time < 4500) {
+                      // ignore duplicate in auto mode
+                    } else {
+                      lastScannedRef.current = { code: detectedText, time: now }
+                      playScanBeep()
+                      setLaserActive(true)
+                      setTimeout(() => setLaserActive(false), 800)
+                      handleProcessScan(detectedText)
+                    }
                   }
+                } finally {
+                  scanningBusy = false
                 }
-
-                if (detectedText) {
-                  const now = Date.now()
-                  if (detectedText !== lastScannedRef.current.code || now - lastScannedRef.current.time > 2200) {
-                    lastScannedRef.current = { code: detectedText, time: now }
-                    playScanBeep()
-                    setLaserActive(true)
-                    setTimeout(() => setLaserActive(false), 800)
-                    handleProcessScan(detectedText)
-                  }
-                }
-              } finally {
-                scanningBusy = false
               }
             }
+
+            animFrameRef.current = requestAnimationFrame(scanTick)
           }
 
           animFrameRef.current = requestAnimationFrame(scanTick)
         }
-
-        animFrameRef.current = requestAnimationFrame(scanTick)
       } catch (err) {
         setError(`Camera access error: ${err.message || 'Please allow camera permission or use manual/file upload input.'}`)
         setCameraActive(false)
@@ -15606,7 +15633,127 @@ function AdminQrScanner({ user, logout, onNavigate }) {
         animFrameRef.current = null
       }
     }
-  }, [cameraActive, cameraFacingMode, selectedDeviceId])
+  }, [cameraActive, cameraFacingMode, selectedDeviceId, scanMethod])
+
+  // Leader Photo Capture Function: Snaps a still frame, displays the captured photo, decodes QR, and prevents duplicates
+  async function handleCaptureSnapshot() {
+    if (isCapturing) return
+    const video = videoRef.current
+    if (!video || video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
+      setError('Camera video stream is not ready yet. Please ensure camera permissions are active.')
+      return
+    }
+
+    setIsCapturing(true)
+    setError('')
+    setSuccessMessage('')
+    setDuplicateWarning('')
+
+    // Camera shutter click + visual flash
+    playShutterSound()
+    setShutterFlash(true)
+    setTimeout(() => setShutterFlash(false), 240)
+
+    try {
+      // 1. Capture exact full-resolution video frame to canvas
+      const canvas = document.createElement('canvas')
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      const ctx = canvas.getContext('2d', { willReadFrequently: true })
+
+      if (cameraFacingMode === 'user') {
+        ctx.translate(canvas.width, 0)
+        ctx.scale(-1, 1)
+      }
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height)
+
+      // 2. Freeze the snapshot in UI
+      const snapshotUrl = canvas.toDataURL('image/jpeg', 0.9)
+      setCapturedSnapshot(snapshotUrl)
+
+      // 3. Multi-pass QR Decoding on captured photo
+      let detectedText = null
+
+      // Pass A: Native hardware detector
+      if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
+        try {
+          const detector = new window.BarcodeDetector({ formats: ['qr_code'] })
+          const barcodes = await detector.detect(canvas)
+          if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+            detectedText = barcodes[0].rawValue.trim()
+          }
+        } catch {}
+      }
+
+      // Pass B: Full-res jsQR
+      if (!detectedText) {
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        let code = jsQR(imgData.data, imgData.width, imgData.height, {
+          inversionAttempts: 'attemptBoth',
+        })
+        if (code && code.data && code.data.trim()) {
+          detectedText = code.data.trim()
+        }
+      }
+
+      // Pass C: Scaled pass for high-res mobile sensors
+      if (!detectedText) {
+        const scale = Math.min(1, 720 / canvas.width)
+        if (scale < 1) {
+          const scaledC = document.createElement('canvas')
+          scaledC.width = Math.round(canvas.width * scale)
+          scaledC.height = Math.round(canvas.height * scale)
+          const scaledCtx = scaledC.getContext('2d')
+          scaledCtx.drawImage(canvas, 0, 0, scaledC.width, scaledC.height)
+          const scaledData = scaledCtx.getImageData(0, 0, scaledC.width, scaledC.height)
+          const code = jsQR(scaledData.data, scaledData.width, scaledData.height, {
+            inversionAttempts: 'attemptBoth',
+          })
+          if (code && code.data && code.data.trim()) {
+            detectedText = code.data.trim()
+          }
+        }
+      }
+
+      if (detectedText) {
+        const now = Date.now()
+        // Strict anti-duplicate lock: prevent scanning the exact same pass at the same second (within 5 seconds)
+        if (lastScannedRef.current.code === detectedText && now - lastScannedRef.current.time < 5000) {
+          const secs = Math.max(1, Math.round((now - lastScannedRef.current.time) / 1000))
+          setDuplicateWarning(`⚠️ Duplicate Capture Avoided: This pass was just captured ${secs}s ago. Attendee record is displayed below to avoid double entry.`)
+          playScanBeep()
+          return
+        }
+
+        lastScannedRef.current = { code: detectedText, time: now }
+        playScanBeep()
+        setLaserActive(true)
+        setTimeout(() => setLaserActive(false), 900)
+        await handleProcessScan(detectedText)
+      } else {
+        setError('No QR code detected in this photo. Hold steady, center the attendee pass in the frame, and click CAPTURE again.')
+      }
+    } catch (err) {
+      setError(`Capture failed: ${err.message || 'Could not process photo'}`)
+    } finally {
+      setIsCapturing(false)
+    }
+  }
+
+  function handleRetakePhoto() {
+    setCapturedSnapshot(null)
+    setError('')
+    setDuplicateWarning('')
+  }
+
+  function handleCaptureNextPass() {
+    setCapturedSnapshot(null)
+    setScanResult(null)
+    setInputCode('')
+    setError('')
+    setSuccessMessage('')
+    setDuplicateWarning('')
+  }
 
   async function handleProcessScan(codeToScan) {
     const rawCode = String(codeToScan || '').trim()
@@ -15734,7 +15881,7 @@ function AdminQrScanner({ user, logout, onNavigate }) {
   }
 
   return (
-    <LivePortal user={user} logout={logout} activeTab="admin-qr-scanner" onNavigate={onNavigate} title="EVENT PASS GATE SCANNER">
+    <LivePortal user={user} logout={logout} activeTab="admin-qr-scanner" onNavigate={onNavigate} title="EVENT PASS GATE QR CAPTURE">
       <section className="member-management">
         <div className="member-heading">
           <div>
@@ -15742,8 +15889,8 @@ function AdminQrScanner({ user, logout, onNavigate }) {
               ← BACK TO EVENT MANAGEMENT
             </button>
             <p className="eyebrow">EVENT TICKET VERIFICATION & GATE ENTRY</p>
-            <h1>Event Pass QR Scanner</h1>
-            <p>Scan attendee Event QR passes to verify registration credentials, confirm payment, and record entrance attendance.</p>
+            <h1>Event Pass QR Capture & Gate Check-in</h1>
+            <p>Leader photo capture mode guarantees deliberate verification and strictly avoids accidental duplicate scans at the same second.</p>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
             <input
@@ -15768,7 +15915,7 @@ function AdminQrScanner({ user, logout, onNavigate }) {
               onClick={() => setCameraActive(a => !a)}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '8px 14px' }}
             >
-              <Icon8 name="irisScan" size={16} /> {cameraActive ? 'STOP CAMERA SCANNER' : 'START CAMERA SCANNER'}
+              <Icon8 name="irisScan" size={16} /> {cameraActive ? 'CLOSE CAMERA' : 'START CAMERA CAPTURE'}
             </button>
             <button
               type="button"
@@ -15787,6 +15934,12 @@ function AdminQrScanner({ user, logout, onNavigate }) {
           </div>
         )}
 
+        {duplicateWarning && (
+          <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.18)', border: '1px solid #f59e0b', color: '#fde68a', fontSize: '13px', margin: '0 0 16px', fontWeight: 600 }}>
+            {duplicateWarning}
+          </div>
+        )}
+
         {successMessage && (
           <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b98166', color: '#6ee7b7', fontSize: '13px', margin: '0 0 16px', fontWeight: 600 }}>
             {successMessage}
@@ -15799,6 +15952,52 @@ function AdminQrScanner({ user, logout, onNavigate }) {
             {/* Camera Viewport */}
             {cameraActive ? (
               <article className="account-form-card" style={{ padding: '16px', textAlign: 'center', overflow: 'hidden' }}>
+                {/* Mode Selector Tabs */}
+                <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', background: 'var(--bg-input)', padding: '4px', borderRadius: '10px', border: '1px solid var(--line)' }}>
+                  <button
+                    type="button"
+                    onClick={() => { setScanMethod('PHOTO'); setCapturedSnapshot(null) }}
+                    style={{
+                      flex: 1,
+                      padding: '6px 10px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      borderRadius: '7px',
+                      border: 'none',
+                      background: scanMethod === 'PHOTO' ? 'var(--brand-primary)' : 'transparent',
+                      color: scanMethod === 'PHOTO' ? '#000' : 'var(--text-muted)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '5px',
+                    }}
+                  >
+                    <span>📸</span> PHOTO CAPTURE (LEADER SNAP)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setScanMethod('AUTO'); setCapturedSnapshot(null) }}
+                    style={{
+                      flex: 1,
+                      padding: '6px 10px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      borderRadius: '7px',
+                      border: 'none',
+                      background: scanMethod === 'AUTO' ? 'var(--brand-primary)' : 'transparent',
+                      color: scanMethod === 'AUTO' ? '#000' : 'var(--text-muted)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '5px',
+                    }}
+                  >
+                    <span>⚡</span> CONTINUOUS AUTO-SCAN
+                  </button>
+                </div>
+
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
                   <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block', boxShadow: '0 0 8px #10b981' }} />
@@ -15876,41 +16075,147 @@ function AdminQrScanner({ user, logout, onNavigate }) {
                   </div>
                 )}
 
-                <div style={{ position: 'relative', width: '100%', height: '280px', background: '#000', borderRadius: '12px', overflow: 'hidden', border: laserActive ? '2px solid #10b981' : '2px solid var(--brand-primary)', boxShadow: laserActive ? '0 0 24px rgba(16, 185, 129, 0.5)' : 'none', transition: 'all 0.2s' }}>
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      transform: cameraFacingMode === 'user' ? 'scaleX(-1)' : 'none',
-                      transition: 'transform 0.2s ease',
-                    }}
-                  />
-                  {/* Cyber Target Overlay */}
-                  <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
-                    <div style={{ width: '190px', height: '190px', border: laserActive ? '2px solid #10b981' : `2px dashed ${isMrdu ? '#d32f2f' : '#52bbf5'}`, borderRadius: '12px', boxShadow: laserActive ? '0 0 25px #10b981' : `0 0 20px ${isMrdu ? 'rgba(211,47,47,0.4)' : 'rgba(82,187,245,0.3)'}` }} />
-                  </div>
-                  {/* Laser Scan line */}
-                  <div
-                    style={{
-                      position: 'absolute',
-                      left: '10%',
-                      right: '10%',
-                      height: '2px',
-                      background: laserActive ? '#10b981' : `linear-gradient(90deg, transparent, ${isMrdu ? '#ef5350' : '#38bdf8'}, transparent)`,
-                      boxShadow: laserActive ? '0 0 14px #10b981' : `0 0 12px ${isMrdu ? '#d32f2f' : '#38bdf8'}`,
-                      top: '50%',
-                      animation: 'scanline 2s ease-in-out infinite alternate',
-                    }}
-                  />
+                {/* Viewfinder or Captured Snapshot Frame */}
+                <div
+                  onClick={() => { if (scanMethod === 'PHOTO' && !capturedSnapshot) handleCaptureSnapshot() }}
+                  style={{
+                    position: 'relative',
+                    width: '100%',
+                    height: '280px',
+                    background: '#000',
+                    borderRadius: '12px',
+                    overflow: 'hidden',
+                    border: laserActive ? '2px solid #10b981' : capturedSnapshot ? '2px solid #38bdf8' : '2px solid var(--brand-primary)',
+                    boxShadow: laserActive ? '0 0 24px rgba(16, 185, 129, 0.5)' : capturedSnapshot ? '0 0 20px rgba(56, 189, 248, 0.3)' : 'none',
+                    transition: 'all 0.2s',
+                    cursor: scanMethod === 'PHOTO' && !capturedSnapshot ? 'pointer' : 'default',
+                  }}
+                  title={scanMethod === 'PHOTO' && !capturedSnapshot ? 'Tap to capture pass photo' : undefined}
+                >
+                  {/* Camera Shutter Flash Animation */}
+                  {shutterFlash && (
+                    <div style={{ position: 'absolute', inset: 0, background: '#ffffff', opacity: 0.9, zIndex: 40, pointerEvents: 'none', animation: 'fadeOut 0.22s ease-out forwards' }} />
+                  )}
+
+                  {capturedSnapshot ? (
+                    // Frozen Snapshot Image
+                    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                      <img
+                        src={capturedSnapshot}
+                        alt="Captured Pass"
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                      <div style={{ position: 'absolute', top: '10px', left: '10px', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', fontSize: '10px', color: '#38bdf8', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>📸</span> PHOTO SNAPSHOT CAPTURED
+                      </div>
+                    </div>
+                  ) : (
+                    // Live Viewfinder Video
+                    <>
+                      <video
+                        ref={videoRef}
+                        autoPlay
+                        playsInline
+                        muted
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          transform: cameraFacingMode === 'user' ? 'scaleX(-1)' : 'none',
+                          transition: 'transform 0.2s ease',
+                        }}
+                      />
+                      {/* Aiming Reticle with Camera Bracket Corners */}
+                      <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
+                        <div style={{ position: 'relative', width: '200px', height: '200px', borderRadius: '14px', border: laserActive ? '2px solid #10b981' : `2px dashed ${isMrdu ? '#d32f2f' : '#38bdf8'}`, boxShadow: laserActive ? '0 0 25px #10b981' : `0 0 20px ${isMrdu ? 'rgba(211,47,47,0.4)' : 'rgba(56,189,248,0.3)'}` }}>
+                          {/* Top-left corner */}
+                          <div style={{ position: 'absolute', top: -3, left: -3, width: 22, height: 22, borderTop: '4px solid #fff', borderLeft: '4px solid #fff', borderTopLeftRadius: 6 }} />
+                          {/* Top-right corner */}
+                          <div style={{ position: 'absolute', top: -3, right: -3, width: 22, height: 22, borderTop: '4px solid #fff', borderRight: '4px solid #fff', borderTopRightRadius: 6 }} />
+                          {/* Bottom-left corner */}
+                          <div style={{ position: 'absolute', bottom: -3, left: -3, width: 22, height: 22, borderBottom: '4px solid #fff', borderLeft: '4px solid #fff', borderBottomLeftRadius: 6 }} />
+                          {/* Bottom-right corner */}
+                          <div style={{ position: 'absolute', bottom: -3, right: -3, width: 22, height: 22, borderBottom: '4px solid #fff', borderRight: '4px solid #fff', borderBottomRightRadius: 6 }} />
+                        </div>
+                      </div>
+
+                      {/* Laser Scan line (only in Auto mode or when laser active) */}
+                      {(scanMethod === 'AUTO' || laserActive) && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            left: '10%',
+                            right: '10%',
+                            height: '2px',
+                            background: laserActive ? '#10b981' : `linear-gradient(90deg, transparent, ${isMrdu ? '#ef5350' : '#38bdf8'}, transparent)`,
+                            boxShadow: laserActive ? '0 0 14px #10b981' : `0 0 12px ${isMrdu ? '#d32f2f' : '#38bdf8'}`,
+                            top: '50%',
+                            animation: 'scanline 2s ease-in-out infinite alternate',
+                          }}
+                        />
+                      )}
+                    </>
+                  )}
                 </div>
-                <small style={{ display: 'block', marginTop: '8px', color: 'var(--text-muted)', fontSize: '11px' }}>
-                  Point camera steadily at the Event Pass QR code · Hardware accelerated scanning active
-                </small>
+
+                {/* Shutter / Retake Controls */}
+                {scanMethod === 'PHOTO' ? (
+                  <div style={{ marginTop: '14px' }}>
+                    {capturedSnapshot ? (
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          type="button"
+                          className="primary"
+                          onClick={handleCaptureNextPass}
+                          style={{ flex: 2, height: '46px', fontSize: '12px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'linear-gradient(135deg, #0284c7, #0369a1)', borderColor: '#38bdf8' }}
+                        >
+                          <span>📸</span> CAPTURE NEXT PASS (UNFREEZE)
+                        </button>
+                        <button
+                          type="button"
+                          className="outline"
+                          onClick={handleRetakePhoto}
+                          style={{ flex: 1, height: '46px', fontSize: '12px', fontWeight: 700 }}
+                        >
+                          🔄 RETAKE
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="primary"
+                        onClick={handleCaptureSnapshot}
+                        disabled={isCapturing}
+                        style={{
+                          width: '100%',
+                          minHeight: '48px',
+                          fontSize: '13px',
+                          fontWeight: 800,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '10px',
+                          borderRadius: '12px',
+                          background: 'linear-gradient(135deg, #0284c7, #0369a1)',
+                          borderColor: '#38bdf8',
+                          boxShadow: '0 4px 18px rgba(2, 132, 199, 0.35)',
+                          cursor: 'pointer',
+                          letterSpacing: '0.4px',
+                        }}
+                      >
+                        <span style={{ fontSize: '18px' }}>📸</span>
+                        {isCapturing ? 'CAPTURING & VERIFYING…' : 'CAPTURE & VERIFY PASS (SNAP PHOTO)'}
+                      </button>
+                    )}
+                    <small style={{ display: 'block', marginTop: '8px', color: 'var(--text-muted)', fontSize: '11px' }}>
+                      Leader Snapshot: Aim at the attendee QR pass and tap capture. Strictly avoids duplicate scans at the same second.
+                    </small>
+                  </div>
+                ) : (
+                  <small style={{ display: 'block', marginTop: '8px', color: 'var(--text-muted)', fontSize: '11px' }}>
+                    Auto-scanning active · Point camera steadily at attendee's Event Pass QR code
+                  </small>
+                )}
               </article>
             ) : null}
 
@@ -16050,6 +16355,17 @@ function AdminQrScanner({ user, logout, onNavigate }) {
                       </div>
                     )}
 
+                    {/* Verified Photo Snapshot Thumbnail */}
+                    {capturedSnapshot && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid #38bdf844', borderRadius: '10px', marginBottom: '16px' }}>
+                        <img src={capturedSnapshot} alt="Snapshot proof" style={{ width: '44px', height: '44px', borderRadius: '6px', objectFit: 'cover', border: '1px solid #38bdf8' }} />
+                        <div style={{ flex: 1 }}>
+                          <span style={{ fontSize: '11px', color: '#38bdf8', fontWeight: 700, display: 'block' }}>✓ Leader Photo Snapshot Verified</span>
+                          <small style={{ color: 'var(--text-muted)', fontSize: '10px' }}>QR verified from leader photo capture · Duplicate scans blocked</small>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Event Details Card */}
                     <div style={{ padding: '16px', borderRadius: '12px', background: 'var(--panel-subtle)', border: '1px solid var(--line)', marginBottom: '20px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -16133,14 +16449,11 @@ function AdminQrScanner({ user, logout, onNavigate }) {
                     <div style={{ display: 'flex', gap: '10px' }}>
                       <button
                         type="button"
-                        className="outline"
-                        onClick={() => {
-                          setScanResult(null)
-                          setInputCode('')
-                        }}
-                        style={{ flex: 1, fontSize: '11px', height: '38px' }}
+                        className="primary"
+                        onClick={handleCaptureNextPass}
+                        style={{ flex: 1, fontSize: '11px', height: '38px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                       >
-                        SCAN NEXT PASS
+                        📸 CAPTURE NEXT PASS
                       </button>
                       <button
                         type="button"
