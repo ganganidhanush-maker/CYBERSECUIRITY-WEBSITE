@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import React, { Component, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import clubLogo from './assets/branding/cyber-security-club-neon.jpg'
 import clubLogoDark from './assets/branding/cyber-security-club-logo.jpg'
 import mrduBanner from './assets/branding/mrdu-header-banner.png'
@@ -17217,7 +17217,7 @@ function CouncilChatView({ user, logout, onNavigate }) {
 // ----------------------------------------------------
 // Safe View Boundary to Prevent Any Blank White Screen
 // ----------------------------------------------------
-class PortalErrorBoundary extends React.Component {
+class PortalErrorBoundary extends Component {
   constructor(props) {
     super(props)
     this.state = { hasError: false, error: null }
