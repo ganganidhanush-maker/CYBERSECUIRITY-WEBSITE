@@ -40,6 +40,8 @@ export const userIdParamSchema = z.object({ id: z.string().cuid() })
 export const roleEnumSchema = z.enum([
   'PRESIDENT',
   'VICE_PRESIDENT',
+  'CONVENER',
+  'CO_CONVENER',
   'STUDENT_COORDINATOR',
   'TREASURER',
   'EVENT_MANAGEMENT',

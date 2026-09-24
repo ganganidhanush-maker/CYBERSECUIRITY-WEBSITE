@@ -33,6 +33,18 @@ export function usePlatformTheme() {
 }
 
 const ROLE_PERMISSIONS_MAP = {
+  CONVENER: [
+    'ACCOUNT_MANAGEMENT', 'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE', 'EVENT_REGISTER',
+    'REGISTRATIONS_VIEW', 'PAYMENTS_VIEW', 'PAYMENTS_VERIFY', 'QR_PASSES_VIEW', 'GALLERY_VIEW',
+    'GALLERY_MANAGE', 'REELS_MANAGE', 'TEAM_MANAGE', 'SETTINGS_MANAGE', 'AUDIT_VIEW',
+    'CHAT_USE', 'SUGGESTIONS_CREATE', 'FEEDBACK_CREATE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  CO_CONVENER: [
+    'ACCOUNT_MANAGEMENT', 'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE', 'EVENT_REGISTER',
+    'REGISTRATIONS_VIEW', 'PAYMENTS_VIEW', 'PAYMENTS_VERIFY', 'QR_PASSES_VIEW', 'GALLERY_VIEW',
+    'GALLERY_MANAGE', 'REELS_MANAGE', 'TEAM_MANAGE', 'SETTINGS_MANAGE', 'AUDIT_VIEW',
+    'CHAT_USE', 'SUGGESTIONS_CREATE', 'FEEDBACK_CREATE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
   STUDENT_COORDINATOR: [
     'ACCOUNT_MANAGEMENT', 'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE', 'EVENT_REGISTER',
     'REGISTRATIONS_VIEW', 'PAYMENTS_VIEW', 'PAYMENTS_VERIFY', 'QR_PASSES_VIEW', 'GALLERY_VIEW',
@@ -98,6 +110,8 @@ function getRolePermissions(role) {
 }
 
 const PERSONA_ROLES = [
+  { id: 'CONVENER', label: 'Convener', emoji: '🏛️', badge: 'EXEC' },
+  { id: 'CO_CONVENER', label: 'Co-Convener', emoji: '🤝', badge: 'EXEC' },
   { id: 'PRESIDENT', label: 'President', emoji: '👑', badge: 'EXEC' },
   { id: 'VICE_PRESIDENT', label: 'Vice President', emoji: '🛡️', badge: 'EXEC' },
   { id: 'STUDENT_COORDINATOR', label: 'Student Coordinator', emoji: '🎓', badge: 'LEAD' },
@@ -115,8 +129,11 @@ const PERSONA_ROLES = [
 
 const CLUB_ROLES = [
   { id: 'STUDENT', label: 'Student Member', roleType: 'student' },
+  { id: 'CONVENER', label: 'Convener', roleType: 'admin' },
+  { id: 'CO_CONVENER', label: 'Co-Convener', roleType: 'admin' },
   { id: 'PRESIDENT', label: 'President', roleType: 'admin' },
   { id: 'VICE_PRESIDENT', label: 'Vice President', roleType: 'admin' },
+  { id: 'STUDENT_COORDINATOR', label: 'Student Coordinator', roleType: 'admin' },
   { id: 'TREASURER', label: 'Treasurer', roleType: 'admin' },
   { id: 'EVENT_MANAGEMENT', label: 'Event Management', roleType: 'admin' },
   { id: 'MEDIA_LEAD', label: 'Media Lead', roleType: 'admin' },
@@ -125,7 +142,6 @@ const CLUB_ROLES = [
   { id: 'PR_TEAM', label: 'PR Team', roleType: 'admin' },
   { id: 'CULTURAL', label: 'Cultural', roleType: 'admin' },
   { id: 'SECRETARY', label: 'Secretary', roleType: 'admin' },
-  { id: 'STUDENT_COORDINATOR', label: 'Student Coordinator', roleType: 'admin' },
   { id: 'ADMIN', label: 'Administrator', roleType: 'admin' },
 ]
 
@@ -1248,22 +1264,22 @@ function Sidebar({ user, logout, activeTab, onNavigate, isOpen, onClose }) {
   const perms = user.permissions || []
   const has = perm => user.isPrimaryAdmin || perms.includes(perm)
 
-  const isSuper = user.isPrimaryAdmin || user.role === 'PRESIDENT' || user.role === 'STUDENT_COORDINATOR' || user.role === 'ADMIN'
+  const isSuper = user.isPrimaryAdmin || user.role === 'PRESIDENT' || user.role === 'CONVENER' || user.role === 'CO_CONVENER' || user.role === 'STUDENT_COORDINATOR' || user.role === 'ADMIN'
 
   const navItems = user.isAdminUser
     ? [
         [<Icon8 name="protect" size={17} />, isMrdu ? 'Portal Home' : 'Dashboard', 'admin-dashboard', true],
         [<Icon8 name="faceId" size={17} />, 'QR Entry Gate', 'admin-qr-scanner', has('EVENTS_VIEW') || has('EVENT_MANAGE') || user.isAdminUser],
-        [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Participants' : 'Members', 'admin-members', has('ACCOUNT_MANAGEMENT') || isSuper || ['VICE_PRESIDENT', 'SECRETARY'].includes(user.role)],
-        [<IconShieldCheck size={17} />, 'Coordinator Console', 'admin-coordinator', user.role === 'STUDENT_COORDINATOR' || user.isPrimaryAdmin || user.role === 'PRESIDENT' || user.role === 'ADMIN'],
+        [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Participants' : 'Members', 'admin-members', has('ACCOUNT_MANAGEMENT') || isSuper || ['CONVENER', 'CO_CONVENER', 'VICE_PRESIDENT', 'SECRETARY'].includes(user.role)],
+        [<IconShieldCheck size={17} />, 'Coordinator Console', 'admin-coordinator', user.role === 'STUDENT_COORDINATOR' || user.isPrimaryAdmin || ['PRESIDENT', 'CONVENER', 'CO_CONVENER', 'ADMIN'].includes(user.role)],
         [<Icon8 name="realtime" size={17} />, 'Event Studio', 'admin-events', has('EVENTS_VIEW') || has('EVENT_MANAGE') || isSuper],
         [<Icon8 name="access" size={17} />, isMrdu ? 'Pass Subscriptions' : 'Subscriptions', 'admin-subscriptions', has('PAYMENTS_VIEW') || user.role === 'TREASURER' || isSuper],
         [<Icon8 name="authentication" size={17} />, isMrdu ? 'Passes & Payments' : 'Passes & Check-in', 'admin-passes', has('PAYMENTS_VIEW') || has('EVENTS_VIEW') || user.isAdminUser],
         [<Icon8 name="captcha" size={17} />, 'Helpdesk & Doubts', 'admin-support', true],
         [<Icon8 name="protect" size={17} />, 'Council Room', 'admin-chat', true],
         [<Icon8 name="irisScan" size={17} />, isMrdu ? 'Event Gallery' : 'Gallery', 'admin-gallery', has('GALLERY_VIEW') || has('GALLERY_MANAGE') || isSuper],
-        [<Icon8 name="realtime" size={17} />, isMrdu ? 'MRDU Reels Studio' : 'Reels Studio', 'admin-reels', has('REELS_MANAGE') || has('GALLERY_MANAGE') || isSuper || ['VICE_PRESIDENT', 'PR_TEAM', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD'].includes(user.role)],
-        [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Organizing Team' : 'Team / Leaders', 'admin-team', has('TEAM_MANAGE') || isSuper || ['VICE_PRESIDENT'].includes(user.role)],
+        [<Icon8 name="realtime" size={17} />, isMrdu ? 'MRDU Reels Studio' : 'Reels Studio', 'admin-reels', has('REELS_MANAGE') || has('GALLERY_MANAGE') || isSuper || ['CONVENER', 'CO_CONVENER', 'VICE_PRESIDENT', 'PR_TEAM', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD'].includes(user.role)],
+        [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Organizing Team' : 'Team / Leaders', 'admin-team', has('TEAM_MANAGE') || isSuper || ['CONVENER', 'CO_CONVENER', 'VICE_PRESIDENT'].includes(user.role)],
         [<Icon8 name="keySecurity" size={17} />, 'Settings & Links', 'admin-settings', has('SETTINGS_MANAGE') || isSuper],
         [<Icon8 name="showPassword" size={17} />, 'Audit Log', 'admin-audit', has('AUDIT_VIEW') || isSuper],
         [<Icon8 name="fingerprint" size={17} />, 'My Profile', 'admin-profile', true],
@@ -3503,9 +3519,11 @@ function MemberManagement({ user, logout, onNavigate }) {
 
     const isGenderString = str => ['MALE', 'FEMALE', 'OTHER'].includes(String(str || '').trim().toUpperCase())
 
-    const validRoleKeys = ['PRESIDENT', 'VICE_PRESIDENT', 'STUDENT_COORDINATOR', 'COORDINATOR', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT']
+    const validRoleKeys = ['CONVENER', 'CO_CONVENER', 'PRESIDENT', 'VICE_PRESIDENT', 'STUDENT_COORDINATOR', 'COORDINATOR', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT']
     const normalizeRole = (r) => {
       const up = String(r || '').trim().toUpperCase().replace(/[\s-]+/g, '_')
+      if (up === 'CONVENER' || up === 'CONVENOR') return 'CONVENER'
+      if (up === 'CO_CONVENER' || up === 'CO_CONVENOR' || up === 'COCONVENER' || up === 'COCONVENOR') return 'CO_CONVENER'
       if (up === 'COORDINATOR' || up === 'STUDENT_COORDINATOR' || up === 'LEAD_COORDINATOR') return 'STUDENT_COORDINATOR'
       if (up === 'VICE_PRESIDENT' || up === 'VP') return 'VICE_PRESIDENT'
       if (up === 'EVENT_LEAD' || up === 'EVENTS' || up === 'EVENT_MANAGEMENT') return 'EVENT_MANAGEMENT'
@@ -3967,7 +3985,7 @@ function MemberManagement({ user, logout, onNavigate }) {
             >
               ⚡ {activatingAll ? 'ACTIVATING ALL…' : disabledCount > 0 ? `ACTIVATE ALL (${disabledCount} DISABLED)` : 'ACTIVATE ALL ACCOUNTS'}
             </button>
-            {(user.role === 'STUDENT_COORDINATOR' || user.isPrimaryAdmin || user.role === 'PRESIDENT') && (
+            {(user.role === 'STUDENT_COORDINATOR' || user.isPrimaryAdmin || ['PRESIDENT', 'CONVENER', 'CO_CONVENER'].includes(user.role)) && (
               <button
                 type="button"
                 className="outline"
@@ -5389,6 +5407,8 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
               <option value="ALL">Active Leaders & Squads ({allLeadersList.length})</option>
               <option value="EVERYONE">Show All Members & Students ({members.length})</option>
               <option value="STUDENT">Student Volunteers ({members.filter(m => m.role === 'STUDENT').length})</option>
+              <option value="CONVENER">Convener</option>
+              <option value="CO_CONVENER">Co-Convener</option>
               <option value="STUDENT_COORDINATOR">Student Coordinator</option>
               <option value="PRESIDENT">President</option>
               <option value="VICE_PRESIDENT">Vice President</option>
@@ -6343,6 +6363,8 @@ function SupportDeskView({ user, logout, onNavigate }) {
                     onChange={e => setNewTaggedRole(e.target.value)}
                     style={{ marginBottom: '14px' }}
                   >
+                    <option value="CONVENER">@CONVENER (Convener)</option>
+                    <option value="CO_CONVENER">@CO_CONVENER (Co-Convener)</option>
                     <option value="PRESIDENT">@PRESIDENT (Executive Leadership)</option>
                     <option value="VICE_PRESIDENT">@VICE_PRESIDENT (Operations)</option>
                     <option value="TECH_TEAM">@TECH_TEAM (Labs, CTF, Hacking Tools)</option>

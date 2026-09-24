@@ -1,4 +1,18 @@
 export const ROLE_DEFAULT_PERMISSIONS = {
+  CONVENER: [
+    'ACCOUNT_MANAGEMENT', 'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE',
+    'EVENT_REGISTER', 'REGISTRATIONS_VIEW', 'PAYMENTS_VIEW', 'PAYMENTS_VERIFY',
+    'QR_PASSES_VIEW', 'GALLERY_VIEW', 'GALLERY_MANAGE', 'REELS_MANAGE',
+    'TEAM_MANAGE', 'SETTINGS_MANAGE', 'AUDIT_VIEW', 'CHAT_USE',
+    'SUGGESTIONS_CREATE', 'FEEDBACK_CREATE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
+  CO_CONVENER: [
+    'ACCOUNT_MANAGEMENT', 'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE',
+    'EVENT_REGISTER', 'REGISTRATIONS_VIEW', 'PAYMENTS_VIEW', 'PAYMENTS_VERIFY',
+    'QR_PASSES_VIEW', 'GALLERY_VIEW', 'GALLERY_MANAGE', 'REELS_MANAGE',
+    'TEAM_MANAGE', 'SETTINGS_MANAGE', 'AUDIT_VIEW', 'CHAT_USE',
+    'SUGGESTIONS_CREATE', 'FEEDBACK_CREATE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+  ],
   PRESIDENT: [
     'ACCOUNT_MANAGEMENT', 'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE',
     'EVENT_REGISTER', 'REGISTRATIONS_VIEW', 'PAYMENTS_VIEW', 'PAYMENTS_VERIFY',
@@ -127,7 +141,7 @@ export function canManageReels(user) {
   if (!user) return false
   if (isPrimaryPresident(user)) return true
   const role = user.role || user.effectiveRole
-  return ['PRESIDENT', 'VICE_PRESIDENT', 'STUDENT_COORDINATOR', 'PR_TEAM', 'SOCIAL_MEDIA_LEAD', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'ADMIN'].includes(role) || hasPermission(user, 'REELS_MANAGE') || hasPermission(user, 'GALLERY_MANAGE')
+  return ['PRESIDENT', 'VICE_PRESIDENT', 'CONVENER', 'CO_CONVENER', 'STUDENT_COORDINATOR', 'PR_TEAM', 'SOCIAL_MEDIA_LEAD', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'ADMIN'].includes(role) || hasPermission(user, 'REELS_MANAGE') || hasPermission(user, 'GALLERY_MANAGE')
 }
 
 export function hasPermission(user, permission) {
@@ -143,7 +157,7 @@ export function hasPermission(user, permission) {
   }
 
   // Fallback to role defaults if user has no stored permissions records
-  if (user?.role === 'PRESIDENT' || user?.role === 'ADMIN' || user?.role === 'STUDENT_COORDINATOR') return true
+  if (user?.role === 'PRESIDENT' || user?.role === 'ADMIN' || user?.role === 'STUDENT_COORDINATOR' || user?.role === 'CONVENER' || user?.role === 'CO_CONVENER') return true
   const defaultPerms = ROLE_DEFAULT_PERMISSIONS[user?.role] || []
   return defaultPerms.includes(permission)
 }

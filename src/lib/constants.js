@@ -1,7 +1,10 @@
 export const CLUB_ROLES = [
   { id: 'STUDENT', label: 'Student Member', roleType: 'student' },
+  { id: 'CONVENER', label: 'Convener', roleType: 'admin' },
+  { id: 'CO_CONVENER', label: 'Co-Convener', roleType: 'admin' },
   { id: 'PRESIDENT', label: 'President', roleType: 'admin' },
   { id: 'VICE_PRESIDENT', label: 'Vice President', roleType: 'admin' },
+  { id: 'STUDENT_COORDINATOR', label: 'Student Coordinator', roleType: 'admin' },
   { id: 'TREASURER', label: 'Treasurer', roleType: 'admin' },
   { id: 'EVENT_MANAGEMENT', label: 'Event Management', roleType: 'admin' },
   { id: 'MEDIA_LEAD', label: 'Media Lead', roleType: 'admin' },

@@ -331,6 +331,8 @@ export const bulkStudentItemSchema = z.object({
     z.enum([
       'PRESIDENT',
       'VICE_PRESIDENT',
+      'CONVENER',
+      'CO_CONVENER',
       'STUDENT_COORDINATOR',
       'TREASURER',
       'EVENT_MANAGEMENT',

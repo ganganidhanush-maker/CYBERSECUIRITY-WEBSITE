@@ -995,6 +995,8 @@ export async function createSupportTicket(request, response) {
   const { taggedRole, subject, message } = request.body || {}
 
   const validRoles = [
+    'CONVENER',
+    'CO_CONVENER',
     'PRESIDENT',
     'VICE_PRESIDENT',
     'STUDENT_COORDINATOR',
