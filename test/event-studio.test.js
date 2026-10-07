@@ -1,7 +1,10 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { eventInputSchema } from '../server/validators/member.validator.js'
+import { eventInputSchema, resubmitPaymentSchema } from '../server/validators/member.validator.js'
 import { formatCsvValue } from '../src/lib/export-csv.js'
+import { hasActiveEventPass, isDraftRegistration, isPaymentAwaitingReview, isRejectedPayment, resolveEventPricing, resolveEventRegistrationMode } from '../server/utils/event-registration.js'
+import { paymentReferenceLockName } from '../server/utils/payment-reference-lock.js'
+import { resolvePublicAppUrl } from '../server/config/public-url.js'
 
 describe('Event Studio & Registrations Management', () => {
   it('validates comprehensive event studio payload with pricing, tracks, and custom questions', () => {
@@ -31,6 +34,135 @@ describe('Event Studio & Registrations Management', () => {
     assert.equal(parsed.data.title, 'Advanced Threat Hunting & Forensics Workshop')
     assert.equal(parsed.data.activities.length, 2)
     assert.equal(parsed.data.formFields.length, 2)
+  })
+
+  it('keeps drafts and unpaid registrations from qualifying as active event passes', () => {
+    assert.equal(isDraftRegistration({ status: 'DRAFT' }), true)
+    const legacyUnsubmittedPayment = { status: 'PAYMENT_PENDING', paymentStatus: 'PENDING', totalAmount: 150, paymentReference: null }
+    assert.equal(isDraftRegistration(legacyUnsubmittedPayment), true)
+    assert.equal(hasActiveEventPass(legacyUnsubmittedPayment), false)
+    assert.equal(hasActiveEventPass({ status: 'DRAFT', paymentStatus: 'PENDING' }), false)
+    assert.equal(hasActiveEventPass({ status: 'UNDER_VERIFICATION', paymentStatus: 'UNDER_VERIFICATION' }), false)
+    assert.equal(hasActiveEventPass({ status: 'PAYMENT_PENDING', paymentStatus: 'FREE' }), false)
+    assert.equal(hasActiveEventPass({ status: 'REGISTERED', paymentStatus: 'REJECTED' }), false)
+    assert.equal(hasActiveEventPass({ status: 'REGISTERED', paymentStatus: 'FREE', totalAmount: 150 }), false)
+    assert.equal(hasActiveEventPass({ status: 'REGISTERED', paymentStatus: 'FREE' }), true)
+    assert.equal(hasActiveEventPass({ status: 'PROJECT_SUBMITTED', paymentStatus: 'VERIFIED' }), true)
+  })
+
+  it('resolves individual and team modes correctly for BOTH and legacy team events', () => {
+    const bothModeEvent = { registrationType: 'BOTH', isTeamEvent: true }
+    assert.deepEqual(resolveEventRegistrationMode(bothModeEvent, 'INDIVIDUAL'), { supportsTeams: true, isTeam: false })
+    assert.deepEqual(resolveEventRegistrationMode(bothModeEvent, 'TEAM'), { supportsTeams: true, isTeam: true })
+    assert.deepEqual(resolveEventRegistrationMode({ registrationType: 'INDIVIDUAL', isTeamEvent: false }, 'TEAM'), { supportsTeams: false, isTeam: false })
+    assert.deepEqual(resolveEventRegistrationMode({ isTeamEvent: true }, 'INDIVIDUAL'), { supportsTeams: true, isTeam: true })
+  })
+
+  it('only allows organizer review transitions for valid submitted paid registrations', () => {
+    const submitted = {
+      status: 'UNDER_VERIFICATION',
+      paymentStatus: 'UNDER_VERIFICATION',
+      totalAmount: 150,
+      paymentReference: 'UPI123456789',
+    }
+    assert.equal(isPaymentAwaitingReview(submitted), true)
+    assert.equal(isPaymentAwaitingReview({ ...submitted, paymentReference: null }), false)
+    assert.equal(isPaymentAwaitingReview({ ...submitted, totalAmount: 0 }), false)
+    assert.equal(isPaymentAwaitingReview({ ...submitted, status: 'DRAFT' }), false)
+    assert.equal(isRejectedPayment({ ...submitted, status: 'PAYMENT_REJECTED', paymentStatus: 'REJECTED' }), true)
+    assert.equal(isRejectedPayment(submitted), false)
+  })
+
+  it('uses Render deployment URLs for password reset links when no explicit public URL is set', () => {
+    assert.equal(resolvePublicAppUrl({ RENDER_EXTERNAL_URL: 'https://cyber-portal.onrender.com' }), 'https://cyber-portal.onrender.com')
+    assert.equal(resolvePublicAppUrl({ RENDER_EXTERNAL_HOSTNAME: 'cyber-portal.onrender.com' }), 'https://cyber-portal.onrender.com')
+    assert.equal(resolvePublicAppUrl({ PUBLIC_APP_URL: 'https://portal.example.edu', RENDER_EXTERNAL_URL: 'https://cyber-portal.onrender.com' }), 'https://portal.example.edu')
+  })
+
+  it('creates stable short advisory-lock names for normalized UPI UTR values', () => {
+    const first = paymentReferenceLockName(' utr-123456 ')
+    assert.equal(first, paymentReferenceLockName('UTR-123456'))
+    assert.ok(first.length <= 64)
+    assert.equal(paymentReferenceLockName('   '), null)
+  })
+
+  it('allows UTR resubmission without trusting a browser-supplied amount', () => {
+    const parsed = resubmitPaymentSchema.safeParse({ paymentReference: 'UPI-UTR-123456' })
+    assert.equal(parsed.success, true)
+    assert.equal(parsed.data.amountPaid, null)
+  })
+
+  it('resolves fixed and tiered fees from event configuration instead of trusting browser amounts', () => {
+    const fixed = resolveEventPricing({
+      requiresPayment: true,
+      paymentAmount: 150,
+      paymentConfig: { type: 'FIXED', price: 150 },
+    }, { paymentOption: { amount: 0 } })
+    assert.equal(fixed.totalAmount, 150)
+
+    const legacyPaidConfig = resolveEventPricing({
+      requiresPayment: false,
+      paymentConfig: { type: 'PAID', price: 90 },
+    })
+    assert.equal(legacyPaidConfig.totalAmount, 90)
+
+    const tiered = resolveEventPricing({
+      requiresPayment: true,
+      paymentConfig: {
+        type: 'TIERS',
+        tiers: [
+          { name: 'Student', price: 75 },
+          { name: 'Standard', price: 125 },
+        ],
+      },
+    }, { paymentOption: { name: 'Standard', amount: 1 } })
+    assert.equal(tiered.totalAmount, 125)
+    assert.equal(tiered.paymentOption.name, 'Standard')
+
+    const inferredTiers = resolveEventPricing({
+      requiresPayment: false,
+      paymentAmount: 150,
+      paymentConfig: { tiers: [{ name: 'Student', price: 75 }] },
+    }, { paymentOption: 'Student' })
+    assert.equal(inferredTiers.totalAmount, 75)
+  })
+
+  it('rejects unknown paid tiers and unconfigured paid events', () => {
+    assert.throws(() => resolveEventPricing({
+      requiresPayment: true,
+      paymentConfig: { type: 'TIERS', tiers: [{ name: 'Student', price: 75 }] },
+    }, { paymentOption: 'VIP' }), /valid payment tier/)
+
+    assert.throws(() => resolveEventPricing({ requiresPayment: true, paymentAmount: null }), /valid registration fee/)
+  })
+
+  it('calculates activity fees from saved prices and rejects unavailable selections', () => {
+    const event = {
+      allowMultipleActivities: true,
+      activities: [
+        { id: 'a1', name: 'Workshop A', price: 50, isAvailable: true },
+        { id: 'a2', name: 'Workshop B', price: 25, isAvailable: true },
+      ],
+    }
+    const pricing = resolveEventPricing(event, { selectedActivityIds: ['a1', 'a2'] })
+    assert.equal(pricing.totalAmount, 75)
+    assert.equal(pricing.selectedActivities.length, 2)
+
+    const paidEventWithFreeActivity = resolveEventPricing({
+      requiresPayment: true,
+      paymentAmount: 150,
+      activities: [{ id: 'free', name: 'Free Add-on', price: 0, isAvailable: true }],
+    }, { selectedActivityIds: ['free'] })
+    assert.equal(paidEventWithFreeActivity.totalAmount, 150, 'A free activity must not bypass the configured event fee')
+
+    const tierWithActivity = resolveEventPricing({
+      requiresPayment: true,
+      allowMultipleActivities: true,
+      paymentConfig: { type: 'TIERS', tiers: [{ name: 'Student', price: 75 }] },
+      activities: [{ id: 'a1', name: 'Workshop A', price: 25, isAvailable: true }],
+    }, { paymentOption: 'Student', selectedActivityIds: ['a1'] })
+    assert.equal(tierWithActivity.totalAmount, 100)
+    assert.throws(() => resolveEventPricing(event, { selectedActivityIds: ['unknown'] }), /unavailable/)
   })
 
   it('verifies CSV download rows format missing event attendee fields as "---"', () => {

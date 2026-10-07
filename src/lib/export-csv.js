@@ -1,18 +1,6 @@
-/**
- * Formats a single CSV cell value:
- * - If null, undefined, or empty string -> returns '---'
- * - Escapes double quotes and encloses in quotes if containing commas, newlines, or quotes
- */
-export function formatCsvValue(value) {
-  if (value === null || value === undefined) return '---'
-  const str = String(value).trim()
-  if (str === '' || str === 'null' || str === 'undefined') return '---'
+import { formatCsvValue } from '../../shared/csv.js'
 
-  if (str.includes(',') || str.includes('\n') || str.includes('\r') || str.includes('"')) {
-    return `"${str.replaceAll('"', '""')}"`
-  }
-  return str
-}
+export { formatCsvValue }
 
 /**
  * Generates and downloads a UTF-8 encoded CSV file in the browser.
@@ -24,11 +12,11 @@ export function downloadCsv(filename, headers, rows) {
   const safeFilename = filename.endsWith('.csv') ? filename : `${filename}.csv`
   const formattedHeaders = headers.map(h => formatCsvValue(h)).join(',')
   const formattedRows = rows.map(row => row.map(cell => formatCsvValue(cell)).join(','))
-  
+
   const csvContent = '\uFEFF' + [formattedHeaders, ...formattedRows].join('\r\n')
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
-  
+
   const link = document.createElement('a')
   link.href = url
   link.setAttribute('download', safeFilename)

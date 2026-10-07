@@ -15,7 +15,21 @@ This is the production-oriented Cyber Security Club portal: React/Vite client, E
 
 ## First local setup
 
-1. Start a local MySQL/MariaDB instance. If Docker Desktop is available, the included local database command provisions a persistent MariaDB container with a unique untracked password:
+1. Install Node.js 20 or newer and the project dependencies:
+
+   ```powershell
+   npm install
+   ```
+
+2. Create the ignored local configuration. This must be done before starting the included Docker database because its setup reads `.env`. The setup command generates unique session keys and writes the initial President account configuration; it does not print or commit the password.
+
+   ```powershell
+   $env:CSC_INITIAL_PASSWORD = '<your President password>'
+   npm run setup:local-env
+   Remove-Item Env:CSC_INITIAL_PASSWORD
+   ```
+
+3. Start a local MySQL/MariaDB database. If Docker Desktop is available, the included command creates a persistent MariaDB container, generates a unique local database password, and updates `DATABASE_URL` in `.env`:
 
    ```powershell
    npm run db:local:start
@@ -27,22 +41,7 @@ This is the production-oriented Cyber Security Club portal: React/Vite client, E
    npm run db:local:start-native
    ```
 
-   Otherwise, create the `cyber_security_club` database and an application user with only the privileges this database needs.
-2. Install dependencies:
-
-   ```powershell
-   npm install
-   ```
-
-3. Create the ignored local configuration. The setup command makes unique session encryption keys and writes the initial President account configuration. It does not print or commit the password.
-
-   ```powershell
-   $env:CSC_INITIAL_PASSWORD = '<your President password>'
-   npm run setup:local-env
-   Remove-Item Env:CSC_INITIAL_PASSWORD
-   ```
-
-   The Docker command fills the generated `DATABASE_URL` automatically. For an external MySQL instance, set it to the actual local database credentials before continuing. For an existing `.env`, start from the placeholders in `.env.example`; never copy a secret into a `VITE_` variable.
+   Otherwise, create the `cyber_security_club` database and an application user with only the privileges this database needs, then set `DATABASE_URL` in `.env` to those credentials. Never copy a secret into a `VITE_` variable.
 
 4. Prepare the database and provision the President account:
 
@@ -65,10 +64,10 @@ This is the production-oriented Cyber Security Club portal: React/Vite client, E
 ## Production deployment
 
 1. Build the client with `NODE_ENV=production npm run build`.
-2. Set `NODE_ENV=production`, an HTTPS `PUBLIC_APP_URL`, an HTTPS `CORS_ORIGIN` allowlist, a reachable MySQL `DATABASE_URL`, and working SMTP configuration in the deployment secret manager.
+2. Set `NODE_ENV=production`, an HTTPS `CORS_ORIGIN` allowlist, and a reachable MySQL `DATABASE_URL` in the deployment secret manager. Set an HTTPS `PUBLIC_APP_URL` for password-reset links; Render, Railway, and Vercel public URLs are detected as a fallback. Configure SMTP to deliver password-reset email.
 3. Apply migrations with `npm run db:migrate`, then launch `npm start` behind HTTPS. The Express server serves `dist` and the versioned API from one origin.
 
-Production startup intentionally fails if the database, HTTPS URL/CORS policy, or SMTP password-recovery delivery are not configured.
+The server fails startup when its database is unreachable. SMTP is optional, but password recovery email is disabled until SMTP and a public application URL are available.
 
 ## API
 
