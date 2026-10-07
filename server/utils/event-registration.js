@@ -129,8 +129,15 @@ export function resolveEventPricing(event, registrationData = {}) {
   }
 
   const activityAmount = selectedActivities.reduce((sum, activity) => sum + activity.price, 0)
-  const isConfiguredAsPaid = Boolean(event.requiresPayment) || (configuredPrice !== null && configuredPrice > 0)
-  const usesTierPricing = configuredType === 'TIERS' || (!configuredType && isConfiguredAsPaid && tiers.length > 0)
+  const hasTierOptions = tiers.length > 0
+  const isConfiguredAsPaid = Boolean(event.requiresPayment)
+    || configuredType === 'FIXED'
+    || configuredType === 'PAID'
+    || configuredType === 'TIERS'
+    || (configuredPrice !== null && configuredPrice > 0)
+    || (hasTierOptions && tiers.some(t => Number(t.price) > 0))
+
+  const usesTierPricing = configuredType === 'TIERS' || (!configuredType && isConfiguredAsPaid && hasTierOptions)
   let baseAmount = 0
   let paymentOption = null
 
@@ -159,6 +166,9 @@ export function resolveEventPricing(event, registrationData = {}) {
   }
 
   const totalAmount = baseAmount + activityAmount
+  if (isConfiguredAsPaid && totalAmount <= 0 && selectedActivities.length === 0) {
+    throw new Error('This paid event requires a valid registration fee.')
+  }
   if (selectedActivities.length > 0) {
     paymentOption = paymentOption
       ? { ...paymentOption, basePrice: baseAmount, activityAmount, amount: totalAmount, activities: selectedActivities }

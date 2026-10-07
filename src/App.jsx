@@ -8,8 +8,110 @@ import { adminApi, authApi, memberApi, readImageFile, readMultipleImageFiles } f
 import { downloadIdPass } from './lib/id-pass'
 import { downloadCsv } from './lib/export-csv'
 import { getYouTubeEmbedUrl, parseYouTubeVideoId } from './lib/video'
+import { READ_ONLY_CLUB_ROLES, isReadOnlyClubRole } from './lib/constants'
 import jsQR from 'jsqr'
 import './App.css'
+import {
+  IconMenu,
+  IconX,
+  IconXCircle,
+  IconCheck,
+  IconCheckCircle,
+  IconArrowRight,
+  IconArrowLeft,
+  IconChevronUp,
+  IconChevronDown,
+  IconChevronLeft,
+  IconChevronRight,
+  IconPlus,
+  IconMinus,
+  IconRefresh,
+  IconSun,
+  IconMoon,
+  IconMonitor,
+  IconSparkles,
+  IconShield,
+  IconShieldCheck,
+  IconLock,
+  IconUnlock,
+  IconKey,
+  IconFingerprint,
+  IconEye,
+  IconEyeOff,
+  IconCrown,
+  IconGraduationCap,
+  IconBuilding,
+  IconHandshake,
+  IconAward,
+  IconTrophy,
+  IconTarget,
+  IconZap,
+  IconCode,
+  IconTerminal,
+  IconScroll,
+  IconTheater,
+  IconUser,
+  IconUsers,
+  IconUserCheck,
+  IconCalendar,
+  IconTicket,
+  IconQrCode,
+  IconCamera,
+  IconSwitchCamera,
+  IconTorch,
+  IconVideo,
+  IconFilm,
+  IconMusic,
+  IconMegaphone,
+  IconMessageSquare,
+  IconBell,
+  IconCreditCard,
+  IconWallet,
+  IconCoins,
+  IconBarChart,
+  IconFileText,
+  IconFileSpreadsheet,
+  IconFolder,
+  IconDownload,
+  IconUpload,
+  IconSave,
+  IconClipboard,
+  IconCloud,
+  IconSettings,
+  IconSearch,
+  IconCopy,
+  IconTrash,
+  IconAlertTriangle,
+  IconLifebuoy,
+  IconScale,
+  IconRocket,
+  IconStar,
+  IconHeart,
+  IconFlower,
+  IconLocationPin,
+  IconMap,
+  IconLink,
+  IconExternalLink,
+  IconGlobe,
+  IconMail,
+  IconHeadset,
+  IconFlame,
+  IconClock,
+  IconSmartphone,
+  IconLaptop,
+  IconBookOpen,
+  IconMicroscope,
+  IconLeaf,
+  IconInstagram,
+  IconYouTube,
+  IconLinkedIn,
+  IconGitHub,
+  IconDiscord,
+  IconWhatsApp,
+} from './components/Icons.jsx'
+
+const IconSearchSvg = IconSearch
+const IconUserSvg = IconUser
 
 /* oxlint-disable no-unused-vars */
 
@@ -32,19 +134,15 @@ export function usePlatformTheme() {
   return useContext(PlatformThemeContext)
 }
 
+const READ_ONLY_OBSERVER_PERMISSIONS = [
+  'DASHBOARD_VIEW', 'EVENTS_VIEW', 'REGISTRATIONS_VIEW', 'PAYMENTS_VIEW',
+  'QR_PASSES_VIEW', 'GALLERY_VIEW', 'AUDIT_VIEW', 'CHAT_USE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
+]
+
 const ROLE_PERMISSIONS_MAP = {
-  CONVENER: [
-    'ACCOUNT_MANAGEMENT', 'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE', 'EVENT_REGISTER',
-    'REGISTRATIONS_VIEW', 'PAYMENTS_VIEW', 'PAYMENTS_VERIFY', 'QR_PASSES_VIEW', 'GALLERY_VIEW',
-    'GALLERY_MANAGE', 'REELS_MANAGE', 'TEAM_MANAGE', 'SETTINGS_MANAGE', 'AUDIT_VIEW',
-    'CHAT_USE', 'SUGGESTIONS_CREATE', 'FEEDBACK_CREATE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
-  ],
-  CO_CONVENER: [
-    'ACCOUNT_MANAGEMENT', 'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE', 'EVENT_REGISTER',
-    'REGISTRATIONS_VIEW', 'PAYMENTS_VIEW', 'PAYMENTS_VERIFY', 'QR_PASSES_VIEW', 'GALLERY_VIEW',
-    'GALLERY_MANAGE', 'REELS_MANAGE', 'TEAM_MANAGE', 'SETTINGS_MANAGE', 'AUDIT_VIEW',
-    'CHAT_USE', 'SUGGESTIONS_CREATE', 'FEEDBACK_CREATE', 'NOTIFICATIONS_VIEW', 'PROFILE_EDIT',
-  ],
+  FACULTY: READ_ONLY_OBSERVER_PERMISSIONS,
+  CONVENER: READ_ONLY_OBSERVER_PERMISSIONS,
+  CO_CONVENER: READ_ONLY_OBSERVER_PERMISSIONS,
   STUDENT_COORDINATOR: [
     'ACCOUNT_MANAGEMENT', 'DASHBOARD_VIEW', 'EVENTS_VIEW', 'EVENT_MANAGE', 'EVENT_REGISTER',
     'REGISTRATIONS_VIEW', 'PAYMENTS_VIEW', 'PAYMENTS_VERIFY', 'QR_PASSES_VIEW', 'GALLERY_VIEW',
@@ -110,25 +208,27 @@ function getRolePermissions(role) {
 }
 
 const PERSONA_ROLES = [
-  { id: 'CONVENER', label: 'Convener', emoji: '🏛️', badge: 'EXEC' },
-  { id: 'CO_CONVENER', label: 'Co-Convener', emoji: '🤝', badge: 'EXEC' },
-  { id: 'PRESIDENT', label: 'President', emoji: '👑', badge: 'EXEC' },
-  { id: 'VICE_PRESIDENT', label: 'Vice President', emoji: '🛡️', badge: 'EXEC' },
-  { id: 'STUDENT_COORDINATOR', label: 'Student Coordinator', emoji: '🎓', badge: 'LEAD' },
-  { id: 'TECH_TEAM', label: 'Tech Team Lead', emoji: '💻', badge: 'TECH' },
-  { id: 'EVENT_MANAGEMENT', label: 'Event Management Lead', emoji: '🎯', badge: 'EVENTS' },
-  { id: 'TREASURER', label: 'Treasurer Lead', emoji: '💰', badge: 'FINANCE' },
-  { id: 'SECRETARY', label: 'Secretary Lead', emoji: '📜', badge: 'ADMIN' },
-  { id: 'MEDIA_LEAD', label: 'Media Lead', emoji: '📸', badge: 'MEDIA' },
-  { id: 'SOCIAL_MEDIA_LEAD', label: 'Social Media Lead', emoji: '📱', badge: 'SOCIAL' },
-  { id: 'PR_TEAM', label: 'PR Team Lead', emoji: '📢', badge: 'PR' },
-  { id: 'CULTURAL', label: 'Cultural Lead', emoji: '🎭', badge: 'CULTURAL' },
-  { id: 'ADMIN', label: 'Administrator', emoji: '⚡', badge: 'ADMIN' },
-  { id: 'STUDENT', label: 'Student View', emoji: '🧑‍🎓', badge: 'STUDENT' },
+  { id: 'FACULTY', label: 'Faculty Coordinator', icon: IconBuilding, badge: 'FACULTY' },
+  { id: 'CONVENER', label: 'Convener', icon: IconAward, badge: 'OBSERVER' },
+  { id: 'CO_CONVENER', label: 'Co-Convener', icon: IconHandshake, badge: 'OBSERVER' },
+  { id: 'PRESIDENT', label: 'President', icon: IconCrown, badge: 'EXEC' },
+  { id: 'VICE_PRESIDENT', label: 'Vice President', icon: IconShieldCheck, badge: 'EXEC' },
+  { id: 'STUDENT_COORDINATOR', label: 'Student Coordinator', icon: IconGraduationCap, badge: 'LEAD' },
+  { id: 'TECH_TEAM', label: 'Tech Team Lead', icon: IconTerminal, badge: 'TECH' },
+  { id: 'EVENT_MANAGEMENT', label: 'Event Management Lead', icon: IconTarget, badge: 'EVENTS' },
+  { id: 'TREASURER', label: 'Treasurer Lead', icon: IconWallet, badge: 'FINANCE' },
+  { id: 'SECRETARY', label: 'Secretary Lead', icon: IconScroll, badge: 'ADMIN' },
+  { id: 'MEDIA_LEAD', label: 'Media Lead', icon: IconCamera, badge: 'MEDIA' },
+  { id: 'SOCIAL_MEDIA_LEAD', label: 'Social Media Lead', icon: IconSmartphone, badge: 'SOCIAL' },
+  { id: 'PR_TEAM', label: 'PR Team Lead', icon: IconMegaphone, badge: 'PR' },
+  { id: 'CULTURAL', label: 'Cultural Lead', icon: IconTheater, badge: 'CULTURAL' },
+  { id: 'ADMIN', label: 'Administrator', icon: IconZap, badge: 'ADMIN' },
+  { id: 'STUDENT', label: 'Student View', icon: IconUser, badge: 'STUDENT' },
 ]
 
 const CLUB_ROLES = [
   { id: 'STUDENT', label: 'Student Member', roleType: 'student' },
+  { id: 'FACULTY', label: 'Faculty Coordinator', roleType: 'admin' },
   { id: 'CONVENER', label: 'Convener', roleType: 'admin' },
   { id: 'CO_CONVENER', label: 'Co-Convener', roleType: 'admin' },
   { id: 'PRESIDENT', label: 'President', roleType: 'admin' },
@@ -697,7 +797,11 @@ function IntroVideoExperience({ onComplete }) {
                 letterSpacing: '.08em',
                 display: 'block',
               }}>
-                {canProceed ? '✓ 2:00 COMPLETED' : `TIME: ${Math.floor(secondsWatched / 60)}:${String(secondsWatched % 60).padStart(2, '0')} / 2:00`}
+                {canProceed ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <IconCheck size={13} /> 2:00 COMPLETED
+                  </span>
+                ) : `TIME: ${Math.floor(secondsWatched / 60)}:${String(secondsWatched % 60).padStart(2, '0')} / 2:00`}
               </span>
               <small style={{ color: 'var(--text-muted)', fontSize: '9px', font: '500 9px "DM Mono", monospace' }}>
                 {canProceed ? 'REQUIREMENT SATISFIED' : `${remainingSeconds}s REMAINING (${progressPercent}%)`}
@@ -768,7 +872,7 @@ function IntroVideoExperience({ onComplete }) {
             {completing
               ? 'PREPARING DASHBOARD…'
               : canProceed
-              ? 'ENTER PORTAL DASHBOARD →'
+              ? <>ENTER PORTAL DASHBOARD <IconArrowRight size={13} style={{ marginLeft: 6 }} /></>
               : `COMPLETE VIDEO (${remainingSeconds}s)`}
           </button>
         </div>
@@ -893,367 +997,39 @@ function HibernationScreen({ onAdminLogin }) {
 }
 
 // ----------------------------------------------------
-// Icons8 & Vector Icon System (Crisp Theme-Adaptive Assets)
+// Theme-Adaptive Vector Icon Adapter (Crisp SVG Assets)
 // ----------------------------------------------------
 function Icon8({ name, size = 18, style = {}, className = '', alt = '' }) {
   const iconMap = {
-    access: '/icons8/icons8-access-50.png',
-    authentication: '/icons8/icons8-authentication-50.png',
-    captcha: '/icons8/icons8-captcha-50.png',
-    faceId: '/icons8/icons8-face-id-50.png',
-    fingerprint: '/icons8/icons8-fingerprint-50.png',
-    idDocs: '/icons8/icons8-identification-documents-50.png',
-    irisScan: '/icons8/icons8-iris-scan-50.png',
-    keySecurity: '/icons8/icons8-key-security-50.png',
-    password: '/icons8/icons8-password-50.png',
-    protect: '/icons8/icons8-protect-50.png',
-    realtime: '/icons8/icons8-realtime-50.png',
-    showPassword: '/icons8/icons8-show-password-50.png',
-    user: '/icons8/icons8-male-user-50.png',
-    bookmark: '/icons8/icons8-add-bookmark-50.png',
-    sun: '/icons8/icons8-sun-50.png',
-    document: '/icons8/icons8-document-50.png',
-    pointer: '/icons8/icons8-3d-pointer-50.png',
-    handCursor: '/icons8/icons8-hand-cursor-50.png',
+    access: IconKey,
+    authentication: IconCheckCircle,
+    captcha: IconLifebuoy,
+    faceId: IconQrCode,
+    fingerprint: IconFingerprint,
+    idDocs: IconFileText,
+    irisScan: IconCamera,
+    keySecurity: IconSettings,
+    password: IconLock,
+    protect: IconShield,
+    realtime: IconCalendar,
+    showPassword: IconEye,
+    user: IconUser,
+    bookmark: IconStar,
+    sun: IconSun,
+    document: IconFileText,
+    pointer: IconArrowRight,
+    handCursor: IconHandshake,
   }
-  const src = iconMap[name] || iconMap.protect
+  const IconComponent = iconMap[name] || IconShield
   return (
-    <img
-      src={src}
-      alt={alt || name}
-      className={`icon8-img ${className}`}
-      style={{
-        width: `${size}px`,
-        height: `${size}px`,
-        objectFit: 'contain',
-        verticalAlign: 'middle',
-        display: 'inline-block',
-        ...style,
-      }}
+    <IconComponent
+      size={size}
+      className={`theme-adaptive-icon ${className}`}
+      style={{ verticalAlign: 'middle', ...style }}
     />
   )
 }
 
-function IconSun({ size = 15, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <circle cx="12" cy="12" r="5" /><line x1="12" y1="1" x2="12" y2="3" /><line x1="12" y1="21" x2="12" y2="23" /><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" /><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" /><line x1="1" y1="12" x2="3" y2="12" /><line x1="21" y1="12" x2="23" y2="12" /><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" /><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-    </svg>
-  )
-}
-
-function IconMoon({ size = 15, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-    </svg>
-  )
-}
-
-function IconMonitor({ size = 15, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <rect x="2" y="3" width="20" height="14" rx="2" ry="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" />
-    </svg>
-  )
-}
-
-function IconBell({ size = 16, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
-    </svg>
-  )
-}
-
-function IconDownload({ size = 14, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" />
-    </svg>
-  )
-}
-
-function IconCrown({ size = 14, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <polygon points="2 4 5 20 19 20 22 4 15 10 12 2 9 10 2 4" />
-    </svg>
-  )
-}
-
-function IconCalendar({ size = 13, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
-    </svg>
-  )
-}
-
-function IconLocationPin({ size = 13, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
-    </svg>
-  )
-}
-
-function IconCreditCard({ size = 13, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" />
-    </svg>
-  )
-}
-
-function IconAlertTriangle({ size = 16, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
-    </svg>
-  )
-}
-
-function IconCheckCircle({ size = 15, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
-    </svg>
-  )
-}
-
-function IconSearchSvg({ size = 14, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-    </svg>
-  )
-}
-
-function IconUserSvg({ size = 13, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
-    </svg>
-  )
-}
-
-function IconHeart({ size = 18, filled = false, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? '#ef4444' : 'none'} stroke={filled ? '#ef4444' : 'currentColor'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)', ...style }}>
-      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-    </svg>
-  )
-}
-
-function IconLink({ size = 16, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-    </svg>
-  )
-}
-
-function IconChevronUp({ size = 16, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <polyline points="18 15 12 9 6 15" />
-    </svg>
-  )
-}
-
-function IconChevronDown({ size = 16, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  )
-}
-
-function IconTrash({ size = 14, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-    </svg>
-  )
-}
-
-function IconRefresh({ size = 14, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-    </svg>
-  )
-}
-
-function IconInstagram({ size = 16, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <rect x="2" y="2" width="20" height="20" rx="5" ry="5" /><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" /><line x1="17.5" y1="6.5" x2="17.51" y2="6.5" />
-    </svg>
-  )
-}
-
-function IconYouTube({ size = 16, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z" /><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02" />
-    </svg>
-  )
-}
-
-function IconLinkedIn({ size = 16, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" /><rect x="2" y="9" width="4" height="12" /><circle cx="4" cy="4" r="2" />
-    </svg>
-  )
-}
-
-function IconGitHub({ size = 16, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22" />
-    </svg>
-  )
-}
-
-function IconDiscord({ size = 16, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <path d="M18 6h0a14.5 14.5 0 0 0-4-1.5l-.2.5a12.5 12.5 0 0 0-3.6 0l-.2-.5A14.5 14.5 0 0 0 6 6a15.8 15.8 0 0 0-2 10c2 1.5 4 1.5 4 1.5l.6-.8a9.4 9.4 0 0 1-2.4-1.2l.2-.2c3.4 1.6 7.2 1.6 10.6 0l.2.2a9.4 9.4 0 0 1-2.4 1.2l.6.8s2 0 4-1.5a15.8 15.8 0 0 0-2-10z" /><circle cx="9" cy="12" r="1" fill="currentColor" /><circle cx="15" cy="12" r="1" fill="currentColor" />
-    </svg>
-  )
-}
-
-function IconWhatsApp({ size = 16, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
-    </svg>
-  )
-}
-
-function IconGlobe({ size = 16, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-    </svg>
-  )
-}
-
-function IconMail({ size = 16, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" />
-    </svg>
-  )
-}
-
-function IconQrCode({ size = 16, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" />
-      <line x1="7" y1="7" x2="7.01" y2="7" strokeWidth="3" /><line x1="17" y1="7" x2="17.01" y2="7" strokeWidth="3" /><line x1="7" y1="17" x2="7.01" y2="17" strokeWidth="3" />
-    </svg>
-  )
-}
-
-function IconUsers({ size = 16, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  )
-}
-
-function IconUpload({ size = 16, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
-    </svg>
-  )
-}
-
-function IconHeadset({ size = 16, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <path d="M3 18v-6a9 9 0 0 1 18 0v6" /><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
-    </svg>
-  )
-}
-
-function IconFlame({ size = 14, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 3.5z" />
-    </svg>
-  )
-}
-
-function IconVideo({ size = 16, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <polygon points="23 7 16 12 23 17 23 7" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-    </svg>
-  )
-}
-
-function IconExternalLink({ size = 13, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
-    </svg>
-  )
-}
-
-function IconShieldCheck({ size = 16, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><polyline points="9 12 11 14 15 10" />
-    </svg>
-  )
-}
-
-function IconSparkles({ size = 16, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3z" />
-    </svg>
-  )
-}
-
-function IconEye({ size = 16, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
-    </svg>
-  )
-}
-
-function IconEyeOff({ size = 16, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" /><line x1="1" y1="1" x2="23" y2="23" />
-    </svg>
-  )
-}
-
-function IconCopy({ size = 13, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-    </svg>
-  )
-}
-
-function IconLifebuoy({ size = 14, style = {} }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', ...style }}>
-      <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" /><line x1="4.93" y1="4.93" x2="9.17" y2="9.17" /><line x1="14.83" y1="14.83" x2="19.07" y2="19.07" /><line x1="14.83" y1="9.17" x2="19.07" y2="4.93" /><line x1="4.93" y1="19.07" x2="9.17" y2="14.83" />
-    </svg>
-  )
-}
 
 // ----------------------------------------------------
 // Navigation, Header & LivePortal Frame
@@ -1264,24 +1040,25 @@ function Sidebar({ user, logout, activeTab, onNavigate, isOpen, onClose }) {
   const perms = user.permissions || []
   const has = perm => user.isPrimaryAdmin || perms.includes(perm)
 
-  const isSuper = user.isPrimaryAdmin || user.role === 'PRESIDENT' || user.role === 'CONVENER' || user.role === 'CO_CONVENER' || user.role === 'STUDENT_COORDINATOR' || user.role === 'ADMIN'
+  const isSuper = user.isPrimaryAdmin || user.role === 'PRESIDENT' || user.role === 'STUDENT_COORDINATOR' || user.role === 'ADMIN'
+  const isObserver = isReadOnlyClubRole(user.role)
 
   const navItems = user.isAdminUser
     ? [
         [<Icon8 name="protect" size={17} />, isMrdu ? 'Portal Home' : 'Dashboard', 'admin-dashboard', true],
         [<Icon8 name="faceId" size={17} />, 'QR Entry Gate', 'admin-qr-scanner', has('EVENTS_VIEW') || has('EVENT_MANAGE') || user.isAdminUser],
-        [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Participants' : 'Members', 'admin-members', has('ACCOUNT_MANAGEMENT') || isSuper || ['CONVENER', 'CO_CONVENER', 'VICE_PRESIDENT', 'SECRETARY'].includes(user.role)],
-        [<IconShieldCheck size={17} />, 'Coordinator Console', 'admin-coordinator', user.role === 'STUDENT_COORDINATOR' || user.isPrimaryAdmin || ['PRESIDENT', 'CONVENER', 'CO_CONVENER', 'ADMIN'].includes(user.role)],
-        [<Icon8 name="realtime" size={17} />, 'Event Studio', 'admin-events', has('EVENTS_VIEW') || has('EVENT_MANAGE') || isSuper],
-        [<Icon8 name="access" size={17} />, isMrdu ? 'Pass Subscriptions' : 'Subscriptions', 'admin-subscriptions', has('PAYMENTS_VIEW') || user.role === 'TREASURER' || isSuper],
+        [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Participants' : 'Members', 'admin-members', has('ACCOUNT_MANAGEMENT') || isSuper || isObserver || ['VICE_PRESIDENT', 'SECRETARY'].includes(user.role)],
+        [<IconShieldCheck size={17} />, 'Coordinator Console', 'admin-coordinator', !isObserver && (user.role === 'STUDENT_COORDINATOR' || user.isPrimaryAdmin || ['PRESIDENT', 'ADMIN'].includes(user.role))],
+        [<Icon8 name="realtime" size={17} />, 'Event Studio', 'admin-events', has('EVENTS_VIEW') || has('EVENT_MANAGE') || isSuper || isObserver],
+        [<Icon8 name="access" size={17} />, isMrdu ? 'Pass Subscriptions' : 'Subscriptions', 'admin-subscriptions', has('PAYMENTS_VIEW') || user.role === 'TREASURER' || isSuper || isObserver],
         [<Icon8 name="authentication" size={17} />, isMrdu ? 'Passes & Payments' : 'Passes & Check-in', 'admin-passes', has('PAYMENTS_VIEW') || has('EVENTS_VIEW') || user.isAdminUser],
         [<Icon8 name="captcha" size={17} />, 'Helpdesk & Doubts', 'admin-support', true],
         [<Icon8 name="protect" size={17} />, 'Council Room', 'admin-chat', true],
-        [<Icon8 name="irisScan" size={17} />, isMrdu ? 'Event Gallery' : 'Gallery', 'admin-gallery', has('GALLERY_VIEW') || has('GALLERY_MANAGE') || isSuper],
-        [<Icon8 name="realtime" size={17} />, isMrdu ? 'MRDU Reels Studio' : 'Reels Studio', 'admin-reels', has('REELS_MANAGE') || has('GALLERY_MANAGE') || isSuper || ['CONVENER', 'CO_CONVENER', 'VICE_PRESIDENT', 'PR_TEAM', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD'].includes(user.role)],
-        [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Organizing Team' : 'Team / Leaders', 'admin-team', has('TEAM_MANAGE') || isSuper || ['CONVENER', 'CO_CONVENER', 'VICE_PRESIDENT'].includes(user.role)],
-        [<Icon8 name="keySecurity" size={17} />, 'Settings & Links', 'admin-settings', has('SETTINGS_MANAGE') || isSuper],
-        [<Icon8 name="showPassword" size={17} />, 'Audit Log', 'admin-audit', has('AUDIT_VIEW') || isSuper],
+        [<Icon8 name="irisScan" size={17} />, isMrdu ? 'Event Gallery' : 'Gallery', 'admin-gallery', has('GALLERY_VIEW') || has('GALLERY_MANAGE') || isSuper || isObserver],
+        [<Icon8 name="realtime" size={17} />, isMrdu ? 'MRDU Reels Studio' : 'Reels Studio', 'admin-reels', has('REELS_MANAGE') || has('GALLERY_MANAGE') || isSuper || isObserver || ['VICE_PRESIDENT', 'PR_TEAM', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD'].includes(user.role)],
+        [<Icon8 name="idDocs" size={17} />, isMrdu ? 'Organizing Team' : 'Team / Leaders', 'admin-team', has('TEAM_MANAGE') || isSuper || isObserver || ['VICE_PRESIDENT'].includes(user.role)],
+        [<Icon8 name="keySecurity" size={17} />, 'Settings & Links', 'admin-settings', has('SETTINGS_MANAGE') || isSuper || isObserver],
+        [<Icon8 name="showPassword" size={17} />, 'Audit Log', 'admin-audit', has('AUDIT_VIEW') || isSuper || isObserver],
         [<Icon8 name="fingerprint" size={17} />, 'My Profile', 'admin-profile', true],
         [<Icon8 name="password" size={17} />, 'Security & PIN', 'security', true],
       ].filter(item => item[3])
@@ -1347,7 +1124,7 @@ function RolePersonaSwitcher({ user, onSwitchRole, onNavigate }) {
   const activePersona = PERSONA_ROLES.find(r => r.id === user.role) || {
     id: user.role,
     label: getRoleLabel(user.role),
-    emoji: '🛡️',
+    icon: IconShieldCheck,
     badge: 'LEAD',
   }
 
@@ -1394,11 +1171,11 @@ function RolePersonaSwitcher({ user, onSwitchRole, onNavigate }) {
           {user.isImpersonating ? 'SWITCHED:' : 'SWITCH:'}
         </span>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-          <span style={{ fontSize: '13px' }}>{activePersona.emoji}</span>
+          {activePersona.icon && <activePersona.icon size={13} style={{ color: user.isImpersonating ? '#f59e0b' : 'var(--brand-primary)' }} />}
           <span style={{ color: 'var(--text-main)' }}>{user.name?.split(' ')[0] || activePersona.label}</span>
         </span>
-        <span style={{ fontSize: '9px', opacity: 0.7, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }}>
-          ▼
+        <span style={{ display: 'inline-flex', alignItems: 'center', opacity: 0.7, transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }}>
+          <IconChevronDown size={11} />
         </span>
       </button>
 
@@ -1406,8 +1183,8 @@ function RolePersonaSwitcher({ user, onSwitchRole, onNavigate }) {
         <div className="role-persona-dropdown-menu" role="listbox" style={{ width: '290px', maxHeight: '460px' }}>
           {user.isImpersonating && (
             <div style={{ padding: '6px', marginBottom: '8px', background: 'rgba(245, 158, 11, 0.15)', borderRadius: '8px', border: '1px solid rgba(245, 158, 11, 0.4)' }}>
-              <div style={{ fontSize: '10px', color: '#fef08a', fontWeight: 700, marginBottom: '4px' }}>
-                ⇄ Switched from: {user.originalAdmin?.name || 'Admin'}
+              <div style={{ fontSize: '10px', color: '#fef08a', fontWeight: 700, marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <IconRefresh size={11} /> Switched from: {user.originalAdmin?.name || 'Admin'}
               </div>
               <button
                 type="button"
@@ -1425,9 +1202,13 @@ function RolePersonaSwitcher({ user, onSwitchRole, onNavigate }) {
                   border: 'none',
                   cursor: 'pointer',
                   fontSize: '11px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
                 }}
               >
-                ⇄ SWITCH BACK TO ADMIN
+                <IconRefresh size={12} /> SWITCH BACK TO ADMIN
               </button>
             </div>
           )}
@@ -1453,7 +1234,9 @@ function RolePersonaSwitcher({ user, onSwitchRole, onNavigate }) {
               }}
               title="Switch to Primary President (25EU07R0015)"
             >
-              👑 President<br/>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <IconCrown size={12} style={{ color: 'var(--brand-primary)' }} /> President
+              </span><br/>
               <small style={{ color: 'var(--brand-primary)', fontFamily: 'monospace', fontSize: '9.5px' }}>25EU07R0015</small>
             </button>
 
@@ -1474,7 +1257,9 @@ function RolePersonaSwitcher({ user, onSwitchRole, onNavigate }) {
               }}
               title="Switch to Student Coordinator (25EU07R0016)"
             >
-              🎓 Coordinator<br/>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <IconGraduationCap size={12} style={{ color: 'var(--brand-primary)' }} /> Coordinator
+              </span><br/>
               <small style={{ color: 'var(--brand-primary)', fontFamily: 'monospace', fontSize: '9.5px' }}>25EU07R0016</small>
             </button>
           </div>
@@ -1492,7 +1277,7 @@ function RolePersonaSwitcher({ user, onSwitchRole, onNavigate }) {
               disabled={switching || !targetInput.trim()}
               style={{ height: '28px', padding: '0 10px', fontSize: '11px', fontWeight: 800, background: 'var(--brand-primary)', color: '#000', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
             >
-              {switching ? '…' : '⇄ Go'}
+              {switching ? '…' : 'Go'}
             </button>
           </form>
 
@@ -1517,14 +1302,14 @@ function RolePersonaSwitcher({ user, onSwitchRole, onNavigate }) {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '14px' }}>{r.emoji}</span>
+                  {r.icon && <r.icon size={15} style={{ color: isSelected ? 'var(--brand-primary)' : 'var(--text-muted)' }} />}
                   <span style={{ fontWeight: isSelected ? 700 : 600 }}>{r.label}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 5px', borderRadius: '4px', background: isSelected ? 'var(--brand-primary)' : 'var(--panel-subtle)', color: isSelected ? '#000' : 'var(--text-dim)', border: '1px solid var(--line)' }}>
                     {r.badge}
                   </span>
-                  {isSelected && <span style={{ color: 'var(--brand-primary)', fontWeight: 800 }}>✓</span>}
+                  {isSelected && <IconCheck size={13} style={{ color: 'var(--brand-primary)' }} />}
                 </div>
               </button>
             )
@@ -1554,10 +1339,17 @@ function Header({ user, title, onProfile, onToggleNav, onOpenNotifications, unre
     <header className="header">
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
         <button type="button" className="mobile-nav-toggle" onClick={onToggleNav} aria-label="Toggle navigation menu">
-          ☰
+          <IconMenu size={16} />
         </button>
         <div>
-          <b>{title || (user.isAdminUser ? getRoleLabel(user.role).toUpperCase() : (isMrdu ? 'MRDU PARTICIPANT PORTAL' : 'STUDENT MEMBER PORTAL'))}</b>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <b>{title || (user.isAdminUser ? getRoleLabel(user.role).toUpperCase() : (isMrdu ? 'MRDU PARTICIPANT PORTAL' : 'STUDENT MEMBER PORTAL'))}</b>
+            {isReadOnlyClubRole(user.role) && (
+              <span className="badge" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.35)', fontSize: '9.5px', fontWeight: 700, padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }} title="Observer Access: Full view and Excel/CSV download enabled. Editing disabled.">
+                <IconEye size={12} /> OBSERVER
+              </span>
+            )}
+          </div>
           <small>{isMrdu ? 'MALLA REDDY (DEEMED TO BE UNIVERSITY) · CENTRAL EVENTS' : 'CYBER SECURITY CLUB · MRDU'}</small>
         </div>
       </div>
@@ -1671,7 +1463,7 @@ function NotificationsModal({ isOpen, onClose, onNavigate }) {
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button type="button" className="action-btn edit-btn" onClick={handleMarkAll} style={{ fontSize: '10px' }}>Mark all read</button>
-            <button className="lightbox-close" onClick={onClose} style={{ position: 'static' }}>✕</button>
+            <button className="lightbox-close" onClick={onClose} style={{ position: 'static' }} aria-label="Close"><IconX size={16} /></button>
           </div>
         </div>
 
@@ -1705,7 +1497,7 @@ function NotificationsModal({ isOpen, onClose, onNavigate }) {
                 <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.4' }}>{n.message}</p>
                 {n.linkUrl && (
                   <small style={{ color: 'var(--brand-primary)', display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '6px', fontWeight: 600 }}>
-                    Open link →
+                    Open link <IconArrowRight size={11} />
                   </small>
                 )}
               </div>
@@ -1848,7 +1640,7 @@ function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
   return (
     <div className="photo-lightbox" onClick={onClose}>
       <div className="guest-modal-content" onClick={e => e.stopPropagation()}>
-        <button className="lightbox-close" onClick={onClose}>✕</button>
+        <button className="lightbox-close" onClick={onClose} aria-label="Close"><IconX size={16} /></button>
         
         <div style={{ textAlign: 'center', marginBottom: '20px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <Crest small />
@@ -2026,8 +1818,8 @@ function GuestCredentialsSuccessModal({ data, onClose, onProceedToLogin }) {
         <h2 style={{ color: 'var(--text-main)', font: '700 22px Syne', margin: '0 0 4px' }}>
           Account Created Successfully!
         </h2>
-        <p style={{ color: '#059669', fontSize: '12px', fontWeight: 600, margin: '0 0 16px' }}>
-          ✓ Official ID Pass.png has been automatically downloaded to your device
+        <p style={{ color: '#059669', fontSize: '12px', fontWeight: 600, margin: '0 0 16px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+          <IconCheckCircle size={14} /> Official ID Pass.png has been automatically downloaded to your device
         </p>
 
         <div className="guest-credentials-card">
@@ -2076,9 +1868,9 @@ function GuestCredentialsSuccessModal({ data, onClose, onProceedToLogin }) {
             type="button"
             className="primary"
             onClick={onProceedToLogin}
-            style={{ width: '100%', height: '44px', fontSize: '11px' }}
+            style={{ width: '100%', height: '44px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            PROCEED TO LOGIN →
+            PROCEED TO LOGIN <IconArrowRight size={13} style={{ marginLeft: 6 }} />
           </button>
         </div>
       </div>
@@ -2100,7 +1892,7 @@ function ForgotPasswordModal({ isOpen, onClose }) {
   return (
     <div className="photo-lightbox" onClick={onClose}>
       <div className="guest-modal-content" onClick={e => e.stopPropagation()} style={{ textAlign: 'center', maxWidth: '480px' }}>
-        <button className="lightbox-close" onClick={onClose}>✕</button>
+        <button className="lightbox-close" onClick={onClose} aria-label="Close"><IconX size={16} /></button>
         <span style={{ display: 'inline-flex', padding: '14px', borderRadius: '50%', background: 'var(--brand-badge-bg)', color: 'var(--brand-primary)', marginBottom: '12px' }}>
           <IconHeadset size={32} />
         </span>
@@ -2121,9 +1913,9 @@ function ForgotPasswordModal({ isOpen, onClose }) {
             type="button"
             className="action-btn"
             onClick={handleCopy}
-            style={{ flex: 1, height: '42px', background: 'var(--panel-elevated)', color: 'var(--brand-primary)', border: '1px solid var(--brand-border-subtle)', fontSize: '11px', fontWeight: 600 }}
+            style={{ flex: 1, height: '42px', background: 'var(--panel-elevated)', color: 'var(--brand-primary)', border: '1px solid var(--brand-border-subtle)', fontSize: '11px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
           >
-            {copied ? '✓ COPIED TO CLIPBOARD' : 'COPY EMAIL ADDRESS'}
+            {copied ? <><IconCheck size={12} /> COPIED TO CLIPBOARD</> : 'COPY EMAIL ADDRESS'}
           </button>
           <button
             type="button"
@@ -2298,9 +2090,13 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
                   fontWeight: 700,
                   fontSize: '14px',
                   color: '#475569',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
+                aria-label="Close"
               >
-                ✕
+                <IconX size={15} />
               </button>
 
               <div style={{ textAlign: 'center', marginBottom: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -2404,7 +2200,7 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
                                 gap: '6px',
                               }}
                             >
-                              <IconLifebuoy size={13} /> Contact Technical Helpdesk ➔
+                              <IconLifebuoy size={13} /> Contact Technical Helpdesk <IconArrowRight size={12} style={{ marginLeft: 4 }} />
                             </button>
                           </div>
                         )}
@@ -2424,9 +2220,12 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
                     background: 'linear-gradient(135deg, #ff5722, #dc2626)',
                     boxShadow: '0 4px 16px rgba(255, 87, 34, 0.35)',
                     borderRadius: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}
                 >
-                  {loading ? 'AUTHENTICATING SECURE SESSION…' : 'SIGN IN TO UNIVERSITY PORTAL ➔'}
+                  {loading ? 'AUTHENTICATING SECURE SESSION…' : <>SIGN IN TO UNIVERSITY PORTAL <IconArrowRight size={13} style={{ marginLeft: 6 }} /></>}
                 </button>
               </form>
 
@@ -2670,7 +2469,7 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
                             gap: '6px',
                           }}
                         >
-                          <IconLifebuoy size={13} /> Contact Technical Helpdesk ➔
+                          <IconLifebuoy size={13} /> Contact Technical Helpdesk <IconArrowRight size={12} style={{ marginLeft: 4 }} />
                         </button>
                       </div>
                     )}
@@ -2679,8 +2478,8 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
               </div>
             )}
 
-            <button className="primary" disabled={loading} style={{ width: '100%', minHeight: '46px', fontSize: '11px' }}>
-              {loading ? 'AUTHENTICATING SECURE SESSION…' : 'AUTHENTICATE & SIGN IN →'}
+            <button className="primary" disabled={loading} style={{ width: '100%', minHeight: '46px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {loading ? 'AUTHENTICATING SECURE SESSION…' : <>AUTHENTICATE & SIGN IN <IconArrowRight size={13} style={{ marginLeft: 6 }} /></>}
             </button>
           </form>
 
@@ -2796,13 +2595,13 @@ function TwoFactorLogin({ onVerify, onBack }) {
             </div>
           )}
 
-          <button className="primary" disabled={loading || code.length !== 6} style={{ width: '100%', minHeight: '46px' }}>
-            {loading ? 'VERIFYING…' : 'VERIFY & CONTINUE →'}
+          <button className="primary" disabled={loading || code.length !== 6} style={{ width: '100%', minHeight: '46px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {loading ? 'VERIFYING…' : <>VERIFY & CONTINUE <IconArrowRight size={13} style={{ marginLeft: 6 }} /></>}
           </button>
         </form>
 
-        <button className="back-button" type="button" onClick={onBack} style={{ marginTop: '20px', display: 'inline-flex' }}>
-          ← Back to sign in
+        <button className="back-button" type="button" onClick={onBack} style={{ marginTop: '20px', display: 'inline-flex', alignItems: 'center' }}>
+          <IconArrowLeft size={13} style={{ marginRight: 6 }} /> Back to sign in
         </button>
       </section>
     </main>
@@ -2862,8 +2661,8 @@ function PasswordResetRequest({ onBack }) {
         </form>
 
         <div style={{ textAlign: 'center', marginTop: '18px' }}>
-          <button className="back-button" type="button" onClick={onBack}>
-            ← Back to sign in
+          <button className="back-button" type="button" onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <IconArrowLeft size={13} /> Back to sign in
           </button>
         </div>
       </section>
@@ -2992,7 +2791,7 @@ function AccountSecurity({ user, logout, onNavigate }) {
     setPwLoading(true)
     try {
       const res = await authApi.changePassword(currentPassword, newPassword)
-      setPwMessage(res.message || '✓ Password changed successfully!')
+      setPwMessage(res.message || 'Password changed successfully!')
       setCurrentPassword('')
       setNewPassword('')
       setConfirmNewPassword('')
@@ -3024,7 +2823,7 @@ function AccountSecurity({ user, logout, onNavigate }) {
       await authApi.confirmTwoFactorSetup(code)
       setSetup(null)
       setCode('')
-      setMessage('✓ Two-factor authentication (TOTP) is now active on your account.')
+      setMessage('Two-factor authentication (TOTP) is now active on your account.')
     } catch (requestError) {
       setError(requestError.message)
     } finally {
@@ -3067,7 +2866,7 @@ function AccountSecurity({ user, logout, onNavigate }) {
     setSessionMessage('')
     try {
       await authApi.logoutAllSessions()
-      setSessionMessage('✓ All other device sessions terminated. Only this browser session remains active.')
+      setSessionMessage('All other device sessions terminated. Only this browser session remains active.')
     } catch (err) {
       setSessionMessage(err.message || 'Failed to terminate other sessions.')
     } finally {
@@ -3080,8 +2879,8 @@ function AccountSecurity({ user, logout, onNavigate }) {
       <section className="member-management">
         <div className="member-heading">
           <div>
-            <button className="back-button" type="button" onClick={() => onNavigate(user.isAdminUser ? 'admin-dashboard' : 'student-dashboard')}>
-              ← BACK TO DASHBOARD
+            <button className="back-button" type="button" onClick={() => onNavigate(user.isAdminUser ? 'admin-dashboard' : 'student-dashboard')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <IconArrowLeft size={13} /> BACK TO DASHBOARD
             </button>
             <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <IconShieldCheck size={14} /> CYBER DEFENSE & AUTHENTICATION PROTOCOLS
@@ -3225,20 +3024,20 @@ function AccountSecurity({ user, logout, onNavigate }) {
                 />
                 {newPassword && (
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '8px' }}>
-                    <span className="badge" style={{ fontSize: '9px', background: hasLength ? 'rgba(16, 185, 129, 0.15)' : 'var(--panel-subtle)', color: hasLength ? '#10b981' : 'var(--text-dim)' }}>
-                      {hasLength ? '✓ 12+ chars' : '12+ chars'}
+                    <span className="badge" style={{ fontSize: '9px', background: hasLength ? 'rgba(16, 185, 129, 0.15)' : 'var(--panel-subtle)', color: hasLength ? '#10b981' : 'var(--text-dim)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                      {hasLength && <IconCheck size={10} />} 12+ chars
                     </span>
-                    <span className="badge" style={{ fontSize: '9px', background: hasUpper ? 'rgba(16, 185, 129, 0.15)' : 'var(--panel-subtle)', color: hasUpper ? '#10b981' : 'var(--text-dim)' }}>
-                      {hasUpper ? '✓ Uppercase' : 'Uppercase'}
+                    <span className="badge" style={{ fontSize: '9px', background: hasUpper ? 'rgba(16, 185, 129, 0.15)' : 'var(--panel-subtle)', color: hasUpper ? '#10b981' : 'var(--text-dim)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                      {hasUpper && <IconCheck size={10} />} Uppercase
                     </span>
-                    <span className="badge" style={{ fontSize: '9px', background: hasLower ? 'rgba(16, 185, 129, 0.15)' : 'var(--panel-subtle)', color: hasLower ? '#10b981' : 'var(--text-dim)' }}>
-                      {hasLower ? '✓ Lowercase' : 'Lowercase'}
+                    <span className="badge" style={{ fontSize: '9px', background: hasLower ? 'rgba(16, 185, 129, 0.15)' : 'var(--panel-subtle)', color: hasLower ? '#10b981' : 'var(--text-dim)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                      {hasLower && <IconCheck size={10} />} Lowercase
                     </span>
-                    <span className="badge" style={{ fontSize: '9px', background: hasNumber ? 'rgba(16, 185, 129, 0.15)' : 'var(--panel-subtle)', color: hasNumber ? '#10b981' : 'var(--text-dim)' }}>
-                      {hasNumber ? '✓ Number' : 'Number'}
+                    <span className="badge" style={{ fontSize: '9px', background: hasNumber ? 'rgba(16, 185, 129, 0.15)' : 'var(--panel-subtle)', color: hasNumber ? '#10b981' : 'var(--text-dim)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                      {hasNumber && <IconCheck size={10} />} Number
                     </span>
-                    <span className="badge" style={{ fontSize: '9px', background: hasSymbol ? 'rgba(16, 185, 129, 0.15)' : 'var(--panel-subtle)', color: hasSymbol ? '#10b981' : 'var(--text-dim)' }}>
-                      {hasSymbol ? '✓ Symbol' : 'Symbol'}
+                    <span className="badge" style={{ fontSize: '9px', background: hasSymbol ? 'rgba(16, 185, 129, 0.15)' : 'var(--panel-subtle)', color: hasSymbol ? '#10b981' : 'var(--text-dim)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                      {hasSymbol && <IconCheck size={10} />} Symbol
                     </span>
                   </div>
                 )}
@@ -3293,8 +3092,8 @@ function AccountSecurity({ user, logout, onNavigate }) {
                     <li>Works offline without SMS or email dependency</li>
                   </ul>
                 </div>
-                <button className="primary member-submit" type="button" onClick={startSetup} disabled={loading} style={{ width: '100%' }}>
-                  {loading ? 'PREPARING QR CODE…' : 'ENABLE 2FA AUTHENTICATOR →'}
+                <button className="primary member-submit" type="button" onClick={startSetup} disabled={loading} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {loading ? 'PREPARING QR CODE…' : <>ENABLE 2FA AUTHENTICATOR <IconArrowRight size={13} style={{ marginLeft: 6 }} /></>}
                 </button>
               </>
             )}
@@ -3334,7 +3133,7 @@ function AccountSecurity({ user, logout, onNavigate }) {
             {user.twoFactorEnabled && (
               <>
                 <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '10px', padding: '12px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ color: '#10b981', fontSize: '18px' }}>✓</span>
+                  <span style={{ color: '#10b981', display: 'inline-flex', alignItems: 'center' }}><IconCheckCircle size={18} /></span>
                   <div>
                     <b style={{ color: '#10b981', fontSize: '13px', display: 'block' }}>2FA Is Active & Enforced</b>
                     <small style={{ color: 'var(--text-muted)', fontSize: '11px' }}>Your account is protected with multi-factor authentication.</small>
@@ -3397,6 +3196,7 @@ function AccountSecurity({ user, logout, onNavigate }) {
 function MemberManagement({ user, logout, onNavigate }) {
   const { platformMode, onSwitchAccount } = usePlatformTheme()
   const isMrdu = platformMode === 'MRDU_EVENTS'
+  const isReadOnly = Boolean(user.isReadOnly || isReadOnlyClubRole(user.role))
 
   async function handleSwitchToMember(targetMember) {
     if (!window.confirm(`Switch into account for ${targetMember.name} (${targetMember.memberId})?`)) return
@@ -3519,9 +3319,10 @@ function MemberManagement({ user, logout, onNavigate }) {
 
     const isGenderString = str => ['MALE', 'FEMALE', 'OTHER'].includes(String(str || '').trim().toUpperCase())
 
-    const validRoleKeys = ['CONVENER', 'CO_CONVENER', 'PRESIDENT', 'VICE_PRESIDENT', 'STUDENT_COORDINATOR', 'COORDINATOR', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT']
+    const validRoleKeys = ['FACULTY', 'CONVENER', 'CO_CONVENER', 'PRESIDENT', 'VICE_PRESIDENT', 'STUDENT_COORDINATOR', 'COORDINATOR', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT']
     const normalizeRole = (r) => {
       const up = String(r || '').trim().toUpperCase().replace(/[\s-]+/g, '_')
+      if (up === 'FACULTY' || up === 'FACULTY_COORDINATOR') return 'FACULTY'
       if (up === 'CONVENER' || up === 'CONVENOR') return 'CONVENER'
       if (up === 'CO_CONVENER' || up === 'CO_CONVENOR' || up === 'COCONVENER' || up === 'COCONVENOR') return 'CO_CONVENER'
       if (up === 'COORDINATOR' || up === 'STUDENT_COORDINATOR' || up === 'LEAD_COORDINATOR') return 'STUDENT_COORDINATOR'
@@ -3802,7 +3603,7 @@ function MemberManagement({ user, logout, onNavigate }) {
     try {
       const res = await adminApi.activateAllAccounts()
       setMembers(c => c.map(m => ({ ...m, accountStatus: 'ACTIVE' })))
-      setMessage(res.message || '✓ All accounts have been activated successfully!')
+      setMessage(res.message || 'All accounts have been activated successfully!')
     } catch (err) {
       setError(err.message || 'Failed to activate accounts.')
     } finally {
@@ -3940,8 +3741,8 @@ function MemberManagement({ user, logout, onNavigate }) {
       <section className="member-management">
         <div className="member-heading">
           <div>
-            <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
-              ← COMMAND CENTER
+            <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <IconArrowLeft size={13} /> COMMAND CENTER
             </button>
             <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Icon8 name="idDocs" size={14} /> ROLE-BASED ACCESS CONTROL
@@ -3965,34 +3766,36 @@ function MemberManagement({ user, logout, onNavigate }) {
             >
               <IconDownload size={13} /> Export Roster CSV
             </button>
-            <button
-              type="button"
-              className="primary"
-              onClick={handleActivateAllAccounts}
-              disabled={activatingAll}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                fontSize: '11px',
-                padding: '7px 14px',
-                background: disabledCount > 0 ? '#10b981' : 'rgba(16, 185, 129, 0.15)',
-                borderColor: '#10b981',
-                color: disabledCount > 0 ? '#fff' : '#10b981',
-                fontWeight: 700,
-              }}
-              title="Activate all member accounts immediately in 1 click"
-            >
-              ⚡ {activatingAll ? 'ACTIVATING ALL…' : disabledCount > 0 ? `ACTIVATE ALL (${disabledCount} DISABLED)` : 'ACTIVATE ALL ACCOUNTS'}
-            </button>
-            {(user.role === 'STUDENT_COORDINATOR' || user.isPrimaryAdmin || ['PRESIDENT', 'CONVENER', 'CO_CONVENER'].includes(user.role)) && (
+            {!isReadOnly && (
+              <button
+                type="button"
+                className="primary"
+                onClick={handleActivateAllAccounts}
+                disabled={activatingAll}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '11px',
+                  padding: '7px 14px',
+                  background: disabledCount > 0 ? '#10b981' : 'rgba(16, 185, 129, 0.15)',
+                  borderColor: '#10b981',
+                  color: disabledCount > 0 ? '#fff' : '#10b981',
+                  fontWeight: 700,
+                }}
+                title="Activate all member accounts immediately in 1 click"
+              >
+                <IconZap size={14} /> {activatingAll ? 'ACTIVATING ALL…' : disabledCount > 0 ? `ACTIVATE ALL (${disabledCount} DISABLED)` : 'ACTIVATE ALL ACCOUNTS'}
+              </button>
+            )}
+            {!isReadOnly && (user.role === 'STUDENT_COORDINATOR' || user.isPrimaryAdmin || ['PRESIDENT', 'ADMIN'].includes(user.role)) && (
               <button
                 type="button"
                 className="outline"
                 onClick={() => onNavigate('admin-coordinator')}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '7px 14px', borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' }}
               >
-                <IconShieldCheck size={13} /> 🛡️ Coordinator Console →
+                <IconShieldCheck size={13} /> Coordinator Console <IconArrowRight size={12} style={{ marginLeft: 4 }} />
               </button>
             )}
           </div>
@@ -4009,13 +3812,16 @@ function MemberManagement({ user, logout, onNavigate }) {
           >
             <Icon8 name="idDocs" size={14} /> Member Directory ({members.length})
           </button>
-          <button
-            type="button"
-            className={managementView === 'CREATE' ? 'primary active' : 'outline'}
-            onClick={() => setManagementView('CREATE')}
-          >
-            <IconUserSvg size={14} /> ＋ Provision New Account
-          </button>
+          {!isReadOnly && (
+            <button
+              type="button"
+              className={managementView === 'CREATE' ? 'primary active' : 'outline'}
+              onClick={() => setManagementView('CREATE')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <IconPlus size={14} /> Provision New Account
+            </button>
+          )}
         </div>
 
         {managementView === 'CREATE' ? (
@@ -4032,7 +3838,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                 onClick={() => setManagementView('ROSTER')}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}
               >
-                ← BACK TO MEMBER DIRECTORY
+                <IconArrowLeft size={13} /> BACK TO MEMBER DIRECTORY
               </button>
             </div>
 
@@ -4159,9 +3965,9 @@ function MemberManagement({ user, logout, onNavigate }) {
                             setPasswordInput(pwd.split('').sort(() => 0.5 - Math.random()).join(''))
                             setShowPassword(true)
                           }}
-                          style={{ padding: '2px 8px', fontSize: '10px', fontWeight: 600 }}
+                          style={{ padding: '2px 8px', fontSize: '10px', fontWeight: 600, display: 'inline-flex', alignItems: 'center' }}
                         >
-                          ⚡ Generate Strong Password
+                          <IconZap size={13} style={{ marginRight: 4 }} /> Generate Strong Password
                         </button>
                       </div>
                       <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -4193,11 +3999,11 @@ function MemberManagement({ user, logout, onNavigate }) {
                   </div>
 
                   <div className="pwd-rules" style={{ margin: '14px 0' }}>
-                    <span className={`pwd-rule ${hasLength ? 'valid' : ''}`}><i>{hasLength ? '✓' : '○'}</i> 12+ Characters</span>
-                    <span className={`pwd-rule ${hasUpper ? 'valid' : ''}`}><i>{hasUpper ? '✓' : '○'}</i> Uppercase Letter</span>
-                    <span className={`pwd-rule ${hasLower ? 'valid' : ''}`}><i>{hasLower ? '✓' : '○'}</i> Lowercase Letter</span>
-                    <span className={`pwd-rule ${hasNumber ? 'valid' : ''}`}><i>{hasNumber ? '✓' : '○'}</i> Number</span>
-                    <span className={`pwd-rule ${hasSymbol ? 'valid' : ''}`}><i>{hasSymbol ? '✓' : '○'}</i> Symbol (!@#$)</span>
+                    <span className={`pwd-rule ${hasLength ? 'valid' : ''}`}><i>{hasLength ? <IconCheck size={11} /> : '○'}</i> 12+ Characters</span>
+                    <span className={`pwd-rule ${hasUpper ? 'valid' : ''}`}><i>{hasUpper ? <IconCheck size={11} /> : '○'}</i> Uppercase Letter</span>
+                    <span className={`pwd-rule ${hasLower ? 'valid' : ''}`}><i>{hasLower ? <IconCheck size={11} /> : '○'}</i> Lowercase Letter</span>
+                    <span className={`pwd-rule ${hasNumber ? 'valid' : ''}`}><i>{hasNumber ? <IconCheck size={11} /> : '○'}</i> Number</span>
+                    <span className={`pwd-rule ${hasSymbol ? 'valid' : ''}`}><i>{hasSymbol ? <IconCheck size={11} /> : '○'}</i> Symbol (!@#$)</span>
                   </div>
 
                   {/* RBAC & Capabilities Delegation Panel */}
@@ -4210,8 +4016,8 @@ function MemberManagement({ user, logout, onNavigate }) {
                   }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
                       <div>
-                        <b style={{ color: 'var(--text-main)', fontSize: '13px', display: 'block' }}>
-                          🛡️ Role-Based Access Control (RBAC) & Additional Capabilities
+                        <b style={{ color: 'var(--text-main)', fontSize: '13px', display: 'flex', alignItems: 'center' }}>
+                          <IconShield size={14} style={{ marginRight: 6 }} /> Role-Based Access Control (RBAC) & Additional Capabilities
                         </b>
                         <small style={{ color: 'var(--text-muted)', fontSize: '11px', display: 'block', marginTop: '3px' }}>
                           Default RBAC permissions for <b>{getRoleLabel(role)}</b> are applied automatically. You can add or remove additional access below:
@@ -4222,43 +4028,44 @@ function MemberManagement({ user, logout, onNavigate }) {
                           type="button"
                           className="outline"
                           onClick={() => setCustomPermissions(ROLE_DEFAULT_PERMISSIONS[role] || [])}
-                          style={{ fontSize: '10.5px', padding: '3px 8px' }}
+                          style={{ fontSize: '10.5px', padding: '3px 8px', display: 'inline-flex', alignItems: 'center' }}
                           title="Reset to default permissions for this role"
                         >
-                          ↺ Reset Role RBAC
+                          <IconRefresh size={11} style={{ marginRight: 4 }} /> Reset Role RBAC
                         </button>
                         <button
                           type="button"
                           className="outline"
                           onClick={() => setCustomPermissions(['QR_PASSES_VIEW', 'EVENTS_VIEW', 'DASHBOARD_VIEW'])}
-                          style={{ fontSize: '10.5px', padding: '3px 8px' }}
+                          style={{ fontSize: '10.5px', padding: '3px 8px', display: 'inline-flex', alignItems: 'center' }}
                         >
-                          🎟️ Scanner Squad
+                          <IconTicket size={11} style={{ marginRight: 4 }} /> Scanner Squad
                         </button>
                         <button
                           type="button"
                           className="outline"
                           onClick={() => setCustomPermissions(['EVENT_MANAGE', 'EVENTS_VIEW', 'QR_PASSES_VIEW', 'REGISTRATIONS_VIEW', 'DASHBOARD_VIEW'])}
-                          style={{ fontSize: '10.5px', padding: '3px 8px' }}
+                          style={{ fontSize: '10.5px', padding: '3px 8px', display: 'inline-flex', alignItems: 'center' }}
                         >
-                          📅 Event Studio
+                          <IconCalendar size={11} style={{ marginRight: 4 }} /> Event Studio
                         </button>
                       </div>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px' }}>
                       {[
-                        { key: 'QR_PASSES_VIEW', label: '🎟️ Gate Pass Scanner', desc: 'Scan attendee QR passes at gates' },
-                        { key: 'EVENT_MANAGE', label: '📅 Event Studio & Scheduling', desc: 'Create, schedule & manage events' },
-                        { key: 'PAYMENTS_VERIFY', label: '💰 Verify Payments & UTR', desc: 'Verify paid registrations & passes' },
-                        { key: 'ACCOUNT_MANAGEMENT', label: '👥 Member Directory Admin', desc: 'Provision & manage student accounts' },
-                        { key: 'GALLERY_MANAGE', label: '📸 Photo Gallery Studio', desc: 'Upload event photo albums' },
-                        { key: 'REELS_MANAGE', label: '🎬 Campus Reels Feed', desc: 'Upload and curate video reels' },
-                        { key: 'REGISTRATIONS_VIEW', label: '📊 Attendee Rosters & CSV', desc: 'View registrants & export CSV' },
-                        { key: 'CHAT_USE', label: '💬 Council Live Chat', desc: 'Official broadcasts and live chat' },
-                        { key: 'SETTINGS_MANAGE', label: '⚙️ Platform Settings', desc: 'Configure club rules & switches' },
+                        { key: 'QR_PASSES_VIEW', icon: IconTicket, label: 'Gate Pass Scanner', desc: 'Scan attendee QR passes at gates' },
+                        { key: 'EVENT_MANAGE', icon: IconCalendar, label: 'Event Studio & Scheduling', desc: 'Create, schedule & manage events' },
+                        { key: 'PAYMENTS_VERIFY', icon: IconCreditCard, label: 'Verify Payments & UTR', desc: 'Verify paid registrations & passes' },
+                        { key: 'ACCOUNT_MANAGEMENT', icon: IconUsers, label: 'Member Directory Admin', desc: 'Provision & manage student accounts' },
+                        { key: 'GALLERY_MANAGE', icon: IconCamera, label: 'Photo Gallery Studio', desc: 'Upload event photo albums' },
+                        { key: 'REELS_MANAGE', icon: IconFilm, label: 'Campus Reels Feed', desc: 'Upload and curate video reels' },
+                        { key: 'REGISTRATIONS_VIEW', icon: IconBarChart, label: 'Attendee Rosters & CSV', desc: 'View registrants & export CSV' },
+                        { key: 'CHAT_USE', icon: IconMessageSquare, label: 'Council Live Chat', desc: 'Official broadcasts and live chat' },
+                        { key: 'SETTINGS_MANAGE', icon: IconSettings, label: 'Platform Settings', desc: 'Configure club rules & switches' },
                       ].map(cap => {
                         const isChecked = customPermissions.includes(cap.key)
+                        const CapIcon = cap.icon
                         return (
                           <label
                             key={cap.key}
@@ -4287,7 +4094,9 @@ function MemberManagement({ user, logout, onNavigate }) {
                               style={{ marginTop: '2px' }}
                             />
                             <div>
-                              <b style={{ display: 'block', color: isChecked ? 'var(--brand-primary)' : 'var(--text-main)' }}>{cap.label}</b>
+                              <b style={{ display: 'flex', alignItems: 'center', gap: '5px', color: isChecked ? 'var(--brand-primary)' : 'var(--text-main)' }}>
+                                {CapIcon && <CapIcon size={13} />} {cap.label}
+                              </b>
                               <small style={{ color: 'var(--text-muted)', fontSize: '10px', display: 'block' }}>{cap.desc}</small>
                             </div>
                           </label>
@@ -4297,8 +4106,8 @@ function MemberManagement({ user, logout, onNavigate }) {
                   </div>
 
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <button className="primary member-submit" disabled={submitting || !hasLength || !hasLower || !hasUpper || !hasNumber || !hasSymbol} style={{ padding: '12px 24px', fontWeight: 700 }}>
-                      {submitting ? 'PROVISIONING…' : '＋ CREATE MEMBER ACCOUNT'}
+                    <button className="primary member-submit" disabled={submitting || !hasLength || !hasLower || !hasUpper || !hasNumber || !hasSymbol} style={{ padding: '12px 24px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                      {submitting ? 'PROVISIONING…' : <><IconPlus size={14} /> CREATE MEMBER ACCOUNT</>}
                     </button>
                     <button type="button" className="outline" onClick={() => setManagementView('ROSTER')}>Cancel</button>
                   </div>
@@ -4325,7 +4134,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                       onClick={() => bulkFileInputRef.current?.click()}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
                     >
-                      <IconUpload size={13} /> 📂 Upload Spreadsheet / CSV
+                      <IconUpload size={13} /> Upload Spreadsheet / CSV
                     </button>
                     <button
                       type="button"
@@ -4334,7 +4143,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                       style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
                       title="Download template with Name, Roll Number, Password, Gender"
                     >
-                      <IconDownload size={13} /> 📥 Download Sample Template (.CSV)
+                      <IconDownload size={13} /> Download Sample Template (.CSV)
                     </button>
                   </div>
                 </div>
@@ -4372,7 +4181,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                           onChange={e => setBulkAutoPassword(e.target.checked)}
                           style={{ cursor: 'pointer', accentColor: 'var(--brand-primary)' }}
                         />
-                        ⚡ Auto-generate secure passwords if omitted
+                        <IconZap size={13} style={{ marginRight: 4 }} /> Auto-generate secure passwords if omitted
                       </label>
                     </div>
 
@@ -4519,7 +4328,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                                 <td style={{ padding: '6px 10px' }}>
                                   {s.isValid ? (
                                     <span style={{ color: '#059669', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                                      ✓ Ready
+                                      <IconCheck size={12} /> Ready
                                     </span>
                                   ) : (
                                     <span style={{ color: '#dc2626', fontWeight: 600 }}>{s.errors.join(', ')}</span>
@@ -4540,7 +4349,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                       disabled={bulkSubmitting || validBulkCount === 0}
                       style={{ flex: 1, minHeight: '44px', fontSize: '12px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                     >
-                      {bulkSubmitting ? 'PROVISIONING ACCOUNTS…' : `⚡ PROVISION ${validBulkCount} ACCOUNTS`}
+                      {bulkSubmitting ? 'PROVISIONING ACCOUNTS…' : <><IconZap size={14} /> PROVISION {validBulkCount} ACCOUNTS</>}
                     </button>
                     <button
                       type="button"
@@ -4564,14 +4373,16 @@ function MemberManagement({ user, logout, onNavigate }) {
                 <h2>Active Member Accounts ({members.length})</h2>
               </div>
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="primary"
-                  onClick={() => setManagementView('CREATE')}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px' }}
-                >
-                  <IconUserSvg size={14} /> ＋ ADD MEMBER
-                </button>
+                {!isReadOnly && (
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => setManagementView('CREATE')}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px' }}
+                  >
+                    <IconPlus size={14} /> ADD MEMBER
+                  </button>
+                )}
                 <button
                   type="button"
                   className="outline"
@@ -4749,9 +4560,13 @@ function MemberManagement({ user, logout, onNavigate }) {
 
                             {/* Actions */}
                             <div className="action-buttons" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', justifyContent: 'flex-start', minWidth: 0 }}>
-                              {m.isPrimaryAdmin && !user.isPrimaryAdmin ? (
+                              {isReadOnly ? (
+                                <span className="badge" style={{ fontSize: '9.5px', background: 'var(--panel-subtle)', color: 'var(--text-muted)', border: '1px solid var(--line)', padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  <IconEye size={12} /> VIEW ONLY
+                                </span>
+                              ) : m.isPrimaryAdmin && !user.isPrimaryAdmin ? (
                                 <span style={{ fontSize: '10.5px', color: '#ffd54f', background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.4)', padding: '5px 12px', borderRadius: '6px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap' }}>
-                                  🛡️ IMMUTABLE PROTECTED
+                                  <IconShield size={13} /> IMMUTABLE PROTECTED
                                 </span>
                               ) : (
                                 <>
@@ -4762,9 +4577,9 @@ function MemberManagement({ user, logout, onNavigate }) {
                                       className="action-btn"
                                       onClick={() => handleSwitchToMember(m)}
                                       title={`Switch into ${m.name}'s account (${m.memberId})`}
-                                      style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.4)', fontWeight: 700, whiteSpace: 'nowrap' }}
+                                      style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.4)', fontWeight: 700, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                                     >
-                                      ⇄ Switch
+                                      <IconRefresh size={12} /> Switch
                                     </button>
                                   )}
                                   {!m.isPrimaryAdmin && (
@@ -4778,9 +4593,9 @@ function MemberManagement({ user, logout, onNavigate }) {
                                         setPermissionsModalUser(m)
                                       }}
                                       title="Add or remove additional access permissions"
-                                      style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', borderColor: 'rgba(99, 102, 241, 0.3)', whiteSpace: 'nowrap', fontWeight: 600 }}
+                                      style={{ background: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', borderColor: 'rgba(99, 102, 241, 0.3)', whiteSpace: 'nowrap', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                                     >
-                                      🛡️ Access
+                                      <IconShield size={12} /> Access
                                     </button>
                                   )}
                                   {m.role !== 'STUDENT' && !m.isPrimaryAdmin && (
@@ -4788,9 +4603,9 @@ function MemberManagement({ user, logout, onNavigate }) {
                                       className="action-btn"
                                       onClick={() => onNavigate('admin-coordinator')}
                                       title="Open Coordinator Console"
-                                      style={{ background: 'rgba(82, 187, 245, 0.15)', color: 'var(--brand-primary)', borderColor: 'var(--brand-border-subtle)', whiteSpace: 'nowrap' }}
+                                      style={{ background: 'rgba(82, 187, 245, 0.15)', color: 'var(--brand-primary)', borderColor: 'var(--brand-border-subtle)', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                                     >
-                                      🛡️ Coordinator Hub
+                                      <IconShieldCheck size={12} /> Coordinator Hub
                                     </button>
                                   )}
                                   <button className="action-btn toggle-status-btn" onClick={() => toggleStatus(m)} disabled={m.isPrimaryAdmin} title="Toggle account activation" style={{ whiteSpace: 'nowrap' }}>
@@ -4825,7 +4640,7 @@ function MemberManagement({ user, logout, onNavigate }) {
             <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-modal)', padding: '28px', borderRadius: '12px', border: '1px solid var(--line)', maxWidth: '440px', width: '100%' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                 <h3 style={{ margin: 0, font: '700 18px Syne', color: 'var(--text-main)' }}>Reset Member Password</h3>
-                <button type="button" className="lightbox-close" onClick={() => setResetModalUser(null)} style={{ position: 'static' }}>✕</button>
+                <button type="button" className="lightbox-close" onClick={() => setResetModalUser(null)} style={{ position: 'static' }} aria-label="Close"><IconX size={16} /></button>
               </div>
               <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '0 0 16px' }}>
                 Resetting password for: <b style={{ color: 'var(--brand-primary)' }}>{resetModalUser.name}</b> (<span style={{ color: '#059669', fontFamily: 'DM Mono' }}>{resetModalUser.memberId}</span>)
@@ -4941,7 +4756,7 @@ function MemberManagement({ user, logout, onNavigate }) {
         {bulkResultModal && (
           <div className="photo-lightbox" onClick={() => setBulkResultModal(null)}>
             <div className="guest-modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '640px' }}>
-              <button className="lightbox-close" onClick={() => setBulkResultModal(null)}>✕</button>
+              <button className="lightbox-close" onClick={() => setBulkResultModal(null)} aria-label="Close"><IconX size={16} /></button>
               <h3 style={{ color: 'var(--text-main)', font: '700 20px Syne', margin: '0 0 8px' }}>
                 Batch Account Creation Results
               </h3>
@@ -5003,14 +4818,14 @@ function MemberManagement({ user, logout, onNavigate }) {
             <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-modal)', padding: '24px', borderRadius: '12px', border: '1px solid var(--line)', maxWidth: '560px', width: '100%' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', borderBottom: '1px solid var(--line)', paddingBottom: '10px' }}>
                 <div>
-                  <h3 style={{ margin: 0, font: '700 17px Syne', color: 'var(--text-main)' }}>
-                    🛡️ Access Control: {permissionsModalUser.name}
+                  <h3 style={{ margin: 0, font: '700 17px Syne', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <IconShield size={15} /> Access Control: {permissionsModalUser.name}
                   </h3>
                   <small style={{ color: 'var(--brand-primary)', fontSize: '11px', fontFamily: 'DM Mono, monospace' }}>
                     {permissionsModalUser.memberId} · {getRoleLabel(permissionsModalUser.role)}
                   </small>
                 </div>
-                <button type="button" className="lightbox-close" onClick={() => setPermissionsModalUser(null)} style={{ position: 'static' }}>✕</button>
+                <button type="button" className="lightbox-close" onClick={() => setPermissionsModalUser(null)} style={{ position: 'static' }} aria-label="Close"><IconX size={16} /></button>
               </div>
 
               <p style={{ color: 'var(--text-muted)', fontSize: '11.5px', margin: '0 0 14px' }}>
@@ -5019,17 +4834,18 @@ function MemberManagement({ user, logout, onNavigate }) {
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '8px', maxHeight: '340px', overflowY: 'auto', marginBottom: '16px' }}>
                 {[
-                  { key: 'QR_PASSES_VIEW', label: '🎟️ Gate Pass Scanner', desc: 'Scan attendee QR passes at gates' },
-                  { key: 'EVENT_MANAGE', label: '📅 Event Studio & Scheduling', desc: 'Create, schedule & manage events' },
-                  { key: 'PAYMENTS_VERIFY', label: '💰 Verify Payments & UTR', desc: 'Verify paid registrations & passes' },
-                  { key: 'ACCOUNT_MANAGEMENT', label: '👥 Member Directory Admin', desc: 'Provision & manage student accounts' },
-                  { key: 'GALLERY_MANAGE', label: '📸 Photo Gallery Studio', desc: 'Upload event photo albums' },
-                  { key: 'REELS_MANAGE', label: '🎬 Campus Reels Feed', desc: 'Upload and curate video reels' },
-                  { key: 'REGISTRATIONS_VIEW', label: '📊 Attendee Rosters & CSV', desc: 'View registrants & export CSV' },
-                  { key: 'CHAT_USE', label: '💬 Council Live Chat', desc: 'Official broadcasts and live chat' },
-                  { key: 'SETTINGS_MANAGE', label: '⚙️ Platform Settings', desc: 'Configure club rules & switches' },
+                  { key: 'QR_PASSES_VIEW', icon: IconTicket, label: 'Gate Pass Scanner', desc: 'Scan attendee QR passes at gates' },
+                  { key: 'EVENT_MANAGE', icon: IconCalendar, label: 'Event Studio & Scheduling', desc: 'Create, schedule & manage events' },
+                  { key: 'PAYMENTS_VERIFY', icon: IconCreditCard, label: 'Verify Payments & UTR', desc: 'Verify paid registrations & passes' },
+                  { key: 'ACCOUNT_MANAGEMENT', icon: IconUsers, label: 'Member Directory Admin', desc: 'Provision & manage student accounts' },
+                  { key: 'GALLERY_MANAGE', icon: IconCamera, label: 'Photo Gallery Studio', desc: 'Upload event photo albums' },
+                  { key: 'REELS_MANAGE', icon: IconFilm, label: 'Campus Reels Feed', desc: 'Upload and curate video reels' },
+                  { key: 'REGISTRATIONS_VIEW', icon: IconBarChart, label: 'Attendee Rosters & CSV', desc: 'View registrants & export CSV' },
+                  { key: 'CHAT_USE', icon: IconMessageSquare, label: 'Council Live Chat', desc: 'Official broadcasts and live chat' },
+                  { key: 'SETTINGS_MANAGE', icon: IconSettings, label: 'Platform Settings', desc: 'Configure club rules & switches' },
                 ].map(cap => {
                   const isChecked = modalPerms.includes(cap.key)
+                  const CapIcon = cap.icon
                   return (
                     <label
                       key={cap.key}
@@ -5058,7 +4874,9 @@ function MemberManagement({ user, logout, onNavigate }) {
                         style={{ marginTop: '2px' }}
                       />
                       <div>
-                        <b style={{ display: 'block', color: isChecked ? 'var(--brand-primary)' : 'var(--text-main)' }}>{cap.label}</b>
+                        <b style={{ display: 'flex', alignItems: 'center', gap: '5px', color: isChecked ? 'var(--brand-primary)' : 'var(--text-main)' }}>
+                          {CapIcon && <CapIcon size={13} />} {cap.label}
+                        </b>
                         <small style={{ color: 'var(--text-muted)', fontSize: '10px', display: 'block' }}>{cap.desc}</small>
                       </div>
                     </label>
@@ -5072,18 +4890,18 @@ function MemberManagement({ user, logout, onNavigate }) {
                     type="button"
                     className="outline"
                     onClick={() => setModalPerms(ROLE_DEFAULT_PERMISSIONS[permissionsModalUser.role] || ['DASHBOARD_VIEW'])}
-                    style={{ fontSize: '11px', padding: '5px 10px' }}
+                    style={{ fontSize: '11px', padding: '5px 10px', display: 'inline-flex', alignItems: 'center' }}
                     title="Reset to default permissions for this role"
                   >
-                    ↺ Reset RBAC
+                    <IconRefresh size={11} style={{ marginRight: 4 }} /> Reset RBAC
                   </button>
                   <button
                     type="button"
                     className="outline"
                     onClick={() => setModalPerms(['QR_PASSES_VIEW', 'EVENTS_VIEW', 'DASHBOARD_VIEW'])}
-                    style={{ fontSize: '11px', padding: '5px 10px' }}
+                    style={{ fontSize: '11px', padding: '5px 10px', display: 'inline-flex', alignItems: 'center' }}
                   >
-                    🎟️ Scanner Squad
+                    <IconTicket size={11} style={{ marginRight: 4 }} /> Scanner Squad
                   </button>
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -5098,7 +4916,7 @@ function MemberManagement({ user, logout, onNavigate }) {
                         const safePerms = modalPerms.length > 0 ? modalPerms : ['DASHBOARD_VIEW']
                         await adminApi.updateMemberPermissions(permissionsModalUser.id, safePerms)
                         setMembers(prev => prev.map(m => m.id === permissionsModalUser.id ? { ...m, permissions: safePerms } : m))
-                        setMessage(`✓ Updated permissions for ${permissionsModalUser.name}!`)
+                        setMessage(`Updated permissions for ${permissionsModalUser.name}!`)
                         setPermissionsModalUser(null)
                       } catch (err) {
                         alert(err.message || 'Failed to save permissions.')
@@ -5136,15 +4954,15 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
   const [error, setError] = useState('')
 
   const CAPABILITIES = [
-    { key: 'QR_PASSES_VIEW', label: 'Pass Scanner', short: '🎟️ Scanner', desc: 'Scan and check-in attendee QR passes at venue gates', squadTitle: '🎟️ Gate Entry & Pass Scanner Squad', color: '#10b981' },
-    { key: 'EVENT_MANAGE', label: 'Event Studio', short: '📅 Events', desc: 'Create, edit, schedule, and publish events & hackathons', squadTitle: '📅 Event Creators & Workshop Managers', color: '#52bbf5' },
-    { key: 'PAYMENTS_VERIFY', label: 'Verify Payments', short: '💰 Payments', desc: 'Verify UPI UTR numbers and activate paid passes', squadTitle: '💰 Finance & UPI Payment Verifiers', color: '#f59e0b' },
-    { key: 'ACCOUNT_MANAGEMENT', label: 'Member Admin', short: '👥 Members', desc: 'Provision and manage student accounts and member roster', squadTitle: '👥 Member Directory & Account Administrators', color: '#8b5cf6' },
-    { key: 'GALLERY_MANAGE', label: 'Gallery Studio', short: '📸 Gallery', desc: 'Upload event photo albums and manage gallery', squadTitle: '📸 Photo Gallery & Media Managers', color: '#ec4899' },
-    { key: 'REELS_MANAGE', label: 'Reels Studio', short: '🎬 Reels', desc: 'Upload, curate, and publish short video reels to feed', squadTitle: '🎬 Campus Reels & Video Creators', color: '#06b6d4' },
-    { key: 'REGISTRATIONS_VIEW', label: 'Attendee Rosters', short: '📊 Rosters', desc: 'View event registrants, track attendance, export CSV', squadTitle: '📊 Attendance & Registration Officers', color: '#6366f1' },
-    { key: 'CHAT_USE', label: 'Live Chat', short: '💬 Chat', desc: 'Send official council broadcasts and live club chat', squadTitle: '💬 Official Communicators & Announcers', color: '#14b8a6' },
-    { key: 'SETTINGS_MANAGE', label: 'Platform Settings', short: '⚙️ Settings', desc: 'Configure platform rules, switches, and club settings', squadTitle: '⚙️ System & Platform Administrators', color: '#64748b' },
+    { key: 'QR_PASSES_VIEW', icon: IconTicket, label: 'Pass Scanner', short: 'Scanner', desc: 'Scan and check-in attendee QR passes at venue gates', squadTitle: 'Gate Entry & Pass Scanner Squad', color: '#10b981' },
+    { key: 'EVENT_MANAGE', icon: IconCalendar, label: 'Event Studio', short: 'Events', desc: 'Create, edit, schedule, and publish events & hackathons', squadTitle: 'Event Creators & Workshop Managers', color: '#52bbf5' },
+    { key: 'PAYMENTS_VERIFY', icon: IconCreditCard, label: 'Verify Payments', short: 'Payments', desc: 'Verify UPI UTR numbers and activate paid passes', squadTitle: 'Finance & UPI Payment Verifiers', color: '#f59e0b' },
+    { key: 'ACCOUNT_MANAGEMENT', icon: IconUsers, label: 'Member Admin', short: 'Members', desc: 'Provision and manage student accounts and member roster', squadTitle: 'Member Directory & Account Administrators', color: '#8b5cf6' },
+    { key: 'GALLERY_MANAGE', icon: IconCamera, label: 'Gallery Studio', short: 'Gallery', desc: 'Upload event photo albums and manage gallery', squadTitle: 'Photo Gallery & Media Managers', color: '#ec4899' },
+    { key: 'REELS_MANAGE', icon: IconFilm, label: 'Reels Studio', short: 'Reels', desc: 'Upload, curate, and publish short video reels to feed', squadTitle: 'Campus Reels & Video Creators', color: '#06b6d4' },
+    { key: 'REGISTRATIONS_VIEW', icon: IconBarChart, label: 'Attendee Rosters', short: 'Rosters', desc: 'View event registrants, track attendance, export CSV', squadTitle: 'Attendance & Registration Officers', color: '#6366f1' },
+    { key: 'CHAT_USE', icon: IconMessageSquare, label: 'Live Chat', short: 'Chat', desc: 'Send official council broadcasts and live club chat', squadTitle: 'Official Communicators & Announcers', color: '#14b8a6' },
+    { key: 'SETTINGS_MANAGE', icon: IconSettings, label: 'Platform Settings', short: 'Settings', desc: 'Configure platform rules, switches, and club settings', squadTitle: 'System & Platform Administrators', color: '#64748b' },
   ]
 
   function loadMembers() {
@@ -5224,7 +5042,7 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
     try {
       await adminApi.updateMemberPermissions(leader.id, safeNext)
       setMembers(prev => prev.map(m => (m.id === leader.id ? { ...m, permissions: safeNext } : m)))
-      setMessage(`✓ Updated access for ${leader.name} (${leader.memberId})`)
+      setMessage(`Updated access for ${leader.name} (${leader.memberId})`)
     } catch (err) {
       setError(err.message || 'Failed to update permission.')
     } finally {
@@ -5251,7 +5069,7 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
     try {
       await adminApi.updateMemberPermissions(leader.id, perms)
       setMembers(prev => prev.map(m => (m.id === leader.id ? { ...m, permissions: perms } : m)))
-      setMessage(`✓ Applied ${presetType} preset to ${leader.name}!`)
+      setMessage(`Applied ${presetType} preset to ${leader.name}!`)
     } catch (err) {
       setError(err.message || 'Failed to apply preset.')
     } finally {
@@ -5268,7 +5086,7 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
     try {
       const res = await adminApi.activateAllAccounts()
       setMembers(prev => prev.map(m => ({ ...m, accountStatus: 'ACTIVE' })))
-      setMessage(res.message || '✓ All accounts have been activated successfully!')
+      setMessage(res.message || 'All accounts have been activated successfully!')
     } catch (err) {
       setError(err.message || 'Failed to activate accounts.')
     } finally {
@@ -5286,8 +5104,8 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
       <section className="member-management" style={{ maxWidth: '1440px', margin: '0 auto' }}>
         <div className="member-heading">
           <div>
-            <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
-              ← BACK TO DASHBOARD
+            <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')} style={{ display: 'inline-flex', alignItems: 'center' }}>
+              <IconArrowLeft size={13} style={{ marginRight: 6 }} /> BACK TO DASHBOARD
             </button>
             <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <IconShieldCheck size={14} /> STUDENT COORDINATOR OPERATIONS HUB
@@ -5308,27 +5126,30 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
                 borderColor: '#059669',
                 color: '#fff',
                 fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
               }}
               title="Activate all club accounts immediately in 1 click"
             >
-              ⚡ {activatingAll ? 'ACTIVATING ALL…' : 'ACTIVATE ALL ACCOUNTS'}
+              <IconZap size={14} /> {activatingAll ? 'ACTIVATING ALL…' : 'ACTIVATE ALL ACCOUNTS'}
             </button>
             <button
               type="button"
               className="outline"
               onClick={loadMembers}
               disabled={loading}
-              style={{ fontSize: '11px', padding: '7px 14px' }}
+              style={{ fontSize: '11px', padding: '7px 14px', display: 'inline-flex', alignItems: 'center' }}
             >
-              ↻ Refresh Roster
+              <IconRefresh size={12} style={{ marginRight: 4 }} /> Refresh Roster
             </button>
             <button
               type="button"
               className="primary"
               onClick={() => onNavigate('admin-members')}
-              style={{ fontSize: '11px', padding: '7px 14px' }}
+              style={{ fontSize: '11px', padding: '7px 14px', display: 'inline-flex', alignItems: 'center' }}
             >
-              Member Directory →
+              Member Directory <IconArrowRight size={12} style={{ marginLeft: 4 }} />
             </button>
           </div>
         </div>
@@ -5342,25 +5163,25 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
           </div>
 
           <div style={{ background: 'var(--panel-subtle)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '10px', padding: '14px 16px' }}>
-            <span style={{ color: '#10b981', fontSize: '11px', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>🎟️ Gate Scanner Squad</span>
+            <span style={{ color: '#10b981', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px', textTransform: 'uppercase' }}><IconTicket size={13} /> Gate Scanner Squad</span>
             <b style={{ color: '#10b981', fontSize: '24px', display: 'block', marginTop: '2px' }}>{scannerCount}</b>
             <small style={{ color: 'var(--text-muted)', fontSize: '10.5px' }}>Authorized for Entry Gates</small>
           </div>
 
           <div style={{ background: 'var(--panel-subtle)', border: '1px solid rgba(82, 187, 245, 0.3)', borderRadius: '10px', padding: '14px 16px' }}>
-            <span style={{ color: 'var(--brand-primary)', fontSize: '11px', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>📅 Event Studio Leads</span>
+            <span style={{ color: 'var(--brand-primary)', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px', textTransform: 'uppercase' }}><IconCalendar size={13} /> Event Studio Leads</span>
             <b style={{ color: 'var(--brand-primary)', fontSize: '24px', display: 'block', marginTop: '2px' }}>{eventCount}</b>
             <small style={{ color: 'var(--text-muted)', fontSize: '10.5px' }}>Can Publish Events</small>
           </div>
 
           <div style={{ background: 'var(--panel-subtle)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '10px', padding: '14px 16px' }}>
-            <span style={{ color: '#f59e0b', fontSize: '11px', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>💰 Finance & UTR Leads</span>
+            <span style={{ color: '#f59e0b', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px', textTransform: 'uppercase' }}><IconCreditCard size={13} /> Finance & UTR Leads</span>
             <b style={{ color: '#f59e0b', fontSize: '24px', display: 'block', marginTop: '2px' }}>{financeCount}</b>
             <small style={{ color: 'var(--text-muted)', fontSize: '10.5px' }}>Payment Verification</small>
           </div>
 
           <div style={{ background: 'var(--panel-subtle)', border: '1px solid rgba(236, 72, 153, 0.3)', borderRadius: '10px', padding: '14px 16px' }}>
-            <span style={{ color: '#ec4899', fontSize: '11px', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>🎬 Media & Reels Team</span>
+            <span style={{ color: '#ec4899', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '5px', textTransform: 'uppercase' }}><IconFilm size={13} /> Media & Reels Team</span>
             <b style={{ color: '#ec4899', fontSize: '24px', display: 'block', marginTop: '2px' }}>{mediaCount}</b>
             <small style={{ color: 'var(--text-muted)', fontSize: '10.5px' }}>Gallery & Video Feed</small>
           </div>
@@ -5376,17 +5197,17 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
               type="button"
               className={activeView === 'matrix' ? 'primary active' : 'outline'}
               onClick={() => setActiveView('matrix')}
-              style={{ fontSize: '11.5px', padding: '8px 16px' }}
+              style={{ fontSize: '11.5px', padding: '8px 16px', display: 'inline-flex', alignItems: 'center' }}
             >
-              📊 All-in-One Leader Matrix ({filteredLeaders.length})
+              <IconBarChart size={13} style={{ marginRight: 6 }} /> All-in-One Leader Matrix ({filteredLeaders.length})
             </button>
             <button
               type="button"
               className={activeView === 'squads' ? 'primary active' : 'outline'}
               onClick={() => setActiveView('squads')}
-              style={{ fontSize: '11.5px', padding: '8px 16px' }}
+              style={{ fontSize: '11.5px', padding: '8px 16px', display: 'inline-flex', alignItems: 'center' }}
             >
-              ⚡ Delegate by Squad / Capability
+              <IconZap size={13} style={{ marginRight: 6 }} /> Delegate by Squad / Capability
             </button>
           </div>
 
@@ -5407,6 +5228,7 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
               <option value="ALL">Active Leaders & Squads ({allLeadersList.length})</option>
               <option value="EVERYONE">Show All Members & Students ({members.length})</option>
               <option value="STUDENT">Student Volunteers ({members.filter(m => m.role === 'STUDENT').length})</option>
+              <option value="FACULTY">Faculty</option>
               <option value="CONVENER">Convener</option>
               <option value="CO_CONVENER">Co-Convener</option>
               <option value="STUDENT_COORDINATOR">Student Coordinator</option>
@@ -5439,14 +5261,14 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
                 <thead>
                   <tr style={{ background: 'var(--bg-input)', borderBottom: '1px solid var(--line)' }}>
                     <th style={{ padding: '12px 14px', color: 'var(--text-main)', fontWeight: 700, minWidth: '180px' }}>LEADER / COORDINATOR</th>
-                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}>🎟️ SCANNER</th>
-                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}>📅 EVENTS</th>
-                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}>💰 FINANCE</th>
-                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}>👥 MEMBERS</th>
-                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}>📸 GALLERY</th>
-                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}>🎬 REELS</th>
-                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}>📊 ROSTER</th>
-                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}>💬 CHAT</th>
+                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconTicket size={12} /> SCANNER</span></th>
+                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCalendar size={12} /> EVENTS</span></th>
+                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCreditCard size={12} /> FINANCE</span></th>
+                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconUsers size={12} /> MEMBERS</span></th>
+                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCamera size={12} /> GALLERY</span></th>
+                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconFilm size={12} /> REELS</span></th>
+                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconBarChart size={12} /> ROSTER</span></th>
+                    <th style={{ padding: '12px 8px', color: 'var(--text-muted)', fontWeight: 700, textAlign: 'center', minWidth: '85px' }}><span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconMessageSquare size={12} /> CHAT</span></th>
                     <th style={{ padding: '12px 14px', color: 'var(--text-main)', fontWeight: 700, minWidth: '220px' }}>1-CLICK PRESETS</th>
                   </tr>
                 </thead>
@@ -5503,7 +5325,7 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
                           return (
                             <td key={cap.key} style={{ padding: '8px', textAlign: 'center' }}>
                               {isProtected ? (
-                                <span style={{ color: '#10b981', fontSize: '14px', fontWeight: 800 }}>✓</span>
+                                <IconCheck size={14} style={{ color: '#10b981' }} />
                               ) : (
                                 <button
                                   type="button"
@@ -5526,7 +5348,7 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
                                     transition: 'all 0.15s ease',
                                   }}
                                 >
-                                  {isEnabled ? '✓' : '·'}
+                                  {isEnabled ? <IconCheck size={13} /> : '·'}
                                 </button>
                               )}
                             </td>
@@ -5536,8 +5358,8 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
                         {/* 1-Click Presets */}
                         <td style={{ padding: '8px 14px' }}>
                           {isProtected ? (
-                            <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontSize: '10px', padding: '4px 8px' }}>
-                              🛡️ IMMUTABLE PROTECTED
+                            <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', fontSize: '10px', padding: '4px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <IconShield size={12} /> IMMUTABLE PROTECTED
                             </span>
                           ) : (
                             <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
@@ -5549,7 +5371,7 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
                                 title="Grant Scanner & Entry rights only"
                                 style={{ fontSize: '9.5px', padding: '3px 6px', lineHeight: 1 }}
                               >
-                                🎟️ Scan
+                                Scan
                               </button>
                               <button
                                 type="button"
@@ -5559,7 +5381,7 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
                                 title="Grant Event Studio & Scheduling rights"
                                 style={{ fontSize: '9.5px', padding: '3px 6px', lineHeight: 1 }}
                               >
-                                📅 Event
+                                Event
                               </button>
                               <button
                                 type="button"
@@ -5569,7 +5391,7 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
                                 title="Grant Payment Verification rights"
                                 style={{ fontSize: '9.5px', padding: '3px 6px', lineHeight: 1 }}
                               >
-                                💰 Pay
+                                Pay
                               </button>
                               <button
                                 type="button"
@@ -5579,7 +5401,7 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
                                 title="Grant Gallery & Reels rights"
                                 style={{ fontSize: '9.5px', padding: '3px 6px', lineHeight: 1 }}
                               >
-                                📸 Media
+                                Media
                               </button>
                               <button
                                 type="button"
@@ -5587,9 +5409,9 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
                                 disabled={isSaving}
                                 onClick={() => applyPreset(leader, 'FULL')}
                                 title="Grant all operational permissions"
-                                style={{ fontSize: '9.5px', padding: '3px 6px', lineHeight: 1, borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' }}
+                                style={{ fontSize: '9.5px', padding: '3px 6px', lineHeight: 1, borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)', display: 'inline-flex', alignItems: 'center' }}
                               >
-                                ⭐ Full
+                                <IconStar size={10} style={{ marginRight: 2 }} fill="currentColor" /> Full
                               </button>
                               <button
                                 type="button"
@@ -5597,9 +5419,9 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
                                 disabled={isSaving}
                                 onClick={() => applyPreset(leader, 'DEFAULT')}
                                 title="Reset to role default"
-                                style={{ fontSize: '9.5px', padding: '3px 6px', lineHeight: 1, color: 'var(--text-dim)' }}
+                                style={{ fontSize: '9.5px', padding: '3px 6px', lineHeight: 1, color: 'var(--text-dim)', display: 'inline-flex', alignItems: 'center' }}
                               >
-                                ↺ Reset
+                                <IconRefresh size={10} style={{ marginRight: 2 }} /> Reset
                               </button>
                             </div>
                           )}
@@ -5772,7 +5594,7 @@ function UniversalProfileView({ user, logout, onNavigate, onProfileUpdated }) {
       const res = await memberApi.updateProfile(payload)
       setProfile(res.user.profile || {})
       if (onProfileUpdated) onProfileUpdated(res.user)
-      setMessage('✓ Profile and avatar updated successfully! Changes are live across the portal.')
+      setMessage('Profile and avatar updated successfully! Changes are live across the portal.')
     } catch (err) {
       setError(err.message || 'Failed to save profile.')
     } finally {
@@ -5791,8 +5613,8 @@ function UniversalProfileView({ user, logout, onNavigate, onProfileUpdated }) {
       <section className="member-management">
         <div className="member-heading">
           <div>
-            <button className="back-button" type="button" onClick={() => onNavigate(user.isAdminUser ? 'admin-dashboard' : 'student-dashboard')}>
-              ← BACK TO DASHBOARD
+            <button className="back-button" type="button" onClick={() => onNavigate(user.isAdminUser ? 'admin-dashboard' : 'student-dashboard')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <IconArrowLeft size={13} /> BACK TO DASHBOARD
             </button>
             <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Icon8 name="fingerprint" size={14} /> OFFICIAL CREDENTIALS & ID STUDIO
@@ -6145,8 +5967,8 @@ function SupportDeskView({ user, logout, onNavigate }) {
       <section className="member-management">
         <div className="member-heading">
           <div>
-            <button className="back-button" type="button" onClick={() => onNavigate(isStudent ? 'student-dashboard' : 'admin-dashboard')}>
-              ← COMMAND CENTER
+            <button className="back-button" type="button" onClick={() => onNavigate(isStudent ? 'student-dashboard' : 'admin-dashboard')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <IconArrowLeft size={13} /> COMMAND CENTER
             </button>
             <p className="eyebrow">COMMUNITY SERVICE & QUERIES</p>
             <h1>Student Helpdesk & Query Desk</h1>
@@ -6227,7 +6049,7 @@ function SupportDeskView({ user, logout, onNavigate }) {
                       </p>
                       <div style={{ marginTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <small style={{ color: 'var(--text-dim)' }}>From: {t.user?.profile?.name || t.user?.memberId}</small>
-                        <small style={{ color: 'var(--brand-primary)' }}>{t.replies?.length || 0} replies →</small>
+                        <small style={{ color: 'var(--brand-primary)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>{t.replies?.length || 0} replies <IconArrowRight size={11} /></small>
                       </div>
                     </div>
                   )
@@ -6324,8 +6146,8 @@ function SupportDeskView({ user, logout, onNavigate }) {
                       onChange={e => setReplyText(e.target.value)}
                       style={{ flex: 1, height: '42px', padding: '0 14px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '12px' }}
                     />
-                    <button className="primary" disabled={submittingReply || !replyText.trim()} style={{ minHeight: '42px', padding: '0 18px' }}>
-                      {submittingReply ? 'SENDING…' : 'REPLY →'}
+                    <button className="primary" disabled={submittingReply || !replyText.trim()} style={{ minHeight: '42px', padding: '0 18px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {submittingReply ? 'SENDING…' : <>REPLY <IconArrowRight size={12} style={{ marginLeft: 4 }} /></>}
                     </button>
                   </form>
                 ) : (
@@ -6351,7 +6173,7 @@ function SupportDeskView({ user, logout, onNavigate }) {
                   <h3 style={{ margin: 0, font: '700 20px Syne', color: 'var(--text-main)' }}>Ask a Doubt / Query</h3>
                   <small style={{ color: 'var(--text-muted)' }}>Tag a specific club leadership council team</small>
                 </div>
-                <button className="lightbox-close" onClick={() => setShowCreateModal(false)} style={{ position: 'static' }}>✕</button>
+                <button className="lightbox-close" onClick={() => setShowCreateModal(false)} style={{ position: 'static' }} aria-label="Close"><IconX size={16} /></button>
               </div>
 
               <form onSubmit={handleCreateTicket}>
@@ -6363,6 +6185,7 @@ function SupportDeskView({ user, logout, onNavigate }) {
                     onChange={e => setNewTaggedRole(e.target.value)}
                     style={{ marginBottom: '14px' }}
                   >
+                    <option value="FACULTY">@FACULTY (Faculty Advisor)</option>
                     <option value="CONVENER">@CONVENER (Convener)</option>
                     <option value="CO_CONVENER">@CO_CONVENER (Co-Convener)</option>
                     <option value="PRESIDENT">@PRESIDENT (Executive Leadership)</option>
@@ -6529,8 +6352,8 @@ function SubscriptionManagement({ user, logout, onNavigate }) {
       <section className="member-management">
         <div className="member-heading">
           <div>
-            <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
-              ← COMMAND CENTER
+            <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <IconArrowLeft size={13} /> COMMAND CENTER
             </button>
             <p className="eyebrow">STUDENT MEMBERSHIP FEE</p>
             <h1>Subscription Management</h1>
@@ -6607,8 +6430,8 @@ function SubscriptionManagement({ user, logout, onNavigate }) {
                 </p>
               </div>
             </div>
-            <button type="button" onClick={() => setFilter('PENDING')}>
-              REVIEW PAYMENTS →
+            <button type="button" onClick={() => setFilter('PENDING')} style={{ display: 'inline-flex', alignItems: 'center' }}>
+              REVIEW PAYMENTS <IconArrowRight size={12} style={{ marginLeft: 4 }} />
             </button>
           </div>
         )}
@@ -6694,26 +6517,34 @@ function SubscriptionManagement({ user, logout, onNavigate }) {
                       )}
                     </div>
                     <div className="action-buttons">
-                      {sub.status === 'PENDING' && (
+                      {user.isReadOnly ? (
+                        <span style={{ fontSize: '11px', color: 'var(--text-dim)', fontStyle: 'italic', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <IconEye size={12} /> View only
+                        </span>
+                      ) : (
                         <>
-                          <button className="action-btn save-btn" onClick={() => handleVerify(sub.id)}>
-                            ✓ Verify / Activate
-                          </button>
-                          <button className="action-btn delete-btn" onClick={() => setRejectingSub(sub)}>
-                            ✕ Reject
-                          </button>
+                          {sub.status === 'PENDING' && (
+                            <>
+                              <button className="action-btn save-btn" onClick={() => handleVerify(sub.id)} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <IconCheck size={12} /> Verify / Activate
+                              </button>
+                              <button className="action-btn delete-btn" onClick={() => setRejectingSub(sub)} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <IconX size={12} /> Reject
+                              </button>
+                            </>
+                          )}
+                          {sub.status === 'REJECTED' && (
+                            <button className="action-btn save-btn" onClick={() => handleVerify(sub.id)}>
+                              Re-Activate
+                            </button>
+                          )}
+                          {sub.status === 'ACTIVE' && (
+                            <small style={{ color: '#059669' }}>Verified by {sub.verifiedBy}</small>
+                          )}
+                          {sub.status === 'EXPIRED' && (
+                            <small style={{ color: 'var(--text-muted)' }}>Expired on {new Date(sub.expiresAt).toLocaleDateString()}</small>
+                          )}
                         </>
-                      )}
-                      {sub.status === 'REJECTED' && (
-                        <button className="action-btn save-btn" onClick={() => handleVerify(sub.id)}>
-                          Re-Activate
-                        </button>
-                      )}
-                      {sub.status === 'ACTIVE' && (
-                        <small style={{ color: '#059669' }}>Verified by {sub.verifiedBy}</small>
-                      )}
-                      {sub.status === 'EXPIRED' && (
-                        <small style={{ color: 'var(--text-muted)' }}>Expired on {new Date(sub.expiresAt).toLocaleDateString()}</small>
                       )}
                     </div>
                   </div>
@@ -6729,7 +6560,7 @@ function SubscriptionManagement({ user, logout, onNavigate }) {
             <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', background: 'var(--bg-modal)', padding: '20px', borderRadius: '12px', border: '1px solid var(--line)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <b style={{ color: 'var(--brand-primary)', fontSize: '13px' }}>PAYMENT RECEIPT PROOF</b>
-                <button className="lightbox-close" onClick={() => setViewingReceipt(null)} style={{ position: 'static' }}>✕</button>
+                <button className="lightbox-close" onClick={() => setViewingReceipt(null)} style={{ position: 'static' }} aria-label="Close"><IconX size={16} /></button>
               </div>
               <img src={viewingReceipt} alt="Receipt Full" style={{ width: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '8px' }} />
             </div>
@@ -6837,8 +6668,8 @@ function StudentMembership({ user, logout, onNavigate }) {
       <section className="member-management">
         <div className="member-heading">
           <div>
-            <button className="back-button" type="button" onClick={() => onNavigate('student-dashboard')}>
-              ← BACK TO DASHBOARD
+            <button className="back-button" type="button" onClick={() => onNavigate('student-dashboard')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <IconArrowLeft size={13} /> BACK TO DASHBOARD
             </button>
             <p className="eyebrow">{isMrdu ? 'MRDU ALL-ACCESS PASS' : 'COMMUNITY MEMBERSHIP'}</p>
             <h1>{isMrdu ? 'Student Event Pass Status' : 'Club Membership Status'}</h1>
@@ -6989,8 +6820,8 @@ function StudentMembership({ user, logout, onNavigate }) {
                       <code style={{ color: 'var(--brand-primary)', background: 'var(--bg-input)', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', border: '1px solid var(--line)' }}>
                         {subStatus.upiId}
                       </code>
-                      <button type="button" className="action-btn edit-btn" onClick={copyUpiId}>
-                        {copiedUpi ? '✓ Copied' : 'Copy UPI ID'}
+                      <button type="button" className="action-btn edit-btn" onClick={copyUpiId} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                        {copiedUpi ? <><IconCheck size={12} style={{ marginRight: 3 }} /> Copied</> : <><IconCopy size={12} style={{ marginRight: 3 }} /> Copy UPI ID</>}
                       </button>
                     </div>
                   )}
@@ -7163,6 +6994,7 @@ const initialEventForm = {
 }
 
 function EventManagement({ user, logout, onNavigate }) {
+  const isReadOnly = Boolean(user.isReadOnly || isReadOnlyClubRole(user.role))
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -7322,8 +7154,16 @@ function EventManagement({ user, logout, onNavigate }) {
       allowedDepartments: Array.isArray(teamCfg.allowedDepartments) ? teamCfg.allowedDepartments : [],
       allowedYears: Array.isArray(teamCfg.allowedYears) ? teamCfg.allowedYears : [],
       teamRules: teamCfg.teamRules || ev.teamRules || '',
-      isPaid: Boolean(payCfg.type === 'PAID' || payCfg.type === 'TIERS' || ev.requiresPayment || (ev.paymentAmount && ev.paymentAmount > 0)),
-      paymentType: payCfg.type || (ev.requiresPayment || ev.paymentAmount > 0 ? 'FIXED' : 'FREE'),
+      isPaid: Boolean(
+        payCfg.type === 'FIXED'
+        || payCfg.type === 'TIERS'
+        || payCfg.type === 'PAID'
+        || ev.requiresPayment
+        || (ev.paymentAmount && Number(ev.paymentAmount) > 0)
+        || (payCfg.price != null && Number(payCfg.price) > 0)
+        || (Array.isArray(payCfg.tiers) && payCfg.tiers.length > 0)
+      ),
+      paymentType: payCfg.type || (ev.requiresPayment || (ev.paymentAmount && Number(ev.paymentAmount) > 0) ? 'FIXED' : 'FREE'),
       paymentAmount: (payCfg.price != null ? String(payCfg.price) : '') || (ev.paymentAmount != null ? String(ev.paymentAmount) : ''),
       paymentTiers: Array.isArray(payCfg.tiers) && payCfg.tiers.length > 0 ? payCfg.tiers : [{ name: 'Standard Pass', price: 150, description: 'General access to all event sessions' }],
       paymentUpiId: payCfg.upiId || ev.paymentUpiId || '',
@@ -7336,7 +7176,12 @@ function EventManagement({ user, logout, onNavigate }) {
       hasMultipleActivities: Boolean(ev.allowMultipleActivities),
     })
     setPosterPreview(ev.photoUrl || '')
-    setQrPreview(payCfg.upiQrUrl || ev.paymentQrUrl || '')
+    const effectiveQr = payCfg.upiQrUrl
+      || ev.paymentQrUrl
+      || ((payCfg.upiId || ev.paymentUpiId) && (payCfg.price || ev.paymentAmount)
+        ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`upi://pay?pa=${payCfg.upiId || ev.paymentUpiId}&pn=CyberSecurityClub&am=${payCfg.price || ev.paymentAmount}&cu=INR`)}`
+        : '')
+    setQrPreview(effectiveQr)
     setActivities(ev.activities ? ev.activities.map(a => ({ name: a.name || '', description: a.description || '', price: a.price || 0, capacity: a.capacity != null ? String(a.capacity) : '' })) : [])
     setFormFields(ev.formFields || [])
     setActiveTab('basic')
@@ -7397,26 +7242,39 @@ function EventManagement({ user, logout, onNavigate }) {
       teamRules: formData.teamRules || null,
     } : null
 
-    const isPaidEvent = formData.paymentType !== 'FREE' && formData.isPaid
-    if (isPaidEvent && formData.paymentType === 'FIXED' && !formData.paymentAmount) {
+    const hasConfiguredFee = (Number(formData.paymentAmount) > 0)
+      || (formData.paymentType === 'TIERS' && Array.isArray(formData.paymentTiers) && formData.paymentTiers.length > 0)
+    const isPaidEvent = Boolean(formData.isPaid || formData.paymentType !== 'FREE' || hasConfiguredFee)
+    const resolvedPaymentType = isPaidEvent
+      ? (formData.paymentType === 'FREE' ? (formData.paymentTiers?.length ? 'TIERS' : 'FIXED') : formData.paymentType)
+      : 'FREE'
+
+    if (isPaidEvent && resolvedPaymentType === 'FIXED' && !formData.paymentAmount) {
       setActiveTab('pricing')
       setError('Please specify the registration fee for this fixed-price event.')
       return
     }
-    if (isPaidEvent && formData.paymentType === 'TIERS' && (!formData.paymentTiers || formData.paymentTiers.length === 0)) {
+    if (isPaidEvent && resolvedPaymentType === 'TIERS' && (!formData.paymentTiers || formData.paymentTiers.length === 0)) {
       setActiveTab('pricing')
       setError('Please configure at least one pricing tier for this tiered paid event.')
       return
     }
 
+    let effectiveQrUrl = qrPreview || null
+    if (isPaidEvent && !effectiveQrUrl && formData.paymentUpiId) {
+      const amountParam = resolvedPaymentType === 'FIXED' && formData.paymentAmount ? `&am=${encodeURIComponent(formData.paymentAmount)}` : ''
+      const upiUrl = `upi://pay?pa=${encodeURIComponent(formData.paymentUpiId.trim())}&pn=${encodeURIComponent('CyberSecurityClub')}${amountParam}&cu=INR`
+      effectiveQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiUrl)}`
+    }
+
     const paymentConfig = {
-      type: isPaidEvent ? formData.paymentType : 'FREE',
-      price: isPaidEvent && formData.paymentType === 'FIXED' ? Number(formData.paymentAmount || 0) : null,
+      type: isPaidEvent ? resolvedPaymentType : 'FREE',
+      price: isPaidEvent && resolvedPaymentType === 'FIXED' ? Number(formData.paymentAmount || 0) : null,
       upiId: isPaidEvent ? String(formData.paymentUpiId || '').trim() || null : null,
-      upiQrUrl: isPaidEvent ? qrPreview || null : null,
+      upiQrUrl: effectiveQrUrl,
       instructions: isPaidEvent ? String(formData.paymentInstructions || '').trim() || null : null,
       allowScreenshotUpload: Boolean(formData.allowScreenshotUpload),
-      tiers: isPaidEvent && formData.paymentType === 'TIERS' ? formData.paymentTiers : [],
+      tiers: isPaidEvent && resolvedPaymentType === 'TIERS' ? formData.paymentTiers : [],
     }
 
     const submissionConfig = {
@@ -7448,8 +7306,8 @@ function EventManagement({ user, logout, onNavigate }) {
       maxTeamSize: isTeam ? Number(formData.maxTeamSize || 4) : 1,
       teamRules: isTeam ? String(formData.teamRules || '').trim() || null : null,
       requiresPayment: isPaidEvent,
-      paymentAmount: isPaidEvent && formData.paymentType === 'FIXED' ? Number(formData.paymentAmount || 0) : (isPaidEvent && formData.paymentTiers?.[0]?.price ? Number(formData.paymentTiers[0].price) : null),
-      paymentQrUrl: isPaidEvent ? qrPreview || null : null,
+      paymentAmount: isPaidEvent && resolvedPaymentType === 'FIXED' ? Number(formData.paymentAmount || 0) : (isPaidEvent && formData.paymentTiers?.[0]?.price ? Number(formData.paymentTiers[0].price) : null),
+      paymentQrUrl: effectiveQrUrl,
       paymentUpiId: isPaidEvent ? String(formData.paymentUpiId || '').trim() || null : null,
       paymentInstructions: isPaidEvent ? String(formData.paymentInstructions || '').trim() || null : null,
       teamConfig,
@@ -7658,7 +7516,7 @@ function EventManagement({ user, logout, onNavigate }) {
         <div className="event-heading">
           <div>
             <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
-              ← COMMAND CENTER
+              <IconArrowLeft size={13} style={{ marginRight: 6 }} /> COMMAND CENTER
             </button>
             <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <IconSparkles size={13} /> COMPREHENSIVE WORKFLOW STUDIO
@@ -7674,7 +7532,7 @@ function EventManagement({ user, logout, onNavigate }) {
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '7px 14px' }}
               title="View all registered student passes and UTR records"
             >
-              <IconCreditCard size={14} /> Passes & Roster →
+              <IconCreditCard size={14} /> Passes & Roster <IconArrowRight size={12} style={{ marginLeft: 4 }} />
             </button>
             <button
               type="button"
@@ -7683,7 +7541,7 @@ function EventManagement({ user, logout, onNavigate }) {
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '7px 14px' }}
               title="Scan attendee event passes and verify tickets"
             >
-              <Icon8 name="irisScan" size={14} /> Gate QR Capture →
+              <Icon8 name="irisScan" size={14} /> Gate QR Capture <IconArrowRight size={12} style={{ marginLeft: 4 }} />
             </button>
             <button
               type="button"
@@ -7709,19 +7567,22 @@ function EventManagement({ user, logout, onNavigate }) {
           >
             <IconSparkles size={14} /> Published Events ({events.length})
           </button>
-          <button
-            type="button"
-            className={eventView === 'BUILDER' ? 'primary active' : 'outline'}
-            onClick={() => {
-              if (!editingEventId) setFormData(initialEventForm)
-              setEventView('BUILDER')
-            }}
-          >
-            <Icon8 name="customForms" size={14} /> {editingEventId ? 'Editing Event' : '＋ Create & Publish Event'}
-          </button>
+          {!isReadOnly && (
+            <button
+              type="button"
+              className={eventView === 'BUILDER' ? 'primary active' : 'outline'}
+              onClick={() => {
+                if (!editingEventId) setFormData(initialEventForm)
+                setEventView('BUILDER')
+              }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Icon8 name="customForms" size={14} /> {editingEventId ? 'Editing Event' : <><IconPlus size={13} /> Create & Publish Event</>}
+            </button>
+          )}
         </div>
 
-        {eventView === 'BUILDER' ? (
+        {eventView === 'BUILDER' && !isReadOnly ? (
           /* Full-Width Event Builder Studio Card */
           <article className="account-form-card" style={{ maxWidth: '960px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
@@ -7735,7 +7596,7 @@ function EventManagement({ user, logout, onNavigate }) {
                 onClick={cancelEdit}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px' }}
               >
-                ← BACK TO EVENTS CATALOG
+                <IconArrowLeft size={13} /> BACK TO EVENTS CATALOG
               </button>
             </div>
             <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '0 0 16px' }}>
@@ -7754,39 +7615,41 @@ function EventManagement({ user, logout, onNavigate }) {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', fontSize: '11px' }}>
                 <span className="badge" style={{ background: 'rgba(82, 187, 245, 0.15)', color: 'var(--brand-primary)', border: '1px solid var(--line)' }}>1. Event Details</span>
-                <span style={{ color: 'var(--text-dim)' }}>→</span>
+                <IconArrowRight size={10} style={{ color: 'var(--text-dim)' }} />
                 {formData.registrationType === 'EXTERNAL' ? (
-                  <span className="badge" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid var(--line)' }}>Google Form Redirect ↗</span>
+                  <span className="badge" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', border: '1px solid var(--line)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    Google Form Redirect <IconExternalLink size={11} />
+                  </span>
                 ) : (
                   <>
                     {(formData.registrationType === 'TEAM' || formData.registrationType === 'BOTH') && (
                       <>
                         <span className="badge" style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#a855f7', border: '1px solid var(--line)' }}>2. Team Formation & Rules</span>
-                        <span style={{ color: 'var(--text-dim)' }}>→</span>
+                        <IconArrowRight size={10} style={{ color: 'var(--text-dim)' }} />
                       </>
                     )}
                     {(formData.customQuestions || []).length > 0 && (
                       <>
                         <span className="badge" style={{ background: 'rgba(14, 165, 233, 0.15)', color: '#0ea5e9', border: '1px solid var(--line)' }}>3. Custom Questions ({formData.customQuestions.length})</span>
-                        <span style={{ color: 'var(--text-dim)' }}>→</span>
+                        <IconArrowRight size={10} style={{ color: 'var(--text-dim)' }} />
                       </>
                     )}
                     <span className="badge" style={{ background: 'rgba(100, 116, 139, 0.15)', color: 'var(--text-main)', border: '1px solid var(--line)' }}>Auto-Save Draft</span>
-                    <span style={{ color: 'var(--text-dim)' }}>→</span>
+                    <IconArrowRight size={10} style={{ color: 'var(--text-dim)' }} />
                     {formData.isPaid && (
                       <>
                         <span className="badge" style={{ background: 'rgba(234, 179, 8, 0.15)', color: '#eab308', border: '1px solid var(--line)' }}>
                           {formData.paymentType === 'TIERS' ? 'Tier Selection & UPI' : 'UPI Scan & UTR Entry'}
                         </span>
-                        <span style={{ color: 'var(--text-dim)' }}>→</span>
+                        <IconArrowRight size={10} style={{ color: 'var(--text-dim)' }} />
                         <span className="badge" style={{ background: 'rgba(249, 115, 22, 0.15)', color: '#f97316', border: '1px solid var(--line)' }}>Organizer Verification</span>
-                        <span style={{ color: 'var(--text-dim)' }}>→</span>
+                        <IconArrowRight size={10} style={{ color: 'var(--text-dim)' }} />
                       </>
                     )}
                     <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981', border: '1px solid var(--line)' }}>Digital Pass Confirmed</span>
                     {formData.requireProjectSubmission && (
                       <>
-                        <span style={{ color: 'var(--text-dim)' }}>→</span>
+                        <IconArrowRight size={10} style={{ color: 'var(--text-dim)' }} />
                         <span className="badge" style={{ background: 'rgba(236, 72, 153, 0.15)', color: '#ec4899', border: '1px solid var(--line)' }}>Team Project Submission</span>
                       </>
                     )}
@@ -7912,7 +7775,9 @@ function EventManagement({ user, logout, onNavigate }) {
                         }}
                         style={{ cursor: 'pointer' }}
                       >
-                        <h4 className="event-mode-title" style={{ fontSize: '13px', margin: '0 0 4px' }}>👤 Solo / Individual</h4>
+                        <h4 className="event-mode-title" style={{ fontSize: '13px', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <IconUser size={14} /> Solo / Individual
+                        </h4>
                         <p className="event-mode-desc" style={{ margin: 0 }}>Standard single-student registrations (workshops, guest lectures, webinars).</p>
                       </div>
 
@@ -7924,7 +7789,9 @@ function EventManagement({ user, logout, onNavigate }) {
                         }}
                         style={{ cursor: 'pointer' }}
                       >
-                        <h4 className="event-mode-title" style={{ fontSize: '13px', margin: '0 0 4px' }}>👥 Team Only</h4>
+                        <h4 className="event-mode-title" style={{ fontSize: '13px', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <IconUsers size={14} /> Team Only
+                        </h4>
                         <p className="event-mode-desc" style={{ margin: 0 }}>Enforces team formation with customizable min/max team size & gender quotas (Hackathons, CTFs).</p>
                       </div>
 
@@ -7936,7 +7803,9 @@ function EventManagement({ user, logout, onNavigate }) {
                         }}
                         style={{ cursor: 'pointer' }}
                       >
-                        <h4 className="event-mode-title" style={{ fontSize: '13px', margin: '0 0 4px' }}>⚡ Solo OR Team</h4>
+                        <h4 className="event-mode-title" style={{ fontSize: '13px', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <IconZap size={14} /> Solo OR Team
+                        </h4>
                         <p className="event-mode-desc" style={{ margin: 0 }}>Allows students to participate as an individual or form a team (Cultural, Tech Fests).</p>
                       </div>
 
@@ -7948,7 +7817,9 @@ function EventManagement({ user, logout, onNavigate }) {
                         }}
                         style={{ cursor: 'pointer' }}
                       >
-                        <h4 className="event-mode-title" style={{ fontSize: '13px', margin: '0 0 4px' }}>↗ External Google Form</h4>
+                        <h4 className="event-mode-title" style={{ fontSize: '13px', margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <IconExternalLink size={14} /> External Google Form
+                        </h4>
                         <p className="event-mode-desc" style={{ margin: 0 }}>Redirects student to an official Google Form without creating fake local passes.</p>
                       </div>
                     </div>
@@ -7965,7 +7836,7 @@ function EventManagement({ user, logout, onNavigate }) {
                             style={{ width: '100%', marginTop: '4px' }}
                           />
                           <small style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 400 }}>
-                            Students will see a prominent "Open Official Form on Google Forms ↗" button. The club manages responses externally.
+                            Students will see a prominent "Open Official Form on Google Forms" button. The club manages responses externally.
                           </small>
                         </label>
                       </div>
@@ -8020,8 +7891,9 @@ function EventManagement({ user, logout, onNavigate }) {
                           setActiveTab('pricing')
                         }
                       }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                     >
-                      Next Step →
+                      Next Step <IconArrowRight size={12} />
                     </button>
                   </div>
                 </div>
@@ -8053,8 +7925,8 @@ function EventManagement({ user, logout, onNavigate }) {
 
                   {/* Gender Enforcement Box */}
                   <div className="form-wide" style={{ gridColumn: '1 / -1', background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '12px', padding: '16px' }}>
-                    <b style={{ color: 'var(--text-main)', fontSize: '13px', display: 'block', marginBottom: '4px' }}>
-                      ⚖️ Strict Gender Quotas & Diversity Rules
+                    <b style={{ color: 'var(--text-main)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                      <IconScale size={14} /> Strict Gender Quotas & Diversity Rules
                     </b>
                     <p style={{ color: 'var(--text-muted)', fontSize: '11px', margin: '0 0 14px' }}>
                       Rules are verified against official student profiles on both frontend and backend. Registration is strictly blocked until satisfied.
@@ -8072,7 +7944,9 @@ function EventManagement({ user, logout, onNavigate }) {
                           }
                         }}
                       />
-                      <span>🌸 At least 1 female participant compulsory per team</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                        <IconFlower size={13} /> At least 1 female participant compulsory per team
+                      </span>
                     </label>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
@@ -8119,8 +7993,8 @@ function EventManagement({ user, logout, onNavigate }) {
 
                   {/* Department & Academic Year Restrictions */}
                   <div className="form-wide" style={{ gridColumn: '1 / -1', background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '12px', padding: '16px' }}>
-                    <b style={{ color: 'var(--text-main)', fontSize: '13px', display: 'block', marginBottom: '4px' }}>
-                      🎓 Eligibility: Allowed Departments & Academic Years
+                    <b style={{ color: 'var(--text-main)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                      <IconGraduationCap size={14} /> Eligibility: Allowed Departments & Academic Years
                     </b>
                     <p style={{ color: 'var(--text-muted)', fontSize: '11px', margin: '0 0 12px' }}>
                       Leave unselected to allow all departments and years. If selected, students outside eligible criteria cannot join teams.
@@ -8135,9 +8009,9 @@ function EventManagement({ user, logout, onNavigate }) {
                             type="button"
                             className={formData.allowedDepartments?.includes(dept) ? 'primary' : 'outline'}
                             onClick={() => toggleDepartment(dept)}
-                            style={{ fontSize: '11px', padding: '4px 10px', height: '28px' }}
+                            style={{ fontSize: '11px', padding: '4px 10px', height: '28px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                           >
-                            {formData.allowedDepartments?.includes(dept) ? `✓ ${dept}` : dept}
+                            {formData.allowedDepartments?.includes(dept) ? <><IconCheck size={11} /> {dept}</> : dept}
                           </button>
                         ))}
                       </div>
@@ -8152,9 +8026,9 @@ function EventManagement({ user, logout, onNavigate }) {
                             type="button"
                             className={formData.allowedYears?.includes(yr) ? 'primary' : 'outline'}
                             onClick={() => toggleYear(yr)}
-                            style={{ fontSize: '11px', padding: '4px 12px', height: '28px' }}
+                            style={{ fontSize: '11px', padding: '4px 12px', height: '28px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                           >
-                            {formData.allowedYears?.includes(yr) ? `✓ Year ${yr}` : `Year ${yr}`}
+                            {formData.allowedYears?.includes(yr) ? <><IconCheck size={11} /> Year {yr}</> : `Year ${yr}`}
                           </button>
                         ))}
                       </div>
@@ -8173,8 +8047,12 @@ function EventManagement({ user, logout, onNavigate }) {
                   </label>
 
                   <div className="form-wide" style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
-                    <button type="button" className="action-btn cancel-btn" onClick={() => setActiveTab('basic')}>← Back</button>
-                    <button type="button" className="action-btn save-btn" onClick={() => setActiveTab('pricing')}>Next: Pricing & UPI →</button>
+                    <button type="button" className="action-btn cancel-btn" onClick={() => setActiveTab('basic')} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <IconArrowLeft size={11} /> Back
+                    </button>
+                    <button type="button" className="action-btn save-btn" onClick={() => setActiveTab('pricing')} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      Next: Pricing & UPI <IconArrowRight size={11} />
+                    </button>
                   </div>
                 </div>
               )}
@@ -8249,9 +8127,11 @@ function EventManagement({ user, logout, onNavigate }) {
                           /* Pricing Tiers Builder */
                           <div style={{ marginBottom: '16px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                              <b style={{ color: 'var(--text-main)', fontSize: '13px' }}>🎟️ Configurable Registration Tiers</b>
-                              <button type="button" className="action-btn save-btn" onClick={addPaymentTier} style={{ fontSize: '11px', padding: '4px 10px' }}>
-                                ＋ Add Tier
+                              <b style={{ color: 'var(--text-main)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <IconTicket size={14} /> Configurable Registration Tiers
+                              </b>
+                              <button type="button" className="action-btn save-btn" onClick={addPaymentTier} style={{ fontSize: '11px', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <IconPlus size={12} /> Add Tier
                               </button>
                             </div>
                             {(formData.paymentTiers || []).map((tier, tIdx) => (
@@ -8272,8 +8152,8 @@ function EventManagement({ user, logout, onNavigate }) {
                                   value={tier.description}
                                   onChange={e => updatePaymentTier(tIdx, 'description', e.target.value)}
                                 />
-                                <button type="button" className="action-btn delete-btn" onClick={() => removePaymentTier(tIdx)} disabled={formData.paymentTiers.length <= 1}>
-                                  ✕
+                                <button type="button" className="action-btn delete-btn" onClick={() => removePaymentTier(tIdx)} disabled={formData.paymentTiers.length <= 1} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                  <IconX size={13} />
                                 </button>
                               </div>
                             ))}
@@ -8346,11 +8226,11 @@ function EventManagement({ user, logout, onNavigate }) {
                                     const upiUrl = `upi://pay?pa=${encodeURIComponent(formData.paymentUpiId)}&pn=${encodeURIComponent('CyberSecurityClub')}${amountParam}&cu=INR`
                                     const autoQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiUrl)}`
                                     setQrPreview(autoQrUrl)
-                                    setMessage('✓ Auto-generated UPI QR Code from your UPI ID!')
+                                    setMessage('Auto-generated UPI QR Code from your UPI ID!')
                                   }}
                                   style={{ marginTop: '10px', fontSize: '11px', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px', borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' }}
                                 >
-                                  ⚡ Auto-Generate UPI QR from Club UPI ID
+                                  <IconZap size={13} /> Auto-Generate UPI QR from Club UPI ID
                                 </button>
                               )}
                             </div>
@@ -8362,12 +8242,14 @@ function EventManagement({ user, logout, onNavigate }) {
                                   alt="Payment QR Preview"
                                   style={{ width: '130px', height: '130px', objectFit: 'contain', display: 'block', margin: '0 auto' }}
                                 />
-                                <span style={{ color: '#059669', fontSize: '10.5px', fontWeight: 700, display: 'block', marginTop: '6px' }}>✓ QR ATTACHED</span>
+                                <span style={{ color: '#059669', fontSize: '10.5px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '6px' }}>
+                                  <IconCheck size={12} /> QR ATTACHED
+                                </span>
                                 <button type="button" onClick={() => setQrPreview('')} style={{ marginTop: '4px', fontSize: '10px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}>Remove</button>
                               </div>
                             ) : (
                               <div style={{ padding: '18px 24px', textAlign: 'center', background: 'var(--bg-input)', border: '1px dashed var(--line)', borderRadius: '8px', minWidth: '140px' }}>
-                                <span style={{ fontSize: '24px', opacity: 0.5 }}>📷</span>
+                                <IconCamera size={26} style={{ opacity: 0.5, display: 'block', margin: '0 auto' }} />
                                 <small style={{ display: 'block', color: 'var(--text-dim)', fontSize: '10.5px', marginTop: '4px' }}>No QR Image Uploaded</small>
                               </div>
                             )}
@@ -8378,8 +8260,12 @@ function EventManagement({ user, logout, onNavigate }) {
                   </div>
 
                   <div className="form-wide" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
-                    <button type="button" className="action-btn cancel-btn" onClick={() => setActiveTab(formData.registrationType === 'TEAM' || formData.registrationType === 'BOTH' ? 'teams' : 'basic')}>← Back</button>
-                    <button type="button" className="action-btn save-btn" onClick={() => setActiveTab('fields')}>Next: Custom Questions →</button>
+                    <button type="button" className="action-btn cancel-btn" onClick={() => setActiveTab(formData.registrationType === 'TEAM' || formData.registrationType === 'BOTH' ? 'teams' : 'basic')} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <IconArrowLeft size={11} /> Back
+                    </button>
+                    <button type="button" className="action-btn save-btn" onClick={() => setActiveTab('fields')} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      Next: Custom Questions <IconArrowRight size={11} />
+                    </button>
                   </div>
                 </div>
               )}
@@ -8397,8 +8283,8 @@ function EventManagement({ user, logout, onNavigate }) {
                           Default student profile fields (Name, Roll No, Department, Year, Gender, Phone) are collected automatically. Add specialized event questions below.
                         </small>
                       </div>
-                      <button type="button" className="action-btn save-btn" onClick={addCustomQuestion} style={{ fontSize: '11px', padding: '6px 12px' }}>
-                        ＋ Add Question
+                      <button type="button" className="action-btn save-btn" onClick={addCustomQuestion} style={{ fontSize: '11px', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <IconPlus size={12} /> Add Question
                       </button>
                     </div>
 
@@ -8440,7 +8326,9 @@ function EventManagement({ user, logout, onNavigate }) {
                               />
                               Required
                             </label>
-                            <button type="button" className="action-btn delete-btn" onClick={() => removeCustomQuestion(idx)}>✕</button>
+                            <button type="button" className="action-btn delete-btn" onClick={() => removeCustomQuestion(idx)} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <IconX size={13} />
+                            </button>
                           </div>
 
                           {['select', 'radio', 'checkbox'].includes(q.type) && (
@@ -8457,8 +8345,12 @@ function EventManagement({ user, logout, onNavigate }) {
                   </div>
 
                   <div className="form-wide" style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
-                    <button type="button" className="action-btn cancel-btn" onClick={() => setActiveTab('pricing')}>← Back to Pricing</button>
-                    <button type="button" className="action-btn save-btn" onClick={() => setActiveTab('submission')}>Next: Hackathon Submission →</button>
+                    <button type="button" className="action-btn cancel-btn" onClick={() => setActiveTab('pricing')} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <IconArrowLeft size={11} /> Back to Pricing
+                    </button>
+                    <button type="button" className="action-btn save-btn" onClick={() => setActiveTab('submission')} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      Next: Hackathon Submission <IconArrowRight size={11} />
+                    </button>
                   </div>
                 </div>
               )}
@@ -8467,8 +8359,8 @@ function EventManagement({ user, logout, onNavigate }) {
               {activeTab === 'submission' && (
                 <div>
                   <div className="event-builder-box">
-                    <div className="event-builder-box-title">
-                      💻 HACKATHON & PROJECT SUBMISSION MODULE
+                    <div className="event-builder-box-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <IconCode size={14} /> HACKATHON & PROJECT SUBMISSION MODULE
                     </div>
                     <p style={{ color: 'var(--text-muted)', fontSize: '11px', margin: '0 0 14px' }}>
                       For Hackathons and coding competitions: requires teams to submit their project repo, demo links, and presentation before event close.
@@ -8538,16 +8430,16 @@ function EventManagement({ user, logout, onNavigate }) {
                   </div>
 
                   <div className="form-wide" style={{ display: 'flex', justifyContent: 'flex-start', marginTop: '10px' }}>
-                    <button type="button" className="action-btn cancel-btn" onClick={() => setActiveTab('fields')}>
-                      ← Back to Custom Questions
+                    <button type="button" className="action-btn cancel-btn" onClick={() => setActiveTab('fields')} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <IconArrowLeft size={11} /> Back to Custom Questions
                     </button>
                   </div>
                 </div>
               )}
 
               <div className="event-actions" style={{ marginTop: '22px', display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <button type="submit" className="primary member-submit" disabled={submitting} style={{ padding: '12px 24px', fontWeight: 700 }}>
-                  {submitting ? 'SAVING EVENT…' : editingEventId ? '✓ UPDATE EVENT' : '＋ PUBLISH EVENT'}
+                <button type="submit" className="primary member-submit" disabled={submitting} style={{ padding: '12px 24px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  {submitting ? 'SAVING EVENT…' : editingEventId ? <><IconCheck size={13} /> UPDATE EVENT</> : <><IconPlus size={13} /> PUBLISH EVENT</>}
                 </button>
                 <button type="button" className="action-btn cancel-btn" onClick={cancelEdit}>
                   Cancel
@@ -8564,17 +8456,19 @@ function EventManagement({ user, logout, onNavigate }) {
                 <h2>Published Events & Sessions ({events.length})</h2>
               </div>
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  className="primary"
-                  onClick={() => {
-                    if (!editingEventId) setFormData(initialEventForm)
-                    setEventView('BUILDER')
-                  }}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px' }}
-                >
-                  <Icon8 name="customForms" size={14} /> ＋ CREATE NEW EVENT
-                </button>
+                {!isReadOnly && (
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => {
+                      if (!editingEventId) setFormData(initialEventForm)
+                      setEventView('BUILDER')
+                    }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px' }}
+                  >
+                    <IconPlus size={14} /> CREATE NEW EVENT
+                  </button>
+                )}
                 <button
                   type="button"
                   className="outline"
@@ -8616,8 +8510,10 @@ function EventManagement({ user, logout, onNavigate }) {
                           <b style={{ color: 'var(--text-main)', fontSize: '13px', display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ev.title}</b>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', flexWrap: 'wrap' }}>
                             <span className="badge" style={{ background: 'var(--brand-badge-bg)', color: 'var(--brand-primary)', fontSize: '9px' }}>{ev.eventType}</span>
-                            {ev.requiresPayment || (ev.paymentAmount && ev.paymentAmount > 0) ? (
-                              <span className="badge badge-admin" style={{ fontSize: '9px' }}>₹{ev.paymentAmount}</span>
+                            {ev.requiresPayment || (ev.paymentAmount && ev.paymentAmount > 0) || Number(ev.paymentConfig?.price) > 0 || ['FIXED', 'TIERS', 'PAID'].includes(String(ev.paymentConfig?.type || '').toUpperCase()) || isTieredEvent(ev) ? (
+                              <span className="badge badge-admin" style={{ fontSize: '9px' }}>
+                                {isTieredEvent(ev) ? 'TIERED' : `₹${ev.paymentConfig?.price ?? ev.paymentAmount ?? 'PAID'}`}
+                              </span>
                             ) : (
                               <span className="badge badge-student" style={{ fontSize: '9px' }}>FREE</span>
                             )}
@@ -8639,9 +8535,9 @@ function EventManagement({ user, logout, onNavigate }) {
                         <small style={{ color: 'var(--text-dim)', fontSize: '11px' }}> / {ev.capacity || '∞'}</small>
                       </div>
                       <div className="action-buttons" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                        <button className="action-btn edit-btn" onClick={() => startEditEvent(ev)} title="Edit event settings">Edit</button>
+                        {!isReadOnly && <button className="action-btn edit-btn" onClick={() => startEditEvent(ev)} title="Edit event settings">Edit</button>}
                         <button className="action-btn save-btn" onClick={() => openAnalytics(ev)} title="View attendee passes and check-in roster">Passes</button>
-                        <button className="action-btn delete-btn" onClick={() => removeEvent(ev.id)} title="Delete event">Delete</button>
+                        {!isReadOnly && <button className="action-btn delete-btn" onClick={() => removeEvent(ev.id)} title="Delete event">Delete</button>}
                       </div>
                     </div>
                   ))}
@@ -8676,7 +8572,9 @@ function EventManagement({ user, logout, onNavigate }) {
                   >
                     <IconDownload size={13} /> DOWNLOAD ROSTER CSV
                   </button>
-                  <button className="lightbox-close" onClick={() => setAnalyticsModalEvent(null)} style={{ position: 'static' }}>✕</button>
+                  <button className="lightbox-close" onClick={() => setAnalyticsModalEvent(null)} style={{ position: 'static', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <IconX size={16} />
+                  </button>
                 </div>
               </div>
 
@@ -8829,8 +8727,8 @@ function EventManagement({ user, logout, onNavigate }) {
                             <div>
                               {r.attendanceMarked ? (
                                 <div>
-                                  <span className="badge" style={{ background: '#064e3b', color: '#6ee7b7', border: '1px solid #10b981', fontSize: '10px' }}>
-                                    ✓ ADMITTED
+                                  <span className="badge" style={{ background: '#064e3b', color: '#6ee7b7', border: '1px solid #10b981', fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                    <IconCheck size={11} /> ADMITTED
                                   </span>
                                   {r.attendedAt && (
                                     <small style={{ color: 'var(--text-dim)', display: 'block', fontSize: '9px', marginTop: '2px' }}>
@@ -8838,7 +8736,7 @@ function EventManagement({ user, logout, onNavigate }) {
                                     </small>
                                   )}
                                 </div>
-                              ) : isActiveEventPassRecord(r) ? (
+                              ) : !isReadOnly && isActiveEventPassRecord(r) ? (
                                 <button
                                   type="button"
                                   className="action-btn"
@@ -8848,13 +8746,13 @@ function EventManagement({ user, logout, onNavigate }) {
                                   Check-in
                                 </button>
                               ) : (
-                                <small style={{ color: 'var(--text-dim)', fontSize: '10px' }}>Pass inactive</small>
+                                <small style={{ color: 'var(--text-dim)', fontSize: '10px' }}>{isReadOnly ? 'Not admitted' : 'Pass inactive'}</small>
                               )}
                             </div>
 
                             {/* Actions */}
                             <div className="action-buttons" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                              {['SUBMITTED', 'PENDING', 'UNDER_VERIFICATION'].includes(r.paymentStatus) && r.totalAmount > 0 && Boolean(r.paymentReference) && (
+                              {!isReadOnly && ['SUBMITTED', 'PENDING', 'UNDER_VERIFICATION'].includes(r.paymentStatus) && r.totalAmount > 0 && Boolean(r.paymentReference) && (
                                 <button
                                   className="action-btn save-btn"
                                   onClick={() => handleVerifyRosterUTR(r.id)}
@@ -8888,7 +8786,9 @@ function EventManagement({ user, logout, onNavigate }) {
             <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-modal)', padding: '28px', borderRadius: '16px', border: '1px solid var(--line)', maxWidth: '620px', width: '95vw', maxHeight: '88vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <span className="badge badge-president">{selectedRosterPass.eventTitle || analyticsModalEvent?.title || 'ATTENDEE PASS'}</span>
-                <button className="lightbox-close" onClick={() => setSelectedRosterPass(null)} style={{ position: 'static' }}>✕</button>
+                <button className="lightbox-close" onClick={() => setSelectedRosterPass(null)} style={{ position: 'static', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <IconX size={16} />
+                </button>
               </div>
 
               {selectedRosterPass.qrCodeData && (
@@ -8950,7 +8850,7 @@ function EventManagement({ user, logout, onNavigate }) {
                   <div style={{ gridColumn: '1 / -1' }}>
                     <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>TEAM SQUAD</span>
                     <b style={{ color: 'var(--brand-primary)', display: 'block', marginTop: '2px' }}>
-                      {selectedRosterPass.teamName} {selectedRosterPass.isTeamLeader ? '★ Squad Leader' : '· Squad Member'}
+                      {selectedRosterPass.teamName} {selectedRosterPass.isTeamLeader ? <><IconStar size={11} fill="currentColor" style={{ verticalAlign: 'middle', marginRight: 2 }} /> Squad Leader</> : '· Squad Member'}
                     </b>
                   </div>
                 )}
@@ -8978,7 +8878,7 @@ function EventManagement({ user, logout, onNavigate }) {
                         className="action-btn"
                         style={{ fontSize: '10px', padding: '4px 10px', background: 'var(--panel-elevated)', color: 'var(--brand-primary)', border: '1px solid var(--line)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                       >
-                        VIEW PAYMENT PROOF ↗
+                        VIEW PAYMENT PROOF <IconExternalLink size={12} />
                       </a>
                     )}
                   </div>
@@ -9001,7 +8901,7 @@ function EventManagement({ user, logout, onNavigate }) {
               </div>
 
               <div style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                {['SUBMITTED', 'PENDING', 'UNDER_VERIFICATION'].includes(selectedRosterPass.paymentStatus) && selectedRosterPass.totalAmount > 0 && Boolean(selectedRosterPass.paymentReference) && (
+                {!isReadOnly && ['SUBMITTED', 'PENDING', 'UNDER_VERIFICATION'].includes(selectedRosterPass.paymentStatus) && selectedRosterPass.totalAmount > 0 && Boolean(selectedRosterPass.paymentReference) && (
                   <button
                     type="button"
                     className="primary"
@@ -9011,7 +8911,7 @@ function EventManagement({ user, logout, onNavigate }) {
                     VERIFY UTR & ACTIVATE
                   </button>
                 )}
-                {!selectedRosterPass.attendanceMarked && (
+                {!isReadOnly && !selectedRosterPass.attendanceMarked && (
                   <button
                     type="button"
                     className="action-btn save-btn"
@@ -9121,9 +9021,12 @@ function renderTextWithLinks(text) {
               textDecoration: 'underline',
               wordBreak: 'break-all',
               fontWeight: 600,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '3px',
             }}
           >
-            {cleanUrl} ↗
+            {cleanUrl} <IconExternalLink size={11} style={{ flexShrink: 0 }} />
           </a>
           {trailing}
         </span>
@@ -9366,7 +9269,7 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
         },
       }
       await memberApi.saveRegistrationDraft(eventId, draftPayload)
-      setDraftSavedMessage('✓ Draft progress auto-saved securely.')
+      setDraftSavedMessage('Draft progress auto-saved securely.')
       setTimeout(() => setDraftSavedMessage(''), 3500)
     } catch {
       // Non-blocking draft save
@@ -9408,19 +9311,25 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
     }
 
     // Validate Payment
-    if (totalPrice > 0 && !paymentReference.trim()) {
-      setError('Please enter your 12-digit bank UPI UTR reference ID.')
-      return
+    if (isPaid || totalPrice > 0) {
+      if (totalPrice <= 0) {
+        setError('This paid event requires a valid registration fee. Please contact event coordinators.')
+        return
+      }
+      if (!paymentReference.trim()) {
+        setError('Please enter your 12-digit bank UPI UTR reference ID.')
+        return
+      }
     }
 
     const payload = {
       registrationType: isTeamFlow ? 'TEAM' : 'INDIVIDUAL',
       selectedActivityIds: selectedActivities,
       paymentOption: isPaid ? currentTierName : 'FREE',
-      paymentAmount: totalPrice,
-      paymentMethod: totalPrice > 0 ? 'UPI' : 'FREE',
-      paymentReference: paymentReference.trim() || null,
-      paymentProofUrl: proofPreview || null,
+      paymentAmount: isPaid ? totalPrice : 0,
+      paymentMethod: (isPaid && totalPrice > 0) ? 'UPI' : 'FREE',
+      paymentReference: (isPaid && totalPrice > 0) ? (paymentReference.trim() || null) : null,
+      paymentProofUrl: (isPaid && totalPrice > 0) ? (proofPreview || null) : null,
       branch: department.trim(),
       year: Number(academicYear) || 1,
       gender,
@@ -9444,9 +9353,9 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
     try {
       const res = await memberApi.registerForEvent(eventId, payload)
       if (res.registration?.paymentStatus === 'UNDER_VERIFICATION') {
-        setMessage('✓ Registration & Payment Submitted! Your payment is now UNDER VERIFICATION by event organizers.')
+        setMessage('Registration & Payment Submitted! Your payment is now UNDER VERIFICATION by event organizers.')
       } else {
-        setMessage('✓ Registration Confirmed! Your official digital entrance pass and QR code are ready.')
+        setMessage('Registration Confirmed! Your official digital entrance pass and QR code are ready.')
       }
       loadEventAndInvites()
     } catch (err) {
@@ -9474,7 +9383,7 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
         paymentReference: resubmitUtr.trim(),
         paymentProofUrl: resubmitProof || null,
       })
-      setMessage('✓ Payment resubmitted! Now under organizer verification.')
+      setMessage('Payment resubmitted! Now under organizer verification.')
       setShowResubmitModal(false)
       loadEventAndInvites()
     } catch (err) {
@@ -9497,7 +9406,7 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
         driveUrl: projectDriveUrl.trim() || null,
         notes: projectNotes.trim() || null,
       })
-      setProjectMessage(res.message || '✓ Hackathon project submitted successfully for the entire team!')
+      setProjectMessage(res.message || 'Hackathon project submitted successfully for the entire team!')
       loadEventAndInvites()
     } catch (err) {
       setError(err.message || 'Failed to submit project.')
@@ -9517,7 +9426,9 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
   if (!event) {
     return (
       <LivePortal user={user} logout={logout} activeTab="student-events" onNavigate={onNavigate} title="EVENT DETAILS">
-        <button className="back-button" onClick={() => onNavigate('student-events')}>← BACK TO EVENTS</button>
+        <button className="back-button" onClick={() => onNavigate('student-events')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <IconArrowLeft size={13} /> BACK TO EVENTS
+        </button>
         <p className="directory-state">Event not found.</p>
       </LivePortal>
     )
@@ -9528,30 +9439,40 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
   const isTeamFlow = event.registrationType === 'TEAM' || (event.registrationType === 'BOTH' && chosenMode === 'TEAM')
 
   // Pricing & Tiers Calculation
+  const paymentTiers = Array.isArray(event.paymentConfig?.tiers) ? event.paymentConfig.tiers : []
+  const hasTierPrice = paymentTiers.some(t => Number(t?.price) > 0)
+  const configuredPaymentType = String(
+    event.paymentConfig?.type || event.paymentConfig?.paymentType || '',
+  ).toUpperCase()
+  const isConfiguredPaidType = ['FIXED', 'TIERS', 'PAID'].includes(configuredPaymentType)
+
   const hasConfiguredPaidPrice = Boolean(
     event.requiresPayment
     || event.isPaid
     || Number(event.paymentAmount) > 0
-    || Number(event.paymentConfig?.price) > 0,
+    || Number(event.paymentConfig?.price) > 0
+    || hasTierPrice
+    || isConfiguredPaidType,
   )
-  const paymentType = String(
-    event.paymentConfig?.type
-      || event.paymentConfig?.paymentType
-      || (isTieredEvent(event) ? 'TIERS' : hasConfiguredPaidPrice ? 'FIXED' : 'FREE'),
-  ).toUpperCase()
+  const paymentType = configuredPaymentType || (hasTierPrice || isTieredEvent(event) ? 'TIERS' : hasConfiguredPaidPrice ? 'FIXED' : 'FREE')
   const isPaid = Boolean(hasConfiguredPaidPrice || paymentType !== 'FREE')
-  const paymentTiers = event.paymentConfig?.tiers || []
   let totalPrice = 0
   let currentTierName = 'Standard'
 
   if (isPaid) {
     if (paymentType === 'TIERS' && paymentTiers.length > 0) {
       const tier = paymentTiers[selectedTierIndex] || paymentTiers[0]
-      totalPrice = Number(tier.price) || 0
-      currentTierName = tier.name || 'Tier'
+      totalPrice = Number(tier?.price) || 0
+      currentTierName = tier?.name || 'Tier'
     } else {
       totalPrice = Number(event.paymentConfig?.price ?? event.paymentAmount ?? 0)
-      currentTierName = 'Standard Fixed Fee'
+      if (totalPrice <= 0 && paymentTiers.length > 0) {
+        const tier = paymentTiers[selectedTierIndex] || paymentTiers[0]
+        totalPrice = Number(tier?.price) || 0
+        currentTierName = tier?.name || 'Tier'
+      } else {
+        currentTierName = 'Standard Fixed Fee'
+      }
     }
   }
 
@@ -9637,7 +9558,9 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
   return (
     <LivePortal user={user} logout={logout} activeTab="student-events" onNavigate={onNavigate} title="EVENT DETAILS">
       <section className="event-detail-page">
-        <button className="back-button" onClick={() => onNavigate('student-events')}>← BACK TO EVENTS CATALOG</button>
+        <button className="back-button" onClick={() => onNavigate('student-events')}>
+          <IconArrowLeft size={13} style={{ marginRight: 6 }} /> BACK TO EVENTS CATALOG
+        </button>
 
         {message && <p className="member-form-success" style={{ marginTop: '10px' }}>{message}</p>}
         {error && <p className="member-form-error" style={{ marginTop: '10px' }}>{error}</p>}
@@ -9649,8 +9572,8 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
               <b>Active Student Membership Required</b>
               <p style={{ margin: '2px 0 0', fontSize: '11px' }}>Please activate membership to unlock registration.</p>
             </div>
-            <button type="button" onClick={() => onNavigate('student-membership')} style={{ background: '#ef4444', color: '#fff' }}>
-              SUBSCRIBE NOW →
+            <button type="button" onClick={() => onNavigate('student-membership')} style={{ background: '#ef4444', color: '#fff', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              SUBSCRIBE NOW <IconArrowRight size={12} />
             </button>
           </div>
         )}
@@ -9694,7 +9617,7 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                 <div style={{ margin: '16px 0', padding: '16px', borderRadius: '12px', background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(180, 83, 9, 0.2))', border: '1.5px solid #f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px' }}>
                   <div>
                     <b style={{ color: '#f59e0b', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span>↗</span> Official Google Form Registration
+                      <IconExternalLink size={14} /> Official Google Form Registration
                     </b>
                     <p style={{ margin: '3px 0 0', color: 'var(--text-muted)', fontSize: '11.5px' }}>
                       Registration for this event is conducted exclusively via an external form. Passes are managed outside this portal.
@@ -9706,7 +9629,7 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                     rel="noopener noreferrer"
                     style={{ background: '#f59e0b', color: '#000', padding: '9px 18px', borderRadius: '8px', fontSize: '12px', fontWeight: 700, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                   >
-                    Open Official Google Form ↗
+                    Open Official Google Form <IconExternalLink size={12} />
                   </a>
                 </div>
               )}
@@ -9748,7 +9671,7 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
               {/* IF EXTERNAL FORM ONLY */}
               {isExternal ? (
                 <div style={{ textAlign: 'center', padding: '24px 16px', background: 'var(--panel-subtle)', borderRadius: '12px', border: '1px dashed #f59e0b' }}>
-                  <span style={{ fontSize: '32px', display: 'block', marginBottom: '8px' }}>📋</span>
+                  <IconClipboard size={32} style={{ display: 'block', margin: '0 auto 8px', color: '#f59e0b' }} />
                   <h3 style={{ margin: '0 0 6px', color: '#f59e0b', fontSize: '15px' }}>External Registration Form</h3>
                   <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '0 0 16px', lineHeight: 1.4 }}>
                     To register for this event, please submit the official Google Form directly. Digital passes on this website are not issued for external events.
@@ -9758,9 +9681,9 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="primary"
-                    style={{ display: 'inline-block', width: '100%', padding: '12px', fontWeight: 700, textDecoration: 'none', textAlign: 'center', background: '#f59e0b', color: '#000', borderRadius: '8px' }}
+                    style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', width: '100%', padding: '12px', fontWeight: 700, textDecoration: 'none', textAlign: 'center', background: '#f59e0b', color: '#000', borderRadius: '8px' }}
                   >
-                    Open Google Form ↗
+                    Open Google Form <IconExternalLink size={12} />
                   </a>
                 </div>
               ) : isRegistered ? (
@@ -9768,7 +9691,7 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                 <div style={{ padding: '8px 0' }}>
                   {isUnderVerification ? (
                     <div style={{ padding: '20px', background: 'rgba(234, 179, 8, 0.12)', border: '1.5px solid #eab308', borderRadius: '12px', textAlign: 'center', marginBottom: '16px' }}>
-                      <span style={{ fontSize: '28px', display: 'block', marginBottom: '6px' }}>⏳</span>
+                      <IconClock size={28} style={{ display: 'block', margin: '0 auto 6px', color: '#eab308' }} />
                       <b style={{ color: '#eab308', fontSize: '14px', display: 'block' }}>Payment Under Verification</b>
                       <p style={{ color: 'var(--text-muted)', fontSize: '11.5px', margin: '6px 0 12px' }}>
                         Your UPI payment reference <b>({userReg.paymentReference || 'Submitted'})</b> is being verified by event organizers. Your digital entrance pass will activate automatically upon approval.
@@ -9777,7 +9700,7 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                     </div>
                   ) : isPaymentRejected ? (
                     <div style={{ padding: '20px', background: 'rgba(239, 68, 68, 0.12)', border: '1.5px solid #ef4444', borderRadius: '12px', textAlign: 'center', marginBottom: '16px' }}>
-                      <span style={{ fontSize: '28px', display: 'block', marginBottom: '6px' }}>❌</span>
+                      <IconXCircle size={28} style={{ display: 'block', margin: '0 auto 6px', color: '#ef4444' }} />
                       <b style={{ color: '#ef4444', fontSize: '14px', display: 'block' }}>Payment Rejected by Organizer</b>
                       <p style={{ color: 'var(--text-main)', fontSize: '12px', margin: '6px 0', background: 'var(--bg-card)', padding: '8px', borderRadius: '6px', border: '1px solid #ef444444' }}>
                         Reason: {userReg.paymentRejectionReason || 'UTR not verified in club bank statement.'}
@@ -9792,9 +9715,9 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                           type="button"
                           className="primary"
                           onClick={() => setShowResubmitModal(true)}
-                          style={{ width: '100%', padding: '10px', background: '#ef4444', color: '#fff', fontWeight: 700 }}
+                          style={{ width: '100%', padding: '10px', background: '#ef4444', color: '#fff', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                         >
-                          Resubmit Payment UTR →
+                          Resubmit Payment UTR <IconArrowRight size={12} />
                         </button>
                       ) : (
                         <small style={{ color: 'var(--text-muted)' }}>Ask your team leader to resubmit the team payment UTR.</small>
@@ -9802,15 +9725,15 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                     </div>
                   ) : (
                     <div style={{ textAlign: 'center', padding: '16px', background: 'var(--panel-subtle)', borderRadius: '12px', border: '1px solid var(--line)', marginBottom: '16px' }}>
-                      <span className={isActiveEventPassRecord(userReg) ? 'badge badge-registered' : 'badge'} style={{ fontSize: '12px', padding: '6px 14px' }}>
-                        {isActiveEventPassRecord(userReg) ? '✓ PASS ACTIVE & CONFIRMED' : 'REGISTRATION NOT ACTIVE'}
+                      <span className={isActiveEventPassRecord(userReg) ? 'badge badge-registered' : 'badge'} style={{ fontSize: '12px', padding: '6px 14px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        {isActiveEventPassRecord(userReg) ? <><IconCheckCircle size={13} /> PASS ACTIVE & CONFIRMED</> : 'REGISTRATION NOT ACTIVE'}
                       </span>
                       <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '10px' }}>
                         {userReg.teamName ? `Team: ${userReg.teamName} · ` : ''}
                         Your entrance QR pass is active in your Pass Wallet.
                       </p>
-                      <button className="outline" type="button" onClick={() => onNavigate('student-registrations')} style={{ marginTop: '8px', width: '100%' }}>
-                        VIEW ENTRANCE PASS IN WALLET →
+                      <button className="outline" type="button" onClick={() => onNavigate('student-registrations')} style={{ marginTop: '8px', width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                        VIEW ENTRANCE PASS IN WALLET <IconArrowRight size={12} />
                       </button>
                     </div>
                   )}
@@ -9917,9 +9840,9 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                           type="submit"
                           className="primary"
                           disabled={submittingProject}
-                          style={{ width: '100%', height: '36px', fontSize: '11px', fontWeight: 700, marginTop: '4px' }}
+                          style={{ width: '100%', height: '36px', fontSize: '11px', fontWeight: 700, marginTop: '4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                         >
-                          {submittingProject ? 'SAVING PROJECT…' : '✓ SAVE TEAM PROJECT SUBMISSION'}
+                          {submittingProject ? 'SAVING PROJECT…' : <><IconCheck size={13} /> SAVE TEAM PROJECT SUBMISSION</>}
                         </button>
                       </form>
                     </div>
@@ -9939,17 +9862,17 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                           type="button"
                           className={chosenMode === 'INDIVIDUAL' ? 'primary' : 'outline'}
                           onClick={() => setChosenMode('INDIVIDUAL')}
-                          style={{ fontSize: '11px', height: '32px' }}
+                          style={{ fontSize: '11px', height: '32px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                         >
-                          👤 Individual Pass
+                          <IconUser size={13} /> Individual Pass
                         </button>
                         <button
                           type="button"
                           className={chosenMode === 'TEAM' ? 'primary' : 'outline'}
                           onClick={() => setChosenMode('TEAM')}
-                          style={{ fontSize: '11px', height: '32px' }}
+                          style={{ fontSize: '11px', height: '32px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                         >
-                          👥 Squad / Team
+                          <IconUsers size={13} /> Squad / Team
                         </button>
                       </div>
                     </div>
@@ -9959,12 +9882,12 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                   {isTeamFlow && (
                     <div style={{ marginBottom: '16px', padding: '14px', background: 'var(--panel-subtle)', borderRadius: '10px', border: '1px solid var(--line)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <b style={{ color: 'var(--brand-primary)', fontSize: '12px' }}>
-                          👥 SQUAD FORMATION ({minTeam} - {maxTeam} MEMBERS)
+                        <b style={{ color: 'var(--brand-primary)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <IconUsers size={13} /> SQUAD FORMATION ({minTeam} - {maxTeam} MEMBERS)
                         </b>
                         {requiresFemale && (
-                          <span className="badge" style={{ fontSize: '9px', background: satisfiesFemaleQuota ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: satisfiesFemaleQuota ? '#10b981' : '#ef4444', border: '1px solid currentColor' }}>
-                            🌸 1+ Female Compulsory
+                          <span className="badge" style={{ fontSize: '9px', background: satisfiesFemaleQuota ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: satisfiesFemaleQuota ? '#10b981' : '#ef4444', border: '1px solid currentColor', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <IconFlower size={11} /> 1+ Female Compulsory
                           </span>
                         )}
                       </div>
@@ -9999,8 +9922,8 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                                     {m.status}
                                   </span>
                                   {isLeader && m.userId !== user.id && (
-                                    <button type="button" onClick={() => handleRemoveTeamMember(userTeam.id, m.userId)} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '12px' }}>
-                                      ✕
+                                    <button type="button" onClick={() => handleRemoveTeamMember(userTeam.id, m.userId)} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                      <IconX size={13} />
                                     </button>
                                   )}
                                 </div>
@@ -10011,12 +9934,12 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                           {/* Live Validation Banner */}
                           <div style={{ padding: '8px 10px', background: 'var(--bg-card)', borderRadius: '6px', fontSize: '11px', margin: '10px 0' }}>
                             <div style={{ color: satisfiesSize ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span>{satisfiesSize ? '✓' : '✗'}</span>
+                              <span style={{ display: 'inline-flex', alignItems: 'center' }}>{satisfiesSize ? <IconCheck size={12} /> : <IconX size={12} />}</span>
                               <span>Squad Size: <b>{teamSize} / {minTeam} required</b></span>
                             </div>
                             {requiresFemale && (
                               <div style={{ color: satisfiesFemaleQuota ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-                                <span>{satisfiesFemaleQuota ? '✓' : '✗'}</span>
+                                <span style={{ display: 'inline-flex', alignItems: 'center' }}>{satisfiesFemaleQuota ? <IconCheck size={12} /> : <IconX size={12} />}</span>
                                 <span>Gender Quota: {satisfiesFemaleQuota ? `Satisfied (${femaleCount} female)` : 'Requires at least 1 female participant'}</span>
                               </div>
                             )}
@@ -10069,7 +9992,9 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                                       <span style={{ color: 'var(--text-dim)', marginLeft: '6px' }}>({m.memberId})</span>
                                       <small style={{ display: 'block', color: 'var(--text-muted)' }}>{m.department} · {m.gender || 'MALE'}</small>
                                     </div>
-                                    <span style={{ color: 'var(--brand-primary)', fontWeight: 700 }}>＋ Add</span>
+                                    <span style={{ color: 'var(--brand-primary)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                                      <IconPlus size={12} /> Add
+                                    </span>
                                   </div>
                                 ))}
                               </div>
@@ -10082,7 +10007,9 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                               {draftMembers.map(m => (
                                 <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'var(--bg-input)', borderRadius: '6px', fontSize: '11px' }}>
                                   <span><b>{m.name}</b> ({m.memberId}) · <span style={{ color: m.gender === 'FEMALE' ? '#f472b6' : 'var(--text-muted)' }}>{m.gender || 'MALE'}</span></span>
-                                  <button type="button" onClick={() => removeDraftMember(m.id)} style={{ color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer' }}>✕</button>
+                                  <button type="button" onClick={() => removeDraftMember(m.id)} style={{ color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <IconX size={12} />
+                                  </button>
                                 </div>
                               ))}
                             </div>
@@ -10153,7 +10080,9 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                                   style={{ width: '100%', height: '34px', fontSize: '11.5px' }}
                                 />
                                 <small style={{ color: 'var(--text-dim)', fontSize: '10px', display: 'block', marginTop: '3px' }}>
-                                  ☁️ Save storage: Paste a viewable Google Drive / OneDrive link instead of uploading files.
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                    <IconCloud size={12} /> Save storage: Paste a viewable Google Drive / OneDrive link instead of uploading files.
+                                  </span>
                                 </small>
                               </div>
                             ) : q.type === 'select' ? (
@@ -10195,9 +10124,9 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                         type="button"
                         onClick={handleSaveDraft}
                         disabled={savingDraft}
-                        style={{ marginTop: '12px', background: 'transparent', border: 'none', color: 'var(--brand-primary)', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline' }}
+                        style={{ marginTop: '12px', background: 'transparent', border: 'none', color: 'var(--brand-primary)', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                       >
-                        {savingDraft ? 'Saving Draft…' : '💾 Save Draft Progress'}
+                        {savingDraft ? 'Saving Draft…' : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconSave size={12} /> Save Draft Progress</span>}
                       </button>
                     </div>
                   )}
@@ -10248,37 +10177,46 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                       </div>
 
                       {/* Money QR Code */}
-                      <div style={{ textAlign: 'center', padding: '14px', background: '#fff', borderRadius: '10px', border: '2px solid var(--brand-primary)', marginBottom: '14px' }}>
-                        <b style={{ color: '#07121c', fontSize: '12px', display: 'block', marginBottom: '6px', fontWeight: 800 }}>
-                          SCAN UPI QR TO PAY ₹{totalPrice}
-                        </b>
-                        <img
-                          src={event.paymentQrUrl || `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`upi://pay?pa=${event.paymentUpiId || 'club@upi'}&pn=CyberSecurityClub&am=${totalPrice}&cu=INR`)}`}
-                          alt="Payment QR"
-                          style={{ maxWidth: '160px', height: 'auto', display: 'block', margin: '0 auto' }}
-                        />
-                        <small style={{ display: 'block', maxWidth: '240px', margin: '6px auto 0', color: '#475569', fontSize: '10px', lineHeight: 1.4 }}>
-                          Payment QR only. Your entrance pass activates after an organizer verifies your UTR.
-                        </small>
-                        {event.paymentUpiId && (
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '8px' }}>
-                            <span style={{ color: '#07121c', fontSize: '12px', fontWeight: 700, fontFamily: 'monospace' }}>
-                              UPI: {event.paymentUpiId}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                navigator.clipboard?.writeText(event.paymentUpiId)
-                                setCopiedUpi(true)
-                                setTimeout(() => setCopiedUpi(false), 2000)
-                              }}
-                              style={{ padding: '2px 8px', fontSize: '10px', background: 'var(--brand-primary)', color: '#000', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 700 }}
-                            >
-                              {copiedUpi ? '✓ COPIED' : '📋 COPY'}
-                            </button>
+                      {(() => {
+                        const resolvedUpiId = event.paymentUpiId || event.paymentConfig?.upiId || ''
+                        const resolvedQrUrl = event.paymentQrUrl
+                          || event.paymentConfig?.upiQrUrl
+                          || `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`upi://pay?pa=${resolvedUpiId || 'club@upi'}&pn=CyberSecurityClub&am=${totalPrice}&cu=INR`)}`
+
+                        return (
+                          <div style={{ textAlign: 'center', padding: '14px', background: '#fff', borderRadius: '10px', border: '2px solid var(--brand-primary)', marginBottom: '14px' }}>
+                            <b style={{ color: '#07121c', fontSize: '12px', display: 'block', marginBottom: '6px', fontWeight: 800 }}>
+                              SCAN UPI QR TO PAY ₹{totalPrice}
+                            </b>
+                            <img
+                              src={resolvedQrUrl}
+                              alt="Payment QR"
+                              style={{ maxWidth: '160px', height: 'auto', display: 'block', margin: '0 auto' }}
+                            />
+                            <small style={{ display: 'block', maxWidth: '240px', margin: '6px auto 0', color: '#475569', fontSize: '10px', lineHeight: 1.4 }}>
+                              Payment QR only. Your entrance pass activates after an organizer verifies your UTR.
+                            </small>
+                            {resolvedUpiId && (
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '8px' }}>
+                                <span style={{ color: '#07121c', fontSize: '12px', fontWeight: 700, fontFamily: 'monospace' }}>
+                                  UPI: {resolvedUpiId}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard?.writeText(resolvedUpiId)
+                                    setCopiedUpi(true)
+                                    setTimeout(() => setCopiedUpi(false), 2000)
+                                  }}
+                                  style={{ padding: '2px 8px', fontSize: '10px', background: 'var(--brand-primary)', color: '#000', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                >
+                                  {copiedUpi ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><IconCheck size={11} /> COPIED</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><IconCopy size={11} /> COPY</span>}
+                                </button>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
+                        )
+                      })()}
 
                       <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-main)', fontWeight: 600, marginBottom: '4px' }}>
                         12-Digit Bank UPI Reference / UTR Number *
@@ -10312,7 +10250,7 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                   ) : (
                     <div style={{ marginBottom: '16px', padding: '10px 14px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid #10b98144', borderRadius: '8px' }}>
                       <span style={{ fontSize: '12px', color: '#10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        ✓ FREE EVENT · INSTANT PASS GENERATION
+                        <IconCheck size={13} /> FREE EVENT · INSTANT PASS GENERATION
                       </span>
                     </div>
                   )}
@@ -10324,17 +10262,27 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                     disabled={
                       submitting ||
                       (isTeamFlow && (!userTeam || !isLeader || !teamRequirementsMet)) ||
-                      (isPaid && !paymentReference.trim())
+                      (isPaid && (!paymentReference.trim() || totalPrice <= 0))
                     }
-                    style={{ width: '100%', minHeight: '44px', fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em' }}
+                    style={{ width: '100%', minHeight: '44px', fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
                   >
-                    {submitting ? 'SUBMITTING…' : isPaid ? 'SUBMIT UTR FOR VERIFICATION ➔' : 'CONFIRM REGISTRATION & GET PASS ➔'}
+                    {submitting ? 'SUBMITTING…' : isPaid ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                        SUBMIT UTR FOR VERIFICATION <IconArrowRight size={13} />
+                      </span>
+                    ) : (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                        CONFIRM REGISTRATION & GET PASS <IconArrowRight size={13} />
+                      </span>
+                    )}
                   </button>
 
                   {/* Feedback on why button might be disabled */}
                   {isTeamFlow && !teamRequirementsMet && userTeam && (
                     <small style={{ color: '#ef4444', display: 'block', marginTop: '6px', textAlign: 'center', fontSize: '11px' }}>
-                      ⚠ {teamValidationIssue}
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <IconAlertTriangle size={12} /> {teamValidationIssue}
+                      </span>
                     </small>
                   )}
                 </form>
@@ -10351,6 +10299,7 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
 // Admin Passes & Gate Attendance Management
 // ----------------------------------------------------
 function PaymentManagement({ user, logout, onNavigate }) {
+  const isReadOnly = Boolean(user.isReadOnly || isReadOnlyClubRole(user.role))
   const [passes, setPasses] = useState([])
   const [loading, setLoading] = useState(true)
   const [events, setEvents] = useState([])
@@ -10561,8 +10510,8 @@ function PaymentManagement({ user, logout, onNavigate }) {
       <section className="member-management">
         <div className="member-heading">
           <div>
-            <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
-              ← COMMAND CENTER
+            <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <IconArrowLeft size={13} /> COMMAND CENTER
             </button>
             <p className="eyebrow">ATTENDEE ROSTER & PASS VERIFICATION</p>
             <h1>Event Passes & Attendee Roster</h1>
@@ -10768,10 +10717,10 @@ function PaymentManagement({ user, logout, onNavigate }) {
                     {/* Gate Attendance */}
                     <div>
                       {p.attendanceMarked ? (
-                        <span className="badge" style={{ background: '#064e3b', color: '#6ee7b7', border: '1px solid #10b981', fontSize: '10px' }}>
-                          ✓ PRESENT
+                        <span className="badge" style={{ background: '#064e3b', color: '#6ee7b7', border: '1px solid #10b981', fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <IconCheck size={11} /> PRESENT
                         </span>
-                      ) : isActiveEventPassRecord(p) ? (
+                      ) : !isReadOnly && isActiveEventPassRecord(p) ? (
                         <button
                           type="button"
                           className="action-btn"
@@ -10781,23 +10730,23 @@ function PaymentManagement({ user, logout, onNavigate }) {
                           Check-in
                         </button>
                       ) : (
-                        <small style={{ color: 'var(--text-dim)', fontSize: '10px' }}>Pass inactive</small>
+                        <small style={{ color: 'var(--text-dim)', fontSize: '10px' }}>{isReadOnly ? 'Not admitted' : 'Pass inactive'}</small>
                       )}
                     </div>
 
                     {/* Actions */}
                     <div className="action-buttons" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                      {(['SUBMITTED', 'UNDER_VERIFICATION', 'PENDING'].includes(String(p.paymentStatus || '').toUpperCase()) && Number(p.totalAmount) > 0 && Boolean(p.paymentReference)) && (
+                      {!isReadOnly && (['SUBMITTED', 'UNDER_VERIFICATION', 'PENDING'].includes(String(p.paymentStatus || '').toUpperCase()) && Number(p.totalAmount) > 0 && Boolean(p.paymentReference)) && (
                         <>
-                          <button className="action-btn save-btn" onClick={() => handleVerifyUTR(p.id)} style={{ fontSize: '10px', padding: '4px 8px' }}>
-                            ✓ Verify
+                          <button className="action-btn save-btn" onClick={() => handleVerifyUTR(p.id)} style={{ fontSize: '10px', padding: '4px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <IconCheck size={11} /> Verify
                           </button>
-                          <button className="action-btn delete-btn" onClick={() => { setRejectingPass(p); setRejectionReason('') }} style={{ fontSize: '10px', padding: '4px 8px' }}>
-                            ✕ Reject
+                          <button className="action-btn delete-btn" onClick={() => { setRejectingPass(p); setRejectionReason('') }} style={{ fontSize: '10px', padding: '4px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <IconX size={11} /> Reject
                           </button>
                         </>
                       )}
-                      {['PAYMENT_REJECTED', 'REJECTED'].includes(String(p.paymentStatus || '').toUpperCase()) && Number(p.totalAmount) > 0 && Boolean(p.paymentReference) && (
+                      {!isReadOnly && ['PAYMENT_REJECTED', 'REJECTED'].includes(String(p.paymentStatus || '').toUpperCase()) && Number(p.totalAmount) > 0 && Boolean(p.paymentReference) && (
                         <button className="action-btn" onClick={() => handleMarkPending(p.id)} style={{ fontSize: '10px', padding: '4px 8px', color: '#f59e0b' }} title="Reset to pending verification">
                           Reset Pending
                         </button>
@@ -10834,8 +10783,8 @@ function PaymentManagement({ user, logout, onNavigate }) {
                   />
                 </label>
                 <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
-                  <button type="submit" className="action-btn delete-btn" disabled={rejectSubmitting} style={{ flex: 1, padding: '8px', fontSize: '11.5px' }}>
-                    {rejectSubmitting ? 'Rejecting…' : '✕ Confirm Payment Rejection'}
+                  <button type="submit" className="action-btn delete-btn" disabled={rejectSubmitting} style={{ flex: 1, padding: '8px', fontSize: '11.5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                    {rejectSubmitting ? 'Rejecting…' : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconX size={12} /> Confirm Payment Rejection</span>}
                   </button>
                   <button type="button" className="action-btn cancel-btn" onClick={() => setRejectingPass(null)} style={{ padding: '8px 16px', fontSize: '11.5px' }}>
                     Cancel
@@ -10852,7 +10801,9 @@ function PaymentManagement({ user, logout, onNavigate }) {
             <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-modal)', padding: '28px', borderRadius: '16px', border: '1px solid var(--line)', maxWidth: '620px', width: '95vw', maxHeight: '88vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <span className="badge badge-president">{selectedPass.eventType || 'EVENT PASS'}</span>
-                <button className="lightbox-close" onClick={() => setSelectedPass(null)} style={{ position: 'static' }}>✕</button>
+                <button className="lightbox-close" onClick={() => setSelectedPass(null)} style={{ position: 'static', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <IconX size={16} />
+                </button>
               </div>
 
               {selectedPass.qrCodeData && (
@@ -10913,7 +10864,7 @@ function PaymentManagement({ user, logout, onNavigate }) {
                   <div style={{ gridColumn: '1 / -1' }}>
                     <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>TEAM SQUAD</span>
                     <b style={{ color: 'var(--brand-primary)', display: 'block', marginTop: '2px' }}>
-                      {selectedPass.teamName} {selectedPass.isTeamLeader ? '★ Squad Leader' : '· Squad Member'}
+                      {selectedPass.teamName} {selectedPass.isTeamLeader ? <><IconStar size={11} fill="currentColor" style={{ verticalAlign: 'middle', marginRight: 2 }} /> Squad Leader</> : '· Squad Member'}
                     </b>
                   </div>
                 )}
@@ -10941,7 +10892,7 @@ function PaymentManagement({ user, logout, onNavigate }) {
                         className="action-btn"
                         style={{ fontSize: '10px', padding: '4px 10px', background: 'var(--panel-elevated)', color: 'var(--brand-primary)', border: '1px solid var(--line)', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                       >
-                        VIEW PAYMENT PROOF ↗
+                        VIEW PAYMENT PROOF <IconExternalLink size={12} />
                       </a>
                     )}
                   </div>
@@ -10964,7 +10915,7 @@ function PaymentManagement({ user, logout, onNavigate }) {
               </div>
 
               <div style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                {['SUBMITTED', 'UNDER_VERIFICATION', 'PENDING'].includes(String(selectedPass.paymentStatus || '').toUpperCase()) && selectedPass.totalAmount > 0 && Boolean(selectedPass.paymentReference) && (
+                {!isReadOnly && ['SUBMITTED', 'UNDER_VERIFICATION', 'PENDING'].includes(String(selectedPass.paymentStatus || '').toUpperCase()) && selectedPass.totalAmount > 0 && Boolean(selectedPass.paymentReference) && (
                   <button
                     type="button"
                     className="primary"
@@ -10974,7 +10925,7 @@ function PaymentManagement({ user, logout, onNavigate }) {
                     VERIFY UTR & ACTIVATE
                   </button>
                 )}
-                {!selectedPass.attendanceMarked && (
+                {!isReadOnly && !selectedPass.attendanceMarked && (
                   <button
                     type="button"
                     className="action-btn save-btn"
@@ -11063,7 +11014,9 @@ function GalleryLightbox({ photos = [], activePhoto, onClose, onSelectPhoto, onD
           <span className="lightbox-counter-badge">
             PHOTO {totalCount > 0 ? currentIndex + 1 : 1} OF {totalCount}
           </span>
-          <button className="lightbox-close" onClick={onClose} title="Close (Esc)">✕</button>
+          <button className="lightbox-close" onClick={onClose} title="Close (Esc)" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+            <IconX size={18} />
+          </button>
         </div>
 
         {/* Main Photo Area with Left/Right Navigation Buttons */}
@@ -11074,9 +11027,10 @@ function GalleryLightbox({ photos = [], activePhoto, onClose, onSelectPhoto, onD
               className="lightbox-nav-btn prev"
               onClick={handlePrev}
               disabled={!hasPrev}
-              title="Previous Photo (← Left Arrow)"
+              title="Previous Photo (Left Arrow)"
+              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
             >
-              ‹
+              <IconChevronLeft size={22} />
             </button>
           )}
 
@@ -11088,9 +11042,10 @@ function GalleryLightbox({ photos = [], activePhoto, onClose, onSelectPhoto, onD
               className="lightbox-nav-btn next"
               onClick={handleNext}
               disabled={!hasNext}
-              title="Next Photo (→ Right Arrow)"
+              title="Next Photo (Right Arrow)"
+              style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
             >
-              ›
+              <IconChevronRight size={22} />
             </button>
           )}
         </div>
@@ -11280,7 +11235,7 @@ function GalleryManagement({ user, logout, onNavigate }) {
       )
 
       clearStagedPhotos()
-      setMessage(`✓ ${addedPhotos.length} photo${addedPhotos.length > 1 ? 's' : ''} uploaded successfully to "${selectedAlbum.name}".`)
+      setMessage(`${addedPhotos.length} photo${addedPhotos.length > 1 ? 's' : ''} uploaded successfully to "${selectedAlbum.name}".`)
       setTimeout(() => setMessage(''), 4000)
     } catch (err) {
       setError(err.message || 'Failed to upload photos.')
@@ -11323,8 +11278,8 @@ function GalleryManagement({ user, logout, onNavigate }) {
       <section className="gallery-section">
         <div className="event-heading">
           <div>
-            <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
-              ← COMMAND CENTER
+            <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <IconArrowLeft size={13} /> COMMAND CENTER
             </button>
             <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Icon8 name="irisScan" size={14} /> VISUAL MEDIA REPOSITORY
@@ -11338,7 +11293,8 @@ function GalleryManagement({ user, logout, onNavigate }) {
         {error && <p className="member-form-error" style={{ marginBottom: '16px' }}>{error}</p>}
 
         {/* Studio Command Grid (Create Album & Batch Uploader) */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '20px', marginBottom: '32px' }}>
+        {!user.isReadOnly ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '20px', marginBottom: '32px' }}>
           
           {/* Card 1: Professional Create Photo Album Form */}
           <article className="account-form-card" style={{ padding: '24px', background: 'var(--panel-bg)', borderRadius: '16px', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column' }}>
@@ -11511,14 +11467,14 @@ function GalleryManagement({ user, logout, onNavigate }) {
                     <div style={{ background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '10px', padding: '12px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <b style={{ color: 'var(--brand-primary)', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          ✓ {stagedPhotos.length} Photo{stagedPhotos.length > 1 ? 's' : ''} Staged for Upload
+                          <IconCheck size={12} /> {stagedPhotos.length} Photo{stagedPhotos.length > 1 ? 's' : ''} Staged for Upload
                         </b>
                         <button
                           type="button"
                           onClick={clearStagedPhotos}
-                          style={{ background: 'transparent', border: 0, color: '#f87171', fontSize: '10px', cursor: 'pointer', fontWeight: 600 }}
+                          style={{ background: 'transparent', border: 0, color: '#f87171', fontSize: '10px', cursor: 'pointer', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}
                         >
-                          ✕ Clear All
+                          <IconX size={11} /> Clear All
                         </button>
                       </div>
 
@@ -11547,7 +11503,7 @@ function GalleryManagement({ user, logout, onNavigate }) {
                                 padding: 0,
                               }}
                             >
-                              ✕
+                              <IconX size={10} />
                             </button>
                           </div>
                         ))}
@@ -11612,6 +11568,11 @@ function GalleryManagement({ user, logout, onNavigate }) {
             )}
           </article>
         </div>
+        ) : (
+          <div style={{ padding: '14px 20px', marginBottom: '24px', borderRadius: '10px', background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38bdf8', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <IconEye size={16} /> Observer Access: You have read-only view of all club photo albums and full-resolution media. Album creation, batch uploads, and photo deletions are restricted.
+          </div>
+        )}
 
         {/* Albums Directory Section */}
         <div className="section-title" style={{ marginTop: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
@@ -11658,11 +11619,13 @@ function GalleryManagement({ user, logout, onNavigate }) {
                   </div>
                   <div style={{ padding: '8px 12px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <small style={{ color: isSelected ? 'var(--brand-primary)' : 'var(--text-dim)', fontWeight: isSelected ? 700 : 400 }}>
-                      {isSelected ? '✓ Active Album' : 'Click to Manage'}
+                      {isSelected ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCheck size={11} /> Active Album</span> : 'Click to Manage'}
                     </small>
-                    <button type="button" className="action-btn delete-btn" onClick={e => removeAlbum(a.id, e)} title="Delete entire album">
-                      Delete
-                    </button>
+                    {!user.isReadOnly && (
+                      <button type="button" className="action-btn delete-btn" onClick={e => removeAlbum(a.id, e)} title="Delete entire album">
+                        Delete
+                      </button>
+                    )}
                   </div>
                 </div>
               )
@@ -11682,9 +11645,11 @@ function GalleryManagement({ user, logout, onNavigate }) {
                   {selectedAlbum.name} ({selectedAlbum.photos?.length || 0} Photos)
                 </h2>
               </div>
-              <button type="button" className="action-btn delete-btn" onClick={e => removeAlbum(selectedAlbum.id, e)}>
-                Delete Entire Album
-              </button>
+              {!user.isReadOnly && (
+                <button type="button" className="action-btn delete-btn" onClick={e => removeAlbum(selectedAlbum.id, e)}>
+                  Delete Entire Album
+                </button>
+              )}
             </div>
 
             {(!selectedAlbum.photos || selectedAlbum.photos.length === 0) ? (
@@ -11705,11 +11670,13 @@ function GalleryManagement({ user, logout, onNavigate }) {
                         <p>{p.caption}</p>
                       </div>
                     )}
-                    <div style={{ padding: '6px 10px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'flex-end' }}>
-                      <button type="button" className="action-btn delete-btn" onClick={e => removePhoto(selectedAlbum.id, p.id, e)}>
-                        Remove Photo
-                      </button>
-                    </div>
+                    {!user.isReadOnly && (
+                      <div style={{ padding: '6px 10px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'flex-end' }}>
+                        <button type="button" className="action-btn delete-btn" onClick={e => removePhoto(selectedAlbum.id, p.id, e)}>
+                          Remove Photo
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -11725,7 +11692,7 @@ function GalleryManagement({ user, logout, onNavigate }) {
             albumName={selectedAlbum?.name}
             onClose={() => setActiveLightbox(null)}
             onSelectPhoto={p => setActiveLightbox(p)}
-            onDeletePhoto={selectedAlbum ? (photoId, e) => removePhoto(selectedAlbum.id, photoId, e) : null}
+            onDeletePhoto={!user.isReadOnly && selectedAlbum ? (photoId, e) => removePhoto(selectedAlbum.id, photoId, e) : null}
           />
         )}
       </section>
@@ -11820,7 +11787,7 @@ function ReelsManagement({ user, logout, onNavigate }) {
         platformMode: reelPlatformMode,
         isFeatured,
       })
-      setMessage('✓ Campus Reel published successfully! Pushed as TOP PRIORITY for all students.')
+      setMessage('Campus Reel published successfully! Pushed as TOP PRIORITY for all students.')
       setUrl('')
       setTitle('')
       setDescription('')
@@ -11852,7 +11819,7 @@ function ReelsManagement({ user, logout, onNavigate }) {
         titlePrefix: profileTitlePrefix.trim(),
         count: 5,
       })
-      setMessage(res.message || '✓ Instagram profile posts synced successfully into random student playback!')
+      setMessage(res.message || 'Instagram profile posts synced successfully into random student playback!')
       setProfilePostLinks('')
       loadReels()
     } catch (err) {
@@ -11885,7 +11852,7 @@ function ReelsManagement({ user, logout, onNavigate }) {
     try {
       await adminApi.deleteReel(id)
       setReels(curr => curr.filter(r => r.id !== id))
-      setMessage('✓ Reel deleted successfully.')
+      setMessage('Reel deleted successfully.')
     } catch (err) {
       setError(err.message || 'Failed to delete reel.')
     }
@@ -11897,7 +11864,7 @@ function ReelsManagement({ user, logout, onNavigate }) {
         <div className="event-heading">
           <div>
             <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
-              ← COMMAND CENTER
+              <IconArrowLeft size={13} style={{ marginRight: 6 }} /> COMMAND CENTER
             </button>
             <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <IconVideo size={14} /> SHORT-FORM CAMPUS MEDIA & HIGHLIGHTS
@@ -11910,8 +11877,14 @@ function ReelsManagement({ user, logout, onNavigate }) {
         {message && <p className="member-form-success">{message}</p>}
         {error && <p className="member-form-error">{error}</p>}
 
-        {/* Creator Mode Switcher Tabs */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', background: 'var(--panel-subtle)', padding: '6px', borderRadius: '12px', width: 'fit-content', border: '1px solid var(--line)' }}>
+        {user.isReadOnly ? (
+          <div style={{ padding: '14px 20px', marginBottom: '24px', borderRadius: '10px', background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38bdf8', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <IconEye size={16} /> Observer Access: You have read-only view of published reels and campus highlights. Publishing new reels and deleting or altering feed content are restricted.
+          </div>
+        ) : (
+          <>
+            {/* Creator Mode Switcher Tabs */}
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', background: 'var(--panel-subtle)', padding: '6px', borderRadius: '12px', width: 'fit-content', border: '1px solid var(--line)' }}>
           <button
             type="button"
             onClick={() => setCreatorTab('SINGLE')}
@@ -11962,8 +11935,8 @@ function ReelsManagement({ user, logout, onNavigate }) {
               <article className="account-form-card" style={{ padding: '24px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                   <p className="eyebrow" style={{ margin: 0 }}>DIRECT ADMIN UPLOAD</p>
-                  <span className="badge" style={{ background: 'var(--brand-badge-bg)', color: 'var(--brand-primary)', fontSize: '10px', fontWeight: 800 }}>
-                    ★ TOP PRIORITY 1 FOR STUDENTS
+                  <span className="badge" style={{ background: 'var(--brand-badge-bg)', color: 'var(--brand-primary)', fontSize: '10px', fontWeight: 800, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <IconStar size={11} fill="currentColor" /> TOP PRIORITY 1 FOR STUDENTS
                   </span>
                 </div>
                 <h2>Publish Campus Reel</h2>
@@ -12104,8 +12077,8 @@ function ReelsManagement({ user, logout, onNavigate }) {
                     </label>
                   </div>
 
-                  <button className="primary member-submit" disabled={submitting} style={{ height: '46px', fontSize: '13px', fontWeight: 700, letterSpacing: '0.04em' }}>
-                    {submitting ? 'PUBLISHING REEL...' : 'PUBLISH & PUSH TO STUDENTS (PRIORITY 1) →'}
+                  <button className="primary member-submit" disabled={submitting} style={{ height: '46px', fontSize: '13px', fontWeight: 700, letterSpacing: '0.04em', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    {submitting ? 'PUBLISHING REEL...' : <>PUBLISH & PUSH TO STUDENTS (PRIORITY 1) <IconArrowRight size={13} /></>}
                   </button>
                 </form>
               </article>
@@ -12218,8 +12191,8 @@ function ReelsManagement({ user, logout, onNavigate }) {
                     </div>
                   </div>
 
-                  <button className="primary member-submit" disabled={profileSyncing} style={{ height: '46px', fontSize: '13px', fontWeight: 700, letterSpacing: '0.04em', background: 'linear-gradient(135deg, #ec4899, #8b5cf6)', borderColor: '#ec4899' }}>
-                    {profileSyncing ? 'SYNCING PROFILE POSTS...' : `SYNC @${profileHandle || 'PROFILE'} POSTS & REELS POOL →`}
+                  <button className="primary member-submit" disabled={profileSyncing} style={{ height: '46px', fontSize: '13px', fontWeight: 700, letterSpacing: '0.04em', background: 'linear-gradient(135deg, #ec4899, #8b5cf6)', borderColor: '#ec4899', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    {profileSyncing ? 'SYNCING PROFILE POSTS...' : <>SYNC @{profileHandle || 'PROFILE'} POSTS & REELS POOL <IconArrowRight size={13} /></>}
                   </button>
                 </form>
               </article>
@@ -12320,8 +12293,8 @@ function ReelsManagement({ user, logout, onNavigate }) {
                   <p style={{ margin: 0, fontSize: '10px', color: '#cbd5e1', lineHeight: 1.3, maxHeight: '28px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {title || 'Reel Caption Headline…'}
                   </p>
-                  <p style={{ margin: '4px 0 0', fontSize: '9px', color: '#94a3b8', fontFamily: 'monospace' }}>
-                    ♫ {audioTitle || 'Original audio'}
+                  <p style={{ margin: '4px 0 0', fontSize: '9px', color: '#94a3b8', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <IconMusic size={11} /> {audioTitle || 'Original audio'}
                   </p>
                 </div>
               </div>
@@ -12342,6 +12315,8 @@ function ReelsManagement({ user, logout, onNavigate }) {
             </div>
           </article>
         </div>
+        </>
+        )}
 
         {/* Published Reels Directory */}
         <div style={{ marginTop: '40px', borderTop: '1px solid var(--line)', paddingTop: '28px' }}>
@@ -12475,33 +12450,35 @@ function ReelsManagement({ user, logout, onNavigate }) {
                         <small>By: {r.postedBy}</small>
                       </div>
 
-                      <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                        <button
-                          type="button"
-                          className="outline"
-                          onClick={() => toggleReelStatus(r)}
-                          style={{ flex: 1, fontSize: '10px', padding: '6px' }}
-                        >
-                          {r.isActive ? 'Hide' : 'Publish'}
-                        </button>
-                        <button
-                          type="button"
-                          className="outline"
-                          onClick={() => toggleFeatured(r)}
-                          style={{ flex: 1, fontSize: '10px', padding: '6px', color: r.isFeatured ? '#f59e0b' : 'inherit' }}
-                        >
-                          {r.isFeatured ? 'Unpin' : 'Pin to Top'}
-                        </button>
-                        <button
-                          type="button"
-                          className="action-btn delete-btn"
-                          onClick={() => handleDeleteReel(r.id)}
-                          style={{ fontSize: '10px', padding: '6px 10px' }}
-                          title="Delete reel"
-                        >
-                          <IconTrash size={12} />
-                        </button>
-                      </div>
+                      {!user.isReadOnly && (
+                        <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                          <button
+                            type="button"
+                            className="outline"
+                            onClick={() => toggleReelStatus(r)}
+                            style={{ flex: 1, fontSize: '10px', padding: '6px' }}
+                          >
+                            {r.isActive ? 'Hide' : 'Publish'}
+                          </button>
+                          <button
+                            type="button"
+                            className="outline"
+                            onClick={() => toggleFeatured(r)}
+                            style={{ flex: 1, fontSize: '10px', padding: '6px', color: r.isFeatured ? '#f59e0b' : 'inherit' }}
+                          >
+                            {r.isFeatured ? 'Unpin' : 'Pin to Top'}
+                          </button>
+                          <button
+                            type="button"
+                            className="action-btn delete-btn"
+                            onClick={() => handleDeleteReel(r.id)}
+                            style={{ fontSize: '10px', padding: '6px 10px' }}
+                            title="Delete reel"
+                          >
+                            <IconTrash size={12} />
+                          </button>
+                        </div>
+                      )}
                     </article>
                   ))}
                 </div>
@@ -12513,9 +12490,9 @@ function ReelsManagement({ user, logout, onNavigate }) {
                       className="outline"
                       disabled={page <= 1}
                       onClick={() => setPage(p => Math.max(1, p - 1))}
-                      style={{ fontSize: '11px', padding: '6px 14px' }}
+                      style={{ fontSize: '11px', padding: '6px 14px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
                     >
-                      ← Previous Page
+                      <IconArrowLeft size={11} /> Previous Page
                     </button>
                     <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', fontFamily: 'DM Mono' }}>
                       Page {page} of {totalPages}
@@ -12525,9 +12502,9 @@ function ReelsManagement({ user, logout, onNavigate }) {
                       className="outline"
                       disabled={page >= totalPages}
                       onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                      style={{ fontSize: '11px', padding: '6px 14px' }}
+                      style={{ fontSize: '11px', padding: '6px 14px', display: 'inline-flex', alignItems: 'center', gap: 6 }}
                     >
-                      Next Page →
+                      Next Page <IconArrowRight size={11} />
                     </button>
                   </div>
                 )}
@@ -12544,6 +12521,7 @@ function ReelsManagement({ user, logout, onNavigate }) {
 // Team Leadership Management (Admin)
 // ----------------------------------------------------
 function TeamManagement({ user, logout, onNavigate }) {
+  const isReadOnly = Boolean(user.isReadOnly || isReadOnlyClubRole(user.role))
   const [team, setTeam] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState('')
@@ -12578,7 +12556,7 @@ function TeamManagement({ user, logout, onNavigate }) {
       const res = await adminApi.syncClubTeamFromAccounts()
       const sorted = (res.team || []).slice().sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
       setTeam(sorted)
-      setMessage(res.message || '✓ Council showcase successfully synchronized from user accounts!')
+      setMessage(res.message || 'Council showcase successfully synchronized from user accounts!')
     } catch (err) {
       setError(err.message || 'Failed to auto-sync council accounts.')
     } finally {
@@ -12701,24 +12679,26 @@ function TeamManagement({ user, logout, onNavigate }) {
       <section className="member-management">
         <div className="member-heading">
           <div>
-            <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
-              ← COMMAND CENTER
+            <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <IconArrowLeft size={13} /> COMMAND CENTER
             </button>
             <p className="eyebrow">COUNCIL SHOWCASE & PRIORITY</p>
             <h1>Team & Leadership Showcase</h1>
             <p>Manage public club council member profiles, auto-sync from personal accounts, and configure display priority.</p>
           </div>
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className="primary"
-              onClick={handleSyncLeadersFromAccounts}
-              disabled={syncing}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px', background: 'linear-gradient(135deg, #10b981, #059669)' }}
-              title="Automatically scan and sync leadership council accounts into the team showcase based on role priority"
-            >
-              <IconSparkles size={14} /> {syncing ? 'SYNCING LEADERS…' : '⚡ AUTO-SYNC FROM ACCOUNTS'}
-            </button>
+            {!isReadOnly && (
+              <button
+                type="button"
+                className="primary"
+                onClick={handleSyncLeadersFromAccounts}
+                disabled={syncing}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px', background: 'linear-gradient(135deg, #10b981, #059669)' }}
+                title="Automatically scan and sync leadership council accounts into the team showcase based on role priority"
+              >
+                <IconSparkles size={14} /> {syncing ? 'SYNCING LEADERS…' : 'AUTO-SYNC FROM ACCOUNTS'}
+              </button>
+            )}
             <button
               type="button"
               className="outline"
@@ -12735,75 +12715,79 @@ function TeamManagement({ user, logout, onNavigate }) {
         {message && <p className="member-form-success">{message}</p>}
         {error && <p className="member-form-error">{error}</p>}
 
-        <div className="member-management-grid">
-          <article className="account-form-card">
-            <p className="eyebrow">NEW LEADER</p>
-            <h2>Add Council Member</h2>
-            <form onSubmit={createMember}>
-              <div className="member-form-grid">
-                <label>
-                  Full Name *
-                  <input name="name" required placeholder="Leader Name" />
-                </label>
-                <label>
-                  Council Role Title *
-                  <input name="roleTitle" required placeholder="e.g. Student Coordinator, Tech Lead" />
-                </label>
-                <label>
-                  Official Email
-                  <input name="collegeEmail" type="email" placeholder="leader@college.edu" />
-                </label>
-                <label>
-                  Profile Photo
-                  <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) readImageFile(f, setPhotoPreview) }} />
-                </label>
-                <label className="form-wide">
-                  Short Bio
-                  <input name="bio" placeholder="Specialization & achievements..." />
-                </label>
-                <label>
-                  LinkedIn URL
-                  <input name="linkedinUrl" placeholder="https://linkedin.com/in/..." />
-                </label>
-                <label>
-                  GitHub URL
-                  <input name="githubUrl" placeholder="https://github.com/..." />
-                </label>
-              </div>
-
-              {photoPreview && (
-                <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <img src={photoPreview} alt="Preview" style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #52bbf5' }} />
-                  <button type="button" className="action-btn delete-btn" onClick={() => setPhotoPreview('')}>Remove Photo</button>
+        <div className="member-management-grid" style={isReadOnly ? { gridTemplateColumns: '1fr' } : undefined}>
+          {!isReadOnly && (
+            <article className="account-form-card">
+              <p className="eyebrow">NEW LEADER</p>
+              <h2>Add Council Member</h2>
+              <form onSubmit={createMember}>
+                <div className="member-form-grid">
+                  <label>
+                    Full Name *
+                    <input name="name" required placeholder="Leader Name" />
+                  </label>
+                  <label>
+                    Council Role Title *
+                    <input name="roleTitle" required placeholder="e.g. Student Coordinator, Tech Lead" />
+                  </label>
+                  <label>
+                    Official Email
+                    <input name="collegeEmail" type="email" placeholder="leader@college.edu" />
+                  </label>
+                  <label>
+                    Profile Photo
+                    <input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) readImageFile(f, setPhotoPreview) }} />
+                  </label>
+                  <label className="form-wide">
+                    Short Bio
+                    <input name="bio" placeholder="Specialization & achievements..." />
+                  </label>
+                  <label>
+                    LinkedIn URL
+                    <input name="linkedinUrl" placeholder="https://linkedin.com/in/..." />
+                  </label>
+                  <label>
+                    GitHub URL
+                    <input name="githubUrl" placeholder="https://github.com/..." />
+                  </label>
                 </div>
-              )}
 
-              <button className="primary member-submit" style={{ marginTop: '14px' }}>
-                ＋ &nbsp; ADD LEADER PROFILE
-              </button>
-            </form>
-          </article>
+                {photoPreview && (
+                  <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <img src={photoPreview} alt="Preview" style={{ width: '44px', height: '44px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #52bbf5' }} />
+                    <button type="button" className="action-btn delete-btn" onClick={() => setPhotoPreview('')}>Remove Photo</button>
+                  </div>
+                )}
 
-          <article className="member-list-card">
+                <button className="primary member-submit" style={{ marginTop: '14px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                  <IconPlus size={14} /> ADD LEADER PROFILE
+                </button>
+              </form>
+            </article>
+          )}
+
+          <article className="member-list-card" style={isReadOnly ? { gridColumn: '1 / -1' } : undefined}>
             <div className="card-heading" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
               <div>
                 <p className="eyebrow">COUNCIL ROSTER & DISPLAY PRIORITY</p>
                 <h2>Active Leaders ({team.length})</h2>
               </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  type="button"
-                  className="action-btn edit-btn"
-                  onClick={handleSyncLeadersFromAccounts}
-                  disabled={syncing}
-                  style={{ fontSize: '10px' }}
-                >
-                  {syncing ? 'Syncing…' : '⚡ Sync'}
-                </button>
-              </div>
+              {!isReadOnly && (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="action-btn edit-btn"
+                    onClick={handleSyncLeadersFromAccounts}
+                    disabled={syncing}
+                    style={{ fontSize: '10px' }}
+                  >
+                    {syncing ? 'Syncing…' : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><IconZap size={11} /> Sync</span>}
+                  </button>
+                </div>
+              )}
             </div>
             <p style={{ color: '#7e95a7', fontSize: '11px', margin: '4px 0 14px' }}>
-              Priority order reflects hierarchy (President → VP → Student Coordinator → Leads). Use <b>▲ Up</b> and <b>▼ Down</b> to customize order.
+              Priority order reflects hierarchy (President &rarr; VP &rarr; Student Coordinator &rarr; Leads). Use <b>Up</b> and <b>Down</b> to customize order.
             </p>
 
             {loading ? (
@@ -12817,26 +12801,30 @@ function TeamManagement({ user, logout, onNavigate }) {
                     {/* Header with Priority Order Badge and Reorder Buttons */}
                     <div className="leader-card-header">
                       <span className="leader-order-badge">#{idx + 1} PRIORITY</span>
-                      <div className="leader-order-controls">
-                        <button
-                          type="button"
-                          className="order-btn"
-                          disabled={idx === 0}
-                          onClick={() => moveMember(idx, -1)}
-                          title="Move Up in Priority"
-                        >
-                          ▲ Up
-                        </button>
-                        <button
-                          type="button"
-                          className="order-btn"
-                          disabled={idx === team.length - 1}
-                          onClick={() => moveMember(idx, 1)}
-                          title="Move Down in Priority"
-                        >
-                          ▼ Down
-                        </button>
-                      </div>
+                      {!isReadOnly && (
+                        <div className="leader-order-controls">
+                          <button
+                            type="button"
+                            className="order-btn"
+                            disabled={idx === 0}
+                            onClick={() => moveMember(idx, -1)}
+                            title="Move Up in Priority"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}
+                          >
+                            <IconChevronUp size={11} /> Up
+                          </button>
+                          <button
+                            type="button"
+                            className="order-btn"
+                            disabled={idx === team.length - 1}
+                            onClick={() => moveMember(idx, 1)}
+                            title="Move Down in Priority"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: 2 }}
+                          >
+                            <IconChevronDown size={11} /> Down
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     {l.photoUrl ? (
@@ -12848,25 +12836,27 @@ function TeamManagement({ user, logout, onNavigate }) {
                     <small style={{ color: 'var(--brand-primary)', font: '600 10px "DM Mono", monospace', margin: '4px 0' }}>{l.roleTitle}</small>
                     <p style={{ color: 'var(--text-muted)', fontSize: '11px', margin: '6px 0 12px' }}>{l.bio || 'No bio provided.'}</p>
 
-                    <div className="leader-card-actions">
-                      <button
-                        type="button"
-                        className="action-btn edit-btn"
-                        onClick={() => {
-                          setEditingMember(l)
-                          setEditPhotoPreview(l.photoUrl || '')
-                        }}
-                      >
-                        Edit Profile
-                      </button>
-                      <button
-                        type="button"
-                        className="action-btn delete-btn"
-                        onClick={() => removeMember(l.id)}
-                      >
-                        Remove
-                      </button>
-                    </div>
+                    {!isReadOnly && (
+                      <div className="leader-card-actions">
+                        <button
+                          type="button"
+                          className="action-btn edit-btn"
+                          onClick={() => {
+                            setEditingMember(l)
+                            setEditPhotoPreview(l.photoUrl || '')
+                          }}
+                        >
+                          Edit Profile
+                        </button>
+                        <button
+                          type="button"
+                          className="action-btn delete-btn"
+                          onClick={() => removeMember(l.id)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -12878,7 +12868,7 @@ function TeamManagement({ user, logout, onNavigate }) {
         {editingMember && (
           <div className="photo-lightbox" onClick={() => setEditingMember(null)}>
             <div className="guest-modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '580px' }}>
-              <button className="lightbox-close" onClick={() => setEditingMember(null)}>✕</button>
+              <button className="lightbox-close" onClick={() => setEditingMember(null)}><IconX size={16} /></button>
               <p className="eyebrow">UPDATE COUNCIL PROFILE</p>
               <h3 style={{ color: 'var(--text-main)', font: '700 20px Syne', margin: '4px 0 8px' }}>
                 Edit Leader Profile: {editingMember.name}
@@ -12931,7 +12921,7 @@ function TeamManagement({ user, logout, onNavigate }) {
                     Cancel
                   </button>
                   <button type="submit" className="primary" style={{ flex: 2, minHeight: '40px', fontSize: '11px' }} disabled={submitting}>
-                    {submitting ? 'SAVING CHANGES…' : '✓ SAVE PROFILE CHANGES'}
+                    {submitting ? 'SAVING CHANGES…' : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><IconCheck size={13} /> SAVE PROFILE CHANGES</span>}
                   </button>
                 </div>
               </form>
@@ -13028,6 +13018,11 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
     setMessage('')
     setError('')
 
+    if (user?.isReadOnly) {
+      setError('Observer access: You have read-only privileges and cannot modify settings.')
+      return
+    }
+
     const payload = {
       platformMode: selectedPlatform,
       siteStatus,
@@ -13062,7 +13057,7 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
       try {
         localStorage.setItem('cached_club_settings', JSON.stringify(updated || payload))
       } catch (e) {}
-      setMessage('✓ Platform settings, social media, and technical support channels saved successfully.')
+      setMessage('Platform settings, social media, and technical support channels saved successfully.')
     } catch (err) {
       setError(err.message || 'Failed to update settings.')
     } finally {
@@ -13090,7 +13085,7 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
       link.click()
       document.body.removeChild(link)
 
-      setSqlExportSuccess(`✓ Full database export (${(res.sqlContent.length / 1024).toFixed(1)} KB) generated and downloaded successfully!`)
+      setSqlExportSuccess(`Full database export (${(res.sqlContent.length / 1024).toFixed(1)} KB) generated and downloaded successfully!`)
       setSqlExportPassword('')
       setTimeout(() => {
         setSqlExportModalOpen(false)
@@ -13108,8 +13103,8 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
       <section className="member-management">
         <div className="member-heading">
           <div>
-            <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
-              ← COMMAND CENTER
+            <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <IconArrowLeft size={13} /> COMMAND CENTER
             </button>
             <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Icon8 name="keySecurity" size={14} /> CENTRAL CONFIGURATION & BRANDING
@@ -13420,8 +13415,8 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
                   <span style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontWeight: 600 }}>YouTube Onboarding Video URL</span>
                     {parseYouTubeVideoId(introVideoUrl || 'https://www.youtube.com/watch?v=gokPW83s7nA') ? (
-                      <span style={{ color: '#70ddb4', fontSize: '11px', fontWeight: 600 }}>
-                        ✓ Detected ID: <code>{parseYouTubeVideoId(introVideoUrl || 'https://www.youtube.com/watch?v=gokPW83s7nA')}</code>
+                      <span style={{ color: '#70ddb4', fontSize: '11px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <IconCheck size={12} /> Detected ID: <code>{parseYouTubeVideoId(introVideoUrl || 'https://www.youtube.com/watch?v=gokPW83s7nA')}</code>
                       </span>
                     ) : introVideoUrl ? (
                       <span style={{ color: '#f87171', fontSize: '11px', fontWeight: 600 }}>
@@ -13654,9 +13649,15 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
             </div>
           </article>
 
-          <button className="primary member-submit" type="submit" disabled={submitting} style={{ minHeight: '46px', width: '100%', fontSize: '13px', fontWeight: 700, letterSpacing: '0.04em' }}>
-            {submitting ? 'SAVING CONFIGURATION…' : 'SAVE ALL SETTINGS & PUBLISH'}
-          </button>
+          {user?.isReadOnly ? (
+            <div style={{ padding: '14px 20px', borderRadius: '10px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid rgba(56, 189, 248, 0.3)', color: '#38bdf8', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <IconEye size={16} /> Observer Access: Settings are view-only. You cannot make configuration changes to the club.
+            </div>
+          ) : (
+            <button className="primary member-submit" type="submit" disabled={submitting} style={{ minHeight: '46px', width: '100%', fontSize: '13px', fontWeight: 700, letterSpacing: '0.04em' }}>
+              {submitting ? 'SAVING CONFIGURATION…' : 'SAVE ALL SETTINGS & PUBLISH'}
+            </button>
+          )}
         </form>
 
         {/* Modal for SQL Export Password Confirmation */}
@@ -13785,8 +13786,8 @@ function StudentEvents({ user, logout, onNavigate }) {
       <section className="gallery-section">
         <div className="event-heading">
           <div>
-            <button className="back-button" type="button" onClick={() => onNavigate('student-dashboard')}>
-              ← BACK TO DASHBOARD
+            <button className="back-button" type="button" onClick={() => onNavigate('student-dashboard')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <IconArrowLeft size={13} /> BACK TO DASHBOARD
             </button>
             <p className="eyebrow">{isMrdu ? 'MRDU UNIVERSITY CALENDAR' : 'COMMUNITY CALENDAR'}</p>
             <h1>{isMrdu ? 'University Events & Fests' : 'Upcoming Club Events'}</h1>
@@ -13984,7 +13985,7 @@ function StudentRegistrations({ user, logout, onNavigate }) {
         driveUrl: projectDriveUrl.trim() || null,
         notes: projectNotes.trim() || null,
       })
-      setProjectSuccess('✓ Team project submission saved successfully!')
+      setProjectSuccess('Team project submission saved successfully!')
       fetchRegistrations()
       setTimeout(() => setProjectModalReg(null), 1600)
     } catch (err) {
@@ -14008,7 +14009,7 @@ function StudentRegistrations({ user, logout, onNavigate }) {
       await memberApi.resubmitPayment(resubmitModalReg.id, {
         paymentReference: resubmitUtr.trim(),
       })
-      setResubmitSuccess('✓ Payment resubmitted! Now under organizer verification.')
+      setResubmitSuccess('Payment resubmitted! Now under organizer verification.')
       fetchRegistrations()
       setTimeout(() => {
         setResubmitModalReg(null)
@@ -14026,8 +14027,8 @@ function StudentRegistrations({ user, logout, onNavigate }) {
       <section className="gallery-section">
         <div className="event-heading">
           <div>
-            <button className="back-button" type="button" onClick={() => onNavigate('student-dashboard')}>
-              ← BACK TO DASHBOARD
+            <button className="back-button" type="button" onClick={() => onNavigate('student-dashboard')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <IconArrowLeft size={13} /> BACK TO DASHBOARD
             </button>
             <p className="eyebrow" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <Icon8 name="idDocs" size={14} /> {isMrdu ? 'CONFIRMED PASSES & BADGES' : 'CONFIRMED PASSES'}
@@ -14039,7 +14040,7 @@ function StudentRegistrations({ user, logout, onNavigate }) {
 
         {isOfflineCached && (
           <div style={{ background: 'rgba(16, 185, 129, 0.12)', border: '1px solid #10b981', borderRadius: '10px', padding: '10px 16px', margin: '16px 0', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#10b981' }}>
-            <span>⚡</span>
+            <IconZap size={14} />
             <span><strong>Offline / Low-Network Mode:</strong> Your event passes and entrance QR codes are safely loaded from device cache. They can be scanned at the venue gate even without internet.</span>
           </div>
         )}
@@ -14079,12 +14080,12 @@ function StudentRegistrations({ user, logout, onNavigate }) {
                     </div>
 
                     {isRejected ? (
-                      <span className="badge" style={{ background: '#7f1d1d', color: '#fca5a5', border: '1px solid #ef4444', fontWeight: 700, fontSize: '10px' }}>
-                        ❌ PAYMENT REJECTED
+                      <span className="badge" style={{ background: '#7f1d1d', color: '#fca5a5', border: '1px solid #ef4444', fontWeight: 700, fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <IconXCircle size={12} /> PAYMENT REJECTED
                       </span>
                     ) : isUnderVerif ? (
-                      <span className="badge" style={{ background: '#78350f', color: '#fde68a', border: '1px solid #eab308', fontWeight: 700, fontSize: '10px' }}>
-                        ⏳ UNDER VERIFICATION
+                      <span className="badge" style={{ background: '#78350f', color: '#fde68a', border: '1px solid #eab308', fontWeight: 700, fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <IconClock size={12} /> UNDER VERIFICATION
                       </span>
                     ) : reg.attendanceMarked ? (
                       <span className="badge" style={{ background: '#064e3b', color: '#6ee7b7', border: '1px solid #10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px' }}>
@@ -14106,8 +14107,8 @@ function StudentRegistrations({ user, logout, onNavigate }) {
 
                     {reg.teamName && (
                       <div style={{ marginBottom: '8px' }}>
-                        <span className="badge" style={{ background: 'var(--brand-glow)', color: 'var(--brand-primary)', border: '1px solid var(--line)', fontSize: '10.5px' }}>
-                          👥 Team: {reg.teamName} {reg.isTeamLeader ? '★ Squad Leader' : '· Member'}
+                        <span className="badge" style={{ background: 'var(--brand-glow)', color: 'var(--brand-primary)', border: '1px solid var(--line)', fontSize: '10.5px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <IconUsers size={12} /> Team: {reg.teamName} {reg.isTeamLeader ? <>· <IconStar size={11} fill="currentColor" /> Squad Leader</> : '· Member'}
                         </span>
                       </div>
                     )}
@@ -14115,7 +14116,12 @@ function StudentRegistrations({ user, logout, onNavigate }) {
                     <div className="card-meta" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', margin: '8px 0 14px', fontSize: '11px' }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCalendar size={13} /> {reg.event?.dateTime ? new Date(reg.event.dateTime).toLocaleDateString() : 'TBA'}</span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconLocationPin size={13} /> {reg.event?.venue || reg.event?.location || 'Campus'}</span>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCreditCard size={13} /> Fee: <b style={{ color: isRejected ? '#ef4444' : isUnderVerif ? '#eab308' : '#70ddb4', marginLeft: 4 }}>{reg.paymentStatus}</b></span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <IconCreditCard size={13} /> Fee:{' '}
+                        <b style={{ color: isRejected ? '#ef4444' : isUnderVerif ? '#eab308' : '#70ddb4', marginLeft: 4 }}>
+                          {Number(reg.totalAmount) > 0 ? `₹${reg.totalAmount} · ${reg.paymentStatus}` : reg.paymentStatus}
+                        </b>
+                      </span>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconUserSvg size={13} /> {user.memberId}</span>
                     </div>
 
@@ -14138,9 +14144,9 @@ function StudentRegistrations({ user, logout, onNavigate }) {
                               setResubmitError('')
                               setResubmitSuccess('')
                             }}
-                            style={{ width: '100%', padding: '6px', fontSize: '11px', background: '#ef4444', color: '#fff', fontWeight: 700 }}
+                            style={{ width: '100%', padding: '6px', fontSize: '11px', background: '#ef4444', color: '#fff', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
                           >
-                            Resubmit Payment UTR →
+                            Resubmit Payment UTR <IconArrowRight size={12} />
                           </button>
                         )}
                       </div>
@@ -14193,7 +14199,7 @@ function StudentRegistrations({ user, logout, onNavigate }) {
                           </p>
                           <p style={{ margin: '4px 0 0', fontSize: '9.5px', color: reg.attendanceMarked ? '#059669' : '#d97706', fontWeight: 600 }}>
                             {reg.attendanceMarked
-                              ? `✓ Checked in at ${reg.attendedAt ? new Date(reg.attendedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Gate'}`
+                              ? `Checked in at ${reg.attendedAt ? new Date(reg.attendedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Gate'}`
                               : 'Show this QR at gate'}
                           </p>
                           <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
@@ -14226,7 +14232,7 @@ function StudentRegistrations({ user, logout, onNavigate }) {
                         onClick={() => handleOpenProjectModal(reg)}
                         style={{ marginTop: '10px', padding: '8px 12px', background: 'rgba(168, 85, 247, 0.12)', border: '1px solid #a855f7', borderRadius: '8px', color: '#c084fc', fontSize: '11px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                       >
-                        🚀 Hackathon Team Project Submission
+                        <IconRocket size={14} /> Hackathon Team Project Submission
                       </button>
                     )}
                   </div>
@@ -14283,7 +14289,7 @@ function StudentRegistrations({ user, logout, onNavigate }) {
                 <span className="badge" style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc' }}>
                   HACKATHON TEAM PROJECT
                 </span>
-                <button className="lightbox-close" onClick={() => setProjectModalReg(null)} style={{ position: 'static' }}>✕</button>
+                <button className="lightbox-close" onClick={() => setProjectModalReg(null)} style={{ position: 'static' }}><IconX size={16} /></button>
               </div>
 
               <h2 style={{ font: '700 18px Syne', color: 'var(--text-main)', margin: '0 0 6px' }}>
@@ -14344,7 +14350,7 @@ function StudentRegistrations({ user, logout, onNavigate }) {
 
                 <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
                   <button type="submit" className="primary" disabled={savingProject} style={{ flex: 1, height: '40px', fontWeight: 700 }}>
-                    {savingProject ? 'Saving…' : '✓ Save & Sync Team Submission'}
+                    {savingProject ? 'Saving…' : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><IconCheck size={13} /> Save & Sync Team Submission</span>}
                   </button>
                   <button type="button" className="action-btn cancel-btn" onClick={() => setProjectModalReg(null)}>
                     Close
@@ -14420,7 +14426,7 @@ function StudentRegistrations({ user, logout, onNavigate }) {
                   }}
                   title="Close Pass"
                 >
-                  ✕
+                  <IconX size={18} />
                 </button>
               </div>
 
@@ -14500,7 +14506,14 @@ function StudentRegistrations({ user, logout, onNavigate }) {
                   </div>
                   <div>
                     <span style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block' }}>Payment Status</span>
-                    <b style={{ color: '#70ddb4' }}>{selectedPass.paymentStatus} {selectedPass.totalAmount > 0 ? `(₹${selectedPass.totalAmount})` : '(Free)'}</b>
+                    <b style={{ color: '#70ddb4' }}>
+                      {selectedPass.paymentStatus}{' '}
+                      {Number(selectedPass.totalAmount) > 0
+                        ? `(₹${selectedPass.totalAmount})`
+                        : (selectedPass.teamName && !selectedPass.isTeamLeader && ['VERIFIED', 'PAID'].includes(String(selectedPass.paymentStatus).toUpperCase()))
+                          ? '(Team Pass · Paid)'
+                          : (selectedPass.paymentStatus === 'FREE' ? '(Free)' : '')}
+                    </b>
                   </div>
                   <div>
                     <span style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block' }}>Gate Attendance Status</span>
@@ -14607,8 +14620,8 @@ function StudentGallery({ user, logout, onNavigate }) {
           <div>
             <div className="event-heading" style={{ marginBottom: '20px' }}>
               <div>
-                <button className="back-button" type="button" onClick={() => setSelectedAlbum(null)}>
-                  ← BACK TO ALL ALBUMS
+                <button className="back-button" type="button" onClick={() => setSelectedAlbum(null)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <IconArrowLeft size={13} /> BACK TO ALL ALBUMS
                 </button>
                 <p className="eyebrow">{isMrdu ? 'MRDU ALBUM SHOWCASE' : 'ALBUM SHOWCASE'}</p>
                 <h1>{selectedAlbum.name}</h1>
@@ -14659,8 +14672,8 @@ function StudentGallery({ user, logout, onNavigate }) {
           <div>
             <div className="event-heading">
               <div>
-                <button className="back-button" type="button" onClick={() => onNavigate('student-dashboard')}>
-                  ← BACK TO DASHBOARD
+                <button className="back-button" type="button" onClick={() => onNavigate('student-dashboard')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <IconArrowLeft size={13} /> BACK TO DASHBOARD
                 </button>
                 <p className="eyebrow">{isMrdu ? 'EVENT PHOTO ARCHIVES' : 'PHOTO MEMORIES'}</p>
                 <h1>{isMrdu ? 'MRDU Events & Fests Gallery' : 'Cyber Security Club Gallery'}</h1>
@@ -14694,7 +14707,7 @@ function StudentGallery({ user, logout, onNavigate }) {
                       <p>{a.description || (isMrdu ? 'MRDU event photo highlights' : 'Club photo highlights')}</p>
                     </div>
                     <div style={{ padding: '8px 14px', borderTop: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <small style={{ color: 'var(--brand-primary)', fontWeight: 600 }}>Open Album →</small>
+                      <small style={{ color: 'var(--brand-primary)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>Open Album <IconArrowRight size={12} /></small>
                       <small style={{ color: 'var(--text-dim)' }}>{a.photos?.length || 0} photos</small>
                     </div>
                   </div>
@@ -14910,8 +14923,8 @@ function StudentReels({ user, logout, onNavigate }) {
         {/* Navigation Toolbar & View Switcher */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button className="back-button" type="button" onClick={() => onNavigate('student-dashboard')} style={{ margin: 0 }}>
-              ← DASHBOARD
+            <button className="back-button" type="button" onClick={() => onNavigate('student-dashboard')} style={{ margin: 0, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <IconArrowLeft size={13} /> DASHBOARD
             </button>
             <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>
               Official Social Media & Reels
@@ -15059,8 +15072,8 @@ function StudentReels({ user, logout, onNavigate }) {
                   <span style={{ fontSize: '11px', color: 'var(--text-dim)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                     <IconHeart size={12} color="#ef4444" filled={r.likesCount > 0} /> {r.likesCount} · {r.viewsCount} views
                   </span>
-                  <span style={{ fontSize: '11px', color: 'var(--brand-primary)', fontWeight: 700 }}>
-                    Watch Reel →
+                  <span style={{ fontSize: '11px', color: 'var(--brand-primary)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    Watch Reel <IconArrowRight size={12} />
                   </span>
                 </div>
               </article>
@@ -15361,7 +15374,7 @@ function StudentReels({ user, logout, onNavigate }) {
                       }}
                     >
                       @{authorHandle}
-                      <span style={{ color: '#38bdf8', fontSize: '12px' }}>✓</span>
+                      <IconCheckCircle size={13} color="#38bdf8" />
                     </a>
 
                     <a
@@ -15437,7 +15450,7 @@ function StudentReels({ user, logout, onNavigate }) {
                       whiteSpace: 'nowrap',
                     }}
                   >
-                    <span style={{ fontSize: '11px' }}>♫</span>
+                    <IconMusic size={12} color="#cbd5e1" />
                     <span style={{ fontFamily: 'DM Mono', fontSize: '10px', opacity: 0.9 }}>
                       {audioTitle}
                     </span>
@@ -15525,8 +15538,8 @@ function OurTeamShowcase({ user, logout, onNavigate }) {
       <section className="member-management">
         <div className="member-heading">
           <div>
-            <button className="back-button" type="button" onClick={() => onNavigate('student-dashboard')}>
-              ← BACK TO DASHBOARD
+            <button className="back-button" type="button" onClick={() => onNavigate('student-dashboard')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <IconArrowLeft size={13} /> BACK TO DASHBOARD
             </button>
             <p className="eyebrow">{isMrdu ? 'CENTRAL ORGANIZING COMMITTEE' : 'STUDENT COUNCIL'}</p>
             <h1>{isMrdu ? 'Meet Our Organizing Committee' : 'Meet Our Leadership'}</h1>
@@ -15923,7 +15936,7 @@ function AdminQrScanner({ user, logout, onNavigate }) {
         // Strict anti-duplicate lock: prevent scanning the exact same pass at the same second (within 5 seconds)
         if (lastScannedRef.current.code === detectedText && now - lastScannedRef.current.time < 5000) {
           const secs = Math.max(1, Math.round((now - lastScannedRef.current.time) / 1000))
-          setDuplicateWarning(`⚠️ Duplicate Capture Avoided: This pass was just captured ${secs}s ago. Attendee record is displayed below to avoid double entry.`)
+          setDuplicateWarning(`Duplicate Capture Avoided: This pass was just captured ${secs}s ago. Attendee record is displayed below to avoid double entry.`)
           playScanBeep()
           return
         }
@@ -16058,7 +16071,7 @@ function AdminQrScanner({ user, logout, onNavigate }) {
 
     try {
       const res = await adminApi.grantEventEntry(regId)
-      setSuccessMessage(res.message || '✓ Entry granted & attendance verified successfully!')
+      setSuccessMessage(res.message || 'Entry granted & attendance verified successfully!')
 
       // Update current scanResult state
       setScanResult(curr => {
@@ -16089,7 +16102,7 @@ function AdminQrScanner({ user, logout, onNavigate }) {
         <div className="member-heading">
           <div>
             <button className="back-button" type="button" onClick={() => onNavigate('admin-events')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
-              ← BACK TO EVENT MANAGEMENT
+              <IconArrowLeft size={13} /> BACK TO EVENT MANAGEMENT
             </button>
             <p className="eyebrow">EVENT TICKET VERIFICATION & GATE ENTRY</p>
             <h1>Event Pass QR Capture & Gate Check-in</h1>
@@ -16138,14 +16151,16 @@ function AdminQrScanner({ user, logout, onNavigate }) {
         )}
 
         {duplicateWarning && (
-          <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.18)', border: '1px solid #f59e0b', color: '#fde68a', fontSize: '13px', margin: '0 0 16px', fontWeight: 600 }}>
-            {duplicateWarning}
+          <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(245, 158, 11, 0.18)', border: '1px solid #f59e0b', color: '#fde68a', fontSize: '13px', margin: '0 0 16px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <IconAlertTriangle size={16} color="#f59e0b" style={{ flexShrink: 0 }} />
+            <span>{duplicateWarning}</span>
           </div>
         )}
 
         {successMessage && (
-          <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b98166', color: '#6ee7b7', fontSize: '13px', margin: '0 0 16px', fontWeight: 600 }}>
-            {successMessage}
+          <div style={{ padding: '12px 16px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b98166', color: '#6ee7b7', fontSize: '13px', margin: '0 0 16px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <IconCheckCircle size={16} color="#10b981" style={{ flexShrink: 0 }} />
+            <span>{successMessage}</span>
           </div>
         )}
 
@@ -16176,7 +16191,7 @@ function AdminQrScanner({ user, logout, onNavigate }) {
                       gap: '5px',
                     }}
                   >
-                    <span>📸</span> PHOTO CAPTURE (LEADER SNAP)
+                    <IconCamera size={14} /> PHOTO CAPTURE (LEADER SNAP)
                   </button>
                   <button
                     type="button"
@@ -16197,14 +16212,17 @@ function AdminQrScanner({ user, logout, onNavigate }) {
                       gap: '5px',
                     }}
                   >
-                    <span>⚡</span> CONTINUOUS AUTO-SCAN
+                    <IconZap size={14} /> CONTINUOUS AUTO-SCAN
                   </button>
                 </div>
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
                   <span style={{ fontSize: '11px', color: '#10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block', boxShadow: '0 0 8px #10b981' }} />
-                    {cameraFacingMode === 'environment' ? '📷 BACK CAMERA (ENVIRONMENT)' : '🤳 FRONT CAMERA (USER)'}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      {cameraFacingMode === 'environment' ? <IconCamera size={13} /> : <IconSwitchCamera size={13} />}
+                      {cameraFacingMode === 'environment' ? 'BACK CAMERA (ENVIRONMENT)' : 'FRONT CAMERA (USER)'}
+                    </span>
                   </span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     {hasTorch && (
@@ -16226,7 +16244,7 @@ function AdminQrScanner({ user, logout, onNavigate }) {
                         }}
                         title="Toggle Flashlight / Torch"
                       >
-                        ⚡ {torchOn ? 'TORCH ON' : 'TORCH OFF'}
+                        <IconTorch size={13} /> {torchOn ? 'TORCH ON' : 'TORCH OFF'}
                       </button>
                     )}
                     <button
@@ -16247,7 +16265,7 @@ function AdminQrScanner({ user, logout, onNavigate }) {
                       }}
                       title="Switch between front and back camera"
                     >
-                      🔄 FLIP CAMERA
+                      <IconSwitchCamera size={13} /> FLIP CAMERA
                     </button>
                   </div>
                 </div>
@@ -16308,8 +16326,8 @@ function AdminQrScanner({ user, logout, onNavigate }) {
                         alt="Captured Pass"
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                       />
-                      <div style={{ position: 'absolute', top: '10px', left: '10px', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', fontSize: '10px', color: '#38bdf8', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <span>📸</span> PHOTO SNAPSHOT CAPTURED
+                      <div style={{ position: 'absolute', top: '10px', left: '10px', background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', padding: '4px 10px', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.2)', fontSize: '10px', color: '#38bdf8', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <IconCamera size={13} /> PHOTO SNAPSHOT CAPTURED
                       </div>
                     </div>
                   ) : (
@@ -16372,15 +16390,15 @@ function AdminQrScanner({ user, logout, onNavigate }) {
                           onClick={handleCaptureNextPass}
                           style={{ flex: 2, height: '46px', fontSize: '12px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'linear-gradient(135deg, #0284c7, #0369a1)', borderColor: '#38bdf8' }}
                         >
-                          <span>📸</span> CAPTURE NEXT PASS (UNFREEZE)
+                          <IconCamera size={15} /> CAPTURE NEXT PASS (UNFREEZE)
                         </button>
                         <button
                           type="button"
                           className="outline"
                           onClick={handleRetakePhoto}
-                          style={{ flex: 1, height: '46px', fontSize: '12px', fontWeight: 700 }}
+                          style={{ flex: 1, height: '46px', fontSize: '12px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                         >
-                          🔄 RETAKE
+                          <IconRefresh size={13} /> RETAKE
                         </button>
                       </div>
                     ) : (
@@ -16406,7 +16424,7 @@ function AdminQrScanner({ user, logout, onNavigate }) {
                           letterSpacing: '0.4px',
                         }}
                       >
-                        <span style={{ fontSize: '18px' }}>📸</span>
+                        <IconCamera size={18} />
                         {isCapturing ? 'CAPTURING & VERIFYING…' : 'CAPTURE & VERIFY PASS (SNAP PHOTO)'}
                       </button>
                     )}
@@ -16461,7 +16479,7 @@ function AdminQrScanner({ user, logout, onNavigate }) {
                     style={{ flex: 2, height: '40px', fontSize: '11px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                   >
                     <Icon8 name="authentication" size={16} />
-                    {loading ? 'VERIFYING PASS…' : 'VERIFY EVENT PASS ➔'}
+                    {loading ? 'VERIFYING PASS…' : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>VERIFY EVENT PASS <IconArrowRight size={13} /></span>}
                   </button>
                 </div>
               </form>
@@ -16563,7 +16581,7 @@ function AdminQrScanner({ user, logout, onNavigate }) {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'rgba(56, 189, 248, 0.1)', border: '1px solid #38bdf844', borderRadius: '10px', marginBottom: '16px' }}>
                         <img src={capturedSnapshot} alt="Snapshot proof" style={{ width: '44px', height: '44px', borderRadius: '6px', objectFit: 'cover', border: '1px solid #38bdf8' }} />
                         <div style={{ flex: 1 }}>
-                          <span style={{ fontSize: '11px', color: '#38bdf8', fontWeight: 700, display: 'block' }}>✓ Leader Photo Snapshot Verified</span>
+                          <span style={{ fontSize: '11px', color: '#38bdf8', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCheckCircle size={13} color="#38bdf8" /> Leader Photo Snapshot Verified</span>
                           <small style={{ color: 'var(--text-muted)', fontSize: '10px' }}>QR verified from leader photo capture · Duplicate scans blocked</small>
                         </div>
                       </div>
@@ -16656,15 +16674,15 @@ function AdminQrScanner({ user, logout, onNavigate }) {
                         onClick={handleCaptureNextPass}
                         style={{ flex: 1, fontSize: '11px', height: '38px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                       >
-                        📸 CAPTURE NEXT PASS
+                        <IconCamera size={14} /> CAPTURE NEXT PASS
                       </button>
                       <button
                         type="button"
                         className="outline"
                         onClick={() => onNavigate('admin-events')}
-                        style={{ flex: 1, fontSize: '11px', height: '38px' }}
+                        style={{ flex: 1, fontSize: '11px', height: '38px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '5px' }}
                       >
-                        VIEW IN EVENT STUDIO →
+                        VIEW IN EVENT STUDIO <IconArrowRight size={12} />
                       </button>
                     </div>
                   </div>
@@ -16696,9 +16714,9 @@ function AdminQrScanner({ user, logout, onNavigate }) {
                       type="button"
                       className="primary"
                       onClick={() => onNavigate('admin-events')}
-                      style={{ width: '100%', height: '42px', fontSize: '12px' }}
+                      style={{ width: '100%', height: '42px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                     >
-                      OPEN EVENT IN STUDIO →
+                      OPEN EVENT IN STUDIO <IconArrowRight size={13} />
                     </button>
                   </div>
                 )}
@@ -16817,6 +16835,7 @@ function LivePresidentDashboard({ user, logout, onNavigate }) {
   }
 
   async function handleToggleTodo(todoId) {
+    if (user?.isReadOnly) return
     const todos = directivesData.todos || []
     const target = todos.find(t => t.id === todoId)
     if (!target) return
@@ -16922,11 +16941,41 @@ function LivePresidentDashboard({ user, logout, onNavigate }) {
           <button className="outline" type="button" onClick={() => onNavigate('admin-qr-scanner')} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '9px 16px', fontSize: '11px', fontWeight: 700 }}>
             <Icon8 name="faceId" size={17} /> QR ENTRY GATE
           </button>
-          <button className="primary" type="button" onClick={() => onNavigate('admin-events')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 16px', fontSize: '11px', fontWeight: 700 }}>
-            <span style={{ fontSize: '15px', lineHeight: 1 }}>+</span> CREATE EVENT
-          </button>
+          {user.isReadOnly ? (
+            <button className="primary" type="button" onClick={() => onNavigate('admin-events')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 16px', fontSize: '11px', fontWeight: 700 }}>
+              <IconCalendar size={15} /> VIEW EVENTS & ROSTER
+            </button>
+          ) : (
+            <button className="primary" type="button" onClick={() => onNavigate('admin-events')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 16px', fontSize: '11px', fontWeight: 700 }}>
+              <IconPlus size={14} /> CREATE EVENT
+            </button>
+          )}
         </div>
       </section>
+
+      {/* Observer Oversight Banner */}
+      {user.isReadOnly && (
+        <section className="portal-card" style={{ padding: '16px 20px', marginTop: '20px', background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.3)', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ display: 'inline-flex', color: '#38bdf8' }}><IconEye size={24} /></span>
+            <div>
+              <div style={{ color: '#38bdf8', fontWeight: 700, fontSize: '14px' }}>Observer Oversight Mode Active ({getRoleLabel(user.role)})</div>
+              <div style={{ color: 'var(--text-muted)', fontSize: '12px' }}>You have supervisory visibility across club analytics, events, passes, and rosters. All Excel/CSV reports are available for download.</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button className="outline" type="button" onClick={() => onNavigate('admin-events')} style={{ fontSize: '11px', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <IconBarChart size={13} /> Event Roster & CSV
+            </button>
+            <button className="outline" type="button" onClick={() => onNavigate('admin-passes')} style={{ fontSize: '11px', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <IconTicket size={13} /> Passes & Finance CSV
+            </button>
+            <button className="outline" type="button" onClick={() => onNavigate('admin-members')} style={{ fontSize: '11px', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <IconUsers size={13} /> Members Directory CSV
+            </button>
+          </div>
+        </section>
+      )}
 
       {/* Pending Subscriptions Alert */}
       {subStats.pendingVerification > 0 && (
@@ -16940,8 +16989,8 @@ function LivePresidentDashboard({ user, logout, onNavigate }) {
               </p>
             </div>
           </div>
-          <button type="button" onClick={() => onNavigate('admin-subscriptions')}>
-            REVIEW PAYMENTS &rarr;
+          <button type="button" onClick={() => onNavigate('admin-subscriptions')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            REVIEW PAYMENTS <IconArrowRight size={13} />
           </button>
         </div>
       )}
@@ -17102,7 +17151,7 @@ function LivePresidentDashboard({ user, logout, onNavigate }) {
                   onClick={() => setShowAddTodoModal(true)}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '8px 16px', fontWeight: 700 }}
                 >
-                  <span style={{ fontSize: '15px', lineHeight: 1 }}>+</span> ADD DIRECTIVE / TASK
+                  <IconPlus size={14} /> ADD DIRECTIVE / TASK
                 </button>
               )}
             </div>
@@ -17231,7 +17280,11 @@ function LivePresidentDashboard({ user, logout, onNavigate }) {
                       {/* Checkbox */}
                       <button
                         type="button"
-                        onClick={() => handleToggleTodo(todo.id)}
+                        onClick={() => {
+                          if (user.isReadOnly) return
+                          handleToggleTodo(todo.id)
+                        }}
+                        disabled={user.isReadOnly}
                         style={{
                           width: '22px',
                           height: '22px',
@@ -17242,16 +17295,17 @@ function LivePresidentDashboard({ user, logout, onNavigate }) {
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          cursor: 'pointer',
+                          cursor: user.isReadOnly ? 'not-allowed' : 'pointer',
+                          opacity: user.isReadOnly ? 0.6 : 1,
                           marginTop: '2px',
                           flexShrink: 0,
                           fontSize: '12px',
                           fontWeight: 800,
                           padding: 0,
                         }}
-                        title={todo.completed ? 'Mark pending' : 'Mark completed'}
+                        title={user.isReadOnly ? 'Read-only observer' : (todo.completed ? 'Mark pending' : 'Mark completed')}
                       >
-                        {todo.completed ? '✓' : ''}
+                        {todo.completed ? <IconCheck size={14} /> : null}
                       </button>
 
                       {/* Content */}
@@ -17292,8 +17346,8 @@ function LivePresidentDashboard({ user, logout, onNavigate }) {
                         )}
 
                         {todo.completed && todo.completedBy && (
-                          <small style={{ display: 'block', marginTop: '6px', color: '#10b981', fontSize: '10px' }}>
-                            ✓ Marked complete by {todo.completedBy} {todo.completedAt ? `· ${new Date(todo.completedAt).toLocaleString()}` : ''}
+                          <small style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '6px', color: '#10b981', fontSize: '10px' }}>
+                            <IconCheck size={11} /> Marked complete by {todo.completedBy} {todo.completedAt ? `· ${new Date(todo.completedAt).toLocaleString()}` : ''}
                           </small>
                         )}
                       </div>
@@ -17313,10 +17367,13 @@ function LivePresidentDashboard({ user, logout, onNavigate }) {
                             padding: '4px 8px',
                             fontSize: '10px',
                             cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
                           }}
                           title="Delete directive"
                         >
-                          ✕
+                          <IconX size={12} />
                         </button>
                       </div>
                     )}
@@ -17339,7 +17396,7 @@ function LivePresidentDashboard({ user, logout, onNavigate }) {
                   Issue Presidential Directive / Task
                 </h3>
               </div>
-              <button className="lightbox-close" onClick={() => setShowAddTodoModal(false)} style={{ position: 'static' }}>✕</button>
+              <button className="lightbox-close" onClick={() => setShowAddTodoModal(false)} style={{ position: 'static' }}><IconX size={16} /></button>
             </div>
 
             <form onSubmit={handleCreateTodo} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -17516,9 +17573,9 @@ function LiveStudentDashboard({ user, logout, onNavigate }) {
             type="button"
             className="primary"
             onClick={() => onNavigate('student-events')}
-            style={{ fontSize: '12px', padding: '10px 18px', fontWeight: 700, letterSpacing: '0.04em' }}
+            style={{ fontSize: '12px', padding: '10px 18px', fontWeight: 700, letterSpacing: '0.04em', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
-            EXPLORE EVENTS CATALOG →
+            EXPLORE EVENTS CATALOG <IconArrowRight size={13} />
           </button>
           <button
             type="button"
@@ -17542,8 +17599,8 @@ function LiveStudentDashboard({ user, logout, onNavigate }) {
               Subscribe (₹{subStatus?.monthlyAmount || 100}/mo via UPI) to unlock event registrations, digital pass wallet, and technical support desk.
             </p>
           </div>
-          <button type="button" onClick={() => onNavigate('student-membership')} style={{ background: '#f59e0b', color: '#000', fontWeight: 700, fontSize: '11px', padding: '8px 16px', borderRadius: '6px', border: 0, cursor: 'pointer' }}>
-            ACTIVATE NOW →
+          <button type="button" onClick={() => onNavigate('student-membership')} style={{ background: '#f59e0b', color: '#000', fontWeight: 700, fontSize: '11px', padding: '8px 16px', borderRadius: '6px', border: 0, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            ACTIVATE NOW <IconArrowRight size={13} />
           </button>
         </div>
       )}
@@ -17740,7 +17797,9 @@ function LiveStudentDashboard({ user, logout, onNavigate }) {
           <p className="eyebrow">{isMrdu ? 'CAMPUS HIGHLIGHTS' : 'FEATURED SESSIONS'}</p>
           <h2>{isMrdu ? 'Featured University Events' : 'Upcoming Club Events'}</h2>
         </div>
-        <button type="button" onClick={() => onNavigate('student-events')}>EXPLORE ALL &nbsp;→</button>
+        <button type="button" onClick={() => onNavigate('student-events')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          EXPLORE ALL <IconArrowRight size={13} />
+        </button>
       </div>
 
       {loading ? (
@@ -17767,7 +17826,17 @@ function LiveStudentDashboard({ user, logout, onNavigate }) {
                 <div className="card-meta">
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCalendar size={13} /> {new Date(evt.dateTime).toLocaleDateString()}</span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconLocationPin size={13} /> {evt.venue || evt.location || 'Campus'}</span>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCreditCard size={13} /> {evt.requiresPayment ? `₹${evt.paymentAmount || 'Tiered'}` : 'FREE'}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <IconCreditCard size={13} />{' '}
+                    {isTieredEvent(evt)
+                      ? 'TIERED'
+                      : (evt.requiresPayment
+                        || Number(evt.paymentAmount) > 0
+                        || Number(evt.paymentConfig?.price) > 0
+                        || ['FIXED', 'PAID'].includes(String(evt.paymentConfig?.type || evt.paymentConfig?.paymentType || '').toUpperCase()))
+                        ? `₹${evt.paymentConfig?.price ?? evt.paymentAmount ?? 0}`
+                        : 'FREE'}
+                  </span>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconUserSvg size={13} /> {evt.registrationCount || 0} registered</span>
                 </div>
                 <div className="card-footer">
@@ -17776,8 +17845,8 @@ function LiveStudentDashboard({ user, logout, onNavigate }) {
                       <IconShieldCheck size={13} /> REGISTERED
                     </span>
                   ) : (
-                    <button className="register-btn" type="button" onClick={() => onNavigate(`event-detail/${evt.id}`)}>
-                      VIEW & REGISTER &rarr;
+                    <button className="register-btn" type="button" onClick={() => onNavigate(`event-detail/${evt.id}`)} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                      VIEW & REGISTER <IconArrowRight size={13} />
                     </button>
                   )}
                 </div>
@@ -18293,8 +18362,8 @@ function AuditLogView({ user, logout, onNavigate }) {
       <section className="member-management">
         <div className="member-heading">
           <div>
-            <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
-              ← COMMAND CENTER
+            <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <IconArrowLeft size={13} /> COMMAND CENTER
             </button>
             <p className="eyebrow">COMPLIANCE & ACTIVITY TRACEABILITY</p>
             <h1>Security Audit Log</h1>
@@ -18506,7 +18575,7 @@ function AuditLogView({ user, logout, onNavigate }) {
                       {friendlyTitle}
                     </h3>
                   </div>
-                  <button className="lightbox-close" onClick={() => setSelectedLog(null)} style={{ position: 'static' }}>✕</button>
+                  <button className="lightbox-close" onClick={() => setSelectedLog(null)} style={{ position: 'static' }}><IconX size={16} /></button>
                 </div>
 
                 {/* Member, Action & Timing Grid */}
@@ -18694,8 +18763,8 @@ function CouncilChatView({ user, logout, onNavigate }) {
       <section className="member-management" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)' }}>
         <div className="member-heading" style={{ marginBottom: '14px' }}>
           <div>
-            <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')}>
-              ← COMMAND CENTER
+            <button className="back-button" type="button" onClick={() => onNavigate('admin-dashboard')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <IconArrowLeft size={13} /> COMMAND CENTER
             </button>
             <p className="eyebrow">RESTRICTED LEADERSHIP CHANNEL</p>
             <h1>Executive Council Room</h1>
@@ -18811,7 +18880,7 @@ function CouncilChatView({ user, logout, onNavigate }) {
                   transition: 'transform 0.15s ease',
                 }}
               >
-                <span>↓ Jump to Latest</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconChevronDown size={14} /> Jump to Latest</span>
                 {unreadBelow > 0 && (
                   <span style={{ background: '#000', color: 'var(--brand-primary)', borderRadius: '10px', padding: '1px 6px', fontSize: '10px' }}>
                     +{unreadBelow}
@@ -18829,8 +18898,8 @@ function CouncilChatView({ user, logout, onNavigate }) {
               onChange={e => setText(e.target.value)}
               style={{ flex: 1, height: '44px', padding: '0 16px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '8px', color: 'var(--text-main)', fontSize: '12px' }}
             />
-            <button className="primary" disabled={sending || !text.trim()} style={{ minHeight: '44px', padding: '0 20px' }}>
-              {sending ? 'SENDING…' : 'SEND ➔'}
+            <button className="primary" disabled={sending || !text.trim()} style={{ minHeight: '44px', padding: '0 20px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+              {sending ? 'SENDING…' : <>SEND <IconArrowRight size={13} /></>}
             </button>
           </form>
         </article>
@@ -18855,17 +18924,17 @@ class PortalErrorBoundary extends Component {
     if (this.state.hasError) {
       return (
         <div style={{ padding: '40px 20px', maxWidth: '600px', margin: '60px auto', textAlign: 'center', background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '12px', boxShadow: '0 8px 24px rgba(0,0,0,0.2)' }}>
-          <span style={{ fontSize: '36px', display: 'block', marginBottom: '12px' }}>🛡️</span>
+          <span style={{ display: 'inline-flex', justifyContent: 'center', marginBottom: '12px', color: '#10b981' }}><IconShield size={36} /></span>
           <h3 style={{ color: 'var(--text-main)', margin: '0 0 8px', fontSize: '18px' }}>Portal View Recovered</h3>
           <p style={{ color: 'var(--text-muted)', fontSize: '12.5px', margin: '0 0 20px', lineHeight: 1.4 }}>
             {this.state.error?.message || 'A temporary display exception occurred in this portal view.'}
           </p>
           <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-            <button type="button" className="primary" onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload() }}>
-              ↻ Reload Application
+            <button type="button" className="primary" onClick={() => { this.setState({ hasError: false, error: null }); window.location.reload() }} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <IconRefresh size={14} /> Reload Application
             </button>
-            <button type="button" className="outline" onClick={() => { this.setState({ hasError: false, error: null }); if (this.props.onReset) this.props.onReset() }}>
-              ← Return to Dashboard
+            <button type="button" className="outline" onClick={() => { this.setState({ hasError: false, error: null }); if (this.props.onReset) this.props.onReset() }} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <IconArrowLeft size={13} /> Return to Dashboard
             </button>
           </div>
         </div>
@@ -19240,7 +19309,7 @@ function App() {
               boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: '15px' }}>⇄</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center' }}><IconRefresh size={14} /></span>
                 <span>SWITCHED ACCOUNT: Viewing as <b>{effectiveUser.name}</b> ({effectiveUser.memberId} · {getRoleLabel(effectiveUser.role)})</span>
                 {effectiveUser.originalAdmin && (
                   <span style={{ opacity: 0.85, fontSize: '11px' }}>
@@ -19260,9 +19329,12 @@ function App() {
                   fontWeight: 800,
                   fontSize: '11px',
                   cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
                 }}
               >
-                ⇄ SWITCH BACK TO ADMIN
+                <IconRefresh size={13} /> SWITCH BACK TO ADMIN
               </button>
             </div>
           )}

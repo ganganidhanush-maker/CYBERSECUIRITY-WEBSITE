@@ -57,6 +57,13 @@ export function requirePermission(permission) {
   }
 }
 
+export function requireAnyPermission(...permissions) {
+  return (request, response, next) => {
+    if (permissions.some(p => hasPermission(request.user, p))) return next()
+    return response.status(403).json({ message: 'Access denied: You do not have permission for this action.' })
+  }
+}
+
 export function requireAdmin(request, response, next) {
   if (!isAdmin(request.user)) return response.status(403).json({ message: 'Access denied: Club admin privileges required.' })
   return next()

@@ -596,7 +596,7 @@ export async function registerForEvent(request, response) {
           registrationType: 'TEAM',
           selectedActivities: selectedActivitiesList,
           paymentOption: paymentOptionObj,
-          totalAmount: 0,
+          totalAmount: totalAmount,
           amountPaid: totalAmount > 0 ? null : 0,
           paymentStatus,
           paymentReference: totalAmount > 0 ? paymentReference : null,
@@ -1147,6 +1147,7 @@ export async function createSupportTicket(request, response) {
   const { taggedRole, subject, message } = request.body || {}
 
   const validRoles = [
+    'FACULTY',
     'CONVENER',
     'CO_CONVENER',
     'PRESIDENT',

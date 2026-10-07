@@ -1,5 +1,6 @@
 export const CLUB_ROLES = [
   { id: 'STUDENT', label: 'Student Member', roleType: 'student' },
+  { id: 'FACULTY', label: 'Faculty Coordinator', roleType: 'admin' },
   { id: 'CONVENER', label: 'Convener', roleType: 'admin' },
   { id: 'CO_CONVENER', label: 'Co-Convener', roleType: 'admin' },
   { id: 'PRESIDENT', label: 'President', roleType: 'admin' },
@@ -16,6 +17,12 @@ export const CLUB_ROLES = [
   { id: 'ADMIN', label: 'Administrator', roleType: 'admin' },
 ]
 
+export const READ_ONLY_CLUB_ROLES = ['FACULTY', 'CONVENER', 'CO_CONVENER']
+
+export function isReadOnlyClubRole(role) {
+  return READ_ONLY_CLUB_ROLES.includes(role)
+}
+
 export function getRoleLabel(roleId) {
   const r = CLUB_ROLES.find(item => item.id === roleId)
   return r ? r.label : roleId
@@ -24,6 +31,7 @@ export function getRoleLabel(roleId) {
 export function toPortalUser(user) {
   if (!user) return null
   const isStudentRole = user.role === 'STUDENT'
+  const isReadOnly = isReadOnlyClubRole(user.role)
   const name = user.profile?.name || user.name || 'Member'
   const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase() || 'CS'
   return {
@@ -31,6 +39,7 @@ export function toPortalUser(user) {
     role: user.role,
     isPrimaryAdmin: Boolean(user.isPrimaryAdmin),
     isAdminUser: !isStudentRole,
+    isReadOnly,
     name,
     initials,
     memberId: user.memberId,

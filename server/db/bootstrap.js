@@ -10,9 +10,9 @@ export async function bootstrapDatabase() {
         id VARCHAR(191) NOT NULL,
         member_id VARCHAR(32) NOT NULL,
         password_hash VARCHAR(255) NOT NULL,
-        role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'CONVENER', 'CO_CONVENER', 'STUDENT_COORDINATOR', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NOT NULL,
-        csc_role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'CONVENER', 'CO_CONVENER', 'STUDENT_COORDINATOR', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NULL,
-        mrdu_role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'CONVENER', 'CO_CONVENER', 'STUDENT_COORDINATOR', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NULL,
+        role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'CONVENER', 'CO_CONVENER', 'FACULTY', 'STUDENT_COORDINATOR', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NOT NULL,
+        csc_role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'CONVENER', 'CO_CONVENER', 'FACULTY', 'STUDENT_COORDINATOR', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NULL,
+        mrdu_role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'CONVENER', 'CO_CONVENER', 'FACULTY', 'STUDENT_COORDINATOR', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NULL,
         is_primary_admin BOOLEAN NOT NULL DEFAULT FALSE,
         account_status ENUM('ACTIVE', 'DISABLED') NOT NULL DEFAULT 'ACTIVE',
         failed_login_attempts INT NOT NULL DEFAULT 0,
@@ -34,13 +34,13 @@ export async function bootstrapDatabase() {
 
     // Update ENUM definitions on existing tables
     await prisma.$executeRawUnsafe(`
-      ALTER TABLE users MODIFY COLUMN role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'CONVENER', 'CO_CONVENER', 'STUDENT_COORDINATOR', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NOT NULL;
+      ALTER TABLE users MODIFY COLUMN role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'CONVENER', 'CO_CONVENER', 'FACULTY', 'STUDENT_COORDINATOR', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NOT NULL;
     `).catch(() => {})
     await prisma.$executeRawUnsafe(`
-      ALTER TABLE users MODIFY COLUMN csc_role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'CONVENER', 'CO_CONVENER', 'STUDENT_COORDINATOR', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NULL;
+      ALTER TABLE users MODIFY COLUMN csc_role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'CONVENER', 'CO_CONVENER', 'FACULTY', 'STUDENT_COORDINATOR', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NULL;
     `).catch(() => {})
     await prisma.$executeRawUnsafe(`
-      ALTER TABLE users MODIFY COLUMN mrdu_role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'CONVENER', 'CO_CONVENER', 'STUDENT_COORDINATOR', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NULL;
+      ALTER TABLE users MODIFY COLUMN mrdu_role ENUM('PRESIDENT', 'VICE_PRESIDENT', 'CONVENER', 'CO_CONVENER', 'FACULTY', 'STUDENT_COORDINATOR', 'TREASURER', 'EVENT_MANAGEMENT', 'MEDIA_LEAD', 'SOCIAL_MEDIA_LEAD', 'TECH_TEAM', 'PR_TEAM', 'CULTURAL', 'SECRETARY', 'ADMIN', 'STUDENT') NULL;
     `).catch(() => {})
 
     // Seed/sync default platform roles for existing users
@@ -631,6 +631,78 @@ export async function bootstrapDatabase() {
         },
       })
       console.info(`[BOOTSTRAP SUCCESS] Primary President (${presidentMemberId}) provisioned successfully.`)
+    }
+
+    // Seed/sync default demo test accounts (Student, Faculty, Convener)
+    const demoAccounts = [
+      {
+        memberId: '25EU07R0001',
+        name: 'Demo Student',
+        email: 'student@cybersecurity.club',
+        role: 'STUDENT',
+        password: 'Student@2026!',
+        department: 'Cyber Security',
+        year: 2,
+      },
+      {
+        memberId: 'FACULTY01',
+        name: 'Dr. Ramesh Sharma (Faculty Advisor)',
+        email: 'faculty@cybersecurity.club',
+        role: 'FACULTY',
+        password: 'Faculty@2026!',
+        department: 'Computer Science & Cyber Security',
+        year: 4,
+      },
+      {
+        memberId: 'CONVENER01',
+        name: 'Prof. S. Rao (Convener)',
+        email: 'convener@cybersecurity.club',
+        role: 'CONVENER',
+        password: 'Convener@2026!',
+        department: 'School of Engineering',
+        year: 4,
+      },
+    ]
+
+    for (const acc of demoAccounts) {
+      const existingUser = await prisma.user.findUnique({
+        where: { memberId: acc.memberId },
+        include: { profile: true },
+      })
+      const passwordHash = await bcrypt.hash(acc.password, env.bcryptRounds)
+      if (!existingUser) {
+        await prisma.user.create({
+          data: {
+            memberId: acc.memberId,
+            passwordHash,
+            role: acc.role,
+            cscRole: acc.role,
+            mrduRole: acc.role,
+            accountStatus: 'ACTIVE',
+            isPrimaryAdmin: false,
+            profile: {
+              create: {
+                name: acc.name,
+                email: acc.email,
+                rollNumber: acc.memberId,
+                department: acc.department,
+                year: acc.year,
+              },
+            },
+          },
+        })
+      } else {
+        await prisma.user.update({
+          where: { memberId: acc.memberId },
+          data: {
+            passwordHash,
+            role: acc.role,
+            cscRole: acc.role,
+            mrduRole: acc.role,
+            accountStatus: 'ACTIVE',
+          },
+        })
+      }
     }
 
     // 19. Seed Onboarding Video Settings

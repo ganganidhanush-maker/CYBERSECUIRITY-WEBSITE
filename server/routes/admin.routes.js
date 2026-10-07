@@ -68,6 +68,7 @@ import {
 } from '../controllers/subscription.controller.js'
 import {
   requireAdmin,
+  requireAnyPermission,
   requireAuth,
   requirePermission,
   requirePresident,
@@ -86,15 +87,15 @@ adminRouter.use(requireAuth)
 adminRouter.use(requireAdmin)
 adminRouter.use(authenticatedRateLimiter)
 
-adminRouter.get('/members', requirePermission('ACCOUNT_MANAGEMENT'), asyncHandler(listMembers))
-adminRouter.get('/members/export-csv', requirePermission('ACCOUNT_MANAGEMENT'), asyncHandler(exportMembersCsv))
+adminRouter.get('/members', requireAnyPermission('ACCOUNT_MANAGEMENT', 'DASHBOARD_VIEW'), asyncHandler(listMembers))
+adminRouter.get('/members/export-csv', requireAnyPermission('ACCOUNT_MANAGEMENT', 'DASHBOARD_VIEW'), asyncHandler(exportMembersCsv))
 adminRouter.post('/members', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, asyncHandler(createMember))
 adminRouter.post('/members/bulk', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, asyncHandler(bulkCreateMembers))
 adminRouter.put('/members/:id', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, validateUserIdParam, asyncHandler(editMember))
 adminRouter.delete('/members/:id', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, validateUserIdParam, asyncHandler(deleteMember))
 adminRouter.put('/members/:id/status', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, validateUserIdParam, asyncHandler(changeAccountStatus))
-adminRouter.post('/members/activate-all', requireRole('PRESIDENT', 'CONVENER', 'CO_CONVENER', 'STUDENT_COORDINATOR', 'ADMIN'), adminWriteRateLimiter, asyncHandler(activateAllAccounts))
-adminRouter.put('/members/:id/permissions', requireRole('PRESIDENT', 'CONVENER', 'CO_CONVENER', 'STUDENT_COORDINATOR', 'ADMIN'), adminWriteRateLimiter, validateUserIdParam, asyncHandler(changeMemberPermissions))
+adminRouter.post('/members/activate-all', requireRole('PRESIDENT', 'STUDENT_COORDINATOR', 'ADMIN'), adminWriteRateLimiter, asyncHandler(activateAllAccounts))
+adminRouter.put('/members/:id/permissions', requireRole('PRESIDENT', 'STUDENT_COORDINATOR', 'ADMIN'), adminWriteRateLimiter, validateUserIdParam, asyncHandler(changeMemberPermissions))
 adminRouter.post('/members/:id/reset-password', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, validateUserIdParam, asyncHandler(adminResetPassword))
 adminRouter.post('/members/:id/disable-2fa', requirePermission('ACCOUNT_MANAGEMENT'), adminWriteRateLimiter, validateUserIdParam, asyncHandler(disableMemberTwoFactor))
 adminRouter.post('/members/transfer-president', requirePrimaryPresident, adminWriteRateLimiter, asyncHandler(transferPresidentRole))
@@ -110,8 +111,8 @@ adminRouter.get('/events', requirePermission('EVENTS_VIEW'), asyncHandler(listEv
 adminRouter.post('/events', requirePermission('EVENT_MANAGE'), adminWriteRateLimiter, asyncHandler(createEvent))
 adminRouter.put('/events/:eventId', requirePermission('EVENT_MANAGE'), adminWriteRateLimiter, asyncHandler(updateEvent))
 adminRouter.delete('/events/:eventId', requirePermission('EVENT_MANAGE'), adminWriteRateLimiter, asyncHandler(deleteEvent))
-adminRouter.get('/events/:eventId/details', requirePermission('EVENT_MANAGE'), asyncHandler(getEventDetailsWithStats))
-adminRouter.get('/events/:eventId/export-csv', requirePermission('EVENT_MANAGE'), asyncHandler(exportEventRegistrationsCsv))
+adminRouter.get('/events/:eventId/details', requireAnyPermission('EVENT_MANAGE', 'REGISTRATIONS_VIEW', 'EVENTS_VIEW'), asyncHandler(getEventDetailsWithStats))
+adminRouter.get('/events/:eventId/export-csv', requireAnyPermission('EVENT_MANAGE', 'REGISTRATIONS_VIEW', 'EVENTS_VIEW'), asyncHandler(exportEventRegistrationsCsv))
 adminRouter.get('/events/:eventId/registrations', requirePermission('REGISTRATIONS_VIEW'), asyncHandler(listEventRegistrations))
 
 // Event Passes & Attendance Roster
@@ -135,14 +136,14 @@ adminRouter.delete('/gallery/albums/:albumId/photos/:photoId', requirePermission
 adminRouter.delete('/gallery/albums/:albumId', requirePermission('GALLERY_MANAGE'), adminWriteRateLimiter, asyncHandler(deleteGalleryAlbum))
 
 // Campus & Event Reels Studio (President, VP, PR Team, Event Management, Media Lead, Admin)
-adminRouter.get('/reels', requireReelsManager, asyncHandler(listReelsAdmin))
+adminRouter.get('/reels', requireAnyPermission('REELS_MANAGE', 'DASHBOARD_VIEW'), asyncHandler(listReelsAdmin))
 adminRouter.post('/reels', requireReelsManager, adminWriteRateLimiter, asyncHandler(createReel))
 adminRouter.post('/reels/import-profile', requireReelsManager, adminWriteRateLimiter, asyncHandler(importProfileReels))
 adminRouter.put('/reels/:id', requireReelsManager, adminWriteRateLimiter, asyncHandler(updateReel))
 adminRouter.delete('/reels/:id', requireReelsManager, adminWriteRateLimiter, asyncHandler(deleteReel))
 
 // Club Team & Leadership Management
-adminRouter.get('/team', requirePermission('TEAM_MANAGE'), asyncHandler(listClubTeam))
+adminRouter.get('/team', requireAnyPermission('TEAM_MANAGE', 'DASHBOARD_VIEW'), asyncHandler(listClubTeam))
 adminRouter.post('/team/sync-accounts', requirePermission('TEAM_MANAGE'), asyncHandler(syncClubTeamFromAccounts))
 adminRouter.post('/team', requirePermission('TEAM_MANAGE'), adminWriteRateLimiter, asyncHandler(createClubTeamMember))
 adminRouter.put('/team/reorder', requirePermission('TEAM_MANAGE'), adminWriteRateLimiter, asyncHandler(reorderClubTeam))
@@ -150,7 +151,7 @@ adminRouter.put('/team/:memberId', requirePermission('TEAM_MANAGE'), adminWriteR
 adminRouter.delete('/team/:memberId', requirePermission('TEAM_MANAGE'), adminWriteRateLimiter, asyncHandler(deleteClubTeamMember))
 
 // Club Settings & Social Links
-adminRouter.get('/settings', requirePermission('SETTINGS_MANAGE'), asyncHandler(getClubSettings))
+adminRouter.get('/settings', requireAnyPermission('SETTINGS_MANAGE', 'DASHBOARD_VIEW'), asyncHandler(getClubSettings))
 adminRouter.put('/settings', requirePermission('SETTINGS_MANAGE'), adminWriteRateLimiter, asyncHandler(updateClubSettings))
 
 // Support / Doubt Desk (Admin)

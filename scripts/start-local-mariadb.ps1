@@ -1,8 +1,11 @@
 $ErrorActionPreference = 'Stop'
 
-$serverBinary = 'C:\Program Files\MariaDB 12.3\bin\mariadbd.exe'
-$installerBinary = 'C:\Program Files\MariaDB 12.3\bin\mariadb-install-db.exe'
-$clientBinary = 'C:\Program Files\MariaDB 12.3\bin\mariadb.exe'
+$mariadbDir = Get-ChildItem -Path 'C:\Program Files' -Filter 'MariaDB*' -Directory | Sort-Object Name -Descending | Select-Object -First 1
+if (!$mariadbDir) { throw 'MariaDB Server is not installed in C:\Program Files.' }
+
+$serverBinary = Join-Path $mariadbDir.FullName 'bin\mariadbd.exe'
+$installerBinary = Join-Path $mariadbDir.FullName 'bin\mariadb-install-db.exe'
+$clientBinary = Join-Path $mariadbDir.FullName 'bin\mariadb.exe'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $environmentPath = Join-Path $projectRoot '.env'
 $databaseRoot = Join-Path $env:LOCALAPPDATA 'CSC-MRDU-MariaDB'
@@ -10,7 +13,7 @@ $dataDirectory = Join-Path $databaseRoot 'data'
 $logPath = Join-Path $databaseRoot 'mariadbd.log'
 
 if (!(Test-Path -LiteralPath $environmentPath)) { throw 'Missing .env. Run npm run setup:local-env first.' }
-if (!(Test-Path -LiteralPath $serverBinary)) { throw 'MariaDB Server 12.3 is not installed.' }
+if (!(Test-Path -LiteralPath $serverBinary)) { throw "MariaDB server binary not found at $serverBinary" }
 
 $passwordLine = Get-Content -LiteralPath $environmentPath | Where-Object { $_ -match '^LOCAL_DB_PASSWORD=' } | Select-Object -First 1
 if (!$passwordLine) { throw 'Missing LOCAL_DB_PASSWORD. Run npm run db:local:start once, then re-run this command.' }

@@ -42,6 +42,7 @@ export const roleEnumSchema = z.enum([
   'VICE_PRESIDENT',
   'CONVENER',
   'CO_CONVENER',
+  'FACULTY',
   'STUDENT_COORDINATOR',
   'TREASURER',
   'EVENT_MANAGEMENT',

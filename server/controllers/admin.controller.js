@@ -544,6 +544,20 @@ export async function createEvent(request, response) {
   if (!parsed.success) return response.status(400).json({ message: parsed.error.issues[0]?.message || 'Enter valid event details.' })
 
   const data = parsed.data
+  const isPaidEvent = Boolean(
+    data.requiresPayment
+    || (data.paymentAmount && Number(data.paymentAmount) > 0)
+    || ['FIXED', 'TIERS', 'PAID'].includes(String(data.paymentConfig?.type || '').toUpperCase())
+  )
+  if (isPaidEvent) {
+    data.requiresPayment = true
+    if (!data.paymentAmount && data.paymentConfig?.tiers?.[0]?.price) {
+      data.paymentAmount = Number(data.paymentConfig.tiers[0].price)
+    } else if (!data.paymentAmount && data.paymentConfig?.price) {
+      data.paymentAmount = Number(data.paymentConfig.price)
+    }
+  }
+
   if (data.requiresPayment && !data.activities?.length) {
     if (!data.paymentQrUrl && data.paymentUpiId && data.paymentAmount) {
       data.paymentQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`upi://pay?pa=${data.paymentUpiId}&pn=CyberSecurityClub&am=${data.paymentAmount}&cu=INR`)}`
@@ -645,6 +659,39 @@ export async function updateEvent(request, response) {
   if (!parsed.success) return response.status(400).json({ message: parsed.error.issues[0]?.message || 'Enter valid event details.' })
 
   const data = parsed.data
+  const isPaidEvent = Boolean(
+    (data.requiresPayment !== undefined ? data.requiresPayment : event.requiresPayment)
+    || (data.paymentAmount && Number(data.paymentAmount) > 0)
+    || ['FIXED', 'TIERS', 'PAID'].includes(String(data.paymentConfig?.type || (event.paymentConfig && typeof event.paymentConfig === 'object' ? event.paymentConfig.type : '')).toUpperCase())
+  )
+
+  if (isPaidEvent && data.requiresPayment === undefined) {
+    data.requiresPayment = true
+  }
+
+  let effectiveAmount = data.paymentAmount !== undefined
+    ? data.paymentAmount
+    : (event.paymentAmount ? Number(event.paymentAmount) : null)
+
+  if (isPaidEvent && !effectiveAmount) {
+    if (data.paymentConfig?.tiers?.[0]?.price) {
+      effectiveAmount = Number(data.paymentConfig.tiers[0].price)
+    } else if (data.paymentConfig?.price) {
+      effectiveAmount = Number(data.paymentConfig.price)
+    } else if (event.paymentConfig?.tiers?.[0]?.price) {
+      effectiveAmount = Number(event.paymentConfig.tiers[0].price)
+    } else if (event.paymentConfig?.price) {
+      effectiveAmount = Number(event.paymentConfig.price)
+    }
+  }
+
+  const effectiveUpiId = data.paymentUpiId !== undefined ? data.paymentUpiId : event.paymentUpiId
+  let effectiveQrUrl = data.paymentQrUrl !== undefined ? data.paymentQrUrl : event.paymentQrUrl
+
+  if (isPaidEvent && !effectiveQrUrl && effectiveUpiId && effectiveAmount) {
+    effectiveQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`upi://pay?pa=${effectiveUpiId}&pn=CyberSecurityClub&am=${effectiveAmount}&cu=INR`)}`
+  }
+
   const updated = await prisma.event.update({
     where: { id: request.params.eventId },
     data: {
@@ -677,8 +724,8 @@ export async function updateEvent(request, response) {
       ...(data.faq !== undefined && { faq: data.faq }),
       ...(data.notes !== undefined && { notes: data.notes }),
       ...(data.requiresPayment !== undefined && { requiresPayment: data.requiresPayment }),
-      ...(data.paymentAmount !== undefined && { paymentAmount: data.paymentAmount }),
-      ...(data.paymentQrUrl !== undefined && { paymentQrUrl: data.paymentQrUrl }),
+      ...(effectiveAmount !== undefined && { paymentAmount: effectiveAmount }),
+      ...(effectiveQrUrl !== undefined && { paymentQrUrl: effectiveQrUrl }),
       ...(data.paymentUpiId !== undefined && { paymentUpiId: data.paymentUpiId }),
       ...(data.paymentInstructions !== undefined && { paymentInstructions: data.paymentInstructions }),
       ...(data.paymentDeadline !== undefined && { paymentDeadline: data.paymentDeadline }),
@@ -1693,23 +1740,25 @@ export async function deleteGalleryPhoto(request, response) {
 }
 
 const ROLE_PRIORITY_MAP = {
-  CONVENER: 1,
-  CO_CONVENER: 2,
-  PRESIDENT: 3,
-  VICE_PRESIDENT: 4,
-  STUDENT_COORDINATOR: 5,
-  TECH_TEAM: 6,
-  EVENT_MANAGEMENT: 7,
-  TREASURER: 8,
-  SECRETARY: 9,
-  MEDIA_LEAD: 10,
-  SOCIAL_MEDIA_LEAD: 11,
-  PR_TEAM: 12,
-  CULTURAL: 13,
-  ADMIN: 14,
+  FACULTY: 1,
+  CONVENER: 2,
+  CO_CONVENER: 3,
+  PRESIDENT: 4,
+  VICE_PRESIDENT: 5,
+  STUDENT_COORDINATOR: 6,
+  TECH_TEAM: 7,
+  EVENT_MANAGEMENT: 8,
+  TREASURER: 9,
+  SECRETARY: 10,
+  MEDIA_LEAD: 11,
+  SOCIAL_MEDIA_LEAD: 12,
+  PR_TEAM: 13,
+  CULTURAL: 14,
+  ADMIN: 15,
 }
 
 const ROLE_DISPLAY_TITLES = {
+  FACULTY: 'Faculty Coordinator',
   CONVENER: 'Convener',
   CO_CONVENER: 'Co-Convener',
   PRESIDENT: 'President',

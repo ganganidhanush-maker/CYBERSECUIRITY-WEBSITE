@@ -102,3 +102,8 @@ test('requireActiveSite blocks non-admin requests during hibernation with 503', 
   await requireActiveSite(adminReq, res, () => { nextCalled = true })
   assert.equal(nextCalled, true)
 })
+
+test.after(async () => {
+  const { prisma } = await import('../server/db/prisma.js')
+  await prisma.$disconnect()
+})

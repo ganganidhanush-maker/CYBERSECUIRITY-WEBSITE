@@ -2,6 +2,33 @@ import { useState, useEffect } from 'react'
 import mrduOfficialLogo from '../assets/branding/mrdu-official-logo.png'
 import mrduBanner from '../assets/branding/mrdu-header-banner.png'
 import './MrduOfficialLanding.css'
+import {
+  IconArrowRight,
+  IconSearch,
+  IconLock,
+  IconBell,
+  IconMegaphone,
+  IconGraduationCap,
+  IconTrophy,
+  IconZap,
+  IconStar,
+  IconBookOpen,
+  IconBuilding,
+  IconMicroscope,
+  IconAward,
+  IconGlobe,
+  IconHandshake,
+  IconLeaf,
+  IconLaptop,
+  IconMap,
+  IconInstagram,
+  IconWhatsApp,
+  IconFacebook,
+  IconTwitter,
+  IconLinkedIn,
+  IconYouTube,
+  IconPlay,
+} from './Icons.jsx'
 
 export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events = [] }) {
   const [activeTab, setActiveTab] = useState('upcoming')
@@ -72,19 +99,19 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
 
           <div className="mrdu-topbar-actions">
             <button className="mrdu-btn-apply-now" onClick={onOpenRegister}>
-              APPLY NOW ➔
+              APPLY NOW <IconArrowRight size={13} style={{ marginLeft: '4px' }} />
             </button>
             <div className="mrdu-social-icons">
-              <a href="https://whatsapp.com" target="_blank" rel="noreferrer" className="mrdu-social-link" title="WhatsApp">💬</a>
-              <a href="https://facebook.com" target="_blank" rel="noreferrer" className="mrdu-social-link" title="Facebook">f</a>
-              <a href="https://twitter.com" target="_blank" rel="noreferrer" className="mrdu-social-link" title="X (Twitter)">𝕏</a>
-              <a href="https://linkedin.com" target="_blank" rel="noreferrer" className="mrdu-social-link" title="LinkedIn">in</a>
-              <a href="https://instagram.com" target="_blank" rel="noreferrer" className="mrdu-social-link" title="Instagram">📸</a>
-              <a href="https://youtube.com" target="_blank" rel="noreferrer" className="mrdu-social-link" title="YouTube">▶</a>
+              <a href="https://whatsapp.com" target="_blank" rel="noreferrer" className="mrdu-social-link" title="WhatsApp"><IconWhatsApp size={12} /></a>
+              <a href="https://facebook.com" target="_blank" rel="noreferrer" className="mrdu-social-link" title="Facebook"><IconFacebook size={12} /></a>
+              <a href="https://twitter.com" target="_blank" rel="noreferrer" className="mrdu-social-link" title="X (Twitter)"><IconTwitter size={12} /></a>
+              <a href="https://linkedin.com" target="_blank" rel="noreferrer" className="mrdu-social-link" title="LinkedIn"><IconLinkedIn size={12} /></a>
+              <a href="https://instagram.com" target="_blank" rel="noreferrer" className="mrdu-social-link" title="Instagram"><IconInstagram size={12} /></a>
+              <a href="https://youtube.com" target="_blank" rel="noreferrer" className="mrdu-social-link" title="YouTube"><IconYouTube size={12} /></a>
             </div>
             <div className="mrdu-search-bar">
               <input type="text" placeholder="Search..." className="mrdu-search-input" />
-              <button className="mrdu-search-btn" title="Search">🔍</button>
+              <button className="mrdu-search-btn" title="Search"><IconSearch size={13} /></button>
             </div>
           </div>
         </div>
@@ -131,7 +158,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
           </nav>
 
           <button className="mrdu-header-auth-btn" onClick={onOpenAuth}>
-            <span>🔒</span> PORTAL SIGN IN
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}><IconLock size={13} /> PORTAL SIGN IN</span>
           </button>
         </div>
       </header>
@@ -141,14 +168,14 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
           ---------------------------------------------------- */}
       <div className="mrdu-ticker-bar">
         <div className="mrdu-ticker-tag">
-          <span>🔔</span> Latest Notifications
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}><IconBell size={13} /> Latest Notifications</span>
         </div>
         <div className="mrdu-ticker-content">
           <span className="mrdu-ticker-text">
-            📢 Admissions Open for 2026-27 Academic Year across B.Tech, M.Tech, MBA & B.Sc Programmes &nbsp;&nbsp;·&nbsp;&nbsp;
-            🎓 21st Graduation & Placement Day Scheduled &nbsp;&nbsp;·&nbsp;&nbsp;
-            🏆 National Level Technical Symposium & Hackathons Registration Live &nbsp;&nbsp;·&nbsp;&nbsp;
-            ⚡ University NAAC A++ Accredited with 24+ Years of Technical Leadership
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconMegaphone size={13} /> Admissions Open for 2026-27 Academic Year across B.Tech, M.Tech, MBA & B.Sc Programmes</span> &nbsp;&nbsp;·&nbsp;&nbsp;
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconGraduationCap size={13} /> 21st Graduation & Placement Day Scheduled</span> &nbsp;&nbsp;·&nbsp;&nbsp;
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconTrophy size={13} /> National Level Technical Symposium & Hackathons Registration Live</span> &nbsp;&nbsp;·&nbsp;&nbsp;
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconZap size={13} /> University NAAC A++ Accredited with 24+ Years of Technical Leadership</span>
           </span>
         </div>
       </div>
@@ -166,7 +193,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
             </div>
 
             <p className="mrdu-hero-eyebrow">
-              <span>★</span> INDUSTRY-FOCUSED HIGHER EDUCATION
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconStar size={12} fill="currentColor" /> INDUSTRY-FOCUSED HIGHER EDUCATION</span>
             </p>
 
             <h1 className="mrdu-hero-title">
@@ -179,15 +206,15 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
 
             <div className="mrdu-hero-buttons">
               <button className="mrdu-btn-hero-primary" onClick={onOpenRegister}>
-                Apply Now ➔
+                Apply Now <IconArrowRight size={13} style={{ marginLeft: '4px' }} />
               </button>
               <button className="mrdu-btn-hero-secondary" onClick={() => {
                 document.getElementById('academics')?.scrollIntoView({ behavior: 'smooth' })
               }}>
                 Explore Programmes
               </button>
-              <button className="mrdu-btn-hero-secondary" style={{ borderColor: 'var(--mrdu-orange)', color: '#fed7aa' }} onClick={onOpenAuth}>
-                Events & Member Portal 🔒
+              <button className="mrdu-btn-hero-secondary" style={{ borderColor: 'var(--mrdu-orange)', color: '#fed7aa', display: 'inline-flex', alignItems: 'center', gap: '6px' }} onClick={onOpenAuth}>
+                Events & Member Portal <IconLock size={13} />
               </button>
             </div>
           </div>
@@ -200,7 +227,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
                 className="mrdu-hero-img"
               />
               <div className="mrdu-hero-float-badge">
-                <div className="mrdu-float-badge-icon">🎓</div>
+                <div className="mrdu-float-badge-icon"><IconGraduationCap size={22} /></div>
                 <div className="mrdu-float-badge-text">
                   <strong>24+ Years Excellence</strong>
                   <span>NAAC A++ · Deemed to be University</span>
@@ -226,7 +253,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
 
           <div className="mrdu-why-grid">
             <div className="mrdu-why-card">
-              <div className="mrdu-why-icon-box">📖</div>
+              <div className="mrdu-why-icon-box"><IconBookOpen size={24} /></div>
               <div className="mrdu-why-content">
                 <h3>Future-Ready Curriculum</h3>
                 <p>Syllabus continuously updated with industry feedback, emerging technologies, and hands-on laboratory tracks.</p>
@@ -234,7 +261,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
             </div>
 
             <div className="mrdu-why-card">
-              <div className="mrdu-why-icon-box">🏢</div>
+              <div className="mrdu-why-icon-box"><IconBuilding size={24} /></div>
               <div className="mrdu-why-content">
                 <h3>Modern Learning Facilities</h3>
                 <p>Smart air-conditioned classrooms, state-of-the-art computer labs, spacious modern hostels, and multi-sport complexes.</p>
@@ -242,7 +269,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
             </div>
 
             <div className="mrdu-why-card">
-              <div className="mrdu-why-icon-box">🔬</div>
+              <div className="mrdu-why-icon-box"><IconMicroscope size={24} /></div>
               <div className="mrdu-why-content">
                 <h3>Research & Innovation Focus</h3>
                 <p>UGC-recognized R&D Centres, 4-Star IIC ranking, innovation patents, and an active incubator ecosystem.</p>
@@ -250,7 +277,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
             </div>
 
             <div className="mrdu-why-card">
-              <div className="mrdu-why-icon-box">🏅</div>
+              <div className="mrdu-why-icon-box"><IconAward size={24} /></div>
               <div className="mrdu-why-content">
                 <h3>Academic Excellence</h3>
                 <p>24+ years of quality technical education with prestigious NAAC A++ accreditation and NBA Tier-1 standards.</p>
@@ -258,7 +285,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
             </div>
 
             <div className="mrdu-why-card">
-              <div className="mrdu-why-icon-box">🌐</div>
+              <div className="mrdu-why-icon-box"><IconGlobe size={24} /></div>
               <div className="mrdu-why-content">
                 <h3>Global Recognition</h3>
                 <p>Consistent top NIRF rankings across Engineering, Institutional, and allied multidisciplinary departments.</p>
@@ -266,7 +293,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
             </div>
 
             <div className="mrdu-why-card">
-              <div className="mrdu-why-icon-box">🤝</div>
+              <div className="mrdu-why-icon-box"><IconHandshake size={24} /></div>
               <div className="mrdu-why-content">
                 <h3>Industry Partnerships</h3>
                 <p>Strong tie-ups with leading Fortune 500 recruiters and industry-aligned experiential skill certifications.</p>
@@ -274,7 +301,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
             </div>
 
             <div className="mrdu-why-card">
-              <div className="mrdu-why-icon-box">🌿</div>
+              <div className="mrdu-why-icon-box"><IconLeaf size={24} /></div>
               <div className="mrdu-why-content">
                 <h3>Vibrant Campus</h3>
                 <p>Sprawling lush green infrastructure, active student technical societies, annual cultural fests, and sports clubs.</p>
@@ -282,7 +309,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
             </div>
 
             <div className="mrdu-why-card">
-              <div className="mrdu-why-icon-box">💻</div>
+              <div className="mrdu-why-icon-box"><IconLaptop size={24} /></div>
               <div className="mrdu-why-content">
                 <h3>Advanced Cyber & Tech Labs</h3>
                 <p>High-performance computing clusters, ethical hacking sandboxes, SOC defense facilities, and AI/ML workspaces.</p>
@@ -311,7 +338,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
                   <strong>Announcements</strong>
                   <span>University notices & circulars</span>
                 </div>
-                <span>➔</span>
+                <span><IconArrowRight size={14} /></span>
               </div>
 
               <div className="mrdu-quick-tile" onClick={() => document.getElementById('events-section')?.scrollIntoView({ behavior: 'smooth' })}>
@@ -319,7 +346,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
                   <strong>Events</strong>
                   <span>Campus activities & symposiums</span>
                 </div>
-                <span>➔</span>
+                <span><IconArrowRight size={14} /></span>
               </div>
 
               <div className="mrdu-quick-tile" onClick={() => document.getElementById('placements')?.scrollIntoView({ behavior: 'smooth' })}>
@@ -327,7 +354,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
                   <strong>Placements</strong>
                   <span>Career opportunities & top packages</span>
                 </div>
-                <span>➔</span>
+                <span><IconArrowRight size={14} /></span>
               </div>
 
               <div className="mrdu-quick-tile" onClick={onOpenAuth}>
@@ -335,7 +362,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
                   <strong>Examinations</strong>
                   <span>Schedules, fee notifications & results</span>
                 </div>
-                <span>➔</span>
+                <span><IconArrowRight size={14} /></span>
               </div>
             </div>
           </div>
@@ -348,7 +375,9 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
                   <span className="mrdu-section-tag">UNIVERSITY NOTICES</span>
                   <h3>Latest Announcements</h3>
                 </div>
-                <span className="mrdu-notices-count-badge">📢 {announcementCount} Updates</span>
+                <span className="mrdu-notices-count-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                  <IconMegaphone size={12} /> {announcementCount} Updates
+                </span>
               </div>
 
               <div className="mrdu-notice-list">
@@ -359,14 +388,14 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
                       <span className="mrdu-date-month">{item.dateMonth}</span>
                     </div>
                     <span className="mrdu-notice-title">{item.title}</span>
-                    <span className="mrdu-notice-arrow">➔</span>
+                    <span className="mrdu-notice-arrow"><IconArrowRight size={14} /></span>
                   </div>
                 ))}
               </div>
             </div>
 
             <button className="mrdu-btn-view-notices" onClick={onOpenAuth}>
-              View All Notifications ➔
+              View All Notifications <IconArrowRight size={13} style={{ marginLeft: '4px' }} />
             </button>
           </div>
         </div>
@@ -393,7 +422,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
                   <h3>Electronics and Electrical Engineering</h3>
                   <p>Electronic systems, communication technology, VLSI design, semiconductor engineering, and power grid automation.</p>
                 </div>
-                <a href="#academics" className="mrdu-school-link" onClick={onOpenRegister}>Explore school ➔</a>
+                <a href="#academics" className="mrdu-school-link" onClick={onOpenRegister}>Explore school <IconArrowRight size={12} style={{ marginLeft: '4px' }} /></a>
               </div>
             </div>
 
@@ -404,7 +433,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
                   <h3>Civil and Mechanical Engineering</h3>
                   <p>Sustainable infrastructure design, robotics, advanced CAD/CAM manufacturing, automotive engineering, and aerospace systems.</p>
                 </div>
-                <a href="#academics" className="mrdu-school-link" onClick={onOpenRegister}>Explore school ➔</a>
+                <a href="#academics" className="mrdu-school-link" onClick={onOpenRegister}>Explore school <IconArrowRight size={12} style={{ marginLeft: '4px' }} /></a>
               </div>
             </div>
 
@@ -415,7 +444,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
                   <h3>Management and Technology</h3>
                   <p>Business analytics, strategy, entrepreneurship, fintech management, and digital enterprise software architectures.</p>
                 </div>
-                <a href="#academics" className="mrdu-school-link" onClick={onOpenRegister}>Explore school ➔</a>
+                <a href="#academics" className="mrdu-school-link" onClick={onOpenRegister}>Explore school <IconArrowRight size={12} style={{ marginLeft: '4px' }} /></a>
               </div>
             </div>
           </div>
@@ -452,7 +481,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
             </div>
 
             <button className="mrdu-btn-view-all-events" onClick={onOpenAuth}>
-              View All Events ➔
+              View All Events <IconArrowRight size={13} style={{ marginLeft: '4px' }} />
             </button>
           </div>
 
@@ -470,8 +499,8 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
                 </div>
                 <div className="mrdu-event-body">
                   <h4>{evt.title}</h4>
-                  <button className="mrdu-event-btn" onClick={onOpenAuth} style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer' }}>
-                    View Details & Register ➔
+                  <button className="mrdu-event-btn" onClick={onOpenAuth} style={{ background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}>
+                    View Details & Register <IconArrowRight size={12} style={{ marginLeft: '4px' }} />
                   </button>
                 </div>
               </div>
@@ -489,7 +518,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
               <img src="https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=600&q=80" alt="MRDU Annual Fest" className="mrdu-video-img" />
               <div className="mrdu-video-overlay">
                 <span className="mrdu-acc-pill" style={{ width: 'fit-content', background: 'rgba(0,0,0,0.5)' }}>CAMPUS FEST</span>
-                <div className="mrdu-video-play-icon">▶</div>
+                <div className="mrdu-video-play-icon"><IconPlay size={16} /></div>
                 <p className="mrdu-video-title">Annual University Fest & Cultural Highlights</p>
               </div>
             </div>
@@ -498,7 +527,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
               <img src="https://images.unsplash.com/photo-1550751827-4bd374c3f58b?auto=format&fit=crop&w=600&q=80" alt="Cyber CTF & Tech Symposium" className="mrdu-video-img" />
               <div className="mrdu-video-overlay">
                 <span className="mrdu-acc-pill" style={{ width: 'fit-content', background: 'rgba(0,0,0,0.5)' }}>TECH SYMPOSIUM</span>
-                <div className="mrdu-video-play-icon">▶</div>
+                <div className="mrdu-video-play-icon"><IconPlay size={16} /></div>
                 <p className="mrdu-video-title">National Cyber CTF & Robotics Arena</p>
               </div>
             </div>
@@ -507,7 +536,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
               <img src="https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=600&q=80" alt="Convocation Day" className="mrdu-video-img" />
               <div className="mrdu-video-overlay">
                 <span className="mrdu-acc-pill" style={{ width: 'fit-content', background: 'rgba(0,0,0,0.5)' }}>CONVOCATION</span>
-                <div className="mrdu-video-play-icon">▶</div>
+                <div className="mrdu-video-play-icon"><IconPlay size={16} /></div>
                 <p className="mrdu-video-title">21st Graduation Ceremony & Gold Medalists</p>
               </div>
             </div>
@@ -516,7 +545,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
               <img src="https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=600&q=80" alt="AI Agentic Club" className="mrdu-video-img" />
               <div className="mrdu-video-overlay">
                 <span className="mrdu-acc-pill" style={{ width: 'fit-content', background: 'rgba(0,0,0,0.5)' }}>INNOVATION</span>
-                <div className="mrdu-video-play-icon">▶</div>
+                <div className="mrdu-video-play-icon"><IconPlay size={16} /></div>
                 <p className="mrdu-video-title">Inauguration of Department Technical Clubs</p>
               </div>
             </div>
@@ -621,7 +650,7 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
                 “Ensuring transparency, efficiency, and integrity across all academic and administrative processes is at the heart of our mission. From admissions to university governance and technical societies, we strive to create a seamless, world-class ecosystem for every student.”
               </blockquote>
               <button className="mrdu-leader-btn" onClick={onOpenAuth}>
-                Read More ➔
+                Read More <IconArrowRight size={13} style={{ marginLeft: '4px' }} />
               </button>
             </div>
           </div>
@@ -683,10 +712,10 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
               <strong>Email:</strong> info@mrdu.edu.in
             </div>
             <div className="mrdu-social-icons" style={{ marginTop: '16px' }}>
-              <a href="https://facebook.com" target="_blank" rel="noreferrer" className="mrdu-social-link">f</a>
-              <a href="https://twitter.com" target="_blank" rel="noreferrer" className="mrdu-social-link">𝕏</a>
-              <a href="https://linkedin.com" target="_blank" rel="noreferrer" className="mrdu-social-link">in</a>
-              <a href="https://instagram.com" target="_blank" rel="noreferrer" className="mrdu-social-link">📸</a>
+              <a href="https://facebook.com" target="_blank" rel="noreferrer" className="mrdu-social-link" title="Facebook"><IconFacebook size={12} /></a>
+              <a href="https://twitter.com" target="_blank" rel="noreferrer" className="mrdu-social-link" title="X (Twitter)"><IconTwitter size={12} /></a>
+              <a href="https://linkedin.com" target="_blank" rel="noreferrer" className="mrdu-social-link" title="LinkedIn"><IconLinkedIn size={12} /></a>
+              <a href="https://instagram.com" target="_blank" rel="noreferrer" className="mrdu-social-link" title="Instagram"><IconInstagram size={12} /></a>
             </div>
           </div>
 
@@ -733,16 +762,17 @@ export default function MrduOfficialLanding({ onOpenAuth, onOpenRegister, events
                 target="_blank"
                 rel="noreferrer"
                 className="mrdu-map-link"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}
               >
-                🗺️ Open in Google Maps ➔
+                <IconMap size={13} /> Open in Google Maps <IconArrowRight size={12} />
               </a>
             </div>
             <button
               className="mrdu-btn-hero-primary"
-              style={{ width: '100%', justifyContent: 'center', padding: '10px 16px', fontSize: '11px' }}
+              style={{ width: '100%', justifyContent: 'center', padding: '10px 16px', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               onClick={onOpenAuth}
             >
-              Sign in to Event Portal ➔
+              Sign in to Event Portal <IconArrowRight size={12} />
             </button>
           </div>
         </div>
