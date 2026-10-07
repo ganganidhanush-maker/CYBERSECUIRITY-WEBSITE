@@ -20,6 +20,15 @@ export async function registerGuestAccount(request, response) {
 
   const data = parsed.data
 
+  const statusSetting = await prisma.clubSetting.findUnique({ where: { key: 'siteStatus' } })
+  if (statusSetting?.value === 'HIBERNATING') {
+    return response.status(503).json({
+      hibernating: true,
+      code: 'SITE_HIBERNATING',
+      message: 'The website is temporarily in hibernation mode for scheduled community maintenance. New guest registrations are paused.',
+    })
+  }
+
   // Check if an account with this email already exists
   const existingEmail = await prisma.profile.findUnique({
     where: { email: data.email },

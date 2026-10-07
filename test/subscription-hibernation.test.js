@@ -94,13 +94,57 @@ test('requireActiveSubscription allows leadership and active student subscriptio
 
 test('requireActiveSite blocks non-admin requests during hibernation with 503', async () => {
   const { requireActiveSite } = await import('../server/middleware/hibernation.js')
+  const { prisma } = await import('../server/db/prisma.js')
+
+  // Authentication routes always pass through
+  let authNextCalled = false
+  const authReq = { path: '/auth/login' }
+  const authRes = { status: () => authRes, json: () => {} }
+  await requireActiveSite(authReq, authRes, () => { authNextCalled = true })
+  assert.equal(authNextCalled, true)
 
   // Admin access during hibernation is allowed
-  let nextCalled = false
+  let adminNextCalled = false
   const adminReq = { user: { role: 'PRESIDENT', isPrimaryAdmin: true }, path: '/api/v1/admin/members' }
   const res = { status: () => res, json: () => {} }
-  await requireActiveSite(adminReq, res, () => { nextCalled = true })
-  assert.equal(nextCalled, true)
+  await requireActiveSite(adminReq, res, () => { adminNextCalled = true })
+  assert.equal(adminNextCalled, true)
+
+  // Student access during hibernation returns 503
+  let capturedStatus = null
+  let capturedJson = null
+  const studentReq = { user: { role: 'STUDENT', isPrimaryAdmin: false }, path: '/api/v1/member/events' }
+  const studentRes = {
+    status: (s) => {
+      capturedStatus = s
+      return studentRes
+    },
+    json: (data) => {
+      capturedJson = data
+      return studentRes
+    },
+  }
+
+  // Temporarily set siteStatus to HIBERNATING
+  await prisma.clubSetting.upsert({
+    where: { key: 'siteStatus' },
+    create: { key: 'siteStatus', value: 'HIBERNATING' },
+    update: { value: 'HIBERNATING' },
+  })
+
+  let studentNextCalled = false
+  await requireActiveSite(studentReq, studentRes, () => { studentNextCalled = true })
+  assert.equal(studentNextCalled, false)
+  assert.equal(capturedStatus, 503)
+  assert.equal(capturedJson?.hibernating, true)
+  assert.equal(capturedJson?.siteStatus, 'HIBERNATING')
+
+  // Restore siteStatus to ACTIVE
+  await prisma.clubSetting.upsert({
+    where: { key: 'siteStatus' },
+    create: { key: 'siteStatus', value: 'ACTIVE' },
+    update: { value: 'ACTIVE' },
+  })
 })
 
 test.after(async () => {

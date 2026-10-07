@@ -1946,9 +1946,11 @@ export async function updateClubSettings(request, response) {
     return response.status(403).json({ message: 'Only the Primary President can modify global site, platform mode, subscription, or video settings.' })
   }
 
-  // If site status is being changed to HIBERNATING, record the timestamp if not already provided
+  // If site status is being changed to HIBERNATING, record the timestamp if not already provided; clear if waking up
   if (parsed.data.siteStatus === 'HIBERNATING' && !parsed.data.hibernationStartedAt) {
     parsed.data.hibernationStartedAt = new Date().toISOString()
+  } else if (parsed.data.siteStatus === 'ACTIVE') {
+    parsed.data.hibernationStartedAt = ''
   }
 
   const entries = Object.entries(parsed.data)
@@ -1968,7 +1970,7 @@ export async function updateClubSettings(request, response) {
   }
 
   await tryWriteAuditLog({ actorUserId: request.user.id, action: 'CLUB_SETTINGS_UPDATED', metadata: { keys: Object.keys(parsed.data) }, ...auditRequest(request) })
-  return response.status(200).json({ message: 'Club settings updated successfully.' })
+  return response.status(200).json({ message: 'Club settings updated successfully.', settings: parsed.data })
 }
 
 // ----------------------------------------------------

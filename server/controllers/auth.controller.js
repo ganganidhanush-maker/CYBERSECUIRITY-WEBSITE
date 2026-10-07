@@ -143,6 +143,24 @@ export async function login(request, response) {
     return response.status(200).json({ requiresTwoFactor: true, csrfToken })
   }
 
+  // If site is in Hibernation Mode, non-admin students cannot log in
+  if (user.role === 'STUDENT') {
+    const statusSetting = await prisma.clubSetting.findUnique({ where: { key: 'siteStatus' } })
+    if (statusSetting?.value === 'HIBERNATING') {
+      await tryWriteAuditLog({
+        actorUserId: user.id,
+        action: 'LOGIN_BLOCKED_HIBERNATION',
+        metadata: { memberId: user.memberId, name: user.profile?.name || user.name, role: user.role },
+        ...auditRequest(request),
+      })
+      return response.status(503).json({
+        hibernating: true,
+        code: 'SITE_HIBERNATING',
+        message: 'The website is temporarily in hibernation mode for scheduled community maintenance. Only Presidents and Administrators can log in.',
+      })
+    }
+  }
+
   const platformMode = await getActivePlatformMode()
   const csrfToken = await establishAuthenticatedSession(request, user)
   await tryWriteAuditLog({

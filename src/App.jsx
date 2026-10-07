@@ -109,6 +109,8 @@ import {
   IconDiscord,
   IconWhatsApp,
 } from './components/Icons.jsx'
+import UpiPaymentCheckout from './components/UpiPaymentCheckout.jsx'
+import { generateUpiQrDataUrl } from './lib/upiPayment.js'
 
 const IconSearchSvg = IconSearch
 const IconUserSvg = IconUser
@@ -922,6 +924,8 @@ function ConcurrentWaitingQueue({ onComplete }) {
 function HibernationScreen({ onAdminLogin }) {
   const [startedAt, setStartedAt] = useState(null)
   const [elapsed, setElapsed] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 })
+  const { platformMode } = usePlatformTheme()
+  const isMrdu = platformMode === 'MRDU_EVENTS'
 
   useEffect(() => {
     let mounted = true
@@ -957,13 +961,15 @@ function HibernationScreen({ onAdminLogin }) {
     <div className="hibernation-page">
       <div className="grid-overlay" />
       <div className="hibernation-card">
-        <Crest />
+        <Crest platformMode={platformMode} />
         <span className="hibernation-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
           <IconAlertTriangle size={13} /> SITE STATUS · HIBERNATION ACTIVE
         </span>
-        <h1 className="hibernation-title">PORTAL IN HIBERNATION</h1>
+        <h1 className="hibernation-title">{isMrdu ? 'MRDU PORTAL IN HIBERNATION' : 'PORTAL IN HIBERNATION'}</h1>
         <p className="hibernation-desc">
-          The Cyber Security Club website is temporarily in hibernation mode for scheduled community maintenance.
+          {isMrdu
+            ? 'The Malla Reddy University Events Portal is temporarily in hibernation mode for scheduled community maintenance.'
+            : 'The Cyber Security Club website is temporarily in hibernation mode for scheduled community maintenance.'}
         </p>
 
         <div className="hibernation-timer-box">
@@ -1931,7 +1937,7 @@ function ForgotPasswordModal({ isOpen, onClose }) {
   )
 }
 
-function FinalLogin({ onSignIn, onForgotPassword }) {
+function FinalLogin({ onSignIn, onForgotPassword, onBackToHibernation }) {
   const [error, setError] = useState('')
   const [errorCode, setErrorCode] = useState('')
   const [loading, setLoading] = useState(false)
@@ -2109,6 +2115,31 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
                   Enter your university credentials to access events & passes.
                 </p>
               </div>
+
+              {onBackToHibernation && (
+                <button
+                  type="button"
+                  onClick={onBackToHibernation}
+                  style={{
+                    width: '100%',
+                    marginBottom: '16px',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    background: 'rgba(245, 158, 11, 0.12)',
+                    border: '1px solid rgba(245, 158, 11, 0.35)',
+                    color: '#d97706',
+                    fontSize: '11.5px',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                  }}
+                >
+                  <IconArrowLeft size={13} /> Back to Hibernation Screen
+                </button>
+              )}
 
               <form onSubmit={submit} noValidate>
                 <div className="login-field-group">
@@ -2383,6 +2414,31 @@ function FinalLogin({ onSignIn, onForgotPassword }) {
               Enter your authorized Member ID and password.
             </p>
           </div>
+
+          {onBackToHibernation && (
+            <button
+              type="button"
+              onClick={onBackToHibernation}
+              style={{
+                width: '100%',
+                marginBottom: '16px',
+                padding: '8px 12px',
+                borderRadius: '8px',
+                background: 'rgba(245, 158, 11, 0.12)',
+                border: '1px solid rgba(245, 158, 11, 0.35)',
+                color: '#f59e0b',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+              }}
+            >
+              <IconArrowLeft size={13} /> Back to Hibernation Screen
+            </button>
+          )}
 
           <form onSubmit={submit} noValidate>
             <div className="login-field-group">
@@ -6605,6 +6661,7 @@ function StudentMembership({ user, logout, onNavigate }) {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [receiptPreview, setReceiptPreview] = useState('')
+  const [subTransactionRef, setSubTransactionRef] = useState('')
   const [copiedUpi, setCopiedUpi] = useState(false)
 
   function loadStatus() {
@@ -6622,7 +6679,7 @@ function StudentMembership({ user, logout, onNavigate }) {
   async function handleSubmitPayment(e) {
     e.preventDefault()
     const form = new FormData(e.currentTarget)
-    const transactionRef = String(form.get('transactionRef') || '').trim()
+    const transactionRef = String(subTransactionRef || form.get('transactionRef') || '').trim()
     const amount = Number(form.get('amount') || subStatus?.monthlyAmount || 100)
 
     if (!transactionRef) {
@@ -6643,6 +6700,7 @@ function StudentMembership({ user, logout, onNavigate }) {
       })
       setMessage(isMrdu ? 'Your UPI student pass payment was submitted successfully. Verification in progress.' : 'Your UPI subscription payment was submitted successfully. An administrator will verify your membership shortly.')
       setReceiptPreview('')
+      setSubTransactionRef('')
       loadStatus()
     } catch (err) {
       setError(err.message)
@@ -6754,81 +6812,37 @@ function StudentMembership({ user, logout, onNavigate }) {
               </div>
             )}
 
-            {/* UPI Payment Form & QR Display Grid */}
-            <div className="member-management-grid" style={{ marginTop: '24px' }}>
+            {/* UPI Payment Form & QR Display */}
+            <div style={{ maxWidth: '580px', margin: '24px auto 0' }}>
               <article className="account-form-card">
-                <p className="eyebrow">UPI PAYMENT GATEWAY</p>
+                <p className="eyebrow">OFFICIAL UPI GATEWAY</p>
                 <h2>Submit UPI Membership Fee</h2>
-                <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '4px 0 18px' }}>
+                <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '4px 0 16px' }}>
                   Monthly Membership Fee: <b style={{ color: '#059669', fontSize: '16px' }}>₹{subStatus.monthlyAmount || 100}</b>
                 </p>
 
                 <form onSubmit={handleSubmitPayment}>
-                  <div className="member-form-grid">
-                    <label>
-                      Monthly Fee (₹)
-                      <input name="amount" type="number" readOnly value={subStatus.monthlyAmount || 100} style={{ opacity: 0.8 }} />
-                    </label>
-                    <label>
-                      Payment Method
-                      <input type="text" readOnly value="UPI (GPay / PhonePe / Paytm / BHIM)" style={{ opacity: 0.8, color: '#70ddb4' }} />
-                    </label>
-                    <label className="form-wide">
-                      UPI / UTR Transaction Reference ID (12 Digits) *
-                      <input name="transactionRef" required placeholder="e.g. 423984729103 or UPI Ref" />
-                    </label>
-                    <label className="form-wide">
-                      Upload Payment Screenshot / Receipt (Optional)
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={e => {
-                          const file = e.target.files?.[0]
-                          if (file) readImageFile(file, setReceiptPreview)
-                        }}
-                      />
-                    </label>
-                  </div>
+                  <UpiPaymentCheckout
+                    upiId={subStatus?.upiId || ''}
+                    payeeName="CyberSecurityClub"
+                    amount={Number(subStatus?.monthlyAmount || 100)}
+                    note="Membership Pass"
+                    customQrUrl={subStatus?.qrUrl || ''}
+                    paymentReference={subTransactionRef}
+                    onPaymentReferenceChange={setSubTransactionRef}
+                    screenshotPreview={receiptPreview}
+                    onScreenshotChange={setReceiptPreview}
+                    allowScreenshot={true}
+                    required={true}
+                  />
 
-                  {receiptPreview && (
-                    <div style={{ marginTop: '12px', textAlign: 'center' }}>
-                      <img src={receiptPreview} alt="Receipt preview" style={{ maxHeight: '140px', borderRadius: '8px', border: '1px solid #52bbf544' }} />
-                    </div>
-                  )}
+                  <input type="hidden" name="transactionRef" value={subTransactionRef} />
+                  <input type="hidden" name="amount" value={subStatus?.monthlyAmount || 100} />
 
                   <button className="primary member-submit" disabled={submitting} style={{ marginTop: '18px', width: '100%' }}>
                     {submitting ? 'SUBMITTING…' : 'SUBMIT UPI PAYMENT FOR VERIFICATION'}
                   </button>
                 </form>
-              </article>
-
-              {/* Official UPI Gateway Card */}
-              <article className="account-form-card" style={{ textAlign: 'center' }}>
-                <p className="eyebrow">OFFICIAL UPI GATEWAY</p>
-                <h2>Scan & Pay with Any UPI App</h2>
-
-                <div className="payment-qr-display" style={{ marginTop: '16px' }}>
-                  {subStatus.qrUrl ? (
-                    <img src={subStatus.qrUrl} alt="Club Official QR Code" />
-                  ) : (
-                    <div style={{ width: '180px', height: '180px', background: 'var(--panel-subtle)', border: '1px dashed var(--brand-border-subtle)', borderRadius: '8px', display: 'grid', placeContent: 'center', color: 'var(--text-muted)', fontSize: '11px' }}>
-                      UPI QR Code
-                    </div>
-                  )}
-                  {subStatus.upiId && (
-                    <div style={{ marginTop: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <code style={{ color: 'var(--brand-primary)', background: 'var(--bg-input)', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', border: '1px solid var(--line)' }}>
-                        {subStatus.upiId}
-                      </code>
-                      <button type="button" className="action-btn edit-btn" onClick={copyUpiId} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                        {copiedUpi ? <><IconCheck size={12} style={{ marginRight: 3 }} /> Copied</> : <><IconCopy size={12} style={{ marginRight: 3 }} /> Copy UPI ID</>}
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <small style={{ color: 'var(--text-muted)', fontSize: '11px', display: 'block' }}>
-                  Pay via Google Pay, PhonePe, Paytm, or BHIM, then enter the transaction ID.
-                </small>
               </article>
             </div>
 
@@ -8196,17 +8210,20 @@ function EventManagement({ user, logout, onNavigate }) {
                           </label>
                         </div>
 
-                        {/* Payment QR Code Uploader */}
+                        {/* Dynamic Payment QR Code Auto-Generator */}
                         <div className="form-wide" style={{ marginTop: '14px', padding: '16px', background: 'var(--panel-subtle)', borderRadius: '10px', border: '1px solid var(--line)' }}>
                           <b style={{ color: 'var(--text-main)', fontSize: '12.5px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                            <IconQrCode size={15} /> Payment UPI QR Code Image *
+                            <IconQrCode size={15} color="var(--brand-primary)" /> Dynamic UPI QR Code (Auto-Generated • No Upload Needed)
                           </b>
                           <p style={{ color: 'var(--text-muted)', fontSize: '11px', margin: '0 0 12px' }}>
-                            Upload your official UPI QR image or auto-generate from Club UPI ID.
+                            A high-contrast QR code and 1-tap PhonePe/UPI buttons are automatically generated from your Club UPI ID and pass price. No image upload is required!
                           </p>
 
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'flex-start' }}>
                             <div style={{ flex: 1, minWidth: '220px' }}>
+                              <p style={{ fontSize: '11px', color: 'var(--text-main)', margin: '0 0 6px', fontWeight: 600 }}>
+                                Custom QR Image Override (Optional)
+                              </p>
                               <input
                                 type="file"
                                 accept="image/*"
@@ -8216,41 +8233,29 @@ function EventManagement({ user, logout, onNavigate }) {
                                 }}
                                 style={{ width: '100%' }}
                               />
-
-                              {formData.paymentUpiId && (
-                                <button
-                                  type="button"
-                                  className="outline"
-                                  onClick={() => {
-                                    const amountParam = formData.paymentType === 'FIXED' && formData.paymentAmount ? `&am=${encodeURIComponent(formData.paymentAmount)}` : ''
-                                    const upiUrl = `upi://pay?pa=${encodeURIComponent(formData.paymentUpiId)}&pn=${encodeURIComponent('CyberSecurityClub')}${amountParam}&cu=INR`
-                                    const autoQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(upiUrl)}`
-                                    setQrPreview(autoQrUrl)
-                                    setMessage('Auto-generated UPI QR Code from your UPI ID!')
-                                  }}
-                                  style={{ marginTop: '10px', fontSize: '11px', padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px', borderColor: 'var(--brand-primary)', color: 'var(--brand-primary)' }}
-                                >
-                                  <IconZap size={13} /> Auto-Generate UPI QR from Club UPI ID
-                                </button>
-                              )}
+                              <small style={{ display: 'block', color: 'var(--text-dim)', fontSize: '10px', marginTop: '4px' }}>
+                                Leave empty to automatically use the generated UPI QR code.
+                              </small>
                             </div>
 
-                            {qrPreview ? (
+                            {qrPreview || formData.paymentUpiId ? (
                               <div style={{ textAlign: 'center', padding: '10px', background: '#fff', borderRadius: '8px', border: '2px solid var(--brand-primary)' }}>
                                 <img
-                                  src={qrPreview}
+                                  src={qrPreview || `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`upi://pay?pa=${formData.paymentUpiId}&pn=CyberSecurityClub${formData.paymentType === 'FIXED' && formData.paymentAmount ? `&am=${formData.paymentAmount}` : ''}&cu=INR`)}`}
                                   alt="Payment QR Preview"
                                   style={{ width: '130px', height: '130px', objectFit: 'contain', display: 'block', margin: '0 auto' }}
                                 />
                                 <span style={{ color: '#059669', fontSize: '10.5px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px', marginTop: '6px' }}>
-                                  <IconCheck size={12} /> QR ATTACHED
+                                  <IconCheck size={12} /> {qrPreview ? 'CUSTOM QR ATTACHED' : 'AUTO-QR READY'}
                                 </span>
-                                <button type="button" onClick={() => setQrPreview('')} style={{ marginTop: '4px', fontSize: '10px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer' }}>Remove</button>
+                                {qrPreview && (
+                                  <button type="button" onClick={() => setQrPreview('')} style={{ marginTop: '4px', fontSize: '10px', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', display: 'block', width: '100%' }}>Use Auto-Generated QR</button>
+                                )}
                               </div>
                             ) : (
                               <div style={{ padding: '18px 24px', textAlign: 'center', background: 'var(--bg-input)', border: '1px dashed var(--line)', borderRadius: '8px', minWidth: '140px' }}>
-                                <IconCamera size={26} style={{ opacity: 0.5, display: 'block', margin: '0 auto' }} />
-                                <small style={{ display: 'block', color: 'var(--text-dim)', fontSize: '10.5px', marginTop: '4px' }}>No QR Image Uploaded</small>
+                                <IconQrCode size={26} style={{ opacity: 0.5, display: 'block', margin: '0 auto' }} />
+                                <small style={{ display: 'block', color: 'var(--text-dim)', fontSize: '10.5px', marginTop: '4px' }}>Enter UPI ID to preview QR</small>
                               </div>
                             )}
                           </div>
@@ -9053,6 +9058,7 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
 
   // Registration Mode Choice (when event allows BOTH)
   const [chosenMode, setChosenMode] = useState('INDIVIDUAL') // 'INDIVIDUAL' or 'TEAM'
+  const [currentStepIndex, setCurrentStepIndex] = useState(0)
 
   // Payment Tier Selection
   const [selectedTierIndex, setSelectedTierIndex] = useState(0)
@@ -9516,6 +9522,9 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
     && (minMale === null || maleCount >= minMale)
     && (maxMale === null || maleCount <= maxMale)
 
+  const requiresFemale = minFemale > 0
+  const satisfiesFemaleQuota = femaleCount >= minFemale
+
   const satisfiesSize = teamSize >= minTeam && teamSize <= maxTeam
   const allowedDepts = teamConfig.allowedDepartments || []
   const allowedYears = teamConfig.allowedYears || []
@@ -9554,6 +9563,74 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
   // Hackathon Project Submission Enabled
   const hasSubmissionModule = Boolean(event.submissionConfig?.enabled || event.requireProjectSubmission || /hackathon|ctf/i.test(event.eventType))
   const submissionFields = event.submissionConfig?.fields || { github: true, website: true, drive: true, notes: true }
+
+  // Progressive Wizard Steps Definition
+  const wizardSteps = []
+  if (event.registrationType === 'BOTH' || isTeamFlow) {
+    wizardSteps.push({
+      id: 'SQUAD',
+      title: isTeamFlow ? 'Squad Formation' : 'Participation Mode',
+      badge: isTeamFlow ? 'Squad' : 'Mode',
+    })
+  }
+  wizardSteps.push({
+    id: 'ATTENDEE',
+    title: 'Attendee Details',
+    badge: 'Profile',
+  })
+  if ((event.customQuestions || []).length > 0) {
+    wizardSteps.push({
+      id: 'QUESTIONS',
+      title: `Event Questions (${event.customQuestions.length})`,
+      badge: 'Questions',
+    })
+  }
+  wizardSteps.push({
+    id: 'PAYMENT',
+    title: isPaid ? 'Pass & Payment' : 'Review & Confirm',
+    badge: isPaid ? 'Payment' : 'Confirm',
+  })
+
+  const activeStepIndex = Math.min(Math.max(0, currentStepIndex), Math.max(0, wizardSteps.length - 1))
+  const currentStep = wizardSteps[activeStepIndex] || wizardSteps[0]
+
+  function handleNextStep(e) {
+    if (e) e.preventDefault()
+    const step = wizardSteps[activeStepIndex]
+
+    if (step?.id === 'SQUAD') {
+      if (isTeamFlow) {
+        if (!userTeam) {
+          setError('Please create a squad and invite your teammates to continue.')
+          return
+        }
+        if (!isLeader) {
+          setError('Only the squad leader can proceed with registration.')
+          return
+        }
+        if (!teamRequirementsMet) {
+          setError(teamValidationIssue || 'Please fulfill all squad requirements before continuing.')
+          return
+        }
+      }
+    }
+
+    if (step?.id === 'QUESTIONS') {
+      const missing = (event.customQuestions || []).filter(q => q.required && !customFormAnswers[q.label]?.toString().trim())
+      if (missing.length > 0) {
+        setError(`Please answer the required question: "${missing[0].label}"`)
+        return
+      }
+    }
+
+    setError('')
+    setCurrentStepIndex(prev => Math.min(prev + 1, wizardSteps.length - 1))
+  }
+
+  function handlePrevStep() {
+    setError('')
+    setCurrentStepIndex(prev => Math.max(0, prev - 1))
+  }
 
   return (
     <LivePortal user={user} logout={logout} activeTab="student-events" onNavigate={onNavigate} title="EVENT DETAILS">
@@ -9688,26 +9765,45 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                 </div>
               ) : isRegistered ? (
                 /* ALREADY REGISTERED / UNDER VERIFICATION / REJECTED STATUS */
-                <div style={{ padding: '8px 0' }}>
+                <div style={{ padding: '4px 0' }}>
                   {isUnderVerification ? (
-                    <div style={{ padding: '20px', background: 'rgba(234, 179, 8, 0.12)', border: '1.5px solid #eab308', borderRadius: '12px', textAlign: 'center', marginBottom: '16px' }}>
-                      <IconClock size={28} style={{ display: 'block', margin: '0 auto 6px', color: '#eab308' }} />
-                      <b style={{ color: '#eab308', fontSize: '14px', display: 'block' }}>Payment Under Verification</b>
-                      <p style={{ color: 'var(--text-muted)', fontSize: '11.5px', margin: '6px 0 12px' }}>
-                        Your UPI payment reference <b>({userReg.paymentReference || 'Submitted'})</b> is being verified by event organizers. Your digital entrance pass will activate automatically upon approval.
+                    <div className="reg-status-card under-verif">
+                      <IconClock size={32} style={{ display: 'block', margin: '0 auto 8px', color: '#eab308' }} />
+                      <b style={{ color: '#eab308', fontSize: '15px', display: 'block' }}>Payment Under Verification</b>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '8px 0 12px', lineHeight: 1.5 }}>
+                        Your UPI payment reference <b style={{ color: 'var(--brand-primary)', fontFamily: 'monospace' }}>({userReg.paymentReference || 'Submitted'})</b> is being verified by event organizers.
                       </p>
-                      <small style={{ color: 'var(--text-dim)', display: 'block' }}>Status: UNDER_VERIFICATION</small>
+
+                      {/* Step timeline */}
+                      <div className="reg-status-timeline">
+                        <div className="reg-timeline-node done">
+                          <IconCheck size={12} /> UTR Sent
+                        </div>
+                        <span className="reg-timeline-arrow">→</span>
+                        <div className="reg-timeline-node active">
+                          <IconClock size={12} /> Verification
+                        </div>
+                        <span className="reg-timeline-arrow">→</span>
+                        <div className="reg-timeline-node pending">
+                          <IconCheckCircle size={12} /> Pass Active
+                        </div>
+                      </div>
+
+                      <small style={{ color: 'var(--text-dim)', display: 'block', marginTop: '10px', fontSize: '11px' }}>
+                        Your entrance QR pass will activate automatically in your wallet upon organizer approval.
+                      </small>
                     </div>
                   ) : isPaymentRejected ? (
-                    <div style={{ padding: '20px', background: 'rgba(239, 68, 68, 0.12)', border: '1.5px solid #ef4444', borderRadius: '12px', textAlign: 'center', marginBottom: '16px' }}>
-                      <IconXCircle size={28} style={{ display: 'block', margin: '0 auto 6px', color: '#ef4444' }} />
-                      <b style={{ color: '#ef4444', fontSize: '14px', display: 'block' }}>Payment Rejected by Organizer</b>
-                      <p style={{ color: 'var(--text-main)', fontSize: '12px', margin: '6px 0', background: 'var(--bg-card)', padding: '8px', borderRadius: '6px', border: '1px solid #ef444444' }}>
-                        Reason: {userReg.paymentRejectionReason || 'UTR not verified in club bank statement.'}
-                      </p>
+                    <div className="reg-status-card rejected">
+                      <IconXCircle size={32} style={{ display: 'block', margin: '0 auto 8px', color: '#ef4444' }} />
+                      <b style={{ color: '#ef4444', fontSize: '15px', display: 'block' }}>Payment Rejected by Organizer</b>
+                      <div style={{ color: 'var(--text-main)', fontSize: '12px', margin: '10px 0', background: 'var(--bg-card)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(239, 68, 68, 0.3)', textAlign: 'left' }}>
+                        <small style={{ color: '#ef4444', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '2px' }}>Organizer Rejection Note:</small>
+                        {userReg.paymentRejectionReason || 'UTR not verified in club bank statement.'}
+                      </div>
                       <p style={{ color: 'var(--text-muted)', fontSize: '11.5px', margin: '8px 0 14px' }}>
                         {canResubmitPayment
-                          ? 'Please verify your transaction in your UPI app and re-submit your UTR reference.'
+                          ? 'Please check your transaction in your UPI app and re-submit your corrected 12-digit UTR.'
                           : 'The team leader must verify the transaction and resubmit the team UTR.'}
                       </p>
                       {canResubmitPayment ? (
@@ -9715,25 +9811,24 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                           type="button"
                           className="primary"
                           onClick={() => setShowResubmitModal(true)}
-                          style={{ width: '100%', padding: '10px', background: '#ef4444', color: '#fff', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                          style={{ width: '100%', minHeight: '42px', background: '#ef4444', color: '#fff', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                         >
-                          Resubmit Payment UTR <IconArrowRight size={12} />
+                          Resubmit Payment UTR <IconArrowRight size={13} />
                         </button>
                       ) : (
                         <small style={{ color: 'var(--text-muted)' }}>Ask your team leader to resubmit the team payment UTR.</small>
                       )}
                     </div>
                   ) : (
-                    <div style={{ textAlign: 'center', padding: '16px', background: 'var(--panel-subtle)', borderRadius: '12px', border: '1px solid var(--line)', marginBottom: '16px' }}>
-                      <span className={isActiveEventPassRecord(userReg) ? 'badge badge-registered' : 'badge'} style={{ fontSize: '12px', padding: '6px 14px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                        {isActiveEventPassRecord(userReg) ? <><IconCheckCircle size={13} /> PASS ACTIVE & CONFIRMED</> : 'REGISTRATION NOT ACTIVE'}
-                      </span>
-                      <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '10px' }}>
+                    <div className="reg-status-card active">
+                      <IconCheckCircle size={32} style={{ display: 'block', margin: '0 auto 8px', color: '#10b981' }} />
+                      <b style={{ color: '#10b981', fontSize: '15px', display: 'block' }}>PASS ACTIVE & CONFIRMED</b>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: '8px 0 14px' }}>
                         {userReg.teamName ? `Team: ${userReg.teamName} · ` : ''}
-                        Your entrance QR pass is active in your Pass Wallet.
+                        Your official entrance QR pass is ready for venue gate scanning.
                       </p>
-                      <button className="outline" type="button" onClick={() => onNavigate('student-registrations')} style={{ marginTop: '8px', width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                        VIEW ENTRANCE PASS IN WALLET <IconArrowRight size={12} />
+                      <button className="outline" type="button" onClick={() => onNavigate('student-registrations')} style={{ width: '100%', minHeight: '42px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', fontWeight: 700 }}>
+                        VIEW ENTRANCE PASS IN WALLET <IconArrowRight size={13} />
                       </button>
                     </div>
                   )}
@@ -9850,216 +9945,304 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                 </div>
               ) : (
                 /* PROGRESSIVE REGISTRATION WIZARD */
-                <form onSubmit={handleRegister}>
-                  {/* STEP 1: Registration Mode (if event allows BOTH Solo and Team) */}
-                  {event.registrationType === 'BOTH' && (
-                    <div style={{ marginBottom: '16px', padding: '12px', background: 'var(--panel-subtle)', borderRadius: '10px', border: '1px solid var(--line)' }}>
-                      <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-main)', display: 'block', marginBottom: '8px' }}>
-                        Select Participation Mode:
+                <form onSubmit={handleRegister} className="reg-wizard-container">
+                  {/* STEPPER PROGRESS TRACK */}
+                  <div className="reg-stepper-header">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span className="badge" style={{ background: 'var(--brand-glow)', color: 'var(--brand-primary)', fontWeight: 700, fontSize: '10px' }}>
+                        STEP {activeStepIndex + 1} OF {wizardSteps.length}
                       </span>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                        <button
-                          type="button"
-                          className={chosenMode === 'INDIVIDUAL' ? 'primary' : 'outline'}
-                          onClick={() => setChosenMode('INDIVIDUAL')}
-                          style={{ fontSize: '11px', height: '32px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
-                        >
-                          <IconUser size={13} /> Individual Pass
-                        </button>
-                        <button
-                          type="button"
-                          className={chosenMode === 'TEAM' ? 'primary' : 'outline'}
-                          onClick={() => setChosenMode('TEAM')}
-                          style={{ fontSize: '11px', height: '32px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
-                        >
-                          <IconUsers size={13} /> Squad / Team
-                        </button>
-                      </div>
+                      <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-main)' }}>
+                        {currentStep?.title}
+                      </span>
                     </div>
-                  )}
 
-                  {/* STEP 2: Team Formation Module (if Team Event or Team chosen) */}
-                  {isTeamFlow && (
-                    <div style={{ marginBottom: '16px', padding: '14px', background: 'var(--panel-subtle)', borderRadius: '10px', border: '1px solid var(--line)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <b style={{ color: 'var(--brand-primary)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <IconUsers size={13} /> SQUAD FORMATION ({minTeam} - {maxTeam} MEMBERS)
-                        </b>
-                        {requiresFemale && (
-                          <span className="badge" style={{ fontSize: '9px', background: satisfiesFemaleQuota ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: satisfiesFemaleQuota ? '#10b981' : '#ef4444', border: '1px solid currentColor', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                            <IconFlower size={11} /> 1+ Female Compulsory
-                          </span>
-                        )}
-                      </div>
-
-                      {userTeam ? (
-                        <div>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>
-                              Team: {userTeam.teamName}
-                            </span>
-                            <span className="badge" style={{ fontSize: '10px', background: isLeader ? 'var(--brand-badge-bg)' : 'var(--panel-elevated)', color: isLeader ? 'var(--brand-primary)' : 'var(--text-muted)' }}>
-                              {isLeader ? 'LEADER' : 'MEMBER'}
-                            </span>
-                          </div>
-
-                          {/* Member List */}
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', margin: '10px 0' }}>
-                            {(userTeam.members || []).map(m => (
-                              <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: 'var(--bg-input)', borderRadius: '6px', border: '1px solid var(--line)', fontSize: '11px' }}>
-                                <div>
-                                  <b style={{ color: 'var(--text-main)' }}>{m.name}</b>
-                                  <small style={{ color: 'var(--text-muted)', display: 'block' }}>
-                                    {m.memberId} · {m.gender || 'UNSPECIFIED'} {m.department ? `· ${m.department}` : ''}
-                                  </small>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  <span className="badge" style={{
-                                    fontSize: '9px',
-                                    background: m.status === 'ACCEPTED' ? '#064e3b' : m.status === 'REJECTED' ? '#7f1d1d' : '#78350f',
-                                    color: m.status === 'ACCEPTED' ? '#6ee7b7' : m.status === 'REJECTED' ? '#fca5a5' : '#fde68a',
-                                  }}>
-                                    {m.status}
-                                  </span>
-                                  {isLeader && m.userId !== user.id && (
-                                    <button type="button" onClick={() => handleRemoveTeamMember(userTeam.id, m.userId)} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                                      <IconX size={13} />
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* Live Validation Banner */}
-                          <div style={{ padding: '8px 10px', background: 'var(--bg-card)', borderRadius: '6px', fontSize: '11px', margin: '10px 0' }}>
-                            <div style={{ color: satisfiesSize ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ display: 'inline-flex', alignItems: 'center' }}>{satisfiesSize ? <IconCheck size={12} /> : <IconX size={12} />}</span>
-                              <span>Squad Size: <b>{teamSize} / {minTeam} required</b></span>
-                            </div>
-                            {requiresFemale && (
-                              <div style={{ color: satisfiesFemaleQuota ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-                                <span style={{ display: 'inline-flex', alignItems: 'center' }}>{satisfiesFemaleQuota ? <IconCheck size={12} /> : <IconX size={12} />}</span>
-                                <span>Gender Quota: {satisfiesFemaleQuota ? `Satisfied (${femaleCount} female)` : 'Requires at least 1 female participant'}</span>
-                              </div>
-                            )}
-                          </div>
-
-                          {!isLeader && (
-                            <p style={{ margin: '8px 0 0', fontSize: '11px', color: 'var(--text-muted)' }}>
-                              Your team leader ({userTeam.members?.find(m => m.userId === userTeam.leaderId)?.name || 'Leader'}) will complete registration & payment.
-                            </p>
-                          )}
-                        </div>
-                      ) : (
-                        /* Create Team Form with Student Autocomplete */
-                        <div>
-                          <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                            Team Name *
-                          </label>
-                          <input
-                            placeholder="e.g. CyberVanguard"
-                            value={teamNameInput}
-                            onChange={e => setTeamNameInput(e.target.value)}
-                            style={{ width: '100%', height: '34px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px' }}
-                          />
-
-                          <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', margin: '10px 0 4px' }}>
-                            Search & Invite Students (by Name, Member ID, or Roll No)
-                          </label>
-                          <div style={{ position: 'relative' }}>
-                            <input
-                              placeholder="Type name, roll number, or member ID..."
-                              value={memberSearchQuery}
-                              onChange={e => handleSearchStudents(e.target.value)}
-                              style={{ width: '100%', height: '34px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px' }}
-                            />
-                            {searchLoading && (
-                              <small style={{ position: 'absolute', right: '10px', top: '9px', color: 'var(--text-dim)', fontSize: '10px' }}>Searching…</small>
-                            )}
-                            {memberSearchResults.length > 0 && (
-                              <div style={{ position: 'absolute', top: '38px', left: 0, right: 0, background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '8px', zIndex: 10, maxHeight: '180px', overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.3)' }}>
-                                {memberSearchResults.map(m => (
-                                  <div
-                                    key={m.id}
-                                    onClick={() => addDraftMember(m)}
-                                    style={{ padding: '8px 12px', borderBottom: '1px solid var(--line)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px' }}
-                                    onMouseEnter={e => e.currentTarget.style.background = 'var(--panel-subtle)'}
-                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                                  >
-                                    <div>
-                                      <b style={{ color: 'var(--text-main)' }}>{m.name}</b>
-                                      <span style={{ color: 'var(--text-dim)', marginLeft: '6px' }}>({m.memberId})</span>
-                                      <small style={{ display: 'block', color: 'var(--text-muted)' }}>{m.department} · {m.gender || 'MALE'}</small>
-                                    </div>
-                                    <span style={{ color: 'var(--brand-primary)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-                                      <IconPlus size={12} /> Add
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          {draftMembers.length > 0 && (
-                            <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                              <span style={{ fontSize: '10.5px', color: 'var(--text-dim)', fontWeight: 600 }}>INVITED TEAMMATES ({draftMembers.length}):</span>
-                              {draftMembers.map(m => (
-                                <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'var(--bg-input)', borderRadius: '6px', fontSize: '11px' }}>
-                                  <span><b>{m.name}</b> ({m.memberId}) · <span style={{ color: m.gender === 'FEMALE' ? '#f472b6' : 'var(--text-muted)' }}>{m.gender || 'MALE'}</span></span>
-                                  <button type="button" onClick={() => removeDraftMember(m.id)} style={{ color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <IconX size={12} />
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
+                    <div className="reg-stepper-track">
+                      {wizardSteps.map((s, idx) => {
+                        const isCompleted = idx < activeStepIndex
+                        const isActive = idx === activeStepIndex
+                        return (
                           <button
+                            key={s.id}
                             type="button"
-                            className="primary"
-                            disabled={teamSubmitting || !teamNameInput.trim()}
-                            onClick={handleCreateTeam}
-                            style={{ width: '100%', height: '34px', marginTop: '12px', fontSize: '11px' }}
+                            onClick={() => {
+                              if (idx <= activeStepIndex) {
+                                setError('')
+                                setCurrentStepIndex(idx)
+                              }
+                            }}
+                            disabled={idx > activeStepIndex}
+                            className={`reg-stepper-pill ${isActive ? 'active' : ''} ${isCompleted ? 'completed' : ''}`}
+                            title={s.title}
                           >
-                            {teamSubmitting ? 'CREATING SQUAD…' : 'CREATE SQUAD & SEND INVITES'}
+                            <span className="reg-stepper-pill-num">
+                              {isCompleted ? <IconCheck size={10} /> : idx + 1}
+                            </span>
+                            <span>{s.badge}</span>
                           </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* STEP 3: Verified Student Profile Overview */}
-                  <div style={{ marginBottom: '16px', padding: '12px 14px', background: 'var(--panel-subtle)', borderRadius: '10px', border: '1px solid var(--line)' }}>
-                    <span style={{ fontSize: '10.5px', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', display: 'block', marginBottom: '6px' }}>
-                      VERIFIED STUDENT ATTENDEE
-                    </span>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '11.5px' }}>
-                      <div>
-                        <small style={{ color: 'var(--text-dim)', display: 'block' }}>Name</small>
-                        <b style={{ color: 'var(--text-main)' }}>{user.profile?.name || user.name}</b>
-                      </div>
-                      <div>
-                        <small style={{ color: 'var(--text-dim)', display: 'block' }}>Member / Roll ID</small>
-                        <b style={{ color: 'var(--brand-primary)', fontFamily: 'monospace' }}>{user.memberId}</b>
-                      </div>
-                      <div>
-                        <small style={{ color: 'var(--text-dim)', display: 'block' }}>Department</small>
-                        <span style={{ color: 'var(--text-muted)' }}>{user.profile?.department || 'Cyber Security'}</span>
-                      </div>
-                      <div>
-                        <small style={{ color: 'var(--text-dim)', display: 'block' }}>Gender / Year</small>
-                        <span style={{ color: 'var(--text-muted)' }}>{user.profile?.gender || 'MALE'} · Year {user.profile?.year || 2}</span>
-                      </div>
+                        )
+                      })}
                     </div>
                   </div>
 
-                  {/* STEP 4: Custom Event Questions */}
-                  {(event.customQuestions || []).length > 0 && (
-                    <div style={{ marginBottom: '16px', padding: '14px', background: 'var(--panel-subtle)', borderRadius: '10px', border: '1px solid var(--line)' }}>
-                      <b style={{ color: 'var(--brand-primary)', fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '12px' }}>
-                        <IconSparkles size={13} /> EVENT QUESTIONS ({event.customQuestions.length})
-                      </b>
+                  {/* STEP: Registration Mode & Squad Formation */}
+                  {currentStep?.id === 'SQUAD' && (
+                    <div className="reg-wizard-step">
+                      {event.registrationType === 'BOTH' && (
+                        <div style={{ marginBottom: isTeamFlow ? '16px' : '0' }}>
+                          <div className="reg-wizard-step-header">
+                            <span className="reg-wizard-step-title">
+                              <span className="reg-wizard-step-badge">{activeStepIndex + 1}</span> Select Participation Mode
+                            </span>
+                            <span className="badge" style={{ background: 'var(--brand-badge-bg)', color: 'var(--brand-badge-color)', fontSize: '10px' }}>
+                              Solo or Squad
+                            </span>
+                          </div>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                            <button
+                              type="button"
+                              className={chosenMode === 'INDIVIDUAL' ? 'primary' : 'outline'}
+                              onClick={() => setChosenMode('INDIVIDUAL')}
+                              style={{ fontSize: '11.5px', minHeight: '38px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                            >
+                              <IconUser size={13} /> Individual Pass
+                            </button>
+                            <button
+                              type="button"
+                              className={chosenMode === 'TEAM' ? 'primary' : 'outline'}
+                              onClick={() => setChosenMode('TEAM')}
+                              style={{ fontSize: '11.5px', minHeight: '38px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                            >
+                              <IconUsers size={13} /> Squad / Team
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {isTeamFlow && (
+                        <div>
+                          <div className="reg-wizard-step-header" style={{ marginTop: event.registrationType === 'BOTH' ? '12px' : '0' }}>
+                            <span className="reg-wizard-step-title">
+                              <span className="reg-wizard-step-badge">{activeStepIndex + 1}</span> Squad Formation ({minTeam} - {maxTeam} Members)
+                            </span>
+                            {requiresFemale && (
+                              <span className="badge" style={{ fontSize: '9px', background: satisfiesFemaleQuota ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)', color: satisfiesFemaleQuota ? '#10b981' : '#ef4444', border: '1px solid currentColor', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                <IconFlower size={11} /> 1+ Female Compulsory
+                              </span>
+                            )}
+                          </div>
+
+                          {userTeam ? (
+                            <div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>
+                                  Team: {userTeam.teamName}
+                                </span>
+                                <span className="badge" style={{ fontSize: '10px', background: isLeader ? 'var(--brand-badge-bg)' : 'var(--panel-elevated)', color: isLeader ? 'var(--brand-primary)' : 'var(--text-muted)' }}>
+                                  {isLeader ? 'LEADER' : 'MEMBER'}
+                                </span>
+                              </div>
+
+                              {/* Member List */}
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', margin: '10px 0' }}>
+                                {(userTeam.members || []).map(m => (
+                                  <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 10px', background: 'var(--bg-input)', borderRadius: '6px', border: '1px solid var(--line)', fontSize: '11px' }}>
+                                    <div>
+                                      <b style={{ color: 'var(--text-main)' }}>{m.name}</b>
+                                      <small style={{ color: 'var(--text-muted)', display: 'block' }}>
+                                        {m.memberId} · {m.gender || 'UNSPECIFIED'} {m.department ? `· ${m.department}` : ''}
+                                      </small>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <span className="badge" style={{
+                                        fontSize: '9px',
+                                        background: m.status === 'ACCEPTED' ? '#064e3b' : m.status === 'REJECTED' ? '#7f1d1d' : '#78350f',
+                                        color: m.status === 'ACCEPTED' ? '#6ee7b7' : m.status === 'REJECTED' ? '#fca5a5' : '#fde68a',
+                                      }}>
+                                        {m.status}
+                                      </span>
+                                      {isLeader && m.userId !== user.id && (
+                                        <button type="button" onClick={() => handleRemoveTeamMember(userTeam.id, m.userId)} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                          <IconX size={13} />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Live Validation Banner */}
+                              <div style={{ padding: '8px 10px', background: 'var(--bg-card)', borderRadius: '6px', fontSize: '11px', margin: '10px 0' }}>
+                                <div style={{ color: satisfiesSize ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center' }}>{satisfiesSize ? <IconCheck size={12} /> : <IconX size={12} />}</span>
+                                  <span>Squad Size: <b>{teamSize} / {minTeam} required</b></span>
+                                </div>
+                                {requiresFemale && (
+                                  <div style={{ color: satisfiesFemaleQuota ? '#10b981' : '#ef4444', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center' }}>{satisfiesFemaleQuota ? <IconCheck size={12} /> : <IconX size={12} />}</span>
+                                    <span>Gender Quota: {satisfiesFemaleQuota ? `Satisfied (${femaleCount} female)` : 'Requires at least 1 female participant'}</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {!isLeader && (
+                                <p style={{ margin: '8px 0 0', fontSize: '11px', color: 'var(--text-muted)' }}>
+                                  Your team leader ({userTeam.members?.find(m => m.userId === userTeam.leaderId)?.name || 'Leader'}) will complete registration & payment.
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            /* Create Team Form with Student Autocomplete */
+                            <div>
+                              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                                Team Name *
+                              </label>
+                              <input
+                                placeholder="e.g. CyberVanguard"
+                                value={teamNameInput}
+                                onChange={e => setTeamNameInput(e.target.value)}
+                                style={{ width: '100%', height: '34px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px' }}
+                              />
+
+                              <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', margin: '10px 0 4px' }}>
+                                Search & Invite Students (by Name, Member ID, or Roll No)
+                              </label>
+                              <div style={{ position: 'relative' }}>
+                                <input
+                                  placeholder="Type name, roll number, or member ID..."
+                                  value={memberSearchQuery}
+                                  onChange={e => handleSearchStudents(e.target.value)}
+                                  style={{ width: '100%', height: '34px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px' }}
+                                />
+                                {searchLoading && (
+                                  <small style={{ position: 'absolute', right: '10px', top: '9px', color: 'var(--text-dim)', fontSize: '10px' }}>Searching…</small>
+                                )}
+                                {memberSearchResults.length > 0 && (
+                                  <div style={{ position: 'absolute', top: '38px', left: 0, right: 0, background: 'var(--bg-card)', border: '1px solid var(--line)', borderRadius: '8px', zIndex: 10, maxHeight: '180px', overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,0.3)' }}>
+                                    {memberSearchResults.map(m => (
+                                      <div
+                                        key={m.id}
+                                        onClick={() => addDraftMember(m)}
+                                        style={{ padding: '8px 12px', borderBottom: '1px solid var(--line)', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px' }}
+                                        onMouseEnter={e => e.currentTarget.style.background = 'var(--panel-subtle)'}
+                                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                      >
+                                        <div>
+                                          <b style={{ color: 'var(--text-main)' }}>{m.name}</b>
+                                          <span style={{ color: 'var(--text-dim)', marginLeft: '6px' }}>({m.memberId})</span>
+                                          <small style={{ display: 'block', color: 'var(--text-muted)' }}>{m.department} · {m.gender || 'MALE'}</small>
+                                        </div>
+                                        <span style={{ color: 'var(--brand-primary)', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                                          <IconPlus size={12} /> Add
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                              {draftMembers.length > 0 && (
+                                <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                  <span style={{ fontSize: '10.5px', color: 'var(--text-dim)', fontWeight: 600 }}>INVITED TEAMMATES ({draftMembers.length}):</span>
+                                  {draftMembers.map(m => (
+                                    <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 10px', background: 'var(--bg-input)', borderRadius: '6px', fontSize: '11px' }}>
+                                      <span><b>{m.name}</b> ({m.memberId}) · <span style={{ color: m.gender === 'FEMALE' ? '#f472b6' : 'var(--text-muted)' }}>{m.gender || 'MALE'}</span></span>
+                                      <button type="button" onClick={() => removeDraftMember(m.id)} style={{ color: '#ef4444', background: 'transparent', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <IconX size={12} />
+                                      </button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              <button
+                                type="button"
+                                className="primary"
+                                disabled={teamSubmitting || !teamNameInput.trim()}
+                                onClick={handleCreateTeam}
+                                style={{ width: '100%', height: '34px', marginTop: '12px', fontSize: '11px' }}
+                              >
+                                {teamSubmitting ? 'CREATING SQUAD…' : 'CREATE SQUAD & SEND INVITES'}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="reg-wizard-nav-buttons">
+                        <button
+                          type="button"
+                          className="primary"
+                          onClick={handleNextStep}
+                          style={{ width: '100%', minHeight: '44px', fontSize: '12px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                        >
+                          Continue to Attendee Details <IconArrowRight size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* STEP: Verified Student Profile Overview */}
+                  {currentStep?.id === 'ATTENDEE' && (
+                    <div className="reg-wizard-step">
+                      <div className="reg-wizard-step-header">
+                        <span className="reg-wizard-step-title">
+                          <span className="reg-wizard-step-badge">{activeStepIndex + 1}</span> Verified Student Attendee
+                        </span>
+                        <span className="badge badge-registered" style={{ fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <IconCheck size={11} /> Verified Member
+                        </span>
+                      </div>
+                      <div className="attendee-info-grid">
+                        <div className="attendee-info-item">
+                          <small>Student Name</small>
+                          <b>{user.profile?.name || user.name}</b>
+                        </div>
+                        <div className="attendee-info-item">
+                          <small>Member ID / Roll</small>
+                          <b style={{ color: 'var(--brand-primary)', fontFamily: 'monospace' }}>{user.memberId}</b>
+                        </div>
+                        <div className="attendee-info-item">
+                          <small>Department</small>
+                          <b>{user.profile?.department || 'Cyber Security'}</b>
+                        </div>
+                        <div className="attendee-info-item">
+                          <small>Year & Gender</small>
+                          <b>Year {user.profile?.year || 2} · {user.profile?.gender || 'MALE'}</b>
+                        </div>
+                      </div>
+
+                      <div className="reg-wizard-nav-buttons">
+                        {activeStepIndex > 0 && (
+                          <button
+                            type="button"
+                            className="outline"
+                            onClick={handlePrevStep}
+                            style={{ minHeight: '44px', padding: '0 16px', fontSize: '11.5px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                          >
+                            <IconArrowLeft size={13} /> Back
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="primary"
+                          onClick={handleNextStep}
+                          style={{ flex: 1, minHeight: '44px', fontSize: '12px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                        >
+                          Continue to {wizardSteps[activeStepIndex + 1]?.title || 'Next Step'} <IconArrowRight size={13} />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* STEP: Custom Event Questions */}
+                  {currentStep?.id === 'QUESTIONS' && (
+                    <div className="reg-wizard-step">
+                      <div className="reg-wizard-step-header">
+                        <span className="reg-wizard-step-title">
+                          <span className="reg-wizard-step-badge">{activeStepIndex + 1}</span> Event Questions ({(event.customQuestions || []).length})
+                        </span>
+                      </div>
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                         {event.customQuestions.map((q, idx) => (
@@ -10077,7 +10260,7 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                                   placeholder="https://drive.google.com/file/d/... or public cloud link"
                                   value={customFormAnswers[q.label] || ''}
                                   onChange={e => setCustomFormAnswers(prev => ({ ...prev, [q.label]: e.target.value }))}
-                                  style={{ width: '100%', height: '34px', fontSize: '11.5px' }}
+                                  style={{ width: '100%', minHeight: '38px', fontSize: '11.5px' }}
                                 />
                                 <small style={{ color: 'var(--text-dim)', fontSize: '10px', display: 'block', marginTop: '3px' }}>
                                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -10091,7 +10274,7 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                                 required={q.required}
                                 value={customFormAnswers[q.label] || ''}
                                 onChange={e => setCustomFormAnswers(prev => ({ ...prev, [q.label]: e.target.value }))}
-                                style={{ width: '100%', height: '34px' }}
+                                style={{ width: '100%', minHeight: '38px' }}
                               >
                                 <option value="">Select an option</option>
                                 {(q.options || '').split(',').map((opt, oIdx) => (
@@ -10104,7 +10287,7 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                                 required={q.required}
                                 value={customFormAnswers[q.label] || ''}
                                 onChange={e => setCustomFormAnswers(prev => ({ ...prev, [q.label]: e.target.value }))}
-                                style={{ width: '100%', padding: '6px 10px', fontSize: '11.5px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)' }}
+                                style={{ width: '100%', padding: '8px 10px', fontSize: '11.5px', background: 'var(--bg-input)', border: '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)' }}
                               />
                             ) : (
                               <input
@@ -10112,7 +10295,7 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                                 required={q.required}
                                 value={customFormAnswers[q.label] || ''}
                                 onChange={e => setCustomFormAnswers(prev => ({ ...prev, [q.label]: e.target.value }))}
-                                style={{ width: '100%', height: '34px', fontSize: '11.5px' }}
+                                style={{ width: '100%', minHeight: '38px', fontSize: '11.5px' }}
                               />
                             )}
                           </div>
@@ -10126,164 +10309,150 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                         disabled={savingDraft}
                         style={{ marginTop: '12px', background: 'transparent', border: 'none', color: 'var(--brand-primary)', fontSize: '11px', cursor: 'pointer', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                       >
-                        {savingDraft ? 'Saving Draft…' : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconSave size={12} /> Save Draft Progress</span>}
+                        <IconCloud size={12} /> {savingDraft ? 'Saving Draft…' : 'Save draft answers'}
                       </button>
+                      {/* Navigation Buttons */}
+                      <div className="reg-wizard-nav-buttons">
+                        <button
+                          type="button"
+                          className="outline"
+                          onClick={handlePrevStep}
+                          style={{ minHeight: '44px', padding: '0 16px', fontSize: '11.5px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                        >
+                          <IconArrowLeft size={13} /> Back
+                        </button>
+                        <button
+                          type="button"
+                          className="primary"
+                          onClick={handleNextStep}
+                          style={{ flex: 1, minHeight: '44px', fontSize: '12px', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                        >
+                          Continue to {wizardSteps[activeStepIndex + 1]?.title || 'Next Step'} <IconArrowRight size={13} />
+                        </button>
+                      </div>
                     </div>
                   )}
 
-                  {/* STEP 5: Payment Gateway & Tier Selection */}
-                  {isPaid ? (
-                    <div style={{ marginBottom: '16px', padding: '14px', background: 'var(--panel-subtle)', borderRadius: '10px', border: '1px solid var(--line)' }}>
-                      <b style={{ color: 'var(--brand-primary)', fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
-                        <IconCreditCard size={14} /> PAYMENT & REGISTRATION TIER
-                      </b>
-
-                      {/* Tier Selection if Multiple Pricing Tiers Configured */}
-                      {paymentType === 'TIERS' && paymentTiers.length > 0 && (
-                        <div style={{ marginBottom: '14px' }}>
-                          <span style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
-                            CHOOSE REGISTRATION TIER:
-                          </span>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            {paymentTiers.map((t, idx) => (
-                              <div
-                                key={idx}
-                                onClick={() => setSelectedTierIndex(idx)}
-                                style={{
-                                  padding: '10px 12px',
-                                  borderRadius: '8px',
-                                  border: selectedTierIndex === idx ? '1.5px solid var(--brand-primary)' : '1px solid var(--line)',
-                                  background: selectedTierIndex === idx ? 'var(--brand-glow)' : 'var(--bg-input)',
-                                  cursor: 'pointer',
-                                  display: 'flex',
-                                  justifyContent: 'space-between',
-                                  alignItems: 'center',
-                                }}
-                              >
-                                <div>
-                                  <b style={{ color: 'var(--text-main)', fontSize: '12px' }}>{t.name}</b>
-                                  {t.description && <small style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10.5px' }}>{t.description}</small>}
-                                </div>
-                                <span style={{ color: '#10b981', fontWeight: 800, fontSize: '13px' }}>₹{t.price}</span>
-                              </div>
-                            ))}
+                  {/* STEP: Payment Gateway & Tier Selection & Submission */}
+                  {currentStep?.id === 'PAYMENT' && (
+                    <>
+                      {isPaid ? (
+                        <div className="reg-wizard-step">
+                          <div className="reg-wizard-step-header">
+                            <span className="reg-wizard-step-title">
+                              <span className="reg-wizard-step-badge">{activeStepIndex + 1}</span> Pass Tier & UPI Payment
+                            </span>
+                            <span className="badge" style={{ background: 'rgba(95, 37, 159, 0.15)', color: '#c084fc', border: '1px solid #a855f766', fontSize: '10px' }}>
+                              Direct 0% Surcharge
+                            </span>
                           </div>
-                        </div>
-                      )}
 
-                      <div className="total-price-badge" style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg-card)', borderRadius: '8px', marginBottom: '14px', border: '1px solid var(--line)' }}>
-                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Amount Payable:</span>
-                        <span style={{ fontSize: '15px', color: '#10b981', fontWeight: 800 }}>₹{totalPrice.toFixed(2)}</span>
-                      </div>
-
-                      {/* Money QR Code */}
-                      {(() => {
-                        const resolvedUpiId = event.paymentUpiId || event.paymentConfig?.upiId || ''
-                        const resolvedQrUrl = event.paymentQrUrl
-                          || event.paymentConfig?.upiQrUrl
-                          || `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`upi://pay?pa=${resolvedUpiId || 'club@upi'}&pn=CyberSecurityClub&am=${totalPrice}&cu=INR`)}`
-
-                        return (
-                          <div style={{ textAlign: 'center', padding: '14px', background: '#fff', borderRadius: '10px', border: '2px solid var(--brand-primary)', marginBottom: '14px' }}>
-                            <b style={{ color: '#07121c', fontSize: '12px', display: 'block', marginBottom: '6px', fontWeight: 800 }}>
-                              SCAN UPI QR TO PAY ₹{totalPrice}
-                            </b>
-                            <img
-                              src={resolvedQrUrl}
-                              alt="Payment QR"
-                              style={{ maxWidth: '160px', height: 'auto', display: 'block', margin: '0 auto' }}
-                            />
-                            <small style={{ display: 'block', maxWidth: '240px', margin: '6px auto 0', color: '#475569', fontSize: '10px', lineHeight: 1.4 }}>
-                              Payment QR only. Your entrance pass activates after an organizer verifies your UTR.
-                            </small>
-                            {resolvedUpiId && (
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '8px' }}>
-                                <span style={{ color: '#07121c', fontSize: '12px', fontWeight: 700, fontFamily: 'monospace' }}>
-                                  UPI: {resolvedUpiId}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    navigator.clipboard?.writeText(resolvedUpiId)
-                                    setCopiedUpi(true)
-                                    setTimeout(() => setCopiedUpi(false), 2000)
-                                  }}
-                                  style={{ padding: '2px 8px', fontSize: '10px', background: 'var(--brand-primary)', color: '#000', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                                >
-                                  {copiedUpi ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><IconCheck size={11} /> COPIED</span> : <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}><IconCopy size={11} /> COPY</span>}
-                                </button>
+                          {/* Tier Selection if Multiple Pricing Tiers Configured */}
+                          {paymentType === 'TIERS' && paymentTiers.length > 0 && (
+                            <div style={{ marginBottom: '14px' }}>
+                              <span style={{ fontSize: '11px', color: 'var(--text-dim)', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                                CHOOSE REGISTRATION TIER:
+                              </span>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                {paymentTiers.map((t, idx) => (
+                                  <div
+                                    key={idx}
+                                    onClick={() => setSelectedTierIndex(idx)}
+                                    className={`reg-price-tier-card ${selectedTierIndex === idx ? 'selected' : ''}`}
+                                  >
+                                    <div>
+                                      <b style={{ color: 'var(--text-main)', fontSize: '12px' }}>{t.name}</b>
+                                      {t.description && <small style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10.5px' }}>{t.description}</small>}
+                                    </div>
+                                    <span style={{ color: '#10b981', fontWeight: 800, fontSize: '13px' }}>₹{t.price}</span>
+                                  </div>
+                                ))}
                               </div>
-                            )}
-                          </div>
-                        )
-                      })()}
+                            </div>
+                          )}
 
-                      <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-main)', fontWeight: 600, marginBottom: '4px' }}>
-                        12-Digit Bank UPI Reference / UTR Number *
-                      </label>
-                      <input
-                        required
-                        value={paymentReference}
-                        onChange={e => setPaymentReference(e.target.value.replace(/\s+/g, ''))}
-                        placeholder="e.g. 523412984512"
-                        style={{ width: '100%', height: '36px', background: 'var(--bg-input)', border: paymentReference.length >= 10 ? '1.5px solid #10b981' : '1px solid var(--line)', borderRadius: '6px', color: 'var(--text-main)', padding: '0 10px', fontSize: '12px', fontFamily: 'monospace' }}
-                      />
-
-                      {/* Optional Screenshot upload only if allowed */}
-                      {allowScreenshot && (
-                        <div style={{ marginTop: '10px' }}>
-                          <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                            Upload Payment Screenshot (Optional)
-                          </label>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={e => {
-                              const f = e.target.files?.[0]
-                              if (f) readImageFile(f, setProofPreview)
-                            }}
-                            style={{ width: '100%', fontSize: '11px' }}
+                          <UpiPaymentCheckout
+                            upiId={event.paymentUpiId || event.paymentConfig?.upiId || ''}
+                            payeeName="CyberSecurityClub"
+                            amount={totalPrice}
+                            note={event.title ? `${event.title.slice(0, 20)} Pass` : 'Pass'}
+                            customQrUrl={event.paymentQrUrl || event.paymentConfig?.upiQrUrl || ''}
+                            paymentReference={paymentReference}
+                            onPaymentReferenceChange={setPaymentReference}
+                            screenshotPreview={proofPreview}
+                            onScreenshotChange={setProofPreview}
+                            allowScreenshot={true}
+                            required={true}
                           />
                         </div>
+                      ) : (
+                        <div style={{ padding: '16px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid #10b98144', borderRadius: '12px' }}>
+                          <span style={{ fontSize: '12.5px', color: '#10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <IconCheck size={14} /> FREE EVENT · INSTANT PASS GENERATION
+                          </span>
+                          <p style={{ margin: '6px 0 0', fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                            No payment required. Click confirm below to generate your gate admission QR pass immediately.
+                          </p>
+                        </div>
                       )}
-                    </div>
-                  ) : (
-                    <div style={{ marginBottom: '16px', padding: '10px 14px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid #10b98144', borderRadius: '8px' }}>
-                      <span style={{ fontSize: '12px', color: '#10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <IconCheck size={13} /> FREE EVENT · INSTANT PASS GENERATION
-                      </span>
-                    </div>
-                  )}
 
-                  {/* STEP 6: Confirm Registration Button */}
-                  <button
-                    className="primary"
-                    type="submit"
-                    disabled={
-                      submitting ||
-                      (isTeamFlow && (!userTeam || !isLeader || !teamRequirementsMet)) ||
-                      (isPaid && (!paymentReference.trim() || totalPrice <= 0))
-                    }
-                    style={{ width: '100%', minHeight: '44px', fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-                  >
-                    {submitting ? 'SUBMITTING…' : isPaid ? (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                        SUBMIT UTR FOR VERIFICATION <IconArrowRight size={13} />
-                      </span>
-                    ) : (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
-                        CONFIRM REGISTRATION & GET PASS <IconArrowRight size={13} />
-                      </span>
-                    )}
-                  </button>
+                      {/* Registration Summary Bar */}
+                      <div className="reg-wizard-summary-bar">
+                        <div>
+                          <span style={{ fontSize: '10.5px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block' }}>Pass Booking Summary</span>
+                          <b style={{ color: 'var(--text-main)', fontSize: '12.5px' }}>
+                            {isTeamFlow ? 'Squad Entry Pass' : 'Individual Entry Pass'} · {currentTierName}
+                          </b>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: '10.5px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block' }}>Total Fee</span>
+                          <b style={{ color: isPaid ? '#10b981' : '#70ddb4', fontSize: '16px' }}>
+                            {isPaid ? `₹${totalPrice}` : 'FREE ENTRY'}
+                          </b>
+                        </div>
+                      </div>
 
-                  {/* Feedback on why button might be disabled */}
-                  {isTeamFlow && !teamRequirementsMet && userTeam && (
-                    <small style={{ color: '#ef4444', display: 'block', marginTop: '6px', textAlign: 'center', fontSize: '11px' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                        <IconAlertTriangle size={12} /> {teamValidationIssue}
-                      </span>
-                    </small>
+                      {/* Navigation & Submit Buttons */}
+                      <div className="reg-wizard-nav-buttons">
+                        <button
+                          type="button"
+                          className="outline"
+                          onClick={handlePrevStep}
+                          style={{ minHeight: '48px', padding: '0 18px', fontSize: '11.5px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                        >
+                          <IconArrowLeft size={13} /> Back
+                        </button>
+                        <button
+                          className="primary"
+                          type="submit"
+                          disabled={
+                            submitting ||
+                            (isTeamFlow && (!userTeam || !isLeader || !teamRequirementsMet)) ||
+                            (isPaid && (!paymentReference.trim() || totalPrice <= 0))
+                          }
+                          style={{ flex: 1, minHeight: '48px', fontSize: '12.5px', fontWeight: 800, letterSpacing: '0.04em', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          {submitting ? 'PROCESSING REGISTRATION…' : isPaid ? (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                              SUBMIT UTR FOR VERIFICATION <IconArrowRight size={13} />
+                            </span>
+                          ) : (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+                              CONFIRM REGISTRATION & GET PASS <IconArrowRight size={13} />
+                            </span>
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Feedback on why button might be disabled */}
+                      {isTeamFlow && !teamRequirementsMet && userTeam && (
+                        <small style={{ color: '#ef4444', display: 'block', marginTop: '6px', textAlign: 'center', fontSize: '11px' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <IconAlertTriangle size={12} /> {teamValidationIssue}
+                          </span>
+                        </small>
+                      )}
+                    </>
                   )}
                 </form>
               )}
@@ -10580,7 +10749,7 @@ function PaymentManagement({ user, logout, onNavigate }) {
         </div>
 
         {/* Search & Filter Command Strip */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', margin: '16px 0', alignItems: 'center' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 170px), 1fr))', gap: '10px', margin: '16px 0', alignItems: 'center' }}>
           <div>
             <input
               placeholder="Search student, member ID, pass, UTR, team..."
@@ -10649,7 +10818,7 @@ function PaymentManagement({ user, logout, onNavigate }) {
             <p className="directory-state">No matching passes found.</p>
           ) : (
             <div className="table-scroll-container">
-              <div className="sub-table">
+              <div className="sub-table" style={{ minWidth: '860px' }}>
                 <div className="sub-table-header" style={{ gridTemplateColumns: '1.4fr 1.3fr 1.1fr 1.2fr 1fr 1fr' }}>
                   <span>STUDENT & DEMOGRAPHICS</span>
                   <span>EVENT & TEAM</span>
@@ -10798,7 +10967,7 @@ function PaymentManagement({ user, logout, onNavigate }) {
         {/* Selected Pass Details & QR Modal */}
         {selectedPass && (
           <div className="photo-lightbox" onClick={() => setSelectedPass(null)}>
-            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-modal)', padding: '28px', borderRadius: '16px', border: '1px solid var(--line)', maxWidth: '620px', width: '95vw', maxHeight: '88vh', overflowY: 'auto' }}>
+            <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-modal)', padding: 'clamp(16px, 4vw, 28px)', borderRadius: '16px', border: '1px solid var(--line)', maxWidth: '620px', width: '95vw', maxHeight: '88vh', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <span className="badge badge-president">{selectedPass.eventType || 'EVENT PASS'}</span>
                 <button className="lightbox-close" onClick={() => setSelectedPass(null)} style={{ position: 'static', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -10821,7 +10990,7 @@ function PaymentManagement({ user, logout, onNavigate }) {
                 PASS ID: {selectedPass.id} · MEMBER: {selectedPass.memberId || selectedPass.user?.memberId}
               </p>
 
-              <div style={{ background: 'var(--panel-subtle)', borderRadius: '12px', padding: '16px', fontSize: '12px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', color: 'var(--text-muted)', border: '1px solid var(--line)' }}>
+              <div style={{ background: 'var(--panel-subtle)', borderRadius: '12px', padding: '16px', fontSize: '12px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 200px), 1fr))', gap: '12px', color: 'var(--text-muted)', border: '1px solid var(--line)' }}>
                 <div>
                   <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>COLLEGE / INSTITUTION</span>
                   <b style={{ color: 'var(--text-main)', display: 'block', marginTop: '2px' }}>
@@ -10902,7 +11071,7 @@ function PaymentManagement({ user, logout, onNavigate }) {
                 {selectedPass.formData && typeof selectedPass.formData === 'object' && Object.keys(selectedPass.formData).length > 0 && (
                   <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--line)', paddingTop: '10px', marginTop: '4px' }}>
                     <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>CUSTOM FORM RESPONSES</span>
-                    <div style={{ marginTop: '6px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div style={{ marginTop: '6px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '8px' }}>
                       {Object.entries(selectedPass.formData).map(([k, v]) => (
                         <div key={k} style={{ background: 'var(--bg-input)', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--line)' }}>
                           <small style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10px' }}>{k}</small>
@@ -13888,6 +14057,46 @@ function StudentRegistrations({ user, logout, onNavigate }) {
   })
   const [selectedPass, setSelectedPass] = useState(null)
   const [copiedId, setCopiedId] = useState(false)
+  const [passFilter, setPassFilter] = useState('ALL')
+  const [passSearch, setPassSearch] = useState('')
+
+  const counts = useMemo(() => {
+    let all = 0, active = 0, underVerif = 0, attended = 0, rejected = 0
+    registrations.forEach(reg => {
+      all++
+      const isUnderVerif = reg.paymentStatus === 'UNDER_VERIFICATION' || reg.paymentStatus === 'SUBMITTED' || reg.paymentStatus === 'PENDING'
+      const isRejected = ['PAYMENT_REJECTED', 'REJECTED'].includes(String(reg.paymentStatus || '').toUpperCase())
+      if (isRejected) rejected++
+      else if (isUnderVerif) underVerif++
+      else if (reg.attendanceMarked) attended++
+      else if (isActiveEventPassRecord(reg)) active++
+    })
+    return { all, active, underVerif, attended, rejected }
+  }, [registrations])
+
+  const filteredRegistrations = useMemo(() => {
+    return registrations.filter(reg => {
+      const isUnderVerif = reg.paymentStatus === 'UNDER_VERIFICATION' || reg.paymentStatus === 'SUBMITTED' || reg.paymentStatus === 'PENDING'
+      const isRejected = ['PAYMENT_REJECTED', 'REJECTED'].includes(String(reg.paymentStatus || '').toUpperCase())
+      const isActive = isActiveEventPassRecord(reg)
+      const isAttended = Boolean(reg.attendanceMarked)
+
+      if (passFilter === 'ACTIVE' && (!isActive || isAttended)) return false
+      if (passFilter === 'ATTENDED' && !isAttended) return false
+      if (passFilter === 'UNDER_VERIF' && !isUnderVerif) return false
+      if (passFilter === 'REJECTED' && !isRejected) return false
+
+      if (passSearch.trim()) {
+        const q = passSearch.trim().toLowerCase()
+        const matchTitle = (reg.event?.title || '').toLowerCase().includes(q)
+        const matchTeam = (reg.teamName || '').toLowerCase().includes(q)
+        const matchId = (reg.id || '').toLowerCase().includes(q)
+        const matchUtr = (reg.paymentReference || '').toLowerCase().includes(q)
+        if (!matchTitle && !matchTeam && !matchId && !matchUtr) return false
+      }
+      return true
+    })
+  }, [registrations, passFilter, passSearch])
 
   // Resubmit Payment State
   const [resubmitModalReg, setResubmitModalReg] = useState(null)
@@ -14050,195 +14259,294 @@ function StudentRegistrations({ user, logout, onNavigate }) {
         ) : registrations.length === 0 ? (
           <p className="directory-state">You have not registered for any events yet.</p>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: '20px', marginTop: '20px' }}>
-            {registrations.map(reg => {
-              const isUnderVerif = reg.paymentStatus === 'UNDER_VERIFICATION' || reg.paymentStatus === 'SUBMITTED' || reg.paymentStatus === 'PENDING'
-              const isRejected = ['PAYMENT_REJECTED', 'REJECTED'].includes(String(reg.paymentStatus || '').toUpperCase())
-              const hasHackathon = Boolean(reg.event?.requireProjectSubmission || reg.event?.submissionConfig?.enabled || reg.projectSubmission || reg.team?.projectSubmission || /hackathon|ctf/i.test(reg.event?.eventType || ''))
+          <div>
+            {/* Filter and Search Bar */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', margin: '20px 0 16px' }}>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ position: 'relative', flex: '1 1 240px', minWidth: 'min(100%, 220px)' }}>
+                  <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)', pointerEvents: 'none', display: 'flex' }}>
+                    <IconSearch size={14} />
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Search by event, squad, or pass ID…"
+                    value={passSearch}
+                    onChange={e => setPassSearch(e.target.value)}
+                    style={{
+                      width: '100%',
+                      height: '38px',
+                      paddingLeft: '34px',
+                      paddingRight: passSearch ? '32px' : '12px',
+                      borderRadius: '10px',
+                      border: '1px solid var(--line)',
+                      background: 'var(--bg-input)',
+                      color: 'var(--text-main)',
+                      fontSize: '13px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                  {passSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setPassSearch('')}
+                      style={{
+                        position: 'absolute',
+                        right: '8px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--text-dim)',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        display: 'flex'
+                      }}
+                      title="Clear search"
+                    >
+                      <IconX size={13} />
+                    </button>
+                  )}
+                </div>
 
-              return (
-                <article
-                  key={reg.id}
-                  className="live-event-card"
-                  style={{
-                    background: 'var(--bg-card)',
-                    border: isRejected ? '1.5px solid #ef4444' : isUnderVerif ? '1.5px solid #eab308' : reg.attendanceMarked ? '1px solid #10b98166' : '1px solid var(--brand-border-subtle)',
-                    borderRadius: '16px',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    boxShadow: isRejected ? '0 8px 30px rgba(239, 68, 68, 0.15)' : isUnderVerif ? '0 8px 30px rgba(234, 179, 8, 0.15)' : reg.attendanceMarked ? '0 8px 30px rgba(16, 185, 129, 0.12)' : '0 8px 30px rgba(0,0,0,0.2)',
-                    transition: 'transform 0.2s, box-shadow 0.2s',
-                  }}
-                >
-                  {/* Event Top Badge */}
-                  <div style={{ padding: '14px 18px', background: isRejected ? 'rgba(239, 68, 68, 0.12)' : isUnderVerif ? 'rgba(234, 179, 8, 0.12)' : reg.attendanceMarked ? 'rgba(16, 185, 129, 0.12)' : 'var(--panel-subtle)', borderBottom: '1px solid var(--line)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
-                    <div>
-                      <span className="badge" style={{ background: 'var(--brand-badge-bg)', color: 'var(--brand-badge-color)', fontSize: '10px' }}>
-                        {reg.event?.eventType || 'EVENT PASS'}
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  {[
+                    { id: 'ALL', label: 'All', count: counts.all },
+                    { id: 'ACTIVE', label: 'Ready for Gate', count: counts.active },
+                    { id: 'UNDER_VERIF', label: 'Under Verification', count: counts.underVerif },
+                    { id: 'ATTENDED', label: 'Attended', count: counts.attended },
+                    ...(counts.rejected > 0 ? [{ id: 'REJECTED', label: 'Action Needed', count: counts.rejected }] : []),
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setPassFilter(tab.id)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '999px',
+                        fontSize: '11.5px',
+                        fontWeight: passFilter === tab.id ? 700 : 500,
+                        border: passFilter === tab.id ? '1px solid var(--brand-primary)' : '1px solid var(--line)',
+                        background: passFilter === tab.id ? 'var(--brand-glow)' : 'var(--panel-subtle)',
+                        color: passFilter === tab.id ? 'var(--brand-primary)' : 'var(--text-muted)',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {tab.label}
+                      <span
+                        style={{
+                          fontSize: '10px',
+                          padding: '1px 6px',
+                          borderRadius: '999px',
+                          background: passFilter === tab.id ? 'var(--brand-primary)' : 'rgba(255,255,255,0.08)',
+                          color: passFilter === tab.id ? '#05131d' : 'inherit',
+                          fontWeight: 700
+                        }}
+                      >
+                        {tab.count}
                       </span>
-                    </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
 
-                    {isRejected ? (
-                      <span className="badge" style={{ background: '#7f1d1d', color: '#fca5a5', border: '1px solid #ef4444', fontWeight: 700, fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                        <IconXCircle size={12} /> PAYMENT REJECTED
-                      </span>
-                    ) : isUnderVerif ? (
-                      <span className="badge" style={{ background: '#78350f', color: '#fde68a', border: '1px solid #eab308', fontWeight: 700, fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                        <IconClock size={12} /> UNDER VERIFICATION
-                      </span>
-                    ) : reg.attendanceMarked ? (
-                      <span className="badge" style={{ background: '#064e3b', color: '#6ee7b7', border: '1px solid #10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px' }}>
-                        <Icon8 name="authentication" size={14} /> ATTENDANCE CONFIRMED
-                      </span>
-                    ) : isActiveEventPassRecord(reg) ? (
-                      <span className="badge badge-registered" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px' }}>
-                        <Icon8 name="faceId" size={14} /> ENTRY VALID · SCAN AT GATE
-                      </span>
-                    ) : (
-                      <span className="badge" style={{ background: 'rgba(148,163,184,.12)', color: 'var(--text-muted)', border: '1px solid var(--line)', fontSize: '10px' }}>PASS INACTIVE</span>
-                    )}
-                  </div>
+            {filteredRegistrations.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 20px', background: 'var(--panel-subtle)', borderRadius: '16px', border: '1px dashed var(--line)', margin: '20px 0' }}>
+                <p style={{ margin: '0 0 10px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                  No event passes match your current filter{passSearch ? ` or search "${passSearch}"` : ''}.
+                </p>
+                {(passFilter !== 'ALL' || passSearch) && (
+                  <button
+                    type="button"
+                    className="outline"
+                    onClick={() => { setPassFilter('ALL'); setPassSearch('') }}
+                    style={{ fontSize: '11px', padding: '6px 14px' }}
+                  >
+                    Reset Filters
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="pass-wallet-grid">
+                {filteredRegistrations.map(reg => {
+                  const isUnderVerif = reg.paymentStatus === 'UNDER_VERIFICATION' || reg.paymentStatus === 'SUBMITTED' || reg.paymentStatus === 'PENDING'
+                  const isRejected = ['PAYMENT_REJECTED', 'REJECTED'].includes(String(reg.paymentStatus || '').toUpperCase())
+                  const hasHackathon = Boolean(reg.event?.requireProjectSubmission || reg.event?.submissionConfig?.enabled || reg.projectSubmission || reg.team?.projectSubmission || /hackathon|ctf/i.test(reg.event?.eventType || ''))
 
-                  <div className="card-content" style={{ padding: '18px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <h3 style={{ margin: '0 0 6px', font: '700 17px Syne', color: 'var(--text-main)' }}>
-                      {reg.event?.title || (isMrdu ? 'MRDU Event' : 'Club Event')}
-                    </h3>
+                  return (
+                    <article
+                      key={reg.id}
+                      className="digital-pass-ticket"
+                      style={{
+                        border: isRejected ? '1.5px solid #ef4444' : isUnderVerif ? '1.5px solid #eab308' : reg.attendanceMarked ? '1.5px solid #10b98166' : '1px solid var(--brand-border-subtle)',
+                        boxShadow: isRejected ? '0 8px 30px rgba(239, 68, 68, 0.15)' : isUnderVerif ? '0 8px 30px rgba(234, 179, 8, 0.15)' : reg.attendanceMarked ? '0 8px 30px rgba(16, 185, 129, 0.12)' : '0 8px 30px rgba(0,0,0,0.2)',
+                      }}
+                    >
+                      <div
+                        className="digital-pass-header"
+                        style={{
+                          background: isRejected ? 'rgba(239, 68, 68, 0.12)' : isUnderVerif ? 'rgba(234, 179, 8, 0.12)' : reg.attendanceMarked ? 'rgba(16, 185, 129, 0.12)' : 'var(--panel-subtle)',
+                        }}
+                      >
+                        <div>
+                          <span className="badge" style={{ background: 'var(--brand-badge-bg)', color: 'var(--brand-badge-color)', fontSize: '10px' }}>
+                            {reg.event?.eventType || 'EVENT PASS'}
+                          </span>
+                        </div>
 
-                    {reg.teamName && (
-                      <div style={{ marginBottom: '8px' }}>
-                        <span className="badge" style={{ background: 'var(--brand-glow)', color: 'var(--brand-primary)', border: '1px solid var(--line)', fontSize: '10.5px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <IconUsers size={12} /> Team: {reg.teamName} {reg.isTeamLeader ? <>· <IconStar size={11} fill="currentColor" /> Squad Leader</> : '· Member'}
-                        </span>
+                        {isRejected ? (
+                          <span className="badge" style={{ background: '#7f1d1d', color: '#fca5a5', border: '1px solid #ef4444', fontWeight: 700, fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <IconXCircle size={12} /> ACTION NEEDED
+                          </span>
+                        ) : isUnderVerif ? (
+                          <span className="badge" style={{ background: '#78350f', color: '#fde68a', border: '1px solid #eab308', fontWeight: 700, fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <IconClock size={12} /> UNDER VERIFICATION
+                          </span>
+                        ) : reg.attendanceMarked ? (
+                          <span className="badge" style={{ background: '#064e3b', color: '#6ee7b7', border: '1px solid #10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px' }}>
+                            <Icon8 name="authentication" size={14} /> ADMITTED · ATTENDED
+                          </span>
+                        ) : isActiveEventPassRecord(reg) ? (
+                          <span className="badge badge-registered" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px' }}>
+                            <Icon8 name="faceId" size={14} /> ENTRY VALID · SCAN AT GATE
+                          </span>
+                        ) : (
+                          <span className="badge" style={{ background: 'rgba(148,163,184,.12)', color: 'var(--text-muted)', border: '1px solid var(--line)', fontSize: '10px' }}>PASS INACTIVE</span>
+                        )}
                       </div>
-                    )}
 
-                    <div className="card-meta" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', margin: '8px 0 14px', fontSize: '11px' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCalendar size={13} /> {reg.event?.dateTime ? new Date(reg.event.dateTime).toLocaleDateString() : 'TBA'}</span>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconLocationPin size={13} /> {reg.event?.venue || reg.event?.location || 'Campus'}</span>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                        <IconCreditCard size={13} /> Fee:{' '}
-                        <b style={{ color: isRejected ? '#ef4444' : isUnderVerif ? '#eab308' : '#70ddb4', marginLeft: 4 }}>
-                          {Number(reg.totalAmount) > 0 ? `₹${reg.totalAmount} · ${reg.paymentStatus}` : reg.paymentStatus}
-                        </b>
-                      </span>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconUserSvg size={13} /> {user.memberId}</span>
-                    </div>
+                      <div className="digital-pass-body">
+                        <h3 style={{ margin: '0 0 6px', font: '700 17px Syne', color: 'var(--text-main)' }}>
+                          {reg.event?.title || (isMrdu ? 'MRDU Event' : 'Club Event')}
+                        </h3>
 
-                    {/* Rejection Alert Box */}
-                    {isRejected && (
-                      <div style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef444444', borderRadius: '10px', marginBottom: '14px', fontSize: '11.5px' }}>
-                        <b style={{ color: '#ef4444', display: 'block', marginBottom: '3px' }}>Reason: {reg.paymentRejectionReason || 'UTR not verified.'}</b>
-                        <p style={{ color: 'var(--text-muted)', margin: '0 0 8px', fontSize: '11px' }}>
-                          {Number(reg.totalAmount) > 0
-                            ? 'Please double-check your payment transaction and re-submit your UTR reference.'
-                            : 'Ask your team leader to resubmit the team payment UTR.'}
-                        </p>
-                        {Number(reg.totalAmount) > 0 && (
+                        {reg.teamName && (
+                          <div style={{ marginBottom: '8px' }}>
+                            <span className="badge" style={{ background: 'var(--brand-glow)', color: 'var(--brand-primary)', border: '1px solid var(--line)', fontSize: '10.5px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <IconUsers size={12} /> Squad: {reg.teamName} {reg.isTeamLeader ? <>· <IconStar size={11} fill="currentColor" /> Leader</> : '· Member'}
+                            </span>
+                          </div>
+                        )}
+
+                        <div className="card-meta" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', margin: '8px 0 14px', fontSize: '11px' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCalendar size={13} /> {reg.event?.dateTime ? new Date(reg.event.dateTime).toLocaleDateString() : 'TBA'}</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconLocationPin size={13} /> {reg.event?.venue || reg.event?.location || 'Campus'}</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <IconCreditCard size={13} /> Fee:{' '}
+                            <b style={{ color: isRejected ? '#ef4444' : isUnderVerif ? '#eab308' : '#70ddb4', marginLeft: 4 }}>
+                              {Number(reg.totalAmount) > 0 ? `₹${reg.totalAmount} · ${reg.paymentStatus}` : reg.paymentStatus}
+                            </b>
+                          </span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconUserSvg size={13} /> {user.memberId}</span>
+                        </div>
+
+                        {/* Rejection Alert Box */}
+                        {isRejected && (
+                          <div style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef444444', borderRadius: '10px', marginBottom: '14px', fontSize: '11.5px' }}>
+                            <b style={{ color: '#ef4444', display: 'block', marginBottom: '3px' }}>Reason: {reg.paymentRejectionReason || 'UTR not verified.'}</b>
+                            <p style={{ color: 'var(--text-muted)', margin: '0 0 8px', fontSize: '11px' }}>
+                              {Number(reg.totalAmount) > 0
+                                ? 'Please double-check your payment transaction and re-submit your UTR reference.'
+                                : 'Ask your team leader to resubmit the team payment UTR.'}
+                            </p>
+                            {Number(reg.totalAmount) > 0 && (
+                              <button
+                                type="button"
+                                className="primary"
+                                onClick={() => {
+                                  setResubmitModalReg(reg)
+                                  setResubmitUtr('')
+                                  setResubmitError('')
+                                  setResubmitSuccess('')
+                                }}
+                                style={{ width: '100%', padding: '6px', fontSize: '11px', background: '#ef4444', color: '#fff', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                              >
+                                Resubmit Payment UTR <IconArrowRight size={12} />
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Under Verification Notice */}
+                        {isUnderVerif && (
+                          <div style={{ padding: '10px 12px', background: 'rgba(234, 179, 8, 0.1)', border: '1px solid #eab30844', borderRadius: '8px', marginBottom: '14px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                            UTR: <b style={{ color: 'var(--brand-primary)', fontFamily: 'monospace' }}>{reg.paymentReference || 'Submitted'}</b>
+                            <span style={{ display: 'block', marginTop: '2px', color: '#eab308' }}>
+                              The event coordinator is verifying your transaction. Entrance QR will be active upon approval.
+                            </span>
+                          </div>
+                        )}
+
+                        {/* QR Code Pass Box (for active passes) */}
+                        {isActiveEventPassRecord(reg) && (
+                          <div className="pass-qr-badge-box">
+                            {reg.qrCodeData ? (
+                              <img
+                                src={reg.qrCodeData}
+                                alt={`QR Pass for ${reg.event?.title}`}
+                                onClick={() => setSelectedPass(reg)}
+                                title="Click to view full pass"
+                              />
+                            ) : (
+                              <div style={{ width: '86px', height: '86px', background: '#f1f5f9', display: 'grid', placeItems: 'center', borderRadius: '8px', fontSize: '10px', color: '#64748b' }}>
+                                QR PASS
+                              </div>
+                            )}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <p style={{ margin: 0, font: '700 11.5px Syne', color: '#0f172a' }}>
+                                OFFICIAL GATE ENTRANCE QR
+                              </p>
+                              <p style={{ margin: '3px 0 0', fontSize: '9.5px', color: '#64748b', wordBreak: 'break-all', fontFamily: 'monospace' }}>
+                                ID: {reg.id.slice(0, 16)}...
+                              </p>
+                              <p style={{ margin: '4px 0 0', fontSize: '9.5px', color: reg.attendanceMarked ? '#059669' : '#d97706', fontWeight: 600 }}>
+                                {reg.attendanceMarked
+                                  ? `Checked in at ${reg.attendedAt ? new Date(reg.attendedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Gate'}`
+                                  : 'Present this QR at gate'}
+                              </p>
+                              <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
+                                <button
+                                  type="button"
+                                  className="primary"
+                                  onClick={() => setSelectedPass(reg)}
+                                  style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 700, padding: '4px 10px', height: '28px', background: '#0284c7', borderColor: '#0284c7' }}
+                                >
+                                  <Icon8 name="idDocs" size={12} /> FULL PASS
+                                </button>
+                                {reg.qrCodeData && (
+                                  <a
+                                    href={reg.qrCodeData}
+                                    download={`event-pass-${reg.event?.title || 'ticket'}.png`}
+                                    style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 700, color: '#0f172a', background: '#f1f5f9', padding: '4px 8px', borderRadius: '6px', textDecoration: 'none', border: '1px solid #cbd5e1', height: '28px', boxSizing: 'border-box' }}
+                                  >
+                                    <IconDownload size={11} /> SAVE
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Hackathon Project Submission Button */}
+                        {hasHackathon && (
                           <button
                             type="button"
-                            className="primary"
-                            onClick={() => {
-                              setResubmitModalReg(reg)
-                              setResubmitUtr('')
-                              setResubmitError('')
-                              setResubmitSuccess('')
-                            }}
-                            style={{ width: '100%', padding: '6px', fontSize: '11px', background: '#ef4444', color: '#fff', fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                            onClick={() => handleOpenProjectModal(reg)}
+                            style={{ marginTop: '10px', padding: '8px 12px', background: 'rgba(168, 85, 247, 0.12)', border: '1px solid #a855f7', borderRadius: '8px', color: '#c084fc', fontSize: '11px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
                           >
-                            Resubmit Payment UTR <IconArrowRight size={12} />
+                            <IconRocket size={14} /> Hackathon Team Project Submission
                           </button>
                         )}
                       </div>
-                    )}
-
-                    {/* Under Verification Notice */}
-                    {isUnderVerif && (
-                      <div style={{ padding: '10px 12px', background: 'rgba(234, 179, 8, 0.1)', border: '1px solid #eab30844', borderRadius: '8px', marginBottom: '14px', fontSize: '11px', color: 'var(--text-muted)' }}>
-                        UTR: <b style={{ color: 'var(--brand-primary)', fontFamily: 'monospace' }}>{reg.paymentReference || 'Submitted'}</b>
-                        <span style={{ display: 'block', marginTop: '2px', color: '#eab308' }}>
-                          The event coordinator is verifying your transaction. Entrance QR will be active upon approval.
-                        </span>
-                      </div>
-                    )}
-
-                    {/* QR Code Pass Box (for active passes) */}
-                    {isActiveEventPassRecord(reg) && (
-                      <div
-                        style={{
-                          marginTop: 'auto',
-                          padding: '14px',
-                          borderRadius: '12px',
-                          background: '#ffffff',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '14px',
-                          color: '#000000',
-                          boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
-                        }}
-                      >
-                        {reg.qrCodeData ? (
-                          <img
-                            src={reg.qrCodeData}
-                            alt={`QR Pass for ${reg.event?.title}`}
-                            onClick={() => setSelectedPass(reg)}
-                            style={{ width: '88px', height: '88px', borderRadius: '8px', border: '1px solid #e2e8f0', flexShrink: 0, imageRendering: 'pixelated', cursor: 'pointer' }}
-                            title="Click to view full pass"
-                          />
-                        ) : (
-                          <div style={{ width: '88px', height: '88px', background: '#f1f5f9', display: 'grid', placeItems: 'center', borderRadius: '8px', fontSize: '10px', color: '#64748b' }}>
-                            QR PASS
-                          </div>
-                        )}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ margin: 0, font: '700 11.5px Syne', color: '#0f172a' }}>
-                            OFFICIAL ENTRANCE QR PASS
-                          </p>
-                          <p style={{ margin: '3px 0 0', fontSize: '9.5px', color: '#64748b', wordBreak: 'break-all', fontFamily: 'monospace' }}>
-                            ID: {reg.id.slice(0, 16)}...
-                          </p>
-                          <p style={{ margin: '4px 0 0', fontSize: '9.5px', color: reg.attendanceMarked ? '#059669' : '#d97706', fontWeight: 600 }}>
-                            {reg.attendanceMarked
-                              ? `Checked in at ${reg.attendedAt ? new Date(reg.attendedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Gate'}`
-                              : 'Show this QR at gate'}
-                          </p>
-                          <div style={{ display: 'flex', gap: '6px', marginTop: '8px', flexWrap: 'wrap' }}>
-                            <button
-                              type="button"
-                              className="primary"
-                              onClick={() => setSelectedPass(reg)}
-                              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 700, padding: '4px 8px', height: '26px', background: '#0284c7', borderColor: '#0284c7' }}
-                            >
-                              <Icon8 name="idDocs" size={12} /> FULL PASS
-                            </button>
-                            {reg.qrCodeData && (
-                              <a
-                                href={reg.qrCodeData}
-                                download={`event-pass-${reg.event?.title || 'ticket'}.png`}
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '10px', fontWeight: 700, color: '#0f172a', background: '#f1f5f9', padding: '4px 8px', borderRadius: '6px', textDecoration: 'none', border: '1px solid #cbd5e1', height: '26px', boxSizing: 'border-box' }}
-                              >
-                                <IconDownload size={11} /> SAVE
-                              </a>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Hackathon Project Submission Button */}
-                    {hasHackathon && (
-                      <button
-                        type="button"
-                        onClick={() => handleOpenProjectModal(reg)}
-                        style={{ marginTop: '10px', padding: '8px 12px', background: 'rgba(168, 85, 247, 0.12)', border: '1px solid #a855f7', borderRadius: '8px', color: '#c084fc', fontSize: '11px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
-                      >
-                        <IconRocket size={14} /> Hackathon Team Project Submission
-                      </button>
-                    )}
-                  </div>
-                </article>
-              )
-            })}
+                    </article>
+                  )
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -14361,51 +14669,33 @@ function StudentRegistrations({ user, logout, onNavigate }) {
           </div>
         )}
 
-        {/* FULL DIGITAL PASS MODAL / LIGHTBOX */}
+        {/* FULL DIGITAL PASS MODAL / BOARDING PASS */}
         {selectedPass && (
           <div
             style={{
               position: 'fixed',
               inset: 0,
-              background: 'rgba(0, 0, 0, 0.82)',
-              backdropFilter: 'blur(10px)',
+              background: 'rgba(0, 0, 0, 0.85)',
+              backdropFilter: 'blur(12px)',
               zIndex: 9999,
               display: 'grid',
               placeItems: 'center',
-              padding: '20px',
+              padding: '16px',
               overflowY: 'auto',
             }}
             onClick={() => setSelectedPass(null)}
           >
             <div
-              style={{
-                width: '100%',
-                maxWidth: '520px',
-                background: 'var(--bg-card)',
-                borderRadius: '20px',
-                border: '2px solid var(--brand-primary)',
-                boxShadow: '0 25px 60px rgba(0,0,0,0.6)',
-                overflow: 'hidden',
-                position: 'relative',
-              }}
+              className="digital-boarding-pass"
               onClick={e => e.stopPropagation()}
             >
-              {/* Top Banner */}
-              <div
-                style={{
-                  padding: '20px 24px',
-                  background: selectedPass.attendanceMarked ? 'linear-gradient(135deg, #064e3b, #047857)' : 'linear-gradient(135deg, #0f2744, #1e3a8a)',
-                  color: '#ffffff',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
+              {/* Boarding Pass Header */}
+              <div className="boarding-pass-header">
                 <div>
-                  <span className="badge" style={{ background: 'rgba(255,255,255,0.2)', color: '#ffffff', fontSize: '10px', textTransform: 'uppercase' }}>
+                  <span className="badge" style={{ background: 'var(--brand-badge-bg)', color: 'var(--brand-badge-color)', fontSize: '10px', textTransform: 'uppercase' }}>
                     {selectedPass.event?.eventType || 'OFFICIAL EVENT PASS'}
                   </span>
-                  <h2 style={{ margin: '6px 0 0', font: '700 20px Syne', color: '#ffffff' }}>
+                  <h2 style={{ margin: '6px 0 0', font: '700 20px Syne', color: 'var(--text-main)' }}>
                     {selectedPass.event?.title}
                   </h2>
                 </div>
@@ -14413,156 +14703,151 @@ function StudentRegistrations({ user, logout, onNavigate }) {
                   type="button"
                   onClick={() => setSelectedPass(null)}
                   style={{
-                    background: 'rgba(255,255,255,0.15)',
-                    border: 'none',
+                    background: 'var(--panel-subtle)',
+                    border: '1px solid var(--line)',
                     borderRadius: '50%',
                     width: '36px',
                     height: '36px',
-                    color: '#ffffff',
+                    color: 'var(--text-main)',
                     fontSize: '18px',
                     cursor: 'pointer',
                     display: 'grid',
                     placeItems: 'center',
+                    flexShrink: 0
                   }}
                   title="Close Pass"
                 >
-                  <IconX size={18} />
+                  <IconX size={16} />
                 </button>
               </div>
 
-              <div style={{ padding: '24px' }}>
-                {/* Large Center QR Pass */}
-                <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                  <div
-                    style={{
-                      display: 'inline-block',
-                      padding: '16px',
-                      background: '#ffffff',
-                      borderRadius: '16px',
-                      boxShadow: '0 10px 30px rgba(0,0,0,0.25)',
-                      border: '2px solid #e2e8f0',
-                    }}
-                  >
-                    {selectedPass.qrCodeData ? (
-                      <img
-                        src={selectedPass.qrCodeData}
-                        alt="Event QR Code"
-                        style={{ width: '200px', height: '200px', display: 'block', imageRendering: 'pixelated' }}
-                      />
-                    ) : (
-                      <div style={{ width: '200px', height: '200px', background: '#f1f5f9', display: 'grid', placeItems: 'center', color: '#64748b' }}>
-                        QR PASS
-                      </div>
-                    )}
-                  </div>
-                  <p style={{ margin: '10px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
-                    Hold this QR code up to the coordinator's scanner at the event entrance
-                  </p>
-                </div>
-
-                {/* Full Pass ID Box */}
-                <div style={{ padding: '14px', background: 'var(--bg-input)', borderRadius: '12px', border: '1px solid var(--line)', marginBottom: '18px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                    <small style={{ fontSize: '10px', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                      FULL PASS ID & VERIFICATION KEY
-                    </small>
-                    <button
-                      type="button"
-                      className="outline"
-                      onClick={() => handleCopyPassId(selectedPass.id)}
-                      style={{ fontSize: '10px', padding: '3px 8px', height: '24px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                    >
-                      <IconCopy size={11} /> {copiedId ? 'COPIED!' : 'COPY ID'}
-                    </button>
-                  </div>
-                  <code style={{ display: 'block', fontSize: '12px', color: '#38bdf8', wordBreak: 'break-all', fontFamily: 'monospace', fontWeight: 600 }}>
-                    {selectedPass.id}
-                  </code>
-                </div>
-
-                {/* Ticket Details Grid */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', padding: '16px', background: 'var(--panel-subtle)', borderRadius: '12px', border: '1px solid var(--line)', marginBottom: '20px', fontSize: '12px' }}>
-                  <div>
-                    <span style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block' }}>Attendee Name</span>
-                    <b style={{ color: 'var(--text-main)' }}>{user.profile?.name || user.name || user.memberId}</b>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block' }}>Member ID / Roll No</span>
-                    <b style={{ color: 'var(--brand-primary)', fontFamily: 'monospace' }}>{user.profile?.rollNumber || user.memberId}</b>
-                  </div>
-                  {selectedPass.teamName && (
-                    <div>
-                      <span style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block' }}>Team Participation</span>
-                      <b style={{ color: 'var(--brand-primary)' }}>{selectedPass.teamName} {selectedPass.isTeamLeader ? '(Leader)' : '(Member)'}</b>
+              {/* Large Center QR Pass */}
+              <div style={{ textAlign: 'center', margin: '8px 0 16px' }}>
+                <div className="boarding-pass-qr-center">
+                  {selectedPass.qrCodeData ? (
+                    <img
+                      src={selectedPass.qrCodeData}
+                      alt="Event QR Code"
+                    />
+                  ) : (
+                    <div style={{ width: '180px', height: '180px', background: '#f1f5f9', display: 'grid', placeItems: 'center', color: '#64748b' }}>
+                      QR PASS
                     </div>
                   )}
-                  <div>
-                    <span style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block' }}>Event Date & Time</span>
-                    <span style={{ color: 'var(--text-main)' }}>{selectedPass.event?.dateTime ? new Date(selectedPass.event.dateTime).toLocaleString() : 'TBA'}</span>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block' }}>Venue / Location</span>
-                    <span style={{ color: 'var(--text-main)' }}>{selectedPass.event?.venue || selectedPass.event?.location || 'Campus Auditorium'}</span>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block' }}>Payment Status</span>
-                    <b style={{ color: '#70ddb4' }}>
-                      {selectedPass.paymentStatus}{' '}
-                      {Number(selectedPass.totalAmount) > 0
-                        ? `(₹${selectedPass.totalAmount})`
-                        : (selectedPass.teamName && !selectedPass.isTeamLeader && ['VERIFIED', 'PAID'].includes(String(selectedPass.paymentStatus).toUpperCase()))
-                          ? '(Team Pass · Paid)'
-                          : (selectedPass.paymentStatus === 'FREE' ? '(Free)' : '')}
-                    </b>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block' }}>Gate Attendance Status</span>
-                    {selectedPass.attendanceMarked ? (
-                      <b style={{ color: '#10b981' }}>CHECKED IN ({selectedPass.attendedAt ? new Date(selectedPass.attendedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Gate'})</b>
-                    ) : (
-                      <b style={{ color: '#f59e0b' }}>READY FOR ENTRANCE</b>
-                    )}
-                  </div>
                 </div>
+                <p style={{ margin: '8px 0 0', fontSize: '11.5px', color: 'var(--text-muted)' }}>
+                  {selectedPass.attendanceMarked
+                    ? `Checked in at ${selectedPass.attendedAt ? new Date(selectedPass.attendedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Gate'}`
+                    : 'Show this QR code at the entrance scanner for rapid entry'}
+                </p>
+              </div>
 
-                {/* Modal Action Buttons */}
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  {selectedPass.qrCodeData && (
-                    <a
-                      href={selectedPass.qrCodeData}
-                      download={`event-pass-${selectedPass.event?.title || 'ticket'}.png`}
-                      className="primary"
-                      style={{
-                        flex: 1,
-                        height: '42px',
-                        fontSize: '12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                        textDecoration: 'none',
-                      }}
-                    >
-                      <IconDownload size={14} /> DOWNLOAD PASS
-                    </a>
-                  )}
+              {/* Full Pass ID Box */}
+              <div style={{ padding: '12px', background: 'var(--bg-input)', borderRadius: '10px', border: '1px solid var(--line)', marginBottom: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <small style={{ fontSize: '9.5px', color: 'var(--text-dim)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    FULL PASS ID & VERIFICATION KEY
+                  </small>
                   <button
                     type="button"
                     className="outline"
-                    onClick={() => window.print()}
-                    style={{ flex: 1, height: '42px', fontSize: '12px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                    onClick={() => handleCopyPassId(selectedPass.id)}
+                    style={{ fontSize: '10px', padding: '2px 8px', height: '22px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                   >
-                    PRINT PASS
-                  </button>
-                  <button
-                    type="button"
-                    className="outline"
-                    onClick={() => setSelectedPass(null)}
-                    style={{ height: '42px', padding: '0 16px', fontSize: '12px' }}
-                  >
-                    CLOSE
+                    <IconCopy size={11} /> {copiedId ? 'COPIED!' : 'COPY ID'}
                   </button>
                 </div>
+                <code style={{ display: 'block', fontSize: '11.5px', color: '#38bdf8', wordBreak: 'break-all', fontFamily: 'monospace', fontWeight: 600 }}>
+                  {selectedPass.id}
+                </code>
+              </div>
+
+              {/* Attendee Info Grid */}
+              <div className="attendee-info-grid" style={{ marginBottom: '16px' }}>
+                <div className="attendee-info-item">
+                  <span className="attendee-info-label">ATTENDEE NAME</span>
+                  <span className="attendee-info-val">{user.profile?.name || user.name || user.memberId}</span>
+                </div>
+                <div className="attendee-info-item">
+                  <span className="attendee-info-label">MEMBER / ROLL NO</span>
+                  <span className="attendee-info-val" style={{ fontFamily: 'monospace', color: 'var(--brand-primary)' }}>{user.profile?.rollNumber || user.memberId}</span>
+                </div>
+                {selectedPass.teamName && (
+                  <div className="attendee-info-item" style={{ gridColumn: '1 / -1' }}>
+                    <span className="attendee-info-label">TEAM SQUAD</span>
+                    <span className="attendee-info-val" style={{ color: 'var(--brand-primary)' }}>
+                      {selectedPass.teamName} {selectedPass.isTeamLeader ? '(Leader)' : '(Member)'}
+                    </span>
+                  </div>
+                )}
+                <div className="attendee-info-item">
+                  <span className="attendee-info-label">DATE & TIME</span>
+                  <span className="attendee-info-val">{selectedPass.event?.dateTime ? new Date(selectedPass.event.dateTime).toLocaleString() : 'TBA'}</span>
+                </div>
+                <div className="attendee-info-item">
+                  <span className="attendee-info-label">VENUE / LOCATION</span>
+                  <span className="attendee-info-val">{selectedPass.event?.venue || selectedPass.event?.location || 'Campus Auditorium'}</span>
+                </div>
+                <div className="attendee-info-item">
+                  <span className="attendee-info-label">PAYMENT STATUS</span>
+                  <span className="attendee-info-val" style={{ color: '#70ddb4', fontWeight: 700 }}>
+                    {selectedPass.paymentStatus}{' '}
+                    {Number(selectedPass.totalAmount) > 0
+                      ? `(₹${selectedPass.totalAmount})`
+                      : (selectedPass.teamName && !selectedPass.isTeamLeader && ['VERIFIED', 'PAID'].includes(String(selectedPass.paymentStatus).toUpperCase()))
+                        ? '(Team Pass · Paid)'
+                        : (selectedPass.paymentStatus === 'FREE' ? '(Free)' : '')}
+                  </span>
+                </div>
+                <div className="attendee-info-item">
+                  <span className="attendee-info-label">GATE ADMISSION</span>
+                  <span className="attendee-info-val">
+                    {selectedPass.attendanceMarked ? (
+                      <span style={{ color: '#10b981', fontWeight: 700 }}>CHECKED IN</span>
+                    ) : (
+                      <span style={{ color: '#f59e0b', fontWeight: 700 }}>READY FOR ENTRANCE</span>
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {selectedPass.qrCodeData && (
+                  <a
+                    href={selectedPass.qrCodeData}
+                    download={`event-pass-${selectedPass.event?.title || 'ticket'}.png`}
+                    className="primary"
+                    style={{
+                      flex: '1 1 140px',
+                      height: '40px',
+                      fontSize: '11.5px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    <IconDownload size={13} /> DOWNLOAD PASS
+                  </a>
+                )}
+                <button
+                  type="button"
+                  className="outline"
+                  onClick={() => window.print()}
+                  style={{ flex: '1 1 120px', height: '40px', fontSize: '11.5px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                >
+                  PRINT PASS
+                </button>
+                <button
+                  type="button"
+                  className="outline"
+                  onClick={() => setSelectedPass(null)}
+                  style={{ height: '40px', padding: '0 16px', fontSize: '11.5px' }}
+                >
+                  CLOSE
+                </button>
               </div>
             </div>
           </div>
@@ -18992,7 +19277,6 @@ function App() {
   // Experience & System flags
   const [showIntroVideo, setShowIntroVideo] = useState(false)
   const [showWaitingQueue, setShowWaitingQueue] = useState(false)
-  const [isHibernating, setIsHibernating] = useState(false)
   const [adminLoginModal, setAdminLoginModal] = useState(false)
 
   // Shared Club Settings state with persistent local caching to prevent UI popping/flickering
@@ -19004,9 +19288,27 @@ function App() {
     return null
   })
 
+  const [isHibernating, setIsHibernating] = useState(() => {
+    try {
+      const stored = localStorage.getItem('cached_club_settings')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        return parsed?.siteStatus === 'HIBERNATING'
+      }
+    } catch (e) {}
+    return false
+  })
+
   // Synchronously compute reelsEnabled and subEnabled from cache/network
   const reelsEnabled = clubSettings ? (clubSettings.reelsEnabled !== false && clubSettings.reelsEnabled !== 'false') : true
   const subEnabled = clubSettings ? (clubSettings.subscriptionEnabled === true || clubSettings.subscriptionEnabled === 'true') : false
+
+  // Keep isHibernating reactively synchronized with clubSettings
+  useEffect(() => {
+    if (clubSettings?.siteStatus) {
+      setIsHibernating(clubSettings.siteStatus === 'HIBERNATING')
+    }
+  }, [clubSettings?.siteStatus])
 
   const [activePersonaRole, setActivePersonaRole] = useState(null)
 
@@ -19044,7 +19346,7 @@ function App() {
       .then(({ settings: dict }) => {
         if (!mounted || !dict) return
         if (dict.platformMode) setPlatformMode(dict.platformMode)
-        if (dict.siteStatus === 'HIBERNATING') setIsHibernating(true)
+        if (dict.siteStatus) setIsHibernating(dict.siteStatus === 'HIBERNATING')
         setClubSettings(dict)
         try {
           localStorage.setItem('cached_club_settings', JSON.stringify(dict))
@@ -19169,8 +19471,10 @@ function App() {
     const portalUser = toPortalUser(result.user)
     setUser(portalUser)
     setActivePersonaRole(null)
-    setIsHibernating(false)
     setAdminLoginModal(false)
+    if (portalUser.role !== 'STUDENT') {
+      setIsHibernating(false)
+    }
 
     try {
       const status = await memberApi.getSessionStatus()
@@ -19343,7 +19647,7 @@ function App() {
       )
     }
 
-    return <FinalLogin onSignIn={signedIn} onForgotPassword={() => setScreen('password-reset-request')} />
+    return <FinalLogin onSignIn={signedIn} onForgotPassword={() => setScreen('password-reset-request')} onBackToHibernation={isHibernating ? () => setAdminLoginModal(false) : null} />
   }
 
   return (
