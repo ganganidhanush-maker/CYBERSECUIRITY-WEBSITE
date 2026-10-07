@@ -11,6 +11,8 @@ import { createUserNotification } from '../services/notification.service.js'
 import { getActivePlatformMode, invalidatePlatformModeCache } from '../services/platform-role.service.js'
 import { authUserCache } from '../services/auth-cache.service.js'
 import { generateFullDatabaseSqlDump } from '../services/database-dump.service.js'
+import { formatCsvValue as fmt } from '../../shared/csv.js'
+import { hasActiveEventPass, isDraftRegistration, isPaymentAwaitingReview, isRejectedPayment, submittedRegistrationWhere } from '../utils/event-registration.js'
 import {
   accountStatusSchema,
   adminResetPasswordSchema,
@@ -519,7 +521,7 @@ function serializeEvent(event) {
     minTeamSize: event.minTeamSize || 1,
     maxTeamSize: event.maxTeamSize || 1,
     teamRules: event.teamRules || null,
-    registrationCount: event.registrations?.length ?? event._count?.registrations ?? 0,
+    registrationCount: event.registrations?.filter(r => !isDraftRegistration(r)).length ?? event._count?.registrations ?? 0,
     activities: event.activities?.map(a => ({ ...a, price: Number(a.price) })) || [],
     formFields: event.formFields || [],
   }
@@ -530,7 +532,7 @@ export async function listEvents(request, response) {
     include: {
       formFields: true,
       activities: { orderBy: { sortOrder: 'asc' } },
-      registrations: { select: { id: true, userId: true, paymentStatus: true, totalAmount: true } },
+      registrations: { where: submittedRegistrationWhere(), select: { id: true, userId: true, paymentStatus: true, totalAmount: true } },
     },
     orderBy: { dateTime: 'desc' },
   })
@@ -628,7 +630,7 @@ export async function createEvent(request, response) {
     include: {
       formFields: true,
       activities: { orderBy: { sortOrder: 'asc' } },
-      registrations: { select: { id: true, userId: true } },
+      registrations: { where: submittedRegistrationWhere(), select: { id: true, userId: true } },
     },
   })
   await tryWriteAuditLog({ actorUserId: request.user.id, action: 'EVENT_CREATED', metadata: { eventId: event.id, title: event.title, requiresPayment: event.requiresPayment }, ...auditRequest(request) })
@@ -725,7 +727,7 @@ export async function updateEvent(request, response) {
     include: {
       formFields: true,
       activities: { orderBy: { sortOrder: 'asc' } },
-      registrations: { select: { id: true, userId: true } },
+      registrations: { where: submittedRegistrationWhere(), select: { id: true, userId: true } },
     },
   })
   await tryWriteAuditLog({ actorUserId: request.user.id, action: 'EVENT_UPDATED', metadata: { eventId: event.id, title: event.title }, ...auditRequest(request) })
@@ -735,7 +737,7 @@ export async function updateEvent(request, response) {
 export async function listAllEventPasses(request, response) {
   const { eventId, paymentStatus, attendanceStatus, query } = request.query
 
-  const whereClause = {}
+  const whereClause = { ...submittedRegistrationWhere() }
   if (eventId && eventId !== 'ALL') {
     whereClause.eventId = eventId
   }
@@ -743,7 +745,7 @@ export async function listAllEventPasses(request, response) {
     if (paymentStatus === 'PAID') {
       whereClause.paymentStatus = 'VERIFIED'
     } else if (paymentStatus === 'PENDING') {
-      whereClause.paymentStatus = { in: ['PENDING', 'SUBMITTED'] }
+      whereClause.paymentStatus = { in: ['PENDING', 'SUBMITTED', 'UNDER_VERIFICATION'] }
     } else {
       whereClause.paymentStatus = paymentStatus
     }
@@ -788,8 +790,8 @@ export async function listAllEventPasses(request, response) {
       isTeamEvent: reg.event?.isTeamEvent || Boolean(reg.teamName),
       userId: reg.userId,
       memberId: u?.memberId,
-      name: u?.profile?.name || u?.memberId || 'Student',
-      memberName: u?.profile?.name || u?.memberId || 'Student',
+      name: u?.profile?.name || reg.formData?.fullName || reg.formData?.name || u?.memberId || 'Student',
+      memberName: u?.profile?.name || reg.formData?.fullName || reg.formData?.name || u?.memberId || 'Student',
       email: u?.profile?.email || null,
       phone: u?.profile?.phone || null,
       rollNumber: u?.profile?.rollNumber || reg.formData?.rollNumber || u?.memberId,
@@ -809,12 +811,16 @@ export async function listAllEventPasses(request, response) {
       paymentStatus: reg.paymentStatus,
       paymentReference: reg.paymentReference,
       paymentProofUrl: reg.paymentProofUrl,
+      paymentOption: reg.paymentOption || null,
+      paymentRejectionReason: reg.paymentRejectionReason || null,
+      github: reg.github || null,
+      projectSubmission: reg.projectSubmission || null,
       totalAmount: Number(reg.totalAmount),
       status: reg.status,
       attendanceMarked: Boolean(reg.attendanceMarked),
       attendedAt: reg.attendedAt,
       registeredAt: reg.registeredAt,
-      qrCodeData: reg.qrCodeData,
+      qrCodeData: hasActiveEventPass(reg) ? reg.qrCodeData : null,
       user: u ? {
         id: u.id,
         memberId: u.memberId,
@@ -849,6 +855,7 @@ export async function getEventDetailsWithStats(request, response) {
       activities: { orderBy: { sortOrder: 'asc' } },
       formFields: true,
       registrations: {
+        where: submittedRegistrationWhere(),
         orderBy: { registeredAt: 'desc' },
       },
     },
@@ -868,9 +875,10 @@ export async function getEventDetailsWithStats(request, response) {
     return {
       ...reg,
       totalAmount: Number(reg.totalAmount),
-      memberName: u?.profile?.name || u?.memberId || 'Student',
+      qrCodeData: hasActiveEventPass(reg) ? reg.qrCodeData : null,
+      memberName: u?.profile?.name || reg.formData?.fullName || reg.formData?.name || u?.memberId || 'Student',
       memberId: u?.memberId,
-      name: u?.profile?.name || u?.memberId || 'Student',
+      name: u?.profile?.name || reg.formData?.fullName || reg.formData?.name || u?.memberId || 'Student',
       email: u?.profile?.email || null,
       phone: u?.profile?.phone || null,
       rollNumber: u?.profile?.rollNumber || reg.formData?.rollNumber || null,
@@ -892,9 +900,15 @@ export async function getEventDetailsWithStats(request, response) {
   })
 
   const totalRegistrations = populatedRegistrations.length
-  const confirmed = populatedRegistrations.filter(r => ['CONFIRMED', 'REGISTERED'].includes(r.status) || r.paymentStatus === 'VERIFIED').length
-  const pending = populatedRegistrations.filter(r => ['PENDING_PAYMENT', 'PENDING'].includes(r.status) || ['PENDING', 'SUBMITTED'].includes(r.paymentStatus)).length
-  const rejected = populatedRegistrations.filter(r => r.status === 'REJECTED' || r.paymentStatus === 'REJECTED').length
+  const confirmed = populatedRegistrations.filter(r => hasActiveEventPass(r)).length
+  const pending = populatedRegistrations.filter(r =>
+    ['PAYMENT_PENDING', 'PENDING_PAYMENT', 'UNDER_VERIFICATION'].includes(String(r.status || '').toUpperCase())
+    || ['PENDING', 'SUBMITTED', 'UNDER_VERIFICATION'].includes(String(r.paymentStatus || '').toUpperCase()),
+  ).length
+  const rejected = populatedRegistrations.filter(r =>
+    ['REJECTED', 'PAYMENT_REJECTED'].includes(String(r.status || '').toUpperCase())
+    || ['REJECTED', 'PAYMENT_REJECTED'].includes(String(r.paymentStatus || '').toUpperCase()),
+  ).length
   const totalVerifiedRevenue = populatedRegistrations
     .filter(r => r.paymentStatus === 'VERIFIED')
     .reduce((sum, r) => sum + (Number(r.totalAmount) || 0), 0)
@@ -922,7 +936,7 @@ export async function getEventDetailsWithStats(request, response) {
       pending,
       rejected,
       totalVerifiedRevenue,
-      seatsRemaining: event.capacity ? Math.max(0, event.capacity - confirmed) : null,
+      seatsRemaining: event.capacity ? Math.max(0, event.capacity - totalRegistrations) : null,
       activityStats,
     },
     registrations: populatedRegistrations,
@@ -937,29 +951,48 @@ export async function verifyRegistrationPaymentFast(request, response) {
     include: { event: true },
   })
   if (!registration) return response.status(404).json({ message: 'Pass / Registration not found.' })
+  if (!isPaymentAwaitingReview(registration)) {
+    return response.status(409).json({ message: 'Only a paid registration currently awaiting UTR review can be verified.' })
+  }
 
-  const updated = await prisma.eventRegistration.update({
-    where: { id: registrationId },
-    data: {
-      paymentStatus: 'VERIFIED',
-      status: 'REGISTERED',
-      paymentVerifiedAt: new Date(),
-      paymentVerifiedBy: request.user.id,
-    },
-  })
-
-  // If part of a team, also verify team members
-  if (registration.teamId) {
-    await prisma.eventRegistration.updateMany({
-      where: { teamId: registration.teamId },
+  const transition = await prisma.$transaction(async tx => {
+    const verifiedAt = new Date()
+    const changed = await tx.eventRegistration.updateMany({
+      where: {
+        id: registrationId,
+        paymentStatus: { in: ['PENDING', 'SUBMITTED', 'UNDER_VERIFICATION'] },
+        totalAmount: { gt: 0 },
+        paymentReference: { not: '' },
+        status: { not: 'DRAFT' },
+      },
       data: {
         paymentStatus: 'VERIFIED',
         status: 'REGISTERED',
-        paymentVerifiedAt: new Date(),
+        amountPaid: registration.totalAmount,
+        paymentVerifiedAt: verifiedAt,
         paymentVerifiedBy: request.user.id,
       },
-    }).catch(() => {})
+    })
+    if (changed.count !== 1) return { conflict: true }
+
+    if (registration.teamId) {
+      await tx.eventRegistration.updateMany({
+        where: { teamId: registration.teamId, status: { not: 'DRAFT' } },
+        data: {
+          paymentStatus: 'VERIFIED',
+          status: 'REGISTERED',
+          paymentVerifiedAt: verifiedAt,
+          paymentVerifiedBy: request.user.id,
+        },
+      })
+    }
+
+    return { registration: await tx.eventRegistration.findUnique({ where: { id: registrationId } }) }
+  })
+  if (transition.conflict) {
+    return response.status(409).json({ message: 'This payment was already reviewed. Refresh the roster before taking another action.' })
   }
+  const updated = transition.registration
 
   // Notify student that payment is verified & pass is active
   createUserNotification({
@@ -1008,29 +1041,52 @@ export async function rejectRegistrationPayment(request, response) {
     include: { event: true },
   })
   if (!registration) return response.status(404).json({ message: 'Pass / Registration not found.' })
+  if (!isPaymentAwaitingReview(registration)) {
+    return response.status(409).json({ message: 'Only a paid registration currently awaiting UTR review can be rejected.' })
+  }
 
-  const updated = await prisma.eventRegistration.update({
-    where: { id: registrationId },
-    data: {
-      paymentStatus: 'REJECTED',
-      status: 'PAYMENT_REJECTED',
-      paymentRejectionReason: reason,
-      paymentVerifiedAt: null,
-      paymentVerifiedBy: request.user.id,
-    },
-  })
-
-  // If part of a team, update team members too
-  if (registration.teamId) {
-    await prisma.eventRegistration.updateMany({
-      where: { teamId: registration.teamId },
+  const transition = await prisma.$transaction(async tx => {
+    const changed = await tx.eventRegistration.updateMany({
+      where: {
+        id: registrationId,
+        paymentStatus: { in: ['PENDING', 'SUBMITTED', 'UNDER_VERIFICATION'] },
+        totalAmount: { gt: 0 },
+        paymentReference: { not: '' },
+        status: { not: 'DRAFT' },
+      },
       data: {
         paymentStatus: 'REJECTED',
         status: 'PAYMENT_REJECTED',
+        amountPaid: null,
         paymentRejectionReason: reason,
+        qrCodeData: null,
+        paymentVerifiedAt: null,
+        paymentVerifiedBy: null,
       },
-    }).catch(() => {})
+    })
+    if (changed.count !== 1) return { conflict: true }
+
+    if (registration.teamId) {
+      await tx.eventRegistration.updateMany({
+        where: { teamId: registration.teamId, status: { not: 'DRAFT' } },
+        data: {
+          paymentStatus: 'REJECTED',
+          status: 'PAYMENT_REJECTED',
+          amountPaid: null,
+          paymentRejectionReason: reason,
+          qrCodeData: null,
+          paymentVerifiedAt: null,
+          paymentVerifiedBy: null,
+        },
+      })
+    }
+
+    return { registration: await tx.eventRegistration.findUnique({ where: { id: registrationId } }) }
+  })
+  if (transition.conflict) {
+    return response.status(409).json({ message: 'This payment was already reviewed. Refresh the roster before taking another action.' })
   }
+  const updated = transition.registration
 
   // Notify student with reason
   createUserNotification({
@@ -1077,16 +1133,79 @@ export async function markRegistrationPaymentPending(request, response) {
     include: { event: true },
   })
   if (!registration) return response.status(404).json({ message: 'Pass / Registration not found.' })
+  if (!isRejectedPayment(registration)) {
+    return response.status(409).json({ message: 'Only a rejected paid registration can be returned to UTR review.' })
+  }
 
-  const updated = await prisma.eventRegistration.update({
-    where: { id: registrationId },
-    data: {
-      paymentStatus: 'UNDER_VERIFICATION',
-      status: 'UNDER_VERIFICATION',
-      paymentVerifiedAt: null,
-      paymentVerifiedBy: null,
-    },
+  const transition = await prisma.$transaction(async tx => {
+    const changed = await tx.eventRegistration.updateMany({
+      where: {
+        id: registrationId,
+        paymentStatus: { in: ['REJECTED', 'PAYMENT_REJECTED'] },
+        totalAmount: { gt: 0 },
+        paymentReference: { not: '' },
+        status: { not: 'DRAFT' },
+      },
+      data: {
+        paymentStatus: 'UNDER_VERIFICATION',
+        status: 'UNDER_VERIFICATION',
+        amountPaid: null,
+        paymentVerifiedAt: null,
+        paymentVerifiedBy: null,
+        paymentRejectionReason: null,
+        qrCodeData: null,
+      },
+    })
+    if (changed.count !== 1) return { conflict: true }
+
+    if (registration.teamId) {
+      await tx.eventRegistration.updateMany({
+        where: { teamId: registration.teamId, status: { not: 'DRAFT' } },
+        data: {
+          paymentStatus: 'UNDER_VERIFICATION',
+          status: 'UNDER_VERIFICATION',
+          amountPaid: null,
+          paymentVerifiedAt: null,
+          paymentVerifiedBy: null,
+          paymentRejectionReason: null,
+          qrCodeData: null,
+        },
+      })
+    }
+
+    return { registration: await tx.eventRegistration.findUnique({ where: { id: registrationId } }) }
   })
+  if (transition.conflict) {
+    return response.status(409).json({ message: 'Only a rejected payment can be returned to review.' })
+  }
+  const updated = transition.registration
+
+  createUserNotification({
+    userId: registration.userId,
+    type: 'PAYMENT_UNDER_REVIEW',
+    title: `Payment Reopened: ${registration.event?.title || 'Event Pass'}`,
+    message: 'Your rejected payment was returned to the organizer review queue.',
+    linkUrl: '/student-passes',
+  }).catch(() => {})
+  await tryWriteAuditLog({
+    actorUserId: request.user.id,
+    action: 'REGISTRATION_PAYMENT_RETURNED_TO_REVIEW',
+    targetUserId: registration.userId,
+    metadata: { registrationId, paymentReference: registration.paymentReference },
+    ...auditRequest(request),
+  })
+  await prisma.paymentVerificationLog.create({
+    data: {
+      id: newId(),
+      registrationId,
+      adminId: request.user.id,
+      adminName: request.user.profile?.name || request.user.memberId,
+      action: 'PENDING',
+      amount: registration.totalAmount,
+      utr: registration.paymentReference,
+      reason: 'Payment returned to the organizer review queue',
+    },
+  }).catch(() => {})
 
   return response.status(200).json({
     success: true,
@@ -1113,7 +1232,7 @@ export async function listEventRegistrations(request, response) {
 export async function exportEventRegistrationsCsv(request, response) {
   const event = await prisma.event.findUnique({
     where: { id: request.params.eventId },
-    include: { registrations: { orderBy: { registeredAt: 'desc' } } },
+    include: { registrations: { where: submittedRegistrationWhere(), orderBy: { registeredAt: 'desc' } } },
   })
   if (!event) return response.status(404).json({ message: 'Event not found' })
 
@@ -1123,16 +1242,6 @@ export async function exportEventRegistrationsCsv(request, response) {
     include: { profile: true },
   })
   const userMap = new Map(users.map(u => [u.id, u]))
-
-  function fmt(val) {
-    if (val === null || val === undefined) return '---'
-    const s = String(val).trim()
-    if (s === '' || s === 'null' || s === 'undefined') return '---'
-    if (s.includes(',') || s.includes('\n') || s.includes('\r') || s.includes('"')) {
-      return `"${s.replaceAll('"', '""')}"`
-    }
-    return s
-  }
 
   const rows = [
     [
@@ -1228,16 +1337,6 @@ export async function exportMembersCsv(request, response) {
     orderBy: [{ role: 'asc' }, { memberId: 'asc' }],
   })
 
-  function fmt(val) {
-    if (val === null || val === undefined) return '---'
-    const s = String(val).trim()
-    if (s === '' || s === 'null' || s === 'undefined') return '---'
-    if (s.includes(',') || s.includes('\n') || s.includes('\r') || s.includes('"')) {
-      return `"${s.replaceAll('"', '""')}"`
-    }
-    return s
-  }
-
   const rows = [
     ['Member ID', 'Full Name', 'Role', 'Roll Number', 'Department / Branch', 'Academic Year', 'Email', 'Phone', 'Account Status', 'Two Factor Enabled', 'Joined Date'].map(fmt),
   ]
@@ -1266,7 +1365,9 @@ export async function exportMembersCsv(request, response) {
 
 export async function listPayments(request, response) {
   const registrations = await prisma.eventRegistration.findMany({
-    where: { paymentStatus: { in: ['SUBMITTED', 'PENDING', 'VERIFIED', 'REJECTED'] } },
+    where: submittedRegistrationWhere({
+      paymentStatus: { in: ['SUBMITTED', 'PENDING', 'UNDER_VERIFICATION', 'VERIFIED', 'REJECTED', 'PAYMENT_REJECTED', 'REFUNDED'] },
+    }),
     include: { event: true },
     orderBy: { registeredAt: 'desc' },
   })
@@ -1302,24 +1403,120 @@ export async function verifyPayment(request, response) {
 
   const parsed = paymentVerificationSchema.safeParse(request.body)
   if (!parsed.success) return response.status(400).json({ message: 'Invalid payment verification payload.' })
+  const paymentStatus = parsed.data.paymentStatus
+  const paymentNotes = parsed.data.paymentNotes || null
+  const isSubmittingForReview = ['PENDING', 'SUBMITTED'].includes(paymentStatus)
 
-  const updated = await prisma.eventRegistration.update({
-    where: { id: registration.id },
-    data: {
-      paymentStatus: parsed.data.paymentStatus,
-      status: parsed.data.paymentStatus === 'VERIFIED' ? 'CONFIRMED' : parsed.data.paymentStatus === 'REJECTED' ? 'REJECTED' : registration.status,
-      paymentVerifiedAt: new Date(),
-      paymentVerifiedBy: request.user.id,
-      paymentNotes: parsed.data.paymentNotes || null,
-    },
+  if (paymentStatus === 'VERIFIED' || paymentStatus === 'REJECTED') {
+    if (!isPaymentAwaitingReview(registration)) {
+      return response.status(409).json({ message: 'Only a paid registration currently awaiting UTR review can be verified or rejected.' })
+    }
+  } else if (isSubmittingForReview) {
+    if (!isRejectedPayment(registration)) {
+      return response.status(409).json({ message: 'Only a rejected paid registration can be returned to UTR review.' })
+    }
+  } else if (paymentStatus === 'REFUNDED' && String(registration.paymentStatus || '').toUpperCase() !== 'VERIFIED') {
+    return response.status(409).json({ message: 'Only a verified payment can be marked as refunded.' })
+  }
+
+  const nextPaymentStatus = isSubmittingForReview ? 'UNDER_VERIFICATION' : paymentStatus
+  const nextRegistrationStatus = nextPaymentStatus === 'VERIFIED'
+    ? 'REGISTERED'
+    : nextPaymentStatus === 'REJECTED'
+      ? 'PAYMENT_REJECTED'
+      : nextPaymentStatus === 'REFUNDED'
+        ? 'REFUNDED'
+        : 'UNDER_VERIFICATION'
+  const updatedAt = new Date()
+  const transition = await prisma.$transaction(async tx => {
+    const allowedPaymentStatuses = paymentStatus === 'VERIFIED' || paymentStatus === 'REJECTED'
+      ? ['PENDING', 'SUBMITTED', 'UNDER_VERIFICATION']
+      : isSubmittingForReview
+        ? ['REJECTED', 'PAYMENT_REJECTED']
+        : ['VERIFIED']
+
+    const changed = await tx.eventRegistration.updateMany({
+      where: {
+        id: registration.id,
+        paymentStatus: { in: allowedPaymentStatuses },
+        totalAmount: { gt: 0 },
+        paymentReference: { not: '' },
+        status: { not: 'DRAFT' },
+      },
+      data: {
+        paymentStatus: nextPaymentStatus,
+        status: nextRegistrationStatus,
+        amountPaid: nextPaymentStatus === 'VERIFIED' ? registration.totalAmount : null,
+        paymentVerifiedAt: nextPaymentStatus === 'VERIFIED' ? updatedAt : null,
+        paymentVerifiedBy: nextPaymentStatus === 'VERIFIED' ? request.user.id : null,
+        paymentNotes,
+        paymentRejectionReason: nextPaymentStatus === 'REJECTED' ? paymentNotes : null,
+        ...(nextPaymentStatus !== 'VERIFIED' ? { qrCodeData: null } : {}),
+      },
+    })
+    if (changed.count !== 1) return { conflict: true }
+
+    if (registration.teamId) {
+      await tx.eventRegistration.updateMany({
+        where: {
+          teamId: registration.teamId,
+          id: { not: registration.id },
+          status: { not: 'DRAFT' },
+        },
+        data: {
+          paymentStatus: nextPaymentStatus,
+          status: nextRegistrationStatus,
+          amountPaid: null,
+          paymentVerifiedAt: nextPaymentStatus === 'VERIFIED' ? updatedAt : null,
+          paymentVerifiedBy: nextPaymentStatus === 'VERIFIED' ? request.user.id : null,
+          paymentNotes,
+          paymentRejectionReason: nextPaymentStatus === 'REJECTED' ? paymentNotes : null,
+          ...(nextPaymentStatus !== 'VERIFIED' ? { qrCodeData: null } : {}),
+        },
+      })
+    }
+
+    return { registration: await tx.eventRegistration.findUnique({ where: { id: registration.id } }) }
   })
+  if (transition.conflict) {
+    return response.status(409).json({ message: 'This payment was already reviewed. Refresh the roster before taking another action.' })
+  }
+
+  const updated = transition.registration
+  createUserNotification({
+    userId: registration.userId,
+    type: `PAYMENT_${nextPaymentStatus}`,
+    title: `${nextPaymentStatus === 'VERIFIED' ? 'Payment Verified' : nextPaymentStatus === 'REJECTED' ? 'Payment Rejected' : nextPaymentStatus === 'REFUNDED' ? 'Payment Refunded' : 'Payment Returned to Review'}: ${registration.event?.title || 'Event Pass'}`,
+    message: nextPaymentStatus === 'VERIFIED'
+      ? `Your payment of ₹${Number(registration.totalAmount)} (Ref: ${registration.paymentReference}) was verified. Your digital event pass is active.`
+      : nextPaymentStatus === 'REJECTED'
+        ? `Your payment could not be verified. ${paymentNotes || 'Please contact the event organizer.'}`
+        : nextPaymentStatus === 'REFUNDED'
+          ? 'Your event payment has been marked as refunded.'
+          : 'Your rejected payment was returned to the organizer review queue.',
+    linkUrl: '/student-passes',
+  }).catch(() => {})
 
   await tryWriteAuditLog({
     actorUserId: request.user.id,
-    action: `PAYMENT_${parsed.data.paymentStatus}`,
-    metadata: { registrationId: registration.id, eventId: registration.eventId, paymentStatus: parsed.data.paymentStatus },
+    action: `PAYMENT_${nextPaymentStatus}`,
+    targetUserId: registration.userId,
+    metadata: { registrationId: registration.id, eventId: registration.eventId, paymentStatus: nextPaymentStatus },
     ...auditRequest(request),
   })
+
+  await prisma.paymentVerificationLog.create({
+    data: {
+      id: newId(),
+      registrationId: registration.id,
+      adminId: request.user.id,
+      adminName: request.user.profile?.name || request.user.memberId,
+      action: nextPaymentStatus,
+      amount: registration.totalAmount,
+      utr: registration.paymentReference,
+      reason: paymentNotes,
+    },
+  }).catch(() => {})
 
   return response.status(200).json({ registration: { ...updated, totalAmount: Number(updated.totalAmount) } })
 }
@@ -2092,6 +2289,13 @@ export async function scanQrCode(request, response) {
     },
   })
 
+  if (registration && !hasActiveEventPass(registration)) {
+    return response.status(403).json({
+      code: 'PASS_NOT_ACTIVE',
+      message: 'This pass is not active. Paid passes become valid only after an organizer verifies the UTR.',
+    })
+  }
+
   let attendeeUser = null
   if (registration) {
     attendeeUser = await prisma.user.findUnique({
@@ -2120,7 +2324,11 @@ export async function scanQrCode(request, response) {
 
     if (studentUser) {
       registration = await prisma.eventRegistration.findFirst({
-        where: { userId: studentUser.id },
+        where: {
+          userId: studentUser.id,
+          status: { in: ['REGISTERED', 'CONFIRMED', 'COMPLETED', 'PROJECT_SUBMITTED'] },
+          paymentStatus: { in: ['FREE', 'VERIFIED'] },
+        },
         include: {
           event: { include: { activities: true } },
         },
@@ -2182,7 +2390,7 @@ export async function scanQrCode(request, response) {
 
   if (directEvent) {
     const allRegs = await prisma.eventRegistration.findMany({
-      where: { eventId: directEvent.id },
+      where: submittedRegistrationWhere({ eventId: directEvent.id }),
     })
     return response.status(200).json({
       scanType: 'EVENT_DIRECT',
@@ -2219,6 +2427,12 @@ export async function grantEventEntry(request, response) {
   if (!registration) {
     return response.status(404).json({ message: 'Event registration record not found.' })
   }
+  if (!hasActiveEventPass(registration)) {
+    return response.status(403).json({
+      code: 'PASS_NOT_ACTIVE',
+      message: 'Entry denied: the registration is not an active pass or its payment has not been verified.',
+    })
+  }
 
   const attendeeUser = await prisma.user.findUnique({
     where: { id: registration.userId },
@@ -2238,16 +2452,37 @@ export async function grantEventEntry(request, response) {
     })
   }
 
-  const updated = await prisma.eventRegistration.update({
-    where: { id: registrationId },
+  const checkInTime = new Date()
+  const checkIn = await prisma.eventRegistration.updateMany({
+    where: {
+      id: registrationId,
+      attendanceMarked: false,
+      status: { in: ['REGISTERED', 'CONFIRMED', 'COMPLETED', 'PROJECT_SUBMITTED'] },
+      paymentStatus: { in: ['FREE', 'VERIFIED'] },
+    },
     data: {
       attendanceMarked: true,
-      attendedAt: new Date(),
+      attendedAt: checkInTime,
       attendanceVerifiedBy: request.user.memberId || request.user.name || 'Coordinator',
     },
-    include: {
-      event: true,
-    },
+  })
+  if (checkIn.count === 0) {
+    const current = await prisma.eventRegistration.findUnique({ where: { id: registrationId } })
+    if (current?.attendanceMarked) {
+      return response.status(409).json({
+        code: 'DUPLICATE_ENTRY_REJECTED',
+        message: `DUPLICATE ENTRY REJECTED: Attendance for ${attendeeName} was already recorded.`,
+        registration: current,
+      })
+    }
+    return response.status(403).json({
+      code: 'PASS_NOT_ACTIVE',
+      message: 'Entry denied: the registration is not an active pass or its payment has not been verified.',
+    })
+  }
+  const updated = await prisma.eventRegistration.findUnique({
+    where: { id: registrationId },
+    include: { event: true },
   })
 
   await tryWriteAuditLog({

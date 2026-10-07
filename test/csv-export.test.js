@@ -25,6 +25,16 @@ describe('Universal CSV Export & Data Formatting System', () => {
     assert.equal(formatCsvValue('Cyber "CTF" Lead'), '"Cyber ""CTF"" Lead"')
   })
 
+  it('neutralizes spreadsheet formula prefixes without changing numeric values', () => {
+    assert.equal(formatCsvValue('=2+2'), "'=2+2")
+    assert.equal(formatCsvValue('  @SUM(A1:A2)'), "'@SUM(A1:A2)")
+    assert.equal(formatCsvValue('+cmd|...'), "'+cmd|...")
+    assert.equal(formatCsvValue('-1+2'), "'-1+2")
+    assert.equal(formatCsvValue(-150), '-150')
+    assert.equal(formatCsvValue('-150'), '-150')
+    assert.equal(formatCsvValue('=HYPERLINK("https://example.test", "open")'), "\"'=HYPERLINK(\"\"https://example.test\"\", \"\"open\"\")\"")
+  })
+
   it('formats member roster row with missing fields replaced by "---"', () => {
     const member = {
       memberId: '23MR01A0501',
@@ -62,7 +72,7 @@ describe('Universal CSV Export & Data Formatting System', () => {
       'CSE',
       '---',
       '---',
-      '+919876543210',
+      "'+919876543210",
       'ACTIVE',
       'Disabled',
       '---',

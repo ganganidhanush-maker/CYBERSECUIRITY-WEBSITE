@@ -7062,6 +7062,50 @@ function StudentMembership({ user, logout, onNavigate }) {
 // ----------------------------------------------------
 // Event Management & Studio
 // ----------------------------------------------------
+function isEventRegistrationDraft(registration) {
+  const status = String(registration?.status || '').trim().toUpperCase()
+  if (status === 'DRAFT') return true
+  const paymentStatus = String(registration?.paymentStatus || '').trim().toUpperCase()
+  const amount = Number(registration?.totalAmount)
+  const unsubmittedStatuses = ['PAYMENT_PENDING', 'PENDING_PAYMENT', 'PENDING', 'UNDER_VERIFICATION']
+  return Number.isFinite(amount)
+    && amount > 0
+    && !String(registration?.paymentReference || '').trim()
+    && unsubmittedStatuses.includes(status)
+    && ['PENDING', 'SUBMITTED', 'UNDER_VERIFICATION'].includes(paymentStatus)
+}
+
+function isActiveEventPassRecord(registration) {
+  const activeStatuses = ['REGISTERED', 'CONFIRMED', 'COMPLETED', 'PROJECT_SUBMITTED']
+  const paymentStatus = String(registration?.paymentStatus || '').trim().toUpperCase()
+  const amount = registration?.totalAmount == null ? 0 : Number(registration.totalAmount)
+  const paymentIsActive = paymentStatus === 'VERIFIED' || (paymentStatus === 'FREE' && Number.isFinite(amount) && amount <= 0)
+  return activeStatuses.includes(String(registration?.status || '').trim().toUpperCase()) && paymentIsActive
+}
+
+function isEventPaymentRejected(registration) {
+  return ['PAYMENT_REJECTED', 'REJECTED'].includes(String(registration?.paymentStatus || '').toUpperCase())
+}
+
+function formatEventFeeForReview(registration) {
+  const amount = Number(registration?.totalAmount)
+  if (Number.isFinite(amount) && amount > 0) return `₹${amount}`
+  if (registration?.teamName && !registration?.isTeamLeader && String(registration?.paymentReference || '').trim()) {
+    return 'Team fee on leader'
+  }
+  return 'Free Entry'
+}
+
+function isTieredEvent(event) {
+  const paymentConfig = event?.paymentConfig || {}
+  const paymentType = String(paymentConfig.type || paymentConfig.paymentType || '').toUpperCase()
+  if (paymentType === 'TIERS') return true
+  if (paymentType) return false
+  return Array.isArray(paymentConfig.tiers)
+    && paymentConfig.tiers.length > 0
+    && Boolean(event.requiresPayment || Number(event.paymentAmount) > 0 || Number(paymentConfig.price) > 0)
+}
+
 const initialEventForm = {
   title: '',
   eventType: 'Workshop',
@@ -7279,7 +7323,7 @@ function EventManagement({ user, logout, onNavigate }) {
       allowedYears: Array.isArray(teamCfg.allowedYears) ? teamCfg.allowedYears : [],
       teamRules: teamCfg.teamRules || ev.teamRules || '',
       isPaid: Boolean(payCfg.type === 'PAID' || payCfg.type === 'TIERS' || ev.requiresPayment || (ev.paymentAmount && ev.paymentAmount > 0)),
-      paymentType: payCfg.type || (ev.paymentAmount > 0 ? 'FIXED' : 'FREE'),
+      paymentType: payCfg.type || (ev.requiresPayment || ev.paymentAmount > 0 ? 'FIXED' : 'FREE'),
       paymentAmount: (payCfg.price != null ? String(payCfg.price) : '') || (ev.paymentAmount != null ? String(ev.paymentAmount) : ''),
       paymentTiers: Array.isArray(payCfg.tiers) && payCfg.tiers.length > 0 ? payCfg.tiers : [{ name: 'Standard Pass', price: 150, description: 'General access to all event sessions' }],
       paymentUpiId: payCfg.upiId || ev.paymentUpiId || '',
@@ -7594,7 +7638,11 @@ function EventManagement({ user, logout, onNavigate }) {
       r.teamName ? 'Team' : 'Individual',
       r.teamName || 'N/A',
       r.isTeamLeader ? 'Yes' : 'No',
-      Number(r.totalAmount) || 0,
+      Number(r.totalAmount) > 0
+        ? Number(r.totalAmount)
+        : r.teamName && !r.isTeamLeader && r.paymentReference
+          ? 'Team fee on leader'
+          : 0,
       r.paymentStatus,
       r.paymentReference || 'N/A',
       r.attendanceMarked ? 'Admitted / Present' : 'Not Admitted',
@@ -8636,7 +8684,7 @@ function EventManagement({ user, logout, onNavigate }) {
               {analyticsData?.stats && (
                 <div className="roster-stats-hud">
                   <div className="roster-stat-card">
-                    <span className="roster-stat-label">TOTAL REGISTERED</span>
+                    <span className="roster-stat-label">SUBMITTED REGISTRATIONS</span>
                     <span className="roster-stat-value" style={{ color: 'var(--brand-primary)' }}>{analyticsData.stats.totalRegistrations}</span>
                   </div>
                   <div className="roster-stat-card">
@@ -8644,7 +8692,7 @@ function EventManagement({ user, logout, onNavigate }) {
                     <span className="roster-stat-value" style={{ color: '#10b981' }}>{analyticsData.stats.confirmed}</span>
                   </div>
                   <div className="roster-stat-card">
-                    <span className="roster-stat-label">PENDING UTR</span>
+                    <span className="roster-stat-label">AWAITING UTR VERIFICATION</span>
                     <span className="roster-stat-value" style={{ color: '#f59e0b' }}>{analyticsData.stats.pending}</span>
                   </div>
                   <div className="roster-stat-card">
@@ -8765,7 +8813,7 @@ function EventManagement({ user, logout, onNavigate }) {
                             {/* Payment & UTR */}
                             <div>
                               <strong style={{ color: '#70ddb4', fontSize: '13px' }}>
-                                {r.totalAmount > 0 ? `₹${r.totalAmount}` : 'Free Entry'}
+                                {formatEventFeeForReview(r)}
                               </strong>
                               {r.paymentReference && (
                                 <small style={{ color: 'var(--brand-primary)', display: 'block', fontFamily: 'monospace', fontSize: '10px', marginTop: '2px' }}>
@@ -8790,7 +8838,7 @@ function EventManagement({ user, logout, onNavigate }) {
                                     </small>
                                   )}
                                 </div>
-                              ) : (
+                              ) : isActiveEventPassRecord(r) ? (
                                 <button
                                   type="button"
                                   className="action-btn"
@@ -8799,12 +8847,14 @@ function EventManagement({ user, logout, onNavigate }) {
                                 >
                                   Check-in
                                 </button>
+                              ) : (
+                                <small style={{ color: 'var(--text-dim)', fontSize: '10px' }}>Pass inactive</small>
                               )}
                             </div>
 
                             {/* Actions */}
                             <div className="action-buttons" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                              {(r.paymentStatus === 'SUBMITTED' || r.paymentStatus === 'PENDING') && r.totalAmount > 0 && (
+                              {['SUBMITTED', 'PENDING', 'UNDER_VERIFICATION'].includes(r.paymentStatus) && r.totalAmount > 0 && Boolean(r.paymentReference) && (
                                 <button
                                   className="action-btn save-btn"
                                   onClick={() => handleVerifyRosterUTR(r.id)}
@@ -8909,7 +8959,7 @@ function EventManagement({ user, logout, onNavigate }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', flexWrap: 'wrap', gap: '8px' }}>
                     <div>
                       <strong style={{ color: '#70ddb4', fontSize: '14px' }}>
-                        {selectedRosterPass.totalAmount > 0 ? `₹${selectedRosterPass.totalAmount}` : 'Free Entry'}
+                        {formatEventFeeForReview(selectedRosterPass)}
                       </strong>
                       <span className={`badge badge-${(selectedRosterPass.paymentStatus || 'free').toLowerCase()}`} style={{ marginLeft: '8px' }}>
                         {selectedRosterPass.paymentStatus}
@@ -8951,7 +9001,7 @@ function EventManagement({ user, logout, onNavigate }) {
               </div>
 
               <div style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                {(selectedRosterPass.paymentStatus === 'SUBMITTED' || selectedRosterPass.paymentStatus === 'PENDING') && selectedRosterPass.totalAmount > 0 && (
+                {['SUBMITTED', 'PENDING', 'UNDER_VERIFICATION'].includes(selectedRosterPass.paymentStatus) && selectedRosterPass.totalAmount > 0 && Boolean(selectedRosterPass.paymentReference) && (
                   <button
                     type="button"
                     className="primary"
@@ -8965,10 +9015,12 @@ function EventManagement({ user, logout, onNavigate }) {
                   <button
                     type="button"
                     className="action-btn save-btn"
+                    disabled={!isActiveEventPassRecord(selectedRosterPass)}
                     onClick={() => handleCheckInRoster(selectedRosterPass.id)}
                     style={{ flex: 1, height: '38px', fontSize: '11px' }}
+                    title={!isActiveEventPassRecord(selectedRosterPass) ? 'Payment must be verified before entry' : undefined}
                   >
-                    RECORD GATE ENTRY
+                    {isActiveEventPassRecord(selectedRosterPass) ? 'RECORD GATE ENTRY' : 'AWAITING PAYMENT VERIFICATION'}
                   </button>
                 )}
                 <button
@@ -9166,15 +9218,33 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
           setProjectNotes(existingProject.notes || '')
         }
 
-        // Pre-populate draft custom answers if existing
-        if (ev.userRegistration?.formData?.customAnswers) {
-          setCustomFormAnswers(ev.userRegistration.formData.customAnswers)
+        // Restore saved draft data without treating it as a submitted registration.
+        const draft = ev.registrationDraft
+        const savedFormData = draft?.formData || ev.userRegistration?.formData || {}
+        if (savedFormData.customAnswers) setCustomFormAnswers(savedFormData.customAnswers)
+        if (draft) {
+          if (savedFormData.fullName) setFullName(savedFormData.fullName)
+          if (savedFormData.rollNumber) setRollNumber(savedFormData.rollNumber)
+          if (savedFormData.department) setDepartment(savedFormData.department)
+          if (savedFormData.academicYear) setAcademicYear(savedFormData.academicYear)
+          if (savedFormData.phone) setPhone(savedFormData.phone)
+          if (savedFormData.gender) setGender(savedFormData.gender)
+          if (savedFormData.age) setAge(savedFormData.age)
+          const activityIds = Array.isArray(draft.selectedActivities)
+            ? draft.selectedActivities.map(activity => typeof activity === 'string' ? activity : activity?.id).filter(Boolean)
+            : []
+          setSelectedActivities(activityIds)
+          const savedTierName = typeof draft.paymentOption === 'string'
+            ? draft.paymentOption
+            : draft.paymentOption?.name || draft.paymentOption?.tierName
+          const savedTierIndex = (ev.paymentConfig?.tiers || []).findIndex(tier => tier.name === savedTierName)
+          if (savedTierIndex >= 0) setSelectedTierIndex(savedTierIndex)
         }
 
-        // Set default chosenMode based on event.registrationType
-        if (ev.registrationType === 'TEAM') {
+        // Set default participation mode, preferring a saved draft for BOTH-mode events.
+        if (ev.registrationType === 'TEAM' || (ev.registrationType === 'BOTH' && draft?.registrationType === 'TEAM')) {
           setChosenMode('TEAM')
-        } else if (ev.registrationType === 'INDIVIDUAL') {
+        } else if (ev.registrationType === 'INDIVIDUAL' || (ev.registrationType === 'BOTH' && draft?.registrationType === 'INDIVIDUAL')) {
           setChosenMode('INDIVIDUAL')
         }
       })
@@ -9198,7 +9268,7 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
     try {
       const res = await memberApi.searchStudents(val.trim())
       // Filter out self and already drafted members
-      const filtered = (res.members || []).filter(m =>
+      const filtered = (res.students || res.members || []).filter(m =>
         m.id !== user.id &&
         m.memberId?.toUpperCase() !== user.memberId?.toUpperCase() &&
         !draftMembers.some(dm => dm.id === m.id)
@@ -9280,10 +9350,20 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
     try {
       const draftPayload = {
         registrationType: isTeamFlow ? 'TEAM' : 'INDIVIDUAL',
-        teamName: event?.userTeam?.teamName || null,
+        teamName: isTeamFlow ? event?.userTeam?.teamName || null : null,
+        teamId: isTeamFlow ? event?.userTeam?.id || null : null,
+        selectedActivityIds: selectedActivities,
         paymentOption: isPaid ? currentTierName : 'FREE',
-        amountPaid: totalPrice,
-        customAnswers: customFormAnswers,
+        formData: {
+          fullName: fullName.trim(),
+          rollNumber: rollNumber.trim(),
+          department: department.trim(),
+          academicYear: Number(academicYear) || null,
+          phone: phone.trim(),
+          gender,
+          age: age ? Number(age) : null,
+          customAnswers: customFormAnswers,
+        },
       }
       await memberApi.saveRegistrationDraft(eventId, draftPayload)
       setDraftSavedMessage('✓ Draft progress auto-saved securely.')
@@ -9346,9 +9426,9 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
       gender,
       age: age ? Number(age) : null,
       emergencyContact: emergencyContact.trim() || null,
-      teamName: event.userTeam?.teamName || null,
-      teamId: event.userTeam?.id || null,
-      isTeamLeader: Boolean(event.userTeam?.isLeader),
+      teamName: isTeamFlow ? event.userTeam?.teamName || null : null,
+      teamId: isTeamFlow ? event.userTeam?.id || null : null,
+      isTeamLeader: Boolean(isTeamFlow && event.userTeam?.isLeader),
       formData: {
         fullName: fullName.trim(),
         rollNumber: rollNumber.trim(),
@@ -9448,8 +9528,18 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
   const isTeamFlow = event.registrationType === 'TEAM' || (event.registrationType === 'BOTH' && chosenMode === 'TEAM')
 
   // Pricing & Tiers Calculation
-  const paymentType = event.paymentConfig?.paymentType || (event.isPaid ? 'FIXED' : 'FREE')
-  const isPaid = paymentType !== 'FREE'
+  const hasConfiguredPaidPrice = Boolean(
+    event.requiresPayment
+    || event.isPaid
+    || Number(event.paymentAmount) > 0
+    || Number(event.paymentConfig?.price) > 0,
+  )
+  const paymentType = String(
+    event.paymentConfig?.type
+      || event.paymentConfig?.paymentType
+      || (isTieredEvent(event) ? 'TIERS' : hasConfiguredPaidPrice ? 'FIXED' : 'FREE'),
+  ).toUpperCase()
+  const isPaid = Boolean(hasConfiguredPaidPrice || paymentType !== 'FREE')
   const paymentTiers = event.paymentConfig?.tiers || []
   let totalPrice = 0
   let currentTierName = 'Standard'
@@ -9460,47 +9550,84 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
       totalPrice = Number(tier.price) || 0
       currentTierName = tier.name || 'Tier'
     } else {
-      totalPrice = Number(event.paymentAmount || event.paymentConfig?.paymentAmount || 0)
+      totalPrice = Number(event.paymentConfig?.price ?? event.paymentAmount ?? 0)
       currentTierName = 'Standard Fixed Fee'
     }
   }
 
   // Team Validation Rules
   const teamConfig = event.teamConfig || {}
-  const minTeam = teamConfig.minTeamSize || event.minTeamSize || 1
-  const maxTeam = teamConfig.maxTeamSize || event.maxTeamSize || 10
+  const minTeam = Number(teamConfig.minTeamSize || teamConfig.minSize || event.minTeamSize || 1)
+  const maxTeam = Number(teamConfig.maxTeamSize || teamConfig.maxSize || event.maxTeamSize || 1)
   const userTeam = event.userTeam
   const isLeader = userTeam?.isLeader
   const acceptedMembers = userTeam ? (userTeam.members || []).filter(m => m.status === 'ACCEPTED') : []
-  const teamSize = acceptedMembers.length
+  const leaderFormData = {
+    userId: user.id,
+    name: fullName,
+    gender,
+    department: user.profile?.department || department,
+    year: user.profile?.year || Number(academicYear) || null,
+  }
+  const teamCandidates = acceptedMembers.map(member =>
+    member.userId === userTeam?.leaderId && userTeam?.leaderId === user.id
+      ? { ...member, ...leaderFormData }
+      : member,
+  )
+  if (userTeam && !teamCandidates.some(member => member.userId === userTeam.leaderId)) {
+    teamCandidates.unshift(userTeam.leaderId === user.id ? leaderFormData : { userId: userTeam.leaderId })
+  }
+  const teamSize = teamCandidates.length
+  const femaleCount = teamCandidates.filter(member => String(member.gender || '').toUpperCase() === 'FEMALE').length
+  const maleCount = teamCandidates.filter(member => String(member.gender || '').toUpperCase() === 'MALE').length
+  const minFemale = Number(teamConfig.minFemale ?? (teamConfig.requireFemale ? 1 : 0))
+  const maxFemale = teamConfig.maxFemale !== null && teamConfig.maxFemale !== undefined && teamConfig.maxFemale !== ''
+    ? Number(teamConfig.maxFemale)
+    : null
+  const minMale = teamConfig.minMale !== null && teamConfig.minMale !== undefined && teamConfig.minMale !== ''
+    ? Number(teamConfig.minMale)
+    : null
+  const maxMale = teamConfig.maxMale !== null && teamConfig.maxMale !== undefined && teamConfig.maxMale !== ''
+    ? Number(teamConfig.maxMale)
+    : null
+  const satisfiesGenderRules = femaleCount >= minFemale
+    && (maxFemale === null || femaleCount <= maxFemale)
+    && (minMale === null || maleCount >= minMale)
+    && (maxMale === null || maleCount <= maxMale)
 
-  // Quota: At least 1 female check
-  const requiresFemale = Boolean(teamConfig.atLeastOneFemale || (teamConfig.minFemale && teamConfig.minFemale >= 1) || (event.teamRules && /female|girl/i.test(event.teamRules)))
-  const femaleCount = acceptedMembers.filter(m => String(m.gender).toUpperCase() === 'FEMALE').length
-  const satisfiesFemaleQuota = !requiresFemale || femaleCount >= 1
-
-  // Quota: Size check
   const satisfiesSize = teamSize >= minTeam && teamSize <= maxTeam
-
-  // Check Department Restrictions
   const allowedDepts = teamConfig.allowedDepartments || []
-  const invalidDepts = allowedDepts.length > 0 ? acceptedMembers.filter(m => m.department && !allowedDepts.includes(m.department)) : []
+  const allowedYears = teamConfig.allowedYears || []
+  const invalidDepts = allowedDepts.length > 0
+    ? teamCandidates.filter(member => member.department && !allowedDepts.includes(member.department))
+    : []
+  const invalidYears = allowedYears.length > 0
+    ? teamCandidates.filter(member => member.year && !allowedYears.includes(Number(member.year)))
+    : []
 
-  // Overall Team Validation Status
   let teamValidationIssue = ''
   if (isTeamFlow && userTeam) {
     if (!satisfiesSize) teamValidationIssue = `Team requires ${minTeam} to ${maxTeam} accepted members (currently ${teamSize}).`
-    else if (!satisfiesFemaleQuota) teamValidationIssue = 'Team requires at least 1 female participant.'
-    else if (invalidDepts.length > 0) teamValidationIssue = `Teammate from restricted department: ${invalidDepts.map(d => d.name).join(', ')}.`
+    else if (femaleCount < minFemale) teamValidationIssue = `Team requires at least ${minFemale} female participant(s).`
+    else if (maxFemale !== null && femaleCount > maxFemale) teamValidationIssue = `Team allows at most ${maxFemale} female participant(s).`
+    else if (minMale !== null && maleCount < minMale) teamValidationIssue = `Team requires at least ${minMale} male participant(s).`
+    else if (maxMale !== null && maleCount > maxMale) teamValidationIssue = `Team allows at most ${maxMale} male participant(s).`
+    else if (invalidDepts.length > 0) teamValidationIssue = `Teammate from restricted department: ${invalidDepts.map(member => member.name).join(', ')}.`
+    else if (invalidYears.length > 0) teamValidationIssue = `Teammate from a restricted academic year: ${invalidYears.map(member => member.name).join(', ')}.`
   }
-  const teamRequirementsMet = isTeamFlow && userTeam && satisfiesSize && satisfiesFemaleQuota && invalidDepts.length === 0
+  const teamRequirementsMet = isTeamFlow
+    && Boolean(userTeam)
+    && satisfiesSize
+    && satisfiesGenderRules
+    && invalidDepts.length === 0
+    && invalidYears.length === 0
 
   // User Registration Status
   const userReg = event.userRegistration
   const isRegistered = Boolean(userReg)
   const isUnderVerification = userReg?.paymentStatus === 'UNDER_VERIFICATION' || userReg?.paymentStatus === 'SUBMITTED' || userReg?.paymentStatus === 'PENDING'
-  const isPaymentRejected = userReg?.paymentStatus === 'PAYMENT_REJECTED'
-  const isVerifiedPass = userReg?.paymentStatus === 'VERIFIED' || userReg?.paymentStatus === 'FREE' || (!userReg?.paymentStatus && isRegistered)
+  const isPaymentRejected = ['PAYMENT_REJECTED', 'REJECTED'].includes(String(userReg?.paymentStatus || '').toUpperCase())
+  const canResubmitPayment = isPaymentRejected && Number(userReg?.totalAmount) > 0
   const allowScreenshot = Boolean(event.paymentConfig?.allowScreenshotUpload || event.allowScreenshotUpload)
 
   // Hackathon Project Submission Enabled
@@ -9549,7 +9676,7 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                 </span>
                 {isPaid ? (
                   <span className="badge" style={{ background: 'rgba(234, 179, 8, 0.15)', color: '#fef08a', border: '1px solid #eab30866' }}>
-                    PAID · {paymentType === 'TIERS' ? 'Multiple Tiers Available' : `₹${event.paymentAmount || 0}`}
+                    PAID · {paymentType === 'TIERS' ? 'Multiple Tiers Available' : `₹${totalPrice}`}
                   </span>
                 ) : (
                   <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#6ee7b7', border: '1px solid #10b98166' }}>
@@ -9656,21 +9783,27 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                         Reason: {userReg.paymentRejectionReason || 'UTR not verified in club bank statement.'}
                       </p>
                       <p style={{ color: 'var(--text-muted)', fontSize: '11.5px', margin: '8px 0 14px' }}>
-                        Please verify your transaction in your UPI app and re-submit your 12-digit UTR reference.
+                        {canResubmitPayment
+                          ? 'Please verify your transaction in your UPI app and re-submit your UTR reference.'
+                          : 'The team leader must verify the transaction and resubmit the team UTR.'}
                       </p>
-                      <button
-                        type="button"
-                        className="primary"
-                        onClick={() => setShowResubmitModal(true)}
-                        style={{ width: '100%', padding: '10px', background: '#ef4444', color: '#fff', fontWeight: 700 }}
-                      >
-                        Resubmit Payment UTR →
-                      </button>
+                      {canResubmitPayment ? (
+                        <button
+                          type="button"
+                          className="primary"
+                          onClick={() => setShowResubmitModal(true)}
+                          style={{ width: '100%', padding: '10px', background: '#ef4444', color: '#fff', fontWeight: 700 }}
+                        >
+                          Resubmit Payment UTR →
+                        </button>
+                      ) : (
+                        <small style={{ color: 'var(--text-muted)' }}>Ask your team leader to resubmit the team payment UTR.</small>
+                      )}
                     </div>
                   ) : (
                     <div style={{ textAlign: 'center', padding: '16px', background: 'var(--panel-subtle)', borderRadius: '12px', border: '1px solid var(--line)', marginBottom: '16px' }}>
-                      <span className="badge badge-registered" style={{ fontSize: '12px', padding: '6px 14px' }}>
-                        ✓ PASS ACTIVE & CONFIRMED
+                      <span className={isActiveEventPassRecord(userReg) ? 'badge badge-registered' : 'badge'} style={{ fontSize: '12px', padding: '6px 14px' }}>
+                        {isActiveEventPassRecord(userReg) ? '✓ PASS ACTIVE & CONFIRMED' : 'REGISTRATION NOT ACTIVE'}
                       </span>
                       <p style={{ color: 'var(--text-muted)', fontSize: '12px', marginTop: '10px' }}>
                         {userReg.teamName ? `Team: ${userReg.teamName} · ` : ''}
@@ -9683,7 +9816,7 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                   )}
 
                   {/* Resubmit Payment Modal */}
-                  {showResubmitModal && (
+                  {canResubmitPayment && showResubmitModal && (
                     <div className="photo-lightbox" onClick={() => setShowResubmitModal(false)}>
                       <div className="photo-lightbox-content" onClick={e => e.stopPropagation()} style={{ background: 'var(--bg-modal)', padding: '24px', borderRadius: '14px', maxWidth: '480px', width: '90vw' }}>
                         <h3 style={{ margin: '0 0 8px', color: 'var(--text-main)', fontSize: '16px' }}>Resubmit Payment UTR</h3>
@@ -10124,6 +10257,9 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                           alt="Payment QR"
                           style={{ maxWidth: '160px', height: 'auto', display: 'block', margin: '0 auto' }}
                         />
+                        <small style={{ display: 'block', maxWidth: '240px', margin: '6px auto 0', color: '#475569', fontSize: '10px', lineHeight: 1.4 }}>
+                          Payment QR only. Your entrance pass activates after an organizer verifies your UTR.
+                        </small>
                         {event.paymentUpiId && (
                           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginTop: '8px' }}>
                             <span style={{ color: '#07121c', fontSize: '12px', fontWeight: 700, fontFamily: 'monospace' }}>
@@ -10192,7 +10328,7 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
                     }
                     style={{ width: '100%', minHeight: '44px', fontSize: '12px', fontWeight: 800, letterSpacing: '0.04em' }}
                   >
-                    {submitting ? 'CONFIRMING PASS…' : isPaid ? 'SUBMIT PAYMENT & GET PASS ➔' : 'CONFIRM REGISTRATION & GET PASS ➔'}
+                    {submitting ? 'SUBMITTING…' : isPaid ? 'SUBMIT UTR FOR VERIFICATION ➔' : 'CONFIRM REGISTRATION & GET PASS ➔'}
                   </button>
 
                   {/* Feedback on why button might be disabled */}
@@ -10400,9 +10536,19 @@ function PaymentManagement({ user, logout, onNavigate }) {
       p.teamName ? 'Team' : 'Individual',
       p.teamName || 'N/A',
       p.isTeamLeader ? 'Yes' : 'No',
-      p.totalAmount,
+      Number(p.totalAmount) > 0
+        ? Number(p.totalAmount)
+        : p.teamName && !p.isTeamLeader && p.paymentReference
+          ? 'Team fee on leader'
+          : 0,
+      typeof p.paymentOption === 'string'
+        ? p.paymentOption
+        : p.paymentOption?.name || p.paymentOption?.tierName || p.paymentOption?.type || 'N/A',
       p.paymentStatus,
       p.paymentReference || 'N/A',
+      p.paymentRejectionReason || 'N/A',
+      p.projectSubmission?.repoUrl || p.projectSubmission?.projectUrl || p.github || 'N/A',
+      p.projectSubmission?.demoUrl || 'N/A',
       p.attendanceMarked ? 'Yes' : 'No',
       p.attendedAt ? new Date(p.attendedAt).toLocaleString() : 'N/A',
       p.registeredAt ? new Date(p.registeredAt).toLocaleString() : null,
@@ -10450,21 +10596,21 @@ function PaymentManagement({ user, logout, onNavigate }) {
         {/* Premium KPI Metrics HUD */}
         <div className="roster-stats-hud">
           <div className="roster-stat-card">
-            <span className="roster-stat-label">TOTAL ISSUED PASSES</span>
+            <span className="roster-stat-label">SUBMITTED REGISTRATIONS</span>
             <span className="roster-stat-value" style={{ color: 'var(--brand-primary)' }}>{passes.length}</span>
-            <small style={{ color: 'var(--text-dim)', fontSize: '10px' }}>Active Access Tokens</small>
+            <small style={{ color: 'var(--text-dim)', fontSize: '10px' }}>Submitted, non-draft entries</small>
           </div>
           <div className="roster-stat-card">
             <span className="roster-stat-label">VERIFIED / PAID</span>
             <span className="roster-stat-value" style={{ color: '#10b981' }}>
-              {passes.filter(p => p.paymentStatus === 'PAID' || p.paymentStatus === 'VERIFIED' || p.isFree).length}
+              {passes.filter(isActiveEventPassRecord).length}
             </span>
             <small style={{ color: 'var(--text-dim)', fontSize: '10px' }}>Confirmed Attendees</small>
           </div>
           <div className="roster-stat-card">
             <span className="roster-stat-label">PENDING UTR APPROVAL</span>
             <span className="roster-stat-value" style={{ color: '#f59e0b' }}>
-              {passes.filter(p => p.paymentStatus === 'PENDING').length}
+              {passes.filter(p => ['PENDING', 'SUBMITTED', 'UNDER_VERIFICATION'].includes(String(p.paymentStatus || '').toUpperCase())).length}
             </span>
             <small style={{ color: 'var(--text-dim)', fontSize: '10px' }}>Requires Review</small>
           </div>
@@ -10575,6 +10721,9 @@ function PaymentManagement({ user, logout, onNavigate }) {
                         </span>
                       </div>
                       <small style={{ color: 'var(--text-dim)', display: 'block' }}>{p.department} {p.year ? `· Y${p.year}` : ''}</small>
+                      <small style={{ color: 'var(--text-dim)', display: 'block', fontSize: '10px', marginTop: '2px' }}>
+                        Roll: {p.rollNumber || p.user?.profile?.rollNumber || '---'}
+                      </small>
                     </div>
 
                     {/* Event & Team */}
@@ -10604,7 +10753,7 @@ function PaymentManagement({ user, logout, onNavigate }) {
                     {/* Payment & UTR */}
                     <div>
                       <strong style={{ color: '#70ddb4', fontSize: '13px' }}>
-                        {p.totalAmount > 0 ? `₹${p.totalAmount}` : 'Free Entry'}
+                        {formatEventFeeForReview(p)}
                       </strong>
                       {p.paymentReference && (
                         <small style={{ color: 'var(--text-dim)', display: 'block', fontFamily: 'monospace' }}>
@@ -10622,7 +10771,7 @@ function PaymentManagement({ user, logout, onNavigate }) {
                         <span className="badge" style={{ background: '#064e3b', color: '#6ee7b7', border: '1px solid #10b981', fontSize: '10px' }}>
                           ✓ PRESENT
                         </span>
-                      ) : (
+                      ) : isActiveEventPassRecord(p) ? (
                         <button
                           type="button"
                           className="action-btn"
@@ -10631,12 +10780,14 @@ function PaymentManagement({ user, logout, onNavigate }) {
                         >
                           Check-in
                         </button>
+                      ) : (
+                        <small style={{ color: 'var(--text-dim)', fontSize: '10px' }}>Pass inactive</small>
                       )}
                     </div>
 
                     {/* Actions */}
                     <div className="action-buttons" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                      {(p.paymentStatus === 'SUBMITTED' || p.paymentStatus === 'UNDER_VERIFICATION' || p.paymentStatus === 'PENDING') && (
+                      {(['SUBMITTED', 'UNDER_VERIFICATION', 'PENDING'].includes(String(p.paymentStatus || '').toUpperCase()) && Number(p.totalAmount) > 0 && Boolean(p.paymentReference)) && (
                         <>
                           <button className="action-btn save-btn" onClick={() => handleVerifyUTR(p.id)} style={{ fontSize: '10px', padding: '4px 8px' }}>
                             ✓ Verify
@@ -10646,7 +10797,7 @@ function PaymentManagement({ user, logout, onNavigate }) {
                           </button>
                         </>
                       )}
-                      {p.paymentStatus === 'PAYMENT_REJECTED' && (
+                      {['PAYMENT_REJECTED', 'REJECTED'].includes(String(p.paymentStatus || '').toUpperCase()) && Number(p.totalAmount) > 0 && Boolean(p.paymentReference) && (
                         <button className="action-btn" onClick={() => handleMarkPending(p.id)} style={{ fontSize: '10px', padding: '4px 8px', color: '#f59e0b' }} title="Reset to pending verification">
                           Reset Pending
                         </button>
@@ -10771,7 +10922,7 @@ function PaymentManagement({ user, logout, onNavigate }) {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', flexWrap: 'wrap', gap: '8px' }}>
                     <div>
                       <strong style={{ color: '#70ddb4', fontSize: '14px' }}>
-                        {selectedPass.totalAmount > 0 ? `₹${selectedPass.totalAmount}` : 'Free Entry'}
+                        {formatEventFeeForReview(selectedPass)}
                       </strong>
                       <span className={`badge badge-${(selectedPass.paymentStatus || 'free').toLowerCase()}`} style={{ marginLeft: '8px' }}>
                         {selectedPass.paymentStatus}
@@ -10813,7 +10964,7 @@ function PaymentManagement({ user, logout, onNavigate }) {
               </div>
 
               <div style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                {(selectedPass.paymentStatus === 'SUBMITTED' || selectedPass.paymentStatus === 'PENDING') && selectedPass.totalAmount > 0 && (
+                {['SUBMITTED', 'UNDER_VERIFICATION', 'PENDING'].includes(String(selectedPass.paymentStatus || '').toUpperCase()) && selectedPass.totalAmount > 0 && Boolean(selectedPass.paymentReference) && (
                   <button
                     type="button"
                     className="primary"
@@ -10827,10 +10978,12 @@ function PaymentManagement({ user, logout, onNavigate }) {
                   <button
                     type="button"
                     className="action-btn save-btn"
+                    disabled={!isActiveEventPassRecord(selectedPass)}
                     onClick={() => { handleGrantGateEntry(selectedPass.id); setSelectedPass(null) }}
                     style={{ flex: 1, height: '38px', fontSize: '11px' }}
+                    title={!isActiveEventPassRecord(selectedPass) ? 'Payment must be verified before entry' : undefined}
                   >
-                    RECORD GATE ENTRY
+                    {isActiveEventPassRecord(selectedPass) ? 'RECORD GATE ENTRY' : 'AWAITING PAYMENT VERIFICATION'}
                   </button>
                 )}
                 <button
@@ -13665,13 +13818,33 @@ function StudentEvents({ user, logout, onNavigate }) {
                   <div className="card-meta">
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCalendar size={13} /> {new Date(evt.dateTime).toLocaleDateString()}</span>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconLocationPin size={13} /> {evt.venue || evt.location || 'Campus'}</span>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconCreditCard size={13} /> {evt.requiresPayment ? `₹${evt.paymentAmount || 'Tiered'}` : 'FREE'}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <IconCreditCard size={13} />{' '}
+                      {isTieredEvent(evt)
+                        ? 'TIERED'
+                        : (evt.requiresPayment
+                          || Number(evt.paymentAmount) > 0
+                          || Number(evt.paymentConfig?.price) > 0
+                          || ['FIXED', 'PAID'].includes(evt.paymentConfig?.type || evt.paymentConfig?.paymentType))
+                          ? `₹${evt.paymentConfig?.price ?? evt.paymentAmount ?? 0}`
+                          : 'FREE'}
+                    </span>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><IconUserSvg size={13} /> {evt.registrationCount || 0} registered</span>
                   </div>
                   <div className="card-footer">
                     {evt.isRegistered ? (
-                      <span className="badge badge-registered" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                        <Icon8 name="authentication" size={12} /> REGISTERED
+                      <span
+                        className="badge"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '4px',
+                          background: evt.hasActivePass ? 'rgba(16,185,129,.12)' : isEventPaymentRejected(evt) ? 'rgba(239,68,68,.12)' : 'rgba(234,179,8,.12)',
+                          color: evt.hasActivePass ? '#10b981' : isEventPaymentRejected(evt) ? '#ef4444' : '#d97706',
+                          border: `1px solid ${evt.hasActivePass ? '#10b98166' : isEventPaymentRejected(evt) ? '#ef444466' : '#eab30866'}`,
+                        }}
+                      >
+                        <Icon8 name={evt.hasActivePass ? 'authentication' : isEventPaymentRejected(evt) ? 'protect' : 'realtime'} size={12} /> {evt.hasActivePass ? 'PASS ACTIVE' : isEventPaymentRejected(evt) ? 'PAYMENT REJECTED' : 'PAYMENT UNDER REVIEW'}
                       </span>
                     ) : (
                       <button className="register-btn" type="button" onClick={() => onNavigate(`event-detail/${evt.id}`)}>
@@ -13700,14 +13873,14 @@ function StudentRegistrations({ user, logout, onNavigate }) {
   const [registrations, setRegistrations] = useState(() => {
     try {
       const cached = localStorage.getItem(cacheKey)
-      if (cached) return JSON.parse(cached)
+      if (cached) return JSON.parse(cached).filter(reg => !isEventRegistrationDraft(reg))
     } catch {}
     return []
   })
   const [loading, setLoading] = useState(() => {
     try {
       const cached = localStorage.getItem(cacheKey)
-      return !cached || JSON.parse(cached).length === 0
+      return !cached || JSON.parse(cached).filter(reg => !isEventRegistrationDraft(reg)).length === 0
     } catch {
       return true
     }
@@ -13736,7 +13909,7 @@ function StudentRegistrations({ user, logout, onNavigate }) {
     if (document.hidden) return
     memberApi.listRegistrations()
       .then(({ registrations: list }) => {
-        const regList = list || []
+        const regList = (list || []).filter(reg => !isEventRegistrationDraft(reg))
         setRegistrations(regList)
         setIsOfflineCached(false)
         try {
@@ -13752,7 +13925,9 @@ function StudentRegistrations({ user, logout, onNavigate }) {
       .catch(() => {
         try {
           const cached = localStorage.getItem(cacheKey)
-          if (cached && JSON.parse(cached).length > 0) {
+          const cachedRegistrations = cached ? JSON.parse(cached).filter(reg => !isEventRegistrationDraft(reg)) : []
+          if (cachedRegistrations.length > 0) {
+            setRegistrations(cachedRegistrations)
             setIsOfflineCached(true)
             return
           }
@@ -13877,7 +14052,7 @@ function StudentRegistrations({ user, logout, onNavigate }) {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(100%, 300px), 1fr))', gap: '20px', marginTop: '20px' }}>
             {registrations.map(reg => {
               const isUnderVerif = reg.paymentStatus === 'UNDER_VERIFICATION' || reg.paymentStatus === 'SUBMITTED' || reg.paymentStatus === 'PENDING'
-              const isRejected = reg.paymentStatus === 'PAYMENT_REJECTED'
+              const isRejected = ['PAYMENT_REJECTED', 'REJECTED'].includes(String(reg.paymentStatus || '').toUpperCase())
               const hasHackathon = Boolean(reg.event?.requireProjectSubmission || reg.event?.submissionConfig?.enabled || reg.projectSubmission || reg.team?.projectSubmission || /hackathon|ctf/i.test(reg.event?.eventType || ''))
 
               return (
@@ -13915,10 +14090,12 @@ function StudentRegistrations({ user, logout, onNavigate }) {
                       <span className="badge" style={{ background: '#064e3b', color: '#6ee7b7', border: '1px solid #10b981', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px' }}>
                         <Icon8 name="authentication" size={14} /> ATTENDANCE CONFIRMED
                       </span>
-                    ) : (
+                    ) : isActiveEventPassRecord(reg) ? (
                       <span className="badge badge-registered" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px' }}>
                         <Icon8 name="faceId" size={14} /> ENTRY VALID · SCAN AT GATE
                       </span>
+                    ) : (
+                      <span className="badge" style={{ background: 'rgba(148,163,184,.12)', color: 'var(--text-muted)', border: '1px solid var(--line)', fontSize: '10px' }}>PASS INACTIVE</span>
                     )}
                   </div>
 
@@ -13947,21 +14124,25 @@ function StudentRegistrations({ user, logout, onNavigate }) {
                       <div style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef444444', borderRadius: '10px', marginBottom: '14px', fontSize: '11.5px' }}>
                         <b style={{ color: '#ef4444', display: 'block', marginBottom: '3px' }}>Reason: {reg.paymentRejectionReason || 'UTR not verified.'}</b>
                         <p style={{ color: 'var(--text-muted)', margin: '0 0 8px', fontSize: '11px' }}>
-                          Please double-check your payment transaction and re-submit your 12-digit UTR reference.
+                          {Number(reg.totalAmount) > 0
+                            ? 'Please double-check your payment transaction and re-submit your UTR reference.'
+                            : 'Ask your team leader to resubmit the team payment UTR.'}
                         </p>
-                        <button
-                          type="button"
-                          className="primary"
-                          onClick={() => {
-                            setResubmitModalReg(reg)
-                            setResubmitUtr('')
-                            setResubmitError('')
-                            setResubmitSuccess('')
-                          }}
-                          style={{ width: '100%', padding: '6px', fontSize: '11px', background: '#ef4444', color: '#fff', fontWeight: 700 }}
-                        >
-                          Resubmit Payment UTR →
-                        </button>
+                        {Number(reg.totalAmount) > 0 && (
+                          <button
+                            type="button"
+                            className="primary"
+                            onClick={() => {
+                              setResubmitModalReg(reg)
+                              setResubmitUtr('')
+                              setResubmitError('')
+                              setResubmitSuccess('')
+                            }}
+                            style={{ width: '100%', padding: '6px', fontSize: '11px', background: '#ef4444', color: '#fff', fontWeight: 700 }}
+                          >
+                            Resubmit Payment UTR →
+                          </button>
+                        )}
                       </div>
                     )}
 
@@ -13976,7 +14157,7 @@ function StudentRegistrations({ user, logout, onNavigate }) {
                     )}
 
                     {/* QR Code Pass Box (for active passes) */}
-                    {!isRejected && !isUnderVerif && (
+                    {isActiveEventPassRecord(reg) && (
                       <div
                         style={{
                           marginTop: 'auto',
@@ -17382,8 +17563,8 @@ function LiveStudentDashboard({ user, logout, onNavigate }) {
           <i><Icon8 name="idDocs" size={24} /></i>
           <div>
             <p>{isMrdu ? 'MY EVENT PASSES' : 'MY PASSES'}</p>
-            <h2>{events.filter(e => e.isRegistered).length}</h2>
-            <small>Confirmed Registrations</small>
+            <h2>{events.filter(e => e.hasActivePass).length}</h2>
+            <small>Active / confirmed passes</small>
           </div>
         </div>
 

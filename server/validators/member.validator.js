@@ -202,7 +202,11 @@ export const rejectPaymentSchema = z.object({
 
 export const resubmitPaymentSchema = z.object({
   paymentReference: z.string().trim().min(3, 'Valid Transaction ID / UTR is required.').max(120),
-  amountPaid: z.union([z.string(), z.number()]).transform(val => Number(val)),
+  amountPaid: z.union([z.string(), z.number(), z.null(), z.undefined()]).transform(val => {
+    if (val === null || val === undefined || val === '') return null
+    const amount = Number(val)
+    return Number.isFinite(amount) && amount >= 0 ? amount : null
+  }),
   paymentProofUrl: z.union([z.string(), z.null(), z.undefined()]).transform(value => normalizeImageUrl(value)),
   paymentMethod: optionalText(50),
 })
