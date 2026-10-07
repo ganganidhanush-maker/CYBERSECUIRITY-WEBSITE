@@ -1,6 +1,7 @@
 import crypto from 'node:crypto'
 import 'dotenv/config'
 import { z } from 'zod'
+import { resolvePublicAppUrl } from './public-url.js'
 
 const nodeEnvSchema = z.enum(['development', 'test', 'staging', 'production'])
 const integer = (fallback, min, max) => z.coerce.number().int().min(min).max(max).default(fallback)
@@ -37,7 +38,7 @@ const rawEnvironment = {
   sessionSecret: process.env.SESSION_SECRET || fallbackSessionSecret,
   sessionEncryptionKey: process.env.SESSION_ENCRYPTION_KEY || fallbackSessionKey,
   corsOrigin: process.env.CORS_ORIGIN,
-  publicAppUrl: process.env.PUBLIC_APP_URL || railwayDomain || undefined,
+  publicAppUrl: resolvePublicAppUrl(process.env),
   sessionMaxAgeMs: process.env.SESSION_MAX_AGE_MS,
   bcryptRounds: process.env.BCRYPT_ROUNDS,
   loginMaxAttempts: process.env.LOGIN_MAX_ATTEMPTS,
