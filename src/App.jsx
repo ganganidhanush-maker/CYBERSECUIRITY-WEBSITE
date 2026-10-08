@@ -10,6 +10,7 @@ import { downloadCsv } from './lib/export-csv'
 import { getYouTubeEmbedUrl, parseYouTubeVideoId } from './lib/video'
 import { READ_ONLY_CLUB_ROLES, isReadOnlyClubRole } from './lib/constants'
 import jsQR from 'jsqr'
+import * as XLSX from 'xlsx'
 import './App.css'
 import {
   IconMenu,
@@ -10519,6 +10520,515 @@ function StudentEventDetail({ user, eventId, logout, onNavigate }) {
 }
 
 // ----------------------------------------------------
+// Bulk Event Pass Issuance Modal (Excel / CSV Batch)
+// ----------------------------------------------------
+function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
+  const [selectedEventId, setSelectedEventId] = useState('')
+  const [memberIdsText, setMemberIdsText] = useState('')
+  const [assumePaid, setAssumePaid] = useState(true)
+  const [notes, setNotes] = useState('Bulk pass issued by Organizer (Offline Verified)')
+  const [previewData, setPreviewData] = useState(null)
+  const [loadingPreview, setLoadingPreview] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [resultModal, setResultModal] = useState(null)
+  const fileInputRef = useRef(null)
+
+  // Filter non-archived events
+  const availableEvents = useMemo(() => {
+    return (events || []).filter(e => !e.archived)
+  }, [events])
+
+  // Selected event object
+  const selectedEvent = useMemo(() => {
+    return availableEvents.find(e => e.id === selectedEventId) || null
+  }, [availableEvents, selectedEventId])
+
+  // Check if selected event is restricted to TEAM ONLY
+  const isTeamOnly = useMemo(() => {
+    if (!selectedEvent) return false
+    const type = String(selectedEvent.registrationType || '').trim().toUpperCase()
+    return type === 'TEAM' || (!['BOTH', 'INDIVIDUAL'].includes(type) && Boolean(selectedEvent.isTeamEvent))
+  }, [selectedEvent])
+
+  // Automatically select first solo event if none selected
+  useEffect(() => {
+    if (!selectedEventId && availableEvents.length > 0) {
+      const firstSolo = availableEvents.find(e => {
+        const type = String(e.registrationType || '').trim().toUpperCase()
+        return type !== 'TEAM' && (!e.isTeamEvent || type === 'BOTH')
+      })
+      if (firstSolo) setSelectedEventId(firstSolo.id)
+      else setSelectedEventId(availableEvents[0].id)
+    }
+  }, [availableEvents, selectedEventId])
+
+  // Extract clean IDs / roll numbers from textarea
+  const extractedIds = useMemo(() => {
+    if (!memberIdsText.trim()) return []
+    const tokens = memberIdsText
+      .split(/[\r\n,;\t]+/)
+      .map(t => t.trim())
+      .filter(t => t.length >= 2 && !t.includes(' ') && t.length <= 64)
+    return Array.from(new Set(tokens))
+  }, [memberIdsText])
+
+  // Pre-flight live validation preview
+  useEffect(() => {
+    if (!selectedEventId || isTeamOnly || extractedIds.length === 0) {
+      setPreviewData(null)
+      return
+    }
+
+    let active = true
+    const timeout = setTimeout(() => {
+      setLoadingPreview(true)
+      adminApi.bulkIssueEventPasses(selectedEventId, {
+        memberIds: extractedIds,
+        assumePaid,
+        previewOnly: true,
+      })
+        .then(res => {
+          if (active) {
+            setPreviewData(res)
+            setError('')
+          }
+        })
+        .catch(err => {
+          if (active) setError(err.message || 'Validation error')
+        })
+        .finally(() => {
+          if (active) setLoadingPreview(false)
+        })
+    }, 350)
+
+    return () => {
+      active = false
+      clearTimeout(timeout)
+    }
+  }, [selectedEventId, extractedIds, assumePaid, isTeamOnly])
+
+  // Handle Excel (.xlsx, .xls) and CSV file uploads
+  function handleFileUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setError('')
+
+    const fileName = (file.name || '').toLowerCase()
+    const isBinary = fileName.endsWith('.xlsx') || fileName.endsWith('.xls')
+    const reader = new FileReader()
+
+    if (isBinary) {
+      reader.onload = evt => {
+        try {
+          const data = new Uint8Array(evt.target.result)
+          const workbook = XLSX.read(data, { type: 'array' })
+          const firstSheetName = workbook.SheetNames[0]
+          const worksheet = workbook.Sheets[firstSheetName]
+          const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 })
+          const ids = []
+          for (let r = 0; r < rows.length; r++) {
+            const row = rows[r]
+            if (!Array.isArray(row)) continue
+            for (const cell of row) {
+              const val = String(cell || '').trim()
+              if (!val) continue
+              const lower = val.toLowerCase()
+              if (r === 0 && (lower.includes('member') || lower.includes('student') || lower.includes('roll') || lower.includes('id') || lower.includes('name') || lower.includes('email'))) {
+                continue
+              }
+              if (val.length >= 2 && !val.includes(' ') && val.length <= 64) {
+                ids.push(val)
+                break
+              }
+            }
+          }
+          if (ids.length === 0) {
+            setError('No valid student ID column found in Excel file.')
+            return
+          }
+          setMemberIdsText(ids.join('\n'))
+        } catch (err) {
+          setError('Failed to parse Excel file: ' + err.message)
+        }
+      }
+      reader.readAsArrayBuffer(file)
+    } else {
+      reader.onload = evt => {
+        try {
+          const text = evt.target.result || ''
+          const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+          const ids = []
+          for (let r = 0; r < lines.length; r++) {
+            const parts = lines[r].split(/[,\t;]/).map(c => c.replace(/^["']|["']$/g, '').trim()).filter(Boolean)
+            if (parts.length === 0) continue
+            if (r === 0 && parts.some(c => c.toLowerCase().includes('member') || c.toLowerCase().includes('student') || c.toLowerCase().includes('id') || c.toLowerCase().includes('roll'))) {
+              continue
+            }
+            for (const cell of parts) {
+              if (cell && !cell.includes(' ') && cell.length <= 64) {
+                ids.push(cell)
+                break
+              }
+            }
+          }
+          if (ids.length === 0) {
+            setError('No student IDs found in uploaded file.')
+            return
+          }
+          setMemberIdsText(ids.join('\n'))
+        } catch (err) {
+          setError('Failed to read file: ' + err.message)
+        }
+      }
+      reader.readAsText(file)
+    }
+    e.target.value = ''
+  }
+
+  // Download sample template (.xlsx & .csv)
+  function handleDownloadTemplate() {
+    const headers = ['Student ID / Roll Number', 'Student Name (Optional)', 'Notes']
+    const sampleRows = [
+      ['23CS101', 'Dhanush G', 'Paid Cash ₹150'],
+      ['23CS102', 'Aditya Sharma', 'Paid Offline'],
+      ['23CS103', 'Priya Patel', 'Cash Receipt #402'],
+      ['23CS104', 'Rahul Verma', 'Direct Pass'],
+    ]
+    try {
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleRows])
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Passes_Roster')
+      XLSX.writeFile(wb, 'bulk_event_passes_template.xlsx')
+    } catch {
+      downloadCsv('bulk_event_passes_template.csv', headers, sampleRows)
+    }
+  }
+
+  // Submit bulk passes creation
+  async function handleSubmit(e) {
+    e.preventDefault()
+    if (!selectedEventId) {
+      setError('Please select an event.')
+      return
+    }
+    if (isTeamOnly) {
+      setError('Bulk pass issuance only works for Solo / Individual events.')
+      return
+    }
+    if (extractedIds.length === 0) {
+      setError('Please provide at least one student ID.')
+      return
+    }
+
+    setSubmitting(true)
+    setError('')
+    try {
+      const result = await adminApi.bulkIssueEventPasses(selectedEventId, {
+        memberIds: extractedIds,
+        assumePaid,
+        notes: notes.trim() || undefined,
+        previewOnly: false,
+      })
+      setResultModal(result)
+      setMemberIdsText('')
+      setPreviewData(null)
+      if (onSuccess) onSuccess()
+    } catch (err) {
+      setError(err.message || 'Failed to issue passes.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  if (!isOpen) return null
+
+  return (
+    <div className="photo-lightbox" onClick={onClose} style={{ zIndex: 9999 }}>
+      <div className="guest-modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '780px', width: '95vw', maxHeight: '92vh', overflowY: 'auto' }}>
+        <button className="lightbox-close" onClick={onClose} aria-label="Close">
+          <IconX size={16} />
+        </button>
+
+        <div style={{ textAlign: 'center', marginBottom: '18px' }}>
+          <p className="eyebrow" style={{ color: '#10b981' }}>BATCH ADMISSION ENGINE</p>
+          <h2 style={{ margin: '4px 0 6px', fontSize: '20px' }}>⚡ Bulk Event Pass Issuance (Excel / CSV Batch)</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: 1.5, margin: 0 }}>
+            Drop an Excel sheet or paste student IDs to issue verified event passes instantly in one batch, bypassing simultaneous server checkout traffic.
+          </p>
+        </div>
+
+        {error && <p className="member-form-error" style={{ marginBottom: '14px' }}>{error}</p>}
+
+        <form onSubmit={handleSubmit}>
+          {/* Step 1: Select Event */}
+          <div style={{ marginBottom: '16px', background: 'var(--panel-subtle)', padding: '14px', borderRadius: '10px', border: '1px solid var(--line)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <label style={{ font: '700 12px "DM Mono", monospace', color: 'var(--text-main)' }}>
+                1. SELECT TARGET EVENT (SOLO ONLY)
+              </label>
+              {selectedEvent && (
+                <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
+                  Fee: <b>{Number(selectedEvent.fee) > 0 ? `₹${selectedEvent.fee}` : 'FREE'}</b>
+                </span>
+              )}
+            </div>
+
+            <select
+              value={selectedEventId}
+              onChange={e => setSelectedEventId(e.target.value)}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--line)', background: 'var(--bg-input)', color: 'var(--text-main)', fontSize: '13px' }}
+            >
+              {availableEvents.map(ev => {
+                const isTeam = String(ev.registrationType || '').trim().toUpperCase() === 'TEAM' || (!['BOTH', 'INDIVIDUAL'].includes(String(ev.registrationType || '').trim().toUpperCase()) && Boolean(ev.isTeamEvent))
+                return (
+                  <option key={ev.id} value={ev.id}>
+                    {ev.title} {isTeam ? '(⚠️ Team Only - Ineligible)' : '(Solo Eligible)'} - {Number(ev.fee) > 0 ? `₹${ev.fee}` : 'Free'}
+                  </option>
+                )
+              })}
+            </select>
+
+            {isTeamOnly && (
+              <div style={{ marginTop: '10px', padding: '10px 12px', background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '8px', color: '#f59e0b', fontSize: '12px' }}>
+                ⚠️ <b>Team-Only Event Selected:</b> Bulk direct pass issuance is restricted to Solo / Individual events. Team events require squad roster formation and team leader linking. Please select a Solo event.
+              </div>
+            )}
+          </div>
+
+          {/* Step 2: Excel / CSV File Drop or ID Paste */}
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
+              <label style={{ font: '700 12px "DM Mono", monospace', color: 'var(--text-main)' }}>
+                2. DROP EXCEL (.XLSX) / CSV SHEET OR PASTE IDS
+              </label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleFileUpload}
+                  accept=".xlsx,.xls,.csv,.txt"
+                  style={{ display: 'none' }}
+                />
+                <button
+                  type="button"
+                  className="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '5px 10px' }}
+                >
+                  <IconUpload size={13} /> Upload Excel / CSV
+                </button>
+                <button
+                  type="button"
+                  className="outline"
+                  onClick={handleDownloadTemplate}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '5px 10px' }}
+                >
+                  <IconDownload size={13} /> Sample Template
+                </button>
+              </div>
+            </div>
+
+            <textarea
+              className="bulk-textarea"
+              placeholder={`Paste Student IDs, Roll Numbers, or Emails (one per line or comma separated):\n\n23CS101\n23CS102\n23CS103\n23CS104`}
+              value={memberIdsText}
+              onChange={e => setMemberIdsText(e.target.value)}
+              style={{ minHeight: '110px', fontFamily: '"DM Mono", monospace', fontSize: '12px', lineHeight: 1.5, width: '100%' }}
+            />
+            <small style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'block', marginTop: '4px' }}>
+              Detected: <b>{extractedIds.length}</b> unique student ID(s).
+            </small>
+          </div>
+
+          {/* Step 3: Payment Settings */}
+          <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+            <div style={{ background: 'var(--panel-subtle)', padding: '12px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, font: '600 12px Syne' }}>
+                <input
+                  type="checkbox"
+                  checked={assumePaid}
+                  onChange={e => setAssumePaid(e.target.checked)}
+                  style={{ width: '16px', height: '16px', accentColor: 'var(--brand-primary)' }}
+                />
+                <span>Assume Payment Paid & Activate QR Pass</span>
+              </label>
+              <small style={{ color: 'var(--text-dim)', fontSize: '10.5px', display: 'block', marginTop: '4px' }}>
+                Generates verified pass with QR code immediately in the student's Ticket Wallet.
+              </small>
+            </div>
+
+            <div style={{ background: 'var(--panel-subtle)', padding: '12px', borderRadius: '8px', border: '1px solid var(--line)' }}>
+              <label style={{ font: '600 11px "DM Mono", monospace', color: 'var(--text-main)', display: 'block', marginBottom: '4px' }}>
+                Organizer Batch Notes
+              </label>
+              <input
+                type="text"
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="e.g. Offline cash collected at desk"
+                style={{ width: '100%', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--line)', background: 'var(--bg-input)', color: 'var(--text-main)', fontSize: '12px' }}
+              />
+            </div>
+          </div>
+
+          {/* Step 4: Pre-Flight Validation Preview */}
+          {extractedIds.length > 0 && !isTeamOnly && (
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label style={{ font: '700 11px "DM Mono", monospace', color: 'var(--text-main)' }}>
+                  3. PRE-FLIGHT VALIDATION PREVIEW
+                </label>
+                {loadingPreview && <span style={{ color: 'var(--brand-primary)', fontSize: '11px' }}>Validating IDs…</span>}
+              </div>
+
+              {previewData && (
+                <div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '10px' }}>
+                    <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
+                      <span style={{ color: '#10b981', font: '700 18px "DM Mono", monospace', display: 'block' }}>
+                        {previewData.eligibleCount}
+                      </span>
+                      <small style={{ color: '#10b981', fontSize: '10px', textTransform: 'uppercase' }}>Ready to Issue</small>
+                    </div>
+                    <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
+                      <span style={{ color: '#f59e0b', font: '700 18px "DM Mono", monospace', display: 'block' }}>
+                        {previewData.skippedCount}
+                      </span>
+                      <small style={{ color: '#f59e0b', fontSize: '10px', textTransform: 'uppercase' }}>Already Has Pass</small>
+                    </div>
+                    <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
+                      <span style={{ color: '#ef4444', font: '700 18px "DM Mono", monospace', display: 'block' }}>
+                        {previewData.notFoundCount}
+                      </span>
+                      <small style={{ color: '#ef4444', fontSize: '10px', textTransform: 'uppercase' }}>Account Missing</small>
+                    </div>
+                  </div>
+
+                  <div className="bulk-preview-wrap" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                      <thead>
+                        <tr style={{ background: 'var(--panel-subtle)', textAlign: 'left', borderBottom: '1px solid var(--line)' }}>
+                          <th style={{ padding: '6px 8px' }}>Student Name</th>
+                          <th style={{ padding: '6px 8px' }}>Member / Roll ID</th>
+                          <th style={{ padding: '6px 8px' }}>Department</th>
+                          <th style={{ padding: '6px 8px' }}>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {previewData.eligible?.map(u => (
+                          <tr key={u.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                            <td style={{ padding: '6px 8px' }}><b>{u.name}</b></td>
+                            <td style={{ padding: '6px 8px', fontFamily: '"DM Mono", monospace' }}>{u.memberId}</td>
+                            <td style={{ padding: '6px 8px' }}>{u.department}</td>
+                            <td style={{ padding: '6px 8px' }}>
+                              <span style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', padding: '2px 8px', borderRadius: '4px', font: '600 10px "DM Mono", monospace' }}>
+                                READY
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                        {previewData.skipped?.map((s, idx) => (
+                          <tr key={'skip_' + idx} style={{ borderBottom: '1px solid var(--line)', opacity: 0.7 }}>
+                            <td style={{ padding: '6px 8px' }}>{s.name}</td>
+                            <td style={{ padding: '6px 8px', fontFamily: '"DM Mono", monospace' }}>{s.memberId}</td>
+                            <td style={{ padding: '6px 8px' }}>---</td>
+                            <td style={{ padding: '6px 8px' }}>
+                              <span style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', padding: '2px 8px', borderRadius: '4px', font: '600 10px "DM Mono", monospace' }}>
+                                ALREADY PASS
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                        {previewData.notFound?.map((nf, idx) => (
+                          <tr key={'nf_' + idx} style={{ borderBottom: '1px solid var(--line)', background: 'rgba(239, 68, 68, 0.05)' }}>
+                            <td style={{ padding: '6px 8px', color: '#ef4444' }}>Unknown Student</td>
+                            <td style={{ padding: '6px 8px', fontFamily: '"DM Mono", monospace', color: '#ef4444' }}>{nf}</td>
+                            <td style={{ padding: '6px 8px', color: '#ef4444' }}>Not in Club Database</td>
+                            <td style={{ padding: '6px 8px' }}>
+                              <span style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', padding: '2px 8px', borderRadius: '4px', font: '600 10px "DM Mono", monospace' }}>
+                                NOT FOUND
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+            <button
+              type="button"
+              className="outline"
+              onClick={onClose}
+              style={{ flex: 1, height: '42px', fontSize: '11px' }}
+            >
+              CANCEL
+            </button>
+            <button
+              type="submit"
+              className="primary"
+              disabled={submitting || isTeamOnly || extractedIds.length === 0 || (previewData && previewData.eligibleCount === 0)}
+              style={{ flex: 2, height: '42px', fontSize: '11px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: '#fff' }}
+            >
+              {submitting ? 'GENERATING PASSES…' : (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <IconZap size={14} /> ISSUE {previewData ? previewData.eligibleCount : extractedIds.length} PASSES NOW
+                </span>
+              )}
+            </button>
+          </div>
+        </form>
+
+        {/* Completion Modal */}
+        {resultModal && (
+          <div className="photo-lightbox" onClick={() => setResultModal(null)} style={{ zIndex: 10000 }}>
+            <div className="guest-modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '440px', textAlign: 'center', padding: '24px' }}>
+              <span style={{ color: '#10b981', display: 'inline-flex', marginBottom: '10px' }}>
+                <IconCheckCircle size={44} />
+              </span>
+              <h3 style={{ margin: '0 0 6px', fontSize: '18px' }}>Batch Pass Issuance Complete</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '12.5px', margin: '0 0 16px' }}>
+                {resultModal.message}
+              </p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '18px' }}>
+                <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '8px', borderRadius: '8px' }}>
+                  <span style={{ color: '#10b981', font: '700 16px "DM Mono", monospace', display: 'block' }}>{resultModal.issuedCount}</span>
+                  <small style={{ color: '#10b981', fontSize: '9px' }}>ISSUED</small>
+                </div>
+                <div style={{ background: 'rgba(245, 158, 11, 0.1)', padding: '8px', borderRadius: '8px' }}>
+                  <span style={{ color: '#f59e0b', font: '700 16px "DM Mono", monospace', display: 'block' }}>{resultModal.skippedCount}</span>
+                  <small style={{ color: '#f59e0b', fontSize: '9px' }}>SKIPPED</small>
+                </div>
+                <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '8px', borderRadius: '8px' }}>
+                  <span style={{ color: '#ef4444', font: '700 16px "DM Mono", monospace', display: 'block' }}>{resultModal.notFoundCount}</span>
+                  <small style={{ color: '#ef4444', fontSize: '9px' }}>NOT FOUND</small>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="primary"
+                onClick={() => { setResultModal(null); onClose() }}
+                style={{ width: '100%', height: '38px', fontSize: '11px' }}
+              >
+                VIEW UPDATED ROSTER
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ----------------------------------------------------
 // Admin Passes & Gate Attendance Management
 // ----------------------------------------------------
 function PaymentManagement({ user, logout, onNavigate }) {
@@ -10528,6 +11038,7 @@ function PaymentManagement({ user, logout, onNavigate }) {
   const [events, setEvents] = useState([])
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [bulkPassModalOpen, setBulkPassModalOpen] = useState(false)
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState('')
@@ -10744,6 +11255,15 @@ function PaymentManagement({ user, logout, onNavigate }) {
             <button
               type="button"
               className="primary"
+              onClick={() => setBulkPassModalOpen(true)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: '#fff' }}
+              title="Bulk issue verified event passes from Excel / CSV"
+            >
+              <IconZap size={14} /> BULK ISSUE PASSES (EXCEL / CSV)
+            </button>
+            <button
+              type="button"
+              className="outline"
               onClick={() => onNavigate('admin-qr-scanner')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px' }}
             >
@@ -11171,6 +11691,19 @@ function PaymentManagement({ user, logout, onNavigate }) {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Bulk Event Pass Issuance Modal */}
+        {bulkPassModalOpen && (
+          <BulkEventPassModal
+            isOpen={bulkPassModalOpen}
+            onClose={() => setBulkPassModalOpen(false)}
+            events={events}
+            onSuccess={() => {
+              loadPasses()
+              setMessage('Batch event passes issued and verified successfully!')
+            }}
+          />
         )}
       </section>
     </LivePortal>

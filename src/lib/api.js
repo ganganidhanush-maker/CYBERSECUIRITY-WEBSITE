@@ -227,6 +227,7 @@ export const adminApi = {
   deleteEvent: eventId => request(`/admin/events/${eventId}`, { method: 'DELETE' }),
   getEventDetailsWithStats: eventId => request(`/admin/events/${eventId}/details`),
   listEventRegistrations: eventId => request(`/admin/events/${eventId}/registrations`),
+  bulkIssueEventPasses: (eventId, data) => request(`/admin/events/${eventId}/bulk-passes`, { method: 'POST', body: JSON.stringify(data) }),
 
   // Payments & Subscriptions
   listPayments: () => request('/admin/payments'),

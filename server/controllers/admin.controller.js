@@ -12,7 +12,8 @@ import { getActivePlatformMode, invalidatePlatformModeCache } from '../services/
 import { authUserCache } from '../services/auth-cache.service.js'
 import { generateFullDatabaseSqlDump } from '../services/database-dump.service.js'
 import { formatCsvValue as fmt } from '../../shared/csv.js'
-import { hasActiveEventPass, isDraftRegistration, isPaymentAwaitingReview, isRejectedPayment, submittedRegistrationWhere } from '../utils/event-registration.js'
+import QRCode from 'qrcode'
+import { hasActiveEventPass, isDraftRegistration, isPaymentAwaitingReview, isRejectedPayment, resolveEventRegistrationMode, submittedRegistrationWhere } from '../utils/event-registration.js'
 import {
   accountStatusSchema,
   adminResetPasswordSchema,
@@ -22,6 +23,7 @@ import {
 } from '../validators/auth.validator.js'
 import {
   bulkCreateMembersSchema,
+  bulkIssuePassesSchema,
   clubSettingsSchema,
   clubTeamMemberSchema,
   deleteProtectedAccountSchema,
@@ -1258,6 +1260,233 @@ export async function markRegistrationPaymentPending(request, response) {
     success: true,
     message: 'Payment status marked as Under Verification / Pending.',
     registration: updated,
+  })
+}
+
+export async function bulkIssueEventPasses(request, response) {
+  const { eventId } = request.params
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: {
+      id: true,
+      title: true,
+      registrationType: true,
+      isTeamEvent: true,
+      fee: true,
+      archived: true,
+      maxSeats: true,
+    },
+  })
+
+  if (!event || event.archived) {
+    return response.status(404).json({ message: 'Event not found or archived.' })
+  }
+
+  // Solo Event restriction: bulk direct pass issuance is restricted to Solo / Individual events
+  const configuredType = String(event.registrationType || '').trim().toUpperCase()
+  const { supportsTeams } = resolveEventRegistrationMode(event, 'INDIVIDUAL')
+  if (configuredType === 'TEAM' || (!supportsTeams && event.isTeamEvent)) {
+    return response.status(400).json({
+      message: 'Bulk pass issuance only works for Solo / Individual events. Team events require team formation and squad leader linking.',
+    })
+  }
+
+  const parsed = bulkIssuePassesSchema.safeParse(request.body)
+  if (!parsed.success) {
+    return response.status(400).json({
+      message: parsed.error.issues[0]?.message || 'Invalid input data.',
+      errors: parsed.error.issues,
+    })
+  }
+
+  const { memberIds, assumePaid = true, notes } = parsed.data
+  const isPreview = Boolean(request.body.previewOnly || request.query.preview === 'true')
+
+  // Deduplicate and trim input IDs
+  const rawTokens = Array.from(new Set(memberIds.map(t => String(t || '').trim()).filter(Boolean)))
+  if (rawTokens.length === 0) {
+    return response.status(400).json({ message: 'No valid student IDs provided.' })
+  }
+
+  // Query database for matching active students by memberId or email
+  const foundUsers = await prisma.user.findMany({
+    where: {
+      OR: [
+        { memberId: { in: rawTokens } },
+        { email: { in: rawTokens } },
+      ],
+      accountStatus: 'ACTIVE',
+    },
+    include: {
+      profile: true,
+    },
+  })
+
+  // Map case-insensitively for student matching
+  const userByMemberId = new Map()
+  const userByEmail = new Map()
+  for (const u of foundUsers) {
+    if (u.memberId) userByMemberId.set(u.memberId.toLowerCase(), u)
+    if (u.email) userByEmail.set(u.email.toLowerCase(), u)
+  }
+
+  const matchedUsers = []
+  const notFoundList = []
+  const seenUserIds = new Set()
+
+  for (const token of rawTokens) {
+    const tLower = token.toLowerCase()
+    const user = userByMemberId.get(tLower) || userByEmail.get(tLower)
+    if (user) {
+      if (!seenUserIds.has(user.id)) {
+        seenUserIds.add(user.id)
+        matchedUsers.push(user)
+      }
+    } else {
+      notFoundList.push(token)
+    }
+  }
+
+  // Check which of the matched users already have a registration for this event
+  const matchedUserIds = matchedUsers.map(u => u.id)
+  const existingRegistrations = await prisma.eventRegistration.findMany({
+    where: {
+      eventId: event.id,
+      userId: { in: matchedUserIds },
+    },
+    select: {
+      userId: true,
+      status: true,
+      paymentStatus: true,
+    },
+  })
+  const existingUserIdSet = new Set(existingRegistrations.map(r => r.userId))
+
+  const eligibleUsers = []
+  const skippedList = []
+
+  for (const u of matchedUsers) {
+    if (existingUserIdSet.has(u.id)) {
+      skippedList.push({
+        memberId: u.memberId,
+        name: u.profile?.name || u.name || u.memberId,
+        reason: 'ALREADY_REGISTERED',
+      })
+    } else {
+      eligibleUsers.push(u)
+    }
+  }
+
+  // If this is just a pre-flight validation preview, return summary without modifying database
+  if (isPreview) {
+    return response.status(200).json({
+      preview: true,
+      totalSubmitted: rawTokens.length,
+      eligibleCount: eligibleUsers.length,
+      eligible: eligibleUsers.map(u => ({
+        id: u.id,
+        memberId: u.memberId,
+        name: u.profile?.name || u.name || u.memberId,
+        email: u.email,
+        department: u.profile?.department || u.department || 'CSE',
+        year: u.profile?.year || u.year || 1,
+      })),
+      skippedCount: skippedList.length,
+      skipped: skippedList,
+      notFoundCount: notFoundList.length,
+      notFound: notFoundList,
+    })
+  }
+
+  if (eligibleUsers.length === 0) {
+    return response.status(200).json({
+      success: true,
+      message: 'No new passes were issued. All eligible students are already registered or not found.',
+      issuedCount: 0,
+      skippedCount: skippedList.length,
+      notFoundCount: notFoundList.length,
+      issued: [],
+      skipped: skippedList,
+      notFound: notFoundList,
+    })
+  }
+
+  // Determine pricing & payment status
+  const eventFee = Number(event.fee) || 0
+  const isFree = eventFee <= 0
+  const shouldVerify = Boolean(assumePaid) || isFree
+  const paymentStatus = shouldVerify ? (isFree ? 'FREE' : 'VERIFIED') : 'PENDING'
+  const amountPaid = shouldVerify ? eventFee : null
+  const paymentMethod = shouldVerify ? 'OFFLINE_BULK_ORGANIZER' : null
+  const paymentVerifiedAt = shouldVerify ? new Date() : null
+  const paymentVerifiedBy = shouldVerify ? request.user.id : null
+
+  // Generate QR codes and create registrations inside a transaction
+  const registrationsToInsert = []
+  for (const student of eligibleUsers) {
+    const regId = 'reg_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9)
+    let qrCode = null
+    try {
+      qrCode = await QRCode.toDataURL(`EVENT_PASS:${regId}`, {
+        margin: 2,
+        width: 300,
+        color: { dark: '#000000', light: '#ffffff' },
+      })
+    } catch {}
+
+    registrationsToInsert.push({
+      id: regId,
+      eventId: event.id,
+      userId: student.id,
+      registrationType: 'INDIVIDUAL',
+      totalAmount: eventFee,
+      amountPaid,
+      paymentStatus,
+      paymentMethod,
+      paymentVerifiedAt,
+      paymentVerifiedBy,
+      paymentNotes: notes || `Bulk pass issued by ${request.user.profile?.name || request.user.memberId || 'Organizer'}`,
+      branch: student.profile?.department || student.department || null,
+      year: student.profile?.year ? Number(student.profile.year) : (student.year ? Number(student.year) : null),
+      gender: student.profile?.gender || null,
+      status: 'REGISTERED',
+      attendanceMarked: false,
+      qrCodeData: qrCode,
+    })
+  }
+
+  await prisma.$transaction(
+    registrationsToInsert.map(data => prisma.eventRegistration.create({ data }))
+  )
+
+  await tryWriteAuditLog({
+    actorUserId: request.user.id,
+    action: 'EVENT_BULK_PASSES_ISSUED',
+    metadata: {
+      eventId: event.id,
+      eventTitle: event.title,
+      issuedCount: registrationsToInsert.length,
+      skippedCount: skippedList.length,
+      notFoundCount: notFoundList.length,
+      assumePaid,
+    },
+    ...auditRequest(request),
+  })
+
+  return response.status(200).json({
+    success: true,
+    message: `Successfully issued ${registrationsToInsert.length} pass(es) for ${event.title}.`,
+    issuedCount: registrationsToInsert.length,
+    skippedCount: skippedList.length,
+    notFoundCount: notFoundList.length,
+    issued: eligibleUsers.map(u => ({
+      memberId: u.memberId,
+      name: u.profile?.name || u.name || u.memberId,
+      email: u.email,
+      department: u.profile?.department || u.department,
+    })),
+    skipped: skippedList,
+    notFound: notFoundList,
   })
 }
 

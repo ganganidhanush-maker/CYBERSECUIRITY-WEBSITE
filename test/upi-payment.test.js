@@ -135,3 +135,75 @@ describe('Server Virtual Waiting Room & Concurrency Throttling', () => {
     for (let i = 1; i <= 5; i++) releaseSlot(`student-test-${i}`)
   })
 })
+
+describe('Bulk Event Pass Issuance & Solo Event Validation', () => {
+  it('validates bulkIssuePassesSchema rejecting empty or malformed inputs', async () => {
+    const { bulkIssuePassesSchema } = await import('../server/validators/member.validator.js')
+
+    // Valid batch
+    const valid = bulkIssuePassesSchema.safeParse({
+      memberIds: ['23CS101', '23CS102', 'dhanush@example.com'],
+      notes: 'Offline batch pass',
+    })
+    assert.equal(valid.success, true)
+    assert.equal(valid.data.assumePaid, true)
+    assert.equal(valid.data.memberIds.length, 3)
+
+    // Rejects empty array
+    const empty = bulkIssuePassesSchema.safeParse({ memberIds: [] })
+    assert.equal(empty.success, false)
+
+    // Rejects batches exceeding 500 limit
+    const tooMany = Array.from({ length: 501 }, (_, i) => `23CS${i + 1}`)
+    const excess = bulkIssuePassesSchema.safeParse({ memberIds: tooMany })
+    assert.equal(excess.success, false)
+  })
+
+  it('restricts bulk pass issuance to Solo / Individual events and flags Team-only events', async () => {
+    const { resolveEventRegistrationMode } = await import('../server/utils/event-registration.js')
+
+    // Solo individual event
+    const soloEvent = { registrationType: 'INDIVIDUAL', isTeamEvent: false }
+    const soloMode = resolveEventRegistrationMode(soloEvent, 'INDIVIDUAL')
+    assert.equal(soloMode.isTeam, false)
+
+    // Both mode allows solo
+    const bothEvent = { registrationType: 'BOTH', isTeamEvent: false }
+    const bothMode = resolveEventRegistrationMode(bothEvent, 'INDIVIDUAL')
+    assert.equal(bothMode.isTeam, false)
+
+    // Team only event is flagged as team
+    const teamEvent = { registrationType: 'TEAM', isTeamEvent: true }
+    const teamMode = resolveEventRegistrationMode(teamEvent, 'INDIVIDUAL')
+    assert.equal(teamMode.isTeam, true)
+  })
+
+  it('verifies bulk verified passes satisfy hasActiveEventPass predicate', async () => {
+    const { hasActiveEventPass } = await import('../server/utils/event-registration.js')
+
+    const paidPass = {
+      status: 'REGISTERED',
+      paymentStatus: 'VERIFIED',
+      totalAmount: 150,
+      amountPaid: 150,
+      paymentMethod: 'OFFLINE_BULK_ORGANIZER',
+    }
+    assert.equal(hasActiveEventPass(paidPass), true)
+
+    const freePass = {
+      status: 'REGISTERED',
+      paymentStatus: 'FREE',
+      totalAmount: 0,
+      amountPaid: 0,
+    }
+    assert.equal(hasActiveEventPass(freePass), true)
+
+    const unverifiedPass = {
+      status: 'REGISTERED',
+      paymentStatus: 'PENDING',
+      totalAmount: 150,
+    }
+    assert.equal(hasActiveEventPass(unverifiedPass), false)
+  })
+})
+

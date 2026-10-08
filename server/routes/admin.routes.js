@@ -4,6 +4,7 @@ import {
   addGalleryPhoto,
   adminResetPassword,
   bulkCreateMembers,
+  bulkIssueEventPasses,
   changeAccountStatus,
   changeMemberPermissions,
   clearAuditLogs,
@@ -114,6 +115,7 @@ adminRouter.delete('/events/:eventId', requirePermission('EVENT_MANAGE'), adminW
 adminRouter.get('/events/:eventId/details', requireAnyPermission('EVENT_MANAGE', 'REGISTRATIONS_VIEW', 'EVENTS_VIEW'), asyncHandler(getEventDetailsWithStats))
 adminRouter.get('/events/:eventId/export-csv', requireAnyPermission('EVENT_MANAGE', 'REGISTRATIONS_VIEW', 'EVENTS_VIEW'), asyncHandler(exportEventRegistrationsCsv))
 adminRouter.get('/events/:eventId/registrations', requirePermission('REGISTRATIONS_VIEW'), asyncHandler(listEventRegistrations))
+adminRouter.post('/events/:eventId/bulk-passes', requireAnyPermission('EVENT_MANAGE', 'PAYMENTS_VERIFY'), adminWriteRateLimiter, asyncHandler(bulkIssueEventPasses))
 
 // Event Passes & Attendance Roster
 adminRouter.get('/passes', requirePermission('REGISTRATIONS_VIEW'), asyncHandler(listAllEventPasses))

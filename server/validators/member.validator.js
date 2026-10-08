@@ -386,3 +386,9 @@ export const bulkStudentItemSchema = z.object({
 export const bulkCreateMembersSchema = z.object({
   students: z.array(bulkStudentItemSchema).min(1, 'Please provide at least one student account.'),
 })
+
+export const bulkIssuePassesSchema = z.object({
+  memberIds: z.array(z.string().trim().min(1)).min(1, 'Please provide at least one student ID.').max(500, 'Batch limit is 500 students per upload.'),
+  assumePaid: z.boolean().default(true),
+  notes: optionalText(300),
+})
