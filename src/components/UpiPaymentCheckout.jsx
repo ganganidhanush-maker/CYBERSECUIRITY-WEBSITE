@@ -3,7 +3,6 @@ import {
   IconCheck,
   IconCopy,
   IconQrCode,
-  IconSmartphone,
   IconUpload,
   IconAlertTriangle,
   IconZap,
@@ -103,12 +102,7 @@ export default function UpiPaymentCheckout({
     setTimeout(() => setCopiedUpi(false), 2200)
   }
 
-  // Handle mobile 1-tap app launch
-  function handlePayViaApp(appSchemeUri) {
-    if (!appSchemeUri) return
-    // Directly trigger deep link
-    window.location.href = appSchemeUri
-  }
+
 
   // Handle screenshot upload & auto OCR extraction
   async function handleScreenshotUpload(e) {
@@ -181,139 +175,7 @@ export default function UpiPaymentCheckout({
         </span>
       </div>
 
-      {/* 2. Feature 1: 1-Tap "Pay with UPI Apps" Buttons */}
-      <div style={{
-        background: 'rgba(95, 37, 159, 0.06)',
-        border: '1.5px solid rgba(95, 37, 159, 0.25)',
-        borderRadius: '10px',
-        padding: '14px',
-        marginBottom: '14px',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-          <b style={{ color: 'var(--text-main)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <IconSmartphone size={15} color="#5f259f" /> 1-Tap Pay via UPI Apps
-          </b>
-          <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-            Instant • 0% Fees
-          </span>
-        </div>
 
-        {/* Primary PhonePe Button */}
-        <button
-          type="button"
-          onClick={() => handlePayViaApp(upiLinks?.phonePeUri)}
-          style={{
-            width: '100%',
-            minHeight: '44px',
-            background: 'linear-gradient(135deg, #5f259f 0%, #461975 100%)',
-            color: '#ffffff',
-            border: 'none',
-            borderRadius: '8px',
-            fontWeight: 800,
-            fontSize: '13px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            cursor: 'pointer',
-            boxShadow: '0 2px 8px rgba(95, 37, 159, 0.35)',
-            marginBottom: '8px',
-            transition: 'transform 0.15s ease',
-            touchAction: 'manipulation',
-          }}
-          onMouseDown={e => { e.currentTarget.style.transform = 'scale(0.98)' }}
-          onMouseUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
-        >
-          <span style={{
-            background: '#ffffff',
-            color: '#5f259f',
-            borderRadius: '50%',
-            width: '22px',
-            height: '22px',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '11px',
-            fontWeight: 900,
-            flexShrink: 0,
-          }}>
-            पे
-          </span>
-          Pay ₹{numAmount} with PhonePe
-        </button>
-
-        {/* Other UPI Apps Quick Row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: '6px' }}>
-          <button
-            type="button"
-            onClick={() => handlePayViaApp(upiLinks?.gPayUri)}
-            style={{
-              padding: '8px 4px',
-              minHeight: '38px',
-              fontSize: '11px',
-              fontWeight: 700,
-              background: 'var(--bg-input)',
-              color: 'var(--text-main)',
-              border: '1px solid var(--line)',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px',
-              whiteSpace: 'nowrap',
-              touchAction: 'manipulation',
-            }}
-          >
-            Google Pay
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handlePayViaApp(upiLinks?.paytmUri)}
-            style={{
-              padding: '7px 4px',
-              fontSize: '11px',
-              fontWeight: 700,
-              background: 'var(--bg-input)',
-              color: 'var(--text-main)',
-              border: '1px solid var(--line)',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px',
-            }}
-          >
-            Paytm
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handlePayViaApp(upiLinks?.upiUri)}
-            style={{
-              padding: '7px 4px',
-              fontSize: '11px',
-              fontWeight: 700,
-              background: 'var(--bg-input)',
-              color: 'var(--text-main)',
-              border: '1px solid var(--line)',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '4px',
-            }}
-          >
-            Any UPI App
-          </button>
-        </div>
-        <small style={{ display: 'block', textAlign: 'center', color: 'var(--text-muted)', fontSize: '10px', marginTop: '6px' }}>
-          Tapping on mobile opens your UPI app with payee & amount pre-filled!
-        </small>
-      </div>
 
       {/* 3. Feature 3: Auto QR Generator (No Upload Needed) */}
       <div style={{

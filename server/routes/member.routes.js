@@ -2,6 +2,8 @@ import { Router } from 'express'
 import {
   completeIntroVideo,
   completeWaitingQueue,
+  queueHeartbeat,
+  ocrExtractUtr,
   createComplaint,
   createSupportTicket,
   getEventDetails,
@@ -58,6 +60,8 @@ memberRouter.get('/dashboard', requirePermission('DASHBOARD_VIEW'), (request, re
 memberRouter.get('/session-status', getSessionStatus)
 memberRouter.post('/intro-video/complete', completeIntroVideo)
 memberRouter.post('/waiting-queue/complete', completeWaitingQueue)
+memberRouter.post('/waiting-queue/heartbeat', queueHeartbeat)
+memberRouter.post('/ocr-extract-utr', ocrExtractUtr)
 
 // Public & Member Club Settings
 memberRouter.get('/settings', getPublicClubSettings)

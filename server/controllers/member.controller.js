@@ -8,6 +8,8 @@ import { authUserCache } from '../services/auth-cache.service.js'
 import { eventRegistrationSchema, profileUpdateSchema, projectSubmissionSchema, resubmitPaymentSchema } from '../validators/member.validator.js'
 import { hasActiveEventPass, isDraftRegistration, resolveEventPricing, resolveEventRegistrationMode, submittedRegistrationWhere } from '../utils/event-registration.js'
 import { acquirePaymentReferenceLock, findActivePaymentReferenceDuplicate, releasePaymentReferenceLock } from '../utils/payment-reference-lock.js'
+import { parseUtrFromText } from '../utils/upi-utr.js'
+import { evaluateUserQueue, admitFromQueue, heartbeatSlot, releaseSlot } from '../services/queue.service.js'
 
 function auditRequest(request) {
   return { ipAddress: request.ip, userAgent: request.get('user-agent') || null }
@@ -1111,33 +1113,102 @@ export async function getSessionStatus(request, response) {
 
   const introVideoCompleted = isPrimary || !isStudent || !isVideoEnabled || Boolean(request.session?.introVideoCompleted)
 
-  let activeStudentCount = 1
+  // Fetch customizable queue limits from ClubSetting
+  let queueEnabled = true
+  let maxConcurrent = 5
+  let waitTimeSeconds = 15
+
   try {
-    const rawCount = await prisma.$queryRaw`
-      SELECT COUNT(DISTINCT session_id) as activeCount 
-      FROM sessions 
-      WHERE expires > UNIX_TIMESTAMP()
-    `
-    activeStudentCount = Number(rawCount?.[0]?.activeCount || 1)
+    const queueSettings = await prisma.clubSetting.findMany({
+      where: {
+        key: { in: ['queueEnabled', 'queueMaxConcurrent', 'queueWaitTimeSeconds'] },
+      },
+    })
+    for (const s of queueSettings) {
+      if (s.key === 'queueEnabled') queueEnabled = s.value !== 'false'
+      if (s.key === 'queueMaxConcurrent') maxConcurrent = Math.max(1, Number(s.value) || 5)
+      if (s.key === 'queueWaitTimeSeconds') waitTimeSeconds = Math.max(5, Number(s.value) || 15)
+    }
   } catch {
-    activeStudentCount = 1
+    // In-memory fallback
   }
 
-  const requiresWaitingQueue = isStudent && activeStudentCount > 20 && !request.session?.queueCompleted
+  const queueResult = evaluateUserQueue(request.user, request.session, {
+    queueEnabled,
+    maxConcurrent,
+    waitTimeSeconds,
+  })
 
   return response.status(200).json({
     user: toSafeUser(request.user),
     introVideoCompleted,
-    activeStudentCount,
-    requiresWaitingQueue,
+    activeStudentCount: queueResult.activeCount,
+    maxConcurrent: queueResult.maxConcurrent,
+    requiresWaitingQueue: queueResult.requiresQueue,
+    queuePosition: queueResult.queuePosition || 1,
+    queueWaitSeconds: queueResult.queueWaitSeconds || waitTimeSeconds,
   })
 }
 
 export async function completeWaitingQueue(request, response) {
+  if (request.user) {
+    admitFromQueue(request.user)
+  }
   if (request.session) {
     request.session.queueCompleted = true
   }
-  return response.status(200).json({ success: true })
+  return response.status(200).json({ success: true, admitted: true })
+}
+
+export async function queueHeartbeat(request, response) {
+  if (request.user) {
+    heartbeatSlot(request.user)
+  }
+  return response.status(200).json({ ok: true })
+}
+
+export async function ocrExtractUtr(request, response) {
+  const { image } = request.body || {}
+  if (!image) {
+    return response.status(400).json({ success: false, error: 'No screenshot provided for scanning.' })
+  }
+
+  let worker = null
+  try {
+    const { createWorker } = await import('tesseract.js')
+    worker = await createWorker('eng', 1)
+
+    let imgBuffer
+    if (typeof image === 'string' && image.startsWith('data:')) {
+      const base64Part = image.split(',')[1] || image
+      imgBuffer = Buffer.from(base64Part, 'base64')
+    } else if (typeof image === 'string') {
+      imgBuffer = Buffer.from(image, 'base64')
+    } else {
+      return response.status(400).json({ success: false, error: 'Invalid image payload.' })
+    }
+
+    const { data: { text } } = await worker.recognize(imgBuffer)
+    const utr = parseUtrFromText(text)
+
+    if (utr) {
+      return response.status(200).json({ success: true, utr, rawText: text })
+    }
+    return response.status(200).json({
+      success: false,
+      error: 'Could not detect a 12-digit UTR in the uploaded screenshot. Please enter it manually.',
+      rawText: text,
+    })
+  } catch (err) {
+    console.error('[OCR-SERVER] Error extracting UTR:', err)
+    return response.status(500).json({ success: false, error: 'Server OCR scanner failed: ' + err.message })
+  } finally {
+    if (worker) {
+      try {
+        await worker.terminate()
+      } catch {}
+    }
+  }
 }
 
 // ----------------------------------------------------

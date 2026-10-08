@@ -1939,6 +1939,9 @@ export async function updateClubSettings(request, response) {
     'introVideoRequireTwoMinutes',
     'onboardingBriefingMode',
     'introBriefingMode',
+    'queueEnabled',
+    'queueMaxConcurrent',
+    'queueWaitTimeSeconds',
   ]
 
   const hasGlobalKey = Object.keys(parsed.data).some(k => globalPresidentKeys.includes(k) && parsed.data[k] !== undefined)

@@ -884,17 +884,28 @@ function IntroVideoExperience({ onComplete }) {
 }
 
 // ----------------------------------------------------
-// Concurrent Waiting Queue
+// Concurrent Waiting Queue (Virtual Waiting Room)
 // ----------------------------------------------------
-function ConcurrentWaitingQueue({ onComplete }) {
-  const [countdown, setCountdown] = useState(5)
+function ConcurrentWaitingQueue({ onComplete, queueData }) {
+  const initialSeconds = Number(queueData?.queueWaitSeconds) || 15
+  const position = Number(queueData?.queuePosition) || 1
+  const activeCount = Number(queueData?.activeStudentCount) || 5
+  const maxCapacity = Number(queueData?.maxConcurrent) || 5
+
+  const [countdown, setCountdown] = useState(initialSeconds)
+  const [admitting, setAdmitting] = useState(false)
 
   useEffect(() => {
     const timer = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) {
           clearInterval(timer)
-          memberApi.completeWaitingQueue().finally(() => onComplete())
+          setAdmitting(true)
+          memberApi.completeWaitingQueue()
+            .catch(() => {})
+            .finally(() => {
+              onComplete()
+            })
           return 0
         }
         return prev - 1
@@ -903,20 +914,63 @@ function ConcurrentWaitingQueue({ onComplete }) {
     return () => clearInterval(timer)
   }, [onComplete])
 
+  const progressPercent = Math.max(0, Math.min(100, Math.round(((initialSeconds - countdown) / initialSeconds) * 100)))
+
   return (
     <div className="queue-overlay">
       <div className="queue-card">
         <Crest small />
-        <h2 style={{ font: '700 22px Syne', color: 'var(--text-main)', margin: '16px 0 6px' }}>High Member Activity</h2>
-        <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: '1.6' }}>
-          More than 20 students are actively connected. Allocating secure session slot...
+        <div className="queue-badge">
+          <span className="queue-pulse" /> TRAFFIC CONCURRENCY QUEUE
+        </div>
+        <h2 style={{ font: '700 24px Syne', color: 'var(--text-main)', margin: '14px 0 6px' }}>
+          Virtual Waiting Room
+        </h2>
+        <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.6', margin: '0 0 16px' }}>
+          To prevent server overload and maintain high performance during peak traffic, students are admitted in small batches.
         </p>
-        <div className="queue-timer">{countdown}</div>
-        <small style={{ color: 'var(--text-dim)', font: '500 10px "DM Mono", monospace' }}>ENTERING AUTOMATICALLY...</small>
+
+        <div className="queue-stats-row">
+          <div className="queue-stat-chip">
+            <span className="queue-stat-label">Active Slots</span>
+            <span className="queue-stat-val">{activeCount} / {maxCapacity} Full</span>
+          </div>
+          <div className="queue-stat-chip">
+            <span className="queue-stat-label">Queue Position</span>
+            <span className="queue-stat-val">#{position} in line</span>
+          </div>
+        </div>
+
+        <div className="queue-timer-wrapper">
+          <div className="queue-timer-label">ESTIMATED ADMISSION TIME</div>
+          <div className="queue-timer">{countdown}s</div>
+          <div className="queue-progress-bar-bg">
+            <div className="queue-progress-bar-fill" style={{ width: `${progressPercent}%` }} />
+          </div>
+        </div>
+
+        <p style={{ color: 'var(--text-dim)', fontSize: '11px', margin: '14px 0 0', letterSpacing: '.05em' }}>
+          {admitting ? 'SECURING YOUR SESSION SLOT...' : 'PLEASE KEEP THIS TAB OPEN — YOU WILL ENTER AUTOMATICALLY'}
+        </p>
+
+        {countdown === 0 && (
+          <button
+            type="button"
+            className="action-btn primary"
+            style={{ marginTop: 14, width: '100%' }}
+            onClick={() => {
+              setAdmitting(true)
+              memberApi.completeWaitingQueue().finally(() => onComplete())
+            }}
+          >
+            Enter Now
+          </button>
+        )}
       </div>
     </div>
   )
 }
+
 
 // ----------------------------------------------------
 // Hibernation Mode Screen (Dedicated Sleep Mode with Live Timer)
@@ -13109,6 +13163,9 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
   const { platformMode, setPlatformMode, themeMode, setThemeMode, setClubSettings } = usePlatformTheme()
   const [selectedPlatform, setSelectedPlatform] = useState(platformMode || 'CYBER_SECURITY_CLUB')
   const [siteStatus, setSiteStatus] = useState('ACTIVE')
+  const [queueEnabled, setQueueEnabled] = useState(true)
+  const [queueMaxConcurrent, setQueueMaxConcurrent] = useState('5')
+  const [queueWaitTimeSeconds, setQueueWaitTimeSeconds] = useState('15')
   const [subscriptionEnabled, setSubscriptionEnabled] = useState(false)
   const [subscriptionAmount, setSubscriptionAmount] = useState('100')
   const [subscriptionUpiId, setSubscriptionUpiId] = useState('')
@@ -13155,6 +13212,9 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
           setPlatformMode(dict.platformMode)
         }
         setSiteStatus(dict.siteStatus || 'ACTIVE')
+        setQueueEnabled(dict.queueEnabled !== false && dict.queueEnabled !== 'false')
+        setQueueMaxConcurrent(String(dict.queueMaxConcurrent || '5'))
+        setQueueWaitTimeSeconds(String(dict.queueWaitTimeSeconds || '15'))
         setSubscriptionEnabled(dict.subscriptionEnabled === true || dict.subscriptionEnabled === 'true')
         setSubscriptionAmount(String(dict.subscriptionMonthlyAmount || '100'))
         setSubscriptionUpiId(dict.subscriptionUpiId || '')
@@ -13195,6 +13255,9 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
     const payload = {
       platformMode: selectedPlatform,
       siteStatus,
+      queueEnabled,
+      queueMaxConcurrent: Math.max(1, Number(queueMaxConcurrent) || 5),
+      queueWaitTimeSeconds: Math.max(5, Number(queueWaitTimeSeconds) || 15),
       subscriptionEnabled,
       subscriptionMonthlyAmount: subscriptionAmount ? Number(subscriptionAmount) : 100,
       subscriptionUpiId: subscriptionUpiId.trim() || null,
@@ -13431,6 +13494,77 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
                 ? 'Website Active: Public visitors and students have normal uninterrupted access.'
                 : 'Hibernation Active: Public visitors and students see the dedicated Hibernation countdown screen. Only the Primary President and Admins can log in.'}
             </p>
+          </article>
+
+          {/* Card: Virtual Waiting Room & Concurrency Traffic Throttle */}
+          <article className="settings-section-card">
+            <div className="settings-card-header">
+              <div>
+                <p className="eyebrow" style={{ color: '#38bdf8' }}>SERVER RESOURCE & TRAFFIC THROTTLE</p>
+                <h3>Virtual Waiting Room & Concurrency Limiter</h3>
+              </div>
+              <div className="toggle-switch-container">
+                <button
+                  type="button"
+                  className={`switch-btn ${queueEnabled ? 'on' : ''}`}
+                  onClick={() => setQueueEnabled(true)}
+                  disabled={!user.isPrimaryAdmin}
+                >
+                  ENABLED
+                </button>
+                <button
+                  type="button"
+                  className={`switch-btn ${!queueEnabled ? 'off' : ''}`}
+                  onClick={() => setQueueEnabled(false)}
+                  disabled={!user.isPrimaryAdmin}
+                >
+                  DISABLED
+                </button>
+              </div>
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.6', margin: '0 0 16px' }}>
+              Protects server hosting from RAM crashes and database connection pool timeouts by capping active simultaneous student sessions (e.g. 3–5 members). Surplus students wait in an orderly queue with a live countdown timer.
+            </p>
+            {queueEnabled && (
+              <div className="settings-grid-row" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginTop: '12px' }}>
+                <div className="setting-input-group">
+                  <label style={{ font: '600 12px Syne', color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>
+                    Active Member Capacity (Slots)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    value={queueMaxConcurrent}
+                    onChange={e => setQueueMaxConcurrent(e.target.value)}
+                    disabled={!user.isPrimaryAdmin}
+                    placeholder="5"
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-main)' }}
+                  />
+                  <span style={{ fontSize: '11px', color: 'var(--text-dim)', display: 'block', marginTop: '4px' }}>
+                    Recommended: 3 to 5 concurrent students.
+                  </span>
+                </div>
+                <div className="setting-input-group">
+                  <label style={{ font: '600 12px Syne', color: 'var(--text-main)', display: 'block', marginBottom: '6px' }}>
+                    Wait Wave Countdown (Seconds)
+                  </label>
+                  <input
+                    type="number"
+                    min="5"
+                    max="300"
+                    value={queueWaitTimeSeconds}
+                    onChange={e => setQueueWaitTimeSeconds(e.target.value)}
+                    disabled={!user.isPrimaryAdmin}
+                    placeholder="15"
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', background: 'var(--bg-input)', color: 'var(--text-main)' }}
+                  />
+                  <span style={{ fontSize: '11px', color: 'var(--text-dim)', display: 'block', marginTop: '4px' }}>
+                    Custom timer displayed to students waiting in queue (default: 15s).
+                  </span>
+                </div>
+              </div>
+            )}
           </article>
 
           {/* Card 2: Membership Subscription System */}
@@ -19277,6 +19411,7 @@ function App() {
   // Experience & System flags
   const [showIntroVideo, setShowIntroVideo] = useState(false)
   const [showWaitingQueue, setShowWaitingQueue] = useState(false)
+  const [queueData, setQueueData] = useState(null)
   const [adminLoginModal, setAdminLoginModal] = useState(false)
 
   // Shared Club Settings state with persistent local caching to prevent UI popping/flickering
@@ -19438,6 +19573,7 @@ function App() {
 
         try {
           const status = await memberApi.getSessionStatus()
+          setQueueData(status)
           if (!status.introVideoCompleted && portalUser.role === 'STUDENT') {
             setShowIntroVideo(true)
           } else if (status.requiresWaitingQueue) {
@@ -19478,6 +19614,7 @@ function App() {
 
     try {
       const status = await memberApi.getSessionStatus()
+      setQueueData(status)
       if (!status.introVideoCompleted && portalUser.role === 'STUDENT') {
         setShowIntroVideo(true)
       } else if (status.requiresWaitingQueue) {
@@ -19496,6 +19633,18 @@ function App() {
     navigateTo(portalUser.role === 'STUDENT' ? 'student-dashboard' : 'admin-dashboard')
   }
 
+  // Periodic heartbeat for active student sessions to retain concurrency slot
+  useEffect(() => {
+    if (!effectiveUser || effectiveUser.role !== 'STUDENT' || showWaitingQueue || showIntroVideo || isHibernating) {
+      return
+    }
+    const heartbeatInterval = setInterval(() => {
+      memberApi.queueHeartbeat().catch(() => {})
+    }, 30000)
+
+    return () => clearInterval(heartbeatInterval)
+  }, [effectiveUser, showWaitingQueue, showIntroVideo, isHibernating])
+
   async function logout() {
     try {
       await authApi.logout()
@@ -19504,6 +19653,7 @@ function App() {
       setActivePersonaRole(null)
       setShowIntroVideo(false)
       setShowWaitingQueue(false)
+      setQueueData(null)
       setScreen('login')
       window.history.pushState({}, '', '/')
     }
@@ -19560,7 +19710,7 @@ function App() {
       if (showIntroVideo) {
         pageContent = <IntroVideoExperience onComplete={() => setShowIntroVideo(false)} />
       } else if (showWaitingQueue) {
-        pageContent = <ConcurrentWaitingQueue onComplete={() => setShowWaitingQueue(false)} />
+        pageContent = <ConcurrentWaitingQueue queueData={queueData} onComplete={() => setShowWaitingQueue(false)} />
       } else if (screen.startsWith('event-detail/')) {
         const eventId = screen.replace('event-detail/', '')
         pageContent = <StudentEventDetail user={effectiveUser} eventId={eventId} logout={logout} onNavigate={navigateTo} />

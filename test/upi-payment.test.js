@@ -92,4 +92,46 @@ describe('UPI Payment, Dynamic QR, and OCR UTR Parsing', () => {
     const badReceipt = 'Payment pending. Please try again. Error code: 504'
     assert.equal(parseUtrFromText(badReceipt), null)
   })
+
+  it('verifies server-side upi-utr parser extracts correctly', async () => {
+    const { parseUtrFromText: serverParseUtr } = await import('../server/utils/upi-utr.js')
+    const sample = 'Payment Successful UPI Ref No: 918273645120 to Cyber Security Club'
+    assert.equal(serverParseUtr(sample), '918273645120')
+  })
+})
+
+describe('Server Virtual Waiting Room & Concurrency Throttling', () => {
+  it('allows leadership and admin roles to bypass waiting room unconditionally', async () => {
+    const { evaluateUserQueue } = await import('../server/services/queue.service.js')
+    const adminUser = { id: 'admin-1', role: 'PRESIDENT' }
+    const result = evaluateUserQueue(adminUser, {}, { queueEnabled: true, maxConcurrent: 3, waitTimeSeconds: 15 })
+    assert.equal(result.requiresQueue, false)
+  })
+
+  it('admits students up to maxConcurrent limit and queues surplus students', async () => {
+    const { evaluateUserQueue, releaseSlot } = await import('../server/services/queue.service.js')
+    const cfg = { queueEnabled: true, maxConcurrent: 3, waitTimeSeconds: 10 }
+
+    // Clear test slots
+    for (let i = 1; i <= 5; i++) releaseSlot(`student-test-${i}`)
+
+    // First 3 students admitted immediately
+    const s1 = evaluateUserQueue({ id: 'student-test-1', role: 'STUDENT' }, {}, cfg)
+    const s2 = evaluateUserQueue({ id: 'student-test-2', role: 'STUDENT' }, {}, cfg)
+    const s3 = evaluateUserQueue({ id: 'student-test-3', role: 'STUDENT' }, {}, cfg)
+
+    assert.equal(s1.requiresQueue, false)
+    assert.equal(s2.requiresQueue, false)
+    assert.equal(s3.requiresQueue, false)
+
+    // 4th student is held in waiting room with queue position & timer
+    const s4 = evaluateUserQueue({ id: 'student-test-4', role: 'STUDENT' }, {}, cfg)
+    assert.equal(s4.requiresQueue, true)
+    assert.equal(s4.queuePosition, 1)
+    assert.equal(s4.maxConcurrent, 3)
+    assert.ok(s4.queueWaitSeconds >= 10)
+
+    // Clean up
+    for (let i = 1; i <= 5; i++) releaseSlot(`student-test-${i}`)
+  })
 })

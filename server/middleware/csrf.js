@@ -12,6 +12,11 @@ const EXEMPT_PATHS = new Set([
   '/api/v1/health',
   '/api/v1/member/intro-video/complete',
   '/api/v1/member/waiting-queue/complete',
+  '/api/member/waiting-queue/complete',
+  '/api/v1/member/waiting-queue/heartbeat',
+  '/api/member/waiting-queue/heartbeat',
+  '/api/v1/member/ocr-extract-utr',
+  '/api/member/ocr-extract-utr',
 ])
 
 function tokenFor(secret) {

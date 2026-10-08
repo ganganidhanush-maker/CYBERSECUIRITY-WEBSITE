@@ -1,5 +1,6 @@
 import QRCode from 'qrcode'
 import { createWorker } from 'tesseract.js'
+import { memberApi } from './api.js'
 
 /**
  * Normalizes a UPI ID (trims whitespace, converts to lowercase)
@@ -131,12 +132,39 @@ function preprocessImage(imageSource, maxDim = 1200) {
   })
 }
 
+async function fileToDataUrl(fileOrBlob) {
+  if (typeof fileOrBlob === 'string') return fileOrBlob
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = e => resolve(e.target?.result)
+    reader.onerror = reject
+    reader.readAsDataURL(fileOrBlob)
+  })
+}
+
 /**
- * Extracts 12-digit UPI UTR / Reference ID from an image using client-side OCR.
+ * Extracts 12-digit UPI UTR / Reference ID from an image using client-side OCR
+ * with automatic server-side OCR fallback for guaranteed deployed reliability.
  */
 export async function extractUtrFromScreenshot(imageFile, onProgress) {
   if (!imageFile) {
     return { success: false, error: 'No image file provided' }
+  }
+
+  async function tryServerFallback() {
+    try {
+      if (onProgress) onProgress({ status: 'server_fallback', progress: 0.65, message: 'Scanning with secure server OCR engine...' })
+      const dataUrl = await fileToDataUrl(imageFile)
+      const res = await memberApi.ocrExtractUtr(dataUrl)
+      if (res?.success && res.utr) {
+        if (onProgress) onProgress({ status: 'done', progress: 1, message: `Found 12-digit UTR: ${res.utr}` })
+        return { success: true, utr: res.utr, rawText: res.rawText }
+      }
+      return null
+    } catch (e) {
+      console.warn('[OCR] Server fallback encountered error:', e)
+      return null
+    }
   }
 
   let worker = null
@@ -150,7 +178,7 @@ export async function extractUtrFromScreenshot(imageFile, onProgress) {
         if (onProgress && m?.status === 'recognizing text') {
           onProgress({
             status: 'recognizing_text',
-            progress: 0.3 + (m.progress || 0) * 0.65,
+            progress: 0.3 + (m.progress || 0) * 0.55,
             message: `Scanning receipt text (${Math.round((m.progress || 0) * 100)}%)...`,
           })
         }
@@ -170,6 +198,10 @@ export async function extractUtrFromScreenshot(imageFile, onProgress) {
       }
     }
 
+    // If client regex didn't extract, try server OCR fallback
+    const serverResult = await tryServerFallback()
+    if (serverResult) return serverResult
+
     if (onProgress) onProgress({ status: 'not_found', progress: 1, message: 'Could not detect 12-digit UTR. Please enter manually.' })
     return {
       success: false,
@@ -177,10 +209,13 @@ export async function extractUtrFromScreenshot(imageFile, onProgress) {
       rawText: text,
     }
   } catch (err) {
-    console.error('Error in extractUtrFromScreenshot:', err)
+    console.warn('[OCR] In-browser OCR error, trying server OCR fallback:', err)
+    const serverResult = await tryServerFallback()
+    if (serverResult) return serverResult
+
     return {
       success: false,
-      error: err.message || 'Failed to scan receipt image.',
+      error: 'Could not detect 12-digit UTR automatically. Please enter your UTR manually below.',
     }
   } finally {
     if (worker) {

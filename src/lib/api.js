@@ -334,6 +334,8 @@ export const memberApi = {
   getSessionStatus: () => request('/member/session-status'),
   completeIntroVideo: () => request('/member/intro-video/complete', { method: 'POST' }),
   completeWaitingQueue: () => request('/member/waiting-queue/complete', { method: 'POST' }),
+  queueHeartbeat: () => request('/member/waiting-queue/heartbeat', { method: 'POST' }),
+  ocrExtractUtr: imageData => request('/member/ocr-extract-utr', { method: 'POST', body: JSON.stringify({ image: imageData }) }),
   getSubscriptionStatus: () => request('/member/subscription/status'),
   submitSubscription: data => request('/member/subscription/submit', { method: 'POST', body: JSON.stringify(data) }),
 
