@@ -48,12 +48,28 @@ export async function registerGuestAccount(request, response) {
   // Concurrency-safe creation with retry in case of racing IDs
   let createdUser = null
   let assignedMemberId = ''
-  let attempts = 0
 
-  while (!createdUser && attempts < 5) {
-    attempts++
-    assignedMemberId = await getNextGuestMemberId(prisma)
+  if (data.rollNumber) {
+    const targetRollNumber = data.rollNumber.trim().toUpperCase()
 
+    // Check if an account with this Roll Number / User ID already exists
+    const existingRoll = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { memberId: targetRollNumber },
+          { profile: { rollNumber: targetRollNumber } },
+        ],
+      },
+      select: { id: true, memberId: true },
+    })
+
+    if (existingRoll) {
+      return response.status(409).json({
+        message: `An account with Roll Number / User ID "${targetRollNumber}" already exists. Please sign in or use password recovery.`,
+      })
+    }
+
+    assignedMemberId = targetRollNumber
     try {
       createdUser = await prisma.user.create({
         data: {
@@ -85,16 +101,60 @@ export async function registerGuestAccount(request, response) {
       })
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
-        // ID collision on concurrent insert, retry
-        createdUser = null
-      } else {
-        throw err
+        return response.status(409).json({
+          message: `An account with Roll Number / User ID "${targetRollNumber}" already exists. Please sign in.`,
+        })
+      }
+      throw err
+    }
+  } else {
+    let attempts = 0
+    while (!createdUser && attempts < 5) {
+      attempts++
+      assignedMemberId = await getNextGuestMemberId(prisma)
+
+      try {
+        createdUser = await prisma.user.create({
+          data: {
+            memberId: assignedMemberId,
+            passwordHash,
+            role: 'STUDENT',
+            isPrimaryAdmin: false,
+            accountStatus: 'ACTIVE',
+            profile: {
+              create: {
+                name: data.name,
+                email: data.email,
+                phone: data.phone || null,
+                department: departmentFormatted,
+                rollNumber: assignedMemberId,
+                gender: data.gender || null,
+                age: data.age || null,
+                year: data.year || null,
+              },
+            },
+            permissions: {
+              create: studentPermissions.map(permission => ({ permission })),
+            },
+          },
+          include: {
+            profile: true,
+            permissions: true,
+          },
+        })
+      } catch (err) {
+        if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+          // ID collision on concurrent insert, retry
+          createdUser = null
+        } else {
+          throw err
+        }
       }
     }
   }
 
   if (!createdUser) {
-    return response.status(500).json({ message: 'Failed to generate a unique Guest Member ID. Please try again.' })
+    return response.status(500).json({ message: 'Failed to create student account. Please try again.' })
   }
 
   await tryWriteAuditLog({
@@ -103,6 +163,7 @@ export async function registerGuestAccount(request, response) {
     targetUserId: createdUser.id,
     metadata: {
       memberId: assignedMemberId,
+      rollNumber: assignedMemberId,
       name: data.name,
       college: data.college,
       branch: data.branch,
@@ -113,12 +174,14 @@ export async function registerGuestAccount(request, response) {
   })
 
   return response.status(201).json({
-    message: 'Guest student account created successfully.',
+    message: 'Student account created successfully.',
     memberId: assignedMemberId,
+    rollNumber: assignedMemberId,
     password: generatedPassword,
     user: {
       id: createdUser.id,
       memberId: assignedMemberId,
+      rollNumber: assignedMemberId,
       name: createdUser.profile.name,
       email: createdUser.profile.email,
       college: data.college,

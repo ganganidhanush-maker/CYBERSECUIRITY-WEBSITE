@@ -14,9 +14,9 @@ const optionalEmail = () => z.union([
 ]).transform(val => (typeof val === 'string' && val.trim() ? val.trim() : null))
 
 const memberId = z.string().trim()
-  .min(5, 'Member ID must be at least 5 characters.')
-  .max(32, 'Member ID must be 32 characters or fewer.')
-  .regex(/^[A-Za-z0-9]+$/, 'Member ID must contain only alphanumeric characters.')
+  .min(3, 'User ID / Member ID must be at least 3 characters.')
+  .max(64, 'User ID / Member ID must be 64 characters or fewer.')
+  .regex(/^[A-Za-z0-9_.-]+$/, 'User ID / Member ID must contain only alphanumeric characters, dashes, dots, or underscores.')
 
 const strongPassword = z.string()
   .min(12, 'Password must be at least 12 characters.')

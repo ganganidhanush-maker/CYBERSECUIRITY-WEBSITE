@@ -77,7 +77,16 @@ export async function login(request, response) {
   if (!parsed.success) return response.status(401).json(invalidCredentials)
 
   const memberId = parsed.data.memberId.toUpperCase()
-  const user = await prisma.user.findUnique({ where: { memberId }, include: userInclude })
+  let user = await prisma.user.findUnique({ where: { memberId }, include: userInclude })
+  if (!user) {
+    const profile = await prisma.profile.findFirst({
+      where: { rollNumber: memberId },
+      include: { user: { include: userInclude } },
+    })
+    if (profile?.user) {
+      user = profile.user
+    }
+  }
   if (!user) {
     return response.status(401).json(invalidCredentials)
   }

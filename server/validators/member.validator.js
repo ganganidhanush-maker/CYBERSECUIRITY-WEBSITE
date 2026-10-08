@@ -309,6 +309,14 @@ export function newId() {
 
 export const guestRegisterSchema = z.object({
   name: z.string().trim().min(2, 'Full name is required.').max(120),
+  rollNumber: z.union([
+    z.string().trim().min(2, 'Roll Number must be at least 2 characters.').max(64, 'Roll Number must be 64 characters or fewer.'),
+    z.null(),
+    z.undefined(),
+  ]).transform(val => {
+    if (typeof val === 'string' && val.trim()) return val.trim().toUpperCase()
+    return null
+  }),
   email: z.string().trim().email('Enter a valid email address.').max(191),
   college: z.string().trim().min(2, 'College name is required.').max(120),
   branch: z.string().trim().min(2, 'Branch is required.').max(50),

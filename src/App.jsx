@@ -1624,6 +1624,7 @@ function LivePortal({ user, logout, activeTab, onNavigate, title, onUserUpdated,
 // ----------------------------------------------------
 function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
   const [name, setName] = useState('')
+  const [rollNumber, setRollNumber] = useState('')
   const [email, setEmail] = useState('')
   const [gender, setGender] = useState('MALE')
   const [age, setAge] = useState(19)
@@ -1648,6 +1649,15 @@ function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
       setError('Please enter your full name.')
       return
     }
+    const cleanRollNumber = rollNumber.trim().toUpperCase()
+    if (!cleanRollNumber) {
+      setError('Please enter your University / College Roll Number.')
+      return
+    }
+    if (cleanRollNumber.length < 3 || cleanRollNumber.length > 64) {
+      setError('Roll Number must be between 3 and 64 characters.')
+      return
+    }
     if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setError('Please enter a valid email address.')
       return
@@ -1661,6 +1671,7 @@ function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
     try {
       const payload = {
         name: name.trim(),
+        rollNumber: cleanRollNumber,
         email: email.trim(),
         gender,
         age: age ? Number(age) : null,
@@ -1678,6 +1689,7 @@ function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
         branch: payload.branch,
         year: payload.year,
         specialization: payload.specialization,
+        rollNumber: cleanRollNumber,
         memberId: res.memberId,
         password: res.password,
       })
@@ -1688,6 +1700,7 @@ function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
         branch: payload.branch,
         year: payload.year,
         specialization: payload.specialization,
+        rollNumber: cleanRollNumber,
         memberId: res.memberId,
         password: res.password,
       })
@@ -1731,6 +1744,25 @@ function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
               value={name}
               onChange={e => setName(e.target.value)}
             />
+          </div>
+
+          <div className="guest-field-group">
+            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>University Roll Number / Student ID *</span>
+              <span style={{ fontSize: '10px', color: 'var(--brand-primary)', fontWeight: 700, letterSpacing: '0.4px', textTransform: 'uppercase' }}>
+                BECOMES YOUR USER ID
+              </span>
+            </label>
+            <input
+              required
+              placeholder="e.g. 23EU07R0015 or 24CS101"
+              value={rollNumber}
+              onChange={e => setRollNumber(e.target.value.toUpperCase())}
+              style={{ fontFamily: 'monospace', fontWeight: 600, letterSpacing: '0.5px' }}
+            />
+            <small style={{ color: 'var(--text-muted)', fontSize: '11px', marginTop: '4px', display: 'block' }}>
+              Your Roll Number will be your permanent User ID to sign in to the portal.
+            </small>
           </div>
 
           <div className="guest-field-group">
@@ -1836,10 +1868,10 @@ function GuestRegisterModal({ isOpen, onClose, onSuccess }) {
 
           <div style={{ background: 'var(--panel-subtle)', border: '1px solid var(--line)', borderRadius: '8px', padding: '12px', margin: '16px 0', fontSize: '11px', color: 'var(--brand-primary)' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontWeight: 700 }}>
-              <IconShieldCheck size={14} /> Automated Credentials & ID Pass Generation:
+              <IconShieldCheck size={14} /> Official Credentials & ID Pass Generation:
             </span>
             <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', lineHeight: '1.5' }}>
-              Your unique <b>Guest Member ID</b> (e.g. <code>GUEST2026001</code>) and a <b>14-character secure password</b> will be automatically generated. An official <b>ID Pass.png</b> will be downloaded directly to your device.
+              Your <b>Roll Number</b> becomes your permanent <b>User ID</b> for signing in. A <b>14-character secure password</b> will be generated automatically. An official <b>ID Pass.png</b> will be downloaded directly to your device.
             </p>
           </div>
 
@@ -1903,7 +1935,7 @@ function GuestCredentialsSuccessModal({ data, onClose, onProceedToLogin }) {
             <span style={{ color: 'var(--text-muted)', fontSize: '12px' }}>{data.branch}{data.specialization ? ` (${data.specialization})` : ''}</span>
           </div>
           <div className="cred-row">
-            <span className="cred-label">MEMBER ID (USERNAME)</span>
+            <span className="cred-label">ROLL NUMBER (USER ID)</span>
             <span className="cred-value">{data.memberId}</span>
           </div>
           <div className="cred-row">
@@ -1913,7 +1945,7 @@ function GuestCredentialsSuccessModal({ data, onClose, onProceedToLogin }) {
         </div>
 
         <p style={{ color: 'var(--text-muted)', fontSize: '11px', lineHeight: '1.5', margin: '0 0 20px' }}>
-          Please keep an offline copy of your credentials. You can use this Member ID and Password to sign in to the portal anytime.
+          Please keep an offline copy of your credentials. You can use your Roll Number as your User ID and this password to sign in to the portal anytime.
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -2076,8 +2108,8 @@ function FinalLogin({ onSignIn, onForgotPassword, onBackToHibernation }) {
     const form = new FormData(event.currentTarget)
     const memberId = String(form.get('memberId') || '').trim().toUpperCase()
     const password = String(form.get('password') || '')
-    if (!/^[A-Z0-9]{5,32}$/.test(memberId) || password.length < 12) {
-      setError('Enter a valid Member ID and password (12+ characters).')
+    if (!/^[A-Z0-9_.-]{3,64}$/.test(memberId) || password.length < 8) {
+      setError('Enter a valid User ID / Roll Number and password.')
       setErrorCode('')
       return
     }
@@ -2198,17 +2230,17 @@ function FinalLogin({ onSignIn, onForgotPassword, onBackToHibernation }) {
 
               <form onSubmit={submit} noValidate>
                 <div className="login-field-group">
-                  <label htmlFor="modal-member-id" style={{ color: '#0b1e36', fontWeight: 600 }}>Member / Student ID</label>
+                  <label htmlFor="modal-member-id" style={{ color: '#0b1e36', fontWeight: 600 }}>Roll Number / User ID</label>
                   <div className="login-input-wrapper">
                     <span className="login-input-icon" style={{ color: '#64748b' }}><IconUserSvg size={14} /></span>
                     <input
                       id="modal-member-id"
                       name="memberId"
                       required
-                      maxLength={32}
-                      pattern="[A-Za-z0-9]+"
+                      maxLength={64}
+                      pattern="[A-Za-z0-9_.-]+"
                       autoComplete="username"
-                      placeholder="e.g. 25EU07R0015"
+                      placeholder="e.g. 23EU07R0015"
                       value={memberIdVal}
                       onChange={e => setMemberIdVal(e.target.value.toUpperCase())}
                       style={{ color: '#0f172a', background: '#f8fafc', border: '1px solid #cbd5e1' }}
@@ -2497,17 +2529,17 @@ function FinalLogin({ onSignIn, onForgotPassword, onBackToHibernation }) {
 
           <form onSubmit={submit} noValidate>
             <div className="login-field-group">
-              <label htmlFor="final-member-id">Member ID</label>
+              <label htmlFor="final-member-id">Roll Number / User ID</label>
               <div className="login-input-wrapper">
                 <span className="login-input-icon"><IconUserSvg size={14} /></span>
                 <input
                   id="final-member-id"
                   name="memberId"
                   required
-                  maxLength={32}
-                  pattern="[A-Za-z0-9]+"
+                  maxLength={64}
+                  pattern="[A-Za-z0-9_.-]+"
                   autoComplete="username"
-                  placeholder="e.g. CSC2026M01"
+                  placeholder="e.g. 23EU07R0015 or CSC2026M01"
                   value={memberIdVal}
                   onChange={e => setMemberIdVal(e.target.value.toUpperCase())}
                 />

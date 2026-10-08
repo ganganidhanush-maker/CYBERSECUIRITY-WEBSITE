@@ -110,4 +110,33 @@ describe('Guest Student Account & Bulk Accounts Creation System', () => {
     assert.ok(pattern.test(sampleId2), 'Should match GUEST2026042')
     assert.ok(pattern.test(sampleId3), 'Should match GUEST2026100')
   })
+
+  it('normalizes student roll number to uppercase so it becomes their permanent User ID', () => {
+    const studentWithRoll = {
+      name: 'Priya Sharma',
+      rollNumber: ' 23eu07r0015 ',
+      email: 'priya.sharma@mrdu.ac.in',
+      college: 'Malla Reddy University',
+      branch: 'CSE',
+      year: 2,
+    }
+
+    const parsed = guestRegisterSchema.safeParse(studentWithRoll)
+    assert.equal(parsed.success, true)
+    assert.equal(parsed.data.rollNumber, '23EU07R0015')
+    assert.equal(parsed.data.name, 'Priya Sharma')
+  })
+
+  it('allows backward compatibility when roll number is not provided, defaulting to null', () => {
+    const guestWithoutRoll = {
+      name: 'Aditya Rao',
+      email: 'aditya.rao@gmail.com',
+      college: 'MRDU',
+      branch: 'CSE',
+    }
+
+    const parsed = guestRegisterSchema.safeParse(guestWithoutRoll)
+    assert.equal(parsed.success, true)
+    assert.equal(parsed.data.rollNumber, null)
+  })
 })

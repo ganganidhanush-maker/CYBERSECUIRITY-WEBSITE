@@ -149,7 +149,7 @@ export async function downloadIdPass(student) {
   // Member ID Box
   ctx.fillStyle = '#7e9db8'
   ctx.font = '600 11px monospace'
-  ctx.fillText('MEMBER ID (USERNAME)', credX + 20, credY + 75)
+  ctx.fillText('ROLL NUMBER / USER ID', credX + 20, credY + 75)
 
   ctx.fillStyle = '#060e18'
   ctx.fillRect(credX + 20, credY + 85, credW - 40, 52)
