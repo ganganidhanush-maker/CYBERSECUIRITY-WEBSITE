@@ -18802,6 +18802,7 @@ function LiveStudentDashboard({ user, logout, onNavigate }) {
   const { platformMode, reelsEnabled, clubSettings: sharedClubSettings } = usePlatformTheme()
   const isMrdu = platformMode === 'MRDU_EVENTS'
   const [events, setEvents] = useState([])
+  const [registrations, setRegistrations] = useState([])
   const [subStatus, setSubStatus] = useState(null)
   const [clubSettings, setClubSettings] = useState(() => sharedClubSettings)
   const [loading, setLoading] = useState(true)
@@ -18810,11 +18811,13 @@ function LiveStudentDashboard({ user, logout, onNavigate }) {
     let mounted = true
     Promise.all([
       memberApi.listEvents().catch(() => ({ events: [] })),
+      memberApi.listRegistrations().catch(() => ({ registrations: [] })),
       memberApi.getSubscriptionStatus().catch(() => null),
       memberApi.getPublicClubSettings().catch(() => ({ settings: null })),
-    ]).then(([e, s, cs]) => {
+    ]).then(([e, r, s, cs]) => {
       if (mounted) {
         setEvents(e.events || [])
+        setRegistrations(r.registrations || [])
         setSubStatus(s)
         setClubSettings(cs?.settings || null)
       }
@@ -18824,6 +18827,8 @@ function LiveStudentDashboard({ user, logout, onNavigate }) {
     return () => { mounted = false }
   }, [])
 
+  const activePasses = (registrations || []).filter(r => isActiveEventPassRecord(r))
+  const activePassesCount = activePasses.length > 0 ? activePasses.length : events.filter(e => e.hasActivePass).length
   const needsSubscription = subStatus?.subscriptionEnabled && !subStatus?.hasActiveSubscription && !subStatus?.isExempt
 
   // Time-based professional greeting
@@ -18883,9 +18888,9 @@ function LiveStudentDashboard({ user, logout, onNavigate }) {
             type="button"
             className="outline"
             onClick={() => onNavigate('student-passes')}
-            style={{ fontSize: '12px', padding: '10px 18px', fontWeight: 700 }}
+            style={{ fontSize: '12px', padding: '10px 18px', fontWeight: 700, borderColor: activePassesCount > 0 ? '#10b981' : undefined, color: activePassesCount > 0 ? '#10b981' : undefined }}
           >
-            DIGITAL PASS WALLET
+            DIGITAL PASS WALLET {activePassesCount > 0 ? `(${activePassesCount})` : ''}
           </button>
         </div>
       </section>
@@ -18918,12 +18923,12 @@ function LiveStudentDashboard({ user, logout, onNavigate }) {
           </div>
         </div>
 
-        <div className="stat" onClick={() => onNavigate('student-passes')} style={{ cursor: 'pointer', borderRadius: '14px', border: '1px solid var(--brand-border-subtle)' }}>
-          <i><Icon8 name="idDocs" size={24} /></i>
+        <div className="stat" onClick={() => onNavigate('student-passes')} style={{ cursor: 'pointer', borderRadius: '14px', border: activePassesCount > 0 ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid var(--brand-border-subtle)', background: activePassesCount > 0 ? 'rgba(16, 185, 129, 0.06)' : undefined }}>
+          <i><Icon8 name="idDocs" size={24} style={{ color: activePassesCount > 0 ? '#10b981' : undefined }} /></i>
           <div>
             <p>{isMrdu ? 'MY EVENT PASSES' : 'MY PASSES'}</p>
-            <h2>{events.filter(e => e.hasActivePass).length}</h2>
-            <small>Active / confirmed passes</small>
+            <h2 style={{ color: activePassesCount > 0 ? '#10b981' : undefined }}>{activePassesCount}</h2>
+            <small>{activePassesCount > 0 ? '⚡ Verified passes ready' : 'Active / confirmed passes'}</small>
           </div>
         </div>
 

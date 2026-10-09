@@ -78,7 +78,7 @@ memberRouter.post('/events/:eventId/register', requirePermission('EVENT_REGISTER
 memberRouter.post('/events/:eventId/submit-completion', requirePermission('EVENT_REGISTER'), submitEventCompletion)
 memberRouter.post('/events/:eventId/submit-project', requirePermission('EVENT_REGISTER'), submitProject)
 memberRouter.post('/registrations/:registrationId/resubmit-payment', requirePermission('EVENT_REGISTER'), resubmitPayment)
-memberRouter.get('/registrations', requirePermission('REGISTRATIONS_VIEW'), listMyRegistrations)
+memberRouter.get('/registrations', requireAnyPermission('REGISTRATIONS_VIEW', 'QR_PASSES_VIEW', 'EVENT_REGISTER', 'DASHBOARD_VIEW'), listMyRegistrations)
 
 // Team Participation & Formation
 memberRouter.get('/members/search', searchStudentsForTeam)
