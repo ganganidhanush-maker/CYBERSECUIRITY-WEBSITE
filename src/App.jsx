@@ -10568,7 +10568,7 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
 
   // Filter non-archived events
   const availableEvents = useMemo(() => {
-    return (events || []).filter(e => !e.archived)
+    return (events || []).filter(e => !e.archived && e.status !== 'ARCHIVED')
   }, [events])
 
   // Selected event object
@@ -10595,7 +10595,6 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
     }
   }, [availableEvents, selectedEventId])
 
-  // Extract clean IDs / roll numbers from textarea
   // Extract clean IDs / roll numbers from textarea
   const extractedIds = useMemo(() => {
     if (!memberIdsText.trim()) return []
@@ -10813,7 +10812,7 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
               </label>
               {selectedEvent && (
                 <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
-                  Fee: <b>{Number(selectedEvent.fee) > 0 ? `₹${selectedEvent.fee}` : 'FREE'}</b>
+                  Fee: <b>{Number(selectedEvent.paymentAmount ?? selectedEvent.fee) > 0 ? `₹${selectedEvent.paymentAmount ?? selectedEvent.fee}` : 'FREE'}</b>
                 </span>
               )}
             </div>
@@ -10825,9 +10824,10 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
             >
               {availableEvents.map(ev => {
                 const isTeam = String(ev.registrationType || '').trim().toUpperCase() === 'TEAM' || (!['BOTH', 'INDIVIDUAL'].includes(String(ev.registrationType || '').trim().toUpperCase()) && Boolean(ev.isTeamEvent))
+                const evPrice = Number(ev.paymentAmount ?? ev.fee) || 0
                 return (
                   <option key={ev.id} value={ev.id}>
-                    {ev.title} {isTeam ? '(⚠️ Team Only - Ineligible)' : '(Solo Eligible)'} - {Number(ev.fee) > 0 ? `₹${ev.fee}` : 'Free'}
+                    {ev.title} {isTeam ? '(⚠️ Team Only - Ineligible)' : '(Solo Eligible)'} - {evPrice > 0 ? `₹${evPrice}` : 'Free'}
                   </option>
                 )
               })}

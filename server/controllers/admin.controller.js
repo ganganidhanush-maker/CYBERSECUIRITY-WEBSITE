@@ -1272,13 +1272,15 @@ export async function bulkIssueEventPasses(request, response) {
       title: true,
       registrationType: true,
       isTeamEvent: true,
-      fee: true,
-      archived: true,
-      maxSeats: true,
+      paymentAmount: true,
+      requiresPayment: true,
+      paymentConfig: true,
+      status: true,
+      capacity: true,
     },
   })
 
-  if (!event || event.archived) {
+  if (!event || event.status === 'ARCHIVED') {
     return response.status(404).json({ message: 'Event not found or archived.' })
   }
 
@@ -1302,8 +1304,13 @@ export async function bulkIssueEventPasses(request, response) {
   const { memberIds, assumePaid = true, notes } = parsed.data
   const isPreview = Boolean(request.body.previewOnly || request.query.preview === 'true')
 
-  // Deduplicate and trim input IDs / roll numbers
-  const rawTokens = Array.from(new Set(memberIds.map(t => String(t || '').trim()).filter(Boolean)))
+  // Deduplicate and trim input IDs / roll numbers, splitting any nested delimiters
+  const rawTokens = Array.from(new Set(
+    memberIds
+      .flatMap(t => String(t || '').split(/[\r\n,\t;]+/))
+      .map(t => t.trim().replace(/^["']|["']$/g, ''))
+      .filter(t => t.length >= 2 && t.length <= 64)
+  ))
   if (rawTokens.length === 0) {
     return response.status(400).json({ message: 'No valid student IDs provided.' })
   }
@@ -1452,7 +1459,7 @@ export async function bulkIssueEventPasses(request, response) {
       userId: { in: matchedUserIds },
     },
     include: {
-      event: { select: { id: true, title: true, fee: true } },
+      event: { select: { id: true, title: true, paymentAmount: true } },
     },
   })
   const existingRegistrationByUserId = new Map(existingRegistrations.map(r => [r.userId, r]))
@@ -1549,7 +1556,7 @@ export async function bulkIssueEventPasses(request, response) {
   }
 
   // Determine pricing & payment status
-  const eventFee = Number(event.fee) || 0
+  const eventFee = Number(event.paymentAmount ?? event.paymentConfig?.price ?? 0) || 0
   const isFree = eventFee <= 0
   const shouldVerify = Boolean(assumePaid) || isFree
   const paymentStatus = shouldVerify ? (isFree ? 'FREE' : 'VERIFIED') : 'PENDING'
@@ -1560,61 +1567,56 @@ export async function bulkIssueEventPasses(request, response) {
   const auditOrganizerName = request.user.profile?.name || request.user.memberId || 'Organizer'
 
   // Prepare database transactions:
-  // 1. Creates for newPassUsers
-  const createOperations = []
-  for (const student of newPassUsers) {
-    const regId = 'reg_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9)
-    let qrCode = null
-    try {
-      qrCode = await QRCode.toDataURL(`EVENT_PASS:${regId}`, {
-        margin: 2,
-        width: 300,
-        color: { dark: '#000000', light: '#ffffff' },
-      })
-    } catch {}
-
-    createOperations.push(
-      prisma.eventRegistration.create({
-        data: {
-          id: regId,
-          eventId: event.id,
-          userId: student.id,
-          registrationType: 'INDIVIDUAL',
-          totalAmount: eventFee,
-          amountPaid,
-          paymentStatus,
-          paymentMethod,
-          paymentVerifiedAt,
-          paymentVerifiedBy,
-          paymentNotes: notes || `Bulk pass issued by ${auditOrganizerName}`,
-          branch: student.profile?.department || student.department || null,
-          year: student.profile?.year ? Number(student.profile.year) : (student.year ? Number(student.year) : null),
-          gender: student.profile?.gender || null,
-          status: 'REGISTERED',
-          attendanceMarked: false,
-          qrCodeData: qrCode,
-        },
-      })
-    )
-  }
-
-  // 2. Updates for waitingUpgradeUsers: approving and activating their registration
-  const updateOperations = []
-  for (const { user: student, existingReg } of waitingUpgradeUsers) {
-    let qrCode = existingReg.qrCodeData
-    if (!qrCode) {
+  // 1. Creates for newPassUsers (generate QR codes concurrently)
+  const newPassRegistrationsData = await Promise.all(
+    newPassUsers.map(async student => {
+      const regId = 'reg_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9)
+      let qrCode = null
       try {
-        qrCode = await QRCode.toDataURL(`EVENT_PASS:${existingReg.id}`, {
+        qrCode = await QRCode.toDataURL(`EVENT_PASS:${regId}`, {
           margin: 2,
           width: 300,
           color: { dark: '#000000', light: '#ffffff' },
         })
       } catch {}
-    }
+      return {
+        id: regId,
+        eventId: event.id,
+        userId: student.id,
+        registrationType: 'INDIVIDUAL',
+        totalAmount: eventFee,
+        amountPaid,
+        paymentStatus,
+        paymentMethod,
+        paymentVerifiedAt,
+        paymentVerifiedBy,
+        paymentNotes: notes || `Bulk pass issued by ${auditOrganizerName}`,
+        branch: student.profile?.department || student.department || null,
+        year: student.profile?.year ? Number(student.profile.year) : (student.year ? Number(student.year) : null),
+        gender: student.profile?.gender || null,
+        status: 'REGISTERED',
+        attendanceMarked: false,
+        qrCodeData: qrCode,
+      }
+    })
+  )
+  const createOperations = newPassRegistrationsData.map(data => prisma.eventRegistration.create({ data }))
 
-    updateOperations.push(
-      prisma.eventRegistration.update({
-        where: { id: existingReg.id },
+  // 2. Updates for waitingUpgradeUsers: approving and activating their registration
+  const waitingUpgradesData = await Promise.all(
+    waitingUpgradeUsers.map(async ({ user: student, existingReg }) => {
+      let qrCode = existingReg.qrCodeData
+      if (!qrCode) {
+        try {
+          qrCode = await QRCode.toDataURL(`EVENT_PASS:${existingReg.id}`, {
+            margin: 2,
+            width: 300,
+            color: { dark: '#000000', light: '#ffffff' },
+          })
+        } catch {}
+      }
+      return {
+        existingRegId: existingReg.id,
         data: {
           status: 'REGISTERED',
           paymentStatus,
@@ -1626,9 +1628,15 @@ export async function bulkIssueEventPasses(request, response) {
           paymentRejectionReason: null,
           qrCodeData: qrCode,
         },
-      })
-    )
-  }
+      }
+    })
+  )
+  const updateOperations = waitingUpgradesData.map(({ existingRegId, data }) =>
+    prisma.eventRegistration.update({
+      where: { id: existingRegId },
+      data,
+    })
+  )
 
   // Execute database batch inside an atomic transaction
   if (createOperations.length > 0 || updateOperations.length > 0) {
