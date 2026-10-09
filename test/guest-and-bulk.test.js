@@ -139,4 +139,46 @@ describe('Guest Student Account & Bulk Accounts Creation System', () => {
     assert.equal(parsed.success, true)
     assert.equal(parsed.data.rollNumber, null)
   })
+
+  it('validates and normalizes User ID (memberId) formatting when edited by admin', () => {
+    const validateUserId = (input) => {
+      const trimmed = String(input || '').trim().toUpperCase()
+      if (!trimmed) return { valid: false, error: 'User ID cannot be empty.' }
+      if (trimmed.length < 3 || trimmed.length > 32) return { valid: false, error: 'User ID must be between 3 and 32 characters.' }
+      if (!/^[A-Z0-9_.-]+$/.test(trimmed)) return { valid: false, error: 'Invalid characters in User ID.' }
+      return { valid: true, userId: trimmed }
+    }
+
+    assert.equal(validateUserId('23eu07r0015').userId, '23EU07R0015')
+    assert.equal(validateUserId('  guest2026100  ').userId, 'GUEST2026100')
+    assert.equal(validateUserId('admin-01').userId, 'ADMIN-01')
+    assert.equal(validateUserId('student.cse_23').userId, 'STUDENT.CSE_23')
+
+    // Invalid cases
+    assert.equal(validateUserId('').valid, false)
+    assert.equal(validateUserId('ab').valid, false, 'Should reject < 3 characters')
+    assert.equal(validateUserId('A'.repeat(33)).valid, false, 'Should reject > 32 characters')
+    assert.equal(validateUserId('user@name').valid, false, 'Should reject @ in User ID')
+    assert.equal(validateUserId('user name').valid, false, 'Should reject spaces in User ID')
+  })
+
+  it('detects User ID conflicts to prevent duplicate memberId collisions', () => {
+    const existingUsers = [
+      { id: 'u1', memberId: '23EU07R0015' },
+      { id: 'u2', memberId: '24EU07R0099' },
+    ]
+
+    const checkDuplicate = (targetUserId, newMemberId) => {
+      const found = existingUsers.find(u => u.memberId === newMemberId && u.id !== targetUserId)
+      return Boolean(found)
+    }
+
+    // Changing u1 to their same memberId is allowed
+    assert.equal(checkDuplicate('u1', '23EU07R0015'), false)
+    // Changing u1 to a fresh unused memberId is allowed
+    assert.equal(checkDuplicate('u1', '25EU07R0001'), false)
+    // Changing u1 to u2's memberId is blocked
+    assert.equal(checkDuplicate('u1', '24EU07R0099'), true)
+  })
 })
+

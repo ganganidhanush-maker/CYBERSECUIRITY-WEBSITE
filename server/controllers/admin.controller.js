@@ -346,15 +346,53 @@ export async function editMember(request, response) {
   const platformMode = request.platformMode || await getActivePlatformMode()
   const isMrdu = platformMode === 'MRDU_EVENTS'
 
-  const { name, email, phone, rollNumber, department, year, role, profileImage } = request.body
+  const { name, email, phone, rollNumber, department, year, role, profileImage, memberId, userId } = request.body
   const currentModeRole = isMrdu ? (target.mrduRole || 'STUDENT') : (target.cscRole || target.role)
   const newRole = role || currentModeRole
   const permissionsUpdate = role && role !== currentModeRole ? getRolePermissions(role) : null
+
+  // 1. Process User ID / Member ID update
+  const rawMemberId = memberId !== undefined ? memberId : userId
+  let newMemberId = undefined
+  if (rawMemberId !== undefined) {
+    const trimmed = String(rawMemberId).trim().toUpperCase()
+    if (!trimmed) {
+      return response.status(400).json({ message: 'User ID cannot be empty.' })
+    }
+    if (trimmed.length < 3 || trimmed.length > 32) {
+      return response.status(400).json({ message: 'User ID must be between 3 and 32 characters.' })
+    }
+    if (!/^[A-Z0-9_.-]+$/.test(trimmed)) {
+      return response.status(400).json({ message: 'User ID can only contain letters, numbers, hyphens, dots, and underscores.' })
+    }
+    newMemberId = trimmed
+  }
+
+  if (newMemberId && newMemberId !== target.memberId) {
+    if (target.isPrimaryAdmin && target.id !== request.user.id) {
+      return response.status(400).json({ message: 'Primary President User ID cannot be modified by other users.' })
+    }
+    const existing = await prisma.user.findUnique({
+      where: { memberId: newMemberId },
+      include: { profile: { select: { name: true } } },
+    })
+    if (existing && existing.id !== target.id) {
+      return response.status(409).json({
+        message: `User ID "${newMemberId}" is already assigned to another user (${existing.profile?.name || existing.memberId}). Please choose a unique User ID.`,
+      })
+    }
+  }
+
+  // 2. Synchronize Roll Number if applicable
+  const targetRollNumber = rollNumber !== undefined
+    ? (rollNumber ? String(rollNumber).trim().toUpperCase() : null)
+    : (newMemberId && (!target.profile?.rollNumber || target.profile.rollNumber === target.memberId) ? newMemberId : undefined)
 
   try {
     const user = await prisma.user.update({
       where: { id: target.id },
       data: {
+        ...(newMemberId && { memberId: newMemberId }),
         role: target.isPrimaryAdmin ? 'PRESIDENT' : newRole,
         ...(target.isPrimaryAdmin ? {
           cscRole: 'PRESIDENT',
@@ -372,7 +410,7 @@ export async function editMember(request, response) {
               name: name || null,
               email: email || null,
               phone: phone || null,
-              rollNumber: rollNumber || null,
+              rollNumber: targetRollNumber || null,
               department: department || null,
               year: year ? Number(year) : null,
               profileImage: profileImage || null,
@@ -381,7 +419,7 @@ export async function editMember(request, response) {
               ...(name !== undefined && { name }),
               ...(email !== undefined && { email }),
               ...(phone !== undefined && { phone }),
-              ...(rollNumber !== undefined && { rollNumber }),
+              ...(targetRollNumber !== undefined && { rollNumber: targetRollNumber }),
               ...(department !== undefined && { department }),
               ...(year !== undefined && { year: year ? Number(year) : null }),
               ...(profileImage !== undefined && { profileImage }),
@@ -392,10 +430,24 @@ export async function editMember(request, response) {
       include: userInclude,
     })
     authUserCache.invalidate(target.id)
-    await tryWriteAuditLog({ actorUserId: request.user.id, action: 'ACCOUNT_UPDATED', targetUserId: target.id, metadata: { memberId: target.memberId, updatedFields: Object.keys(request.body) }, ...auditRequest(request) })
+    await tryWriteAuditLog({
+      actorUserId: request.user.id,
+      action: 'ACCOUNT_UPDATED',
+      targetUserId: target.id,
+      metadata: {
+        previousMemberId: target.memberId,
+        newMemberId: newMemberId || target.memberId,
+        updatedFields: Object.keys(request.body),
+      },
+      ...auditRequest(request),
+    })
     return response.status(200).json({ user: flattenMember(user, platformMode) })
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+      const field = error.meta?.target?.[0]
+      if (field === 'member_id') {
+        return response.status(409).json({ message: `User ID "${newMemberId || request.body.memberId}" is already in use by another user.` })
+      }
       return response.status(409).json({ message: 'Email or Roll number is already in use.' })
     }
     throw error

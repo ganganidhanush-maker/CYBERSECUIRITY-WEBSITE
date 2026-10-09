@@ -4606,36 +4606,121 @@ function MemberManagement({ user, logout, onNavigate }) {
                     return (
                       <div className={`table-row ${isEditing ? 'editing' : ''}`} key={m.id} style={isEditing ? { gridTemplateColumns: '1fr' } : undefined}>
                         {isEditing ? (
-                          <div>
-                            <div className="edit-fields-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px' }}>
-                              <input
-                                placeholder="Name"
-                                defaultValue={m.name}
-                                onChange={e => setEditData(d => ({ ...d, name: e.target.value }))}
-                              />
-                              <input
-                                placeholder="Email"
-                                defaultValue={m.email || ''}
-                                onChange={e => setEditData(d => ({ ...d, email: e.target.value }))}
-                              />
-                              <input
-                                placeholder="Phone"
-                                defaultValue={m.phone || ''}
-                                onChange={e => setEditData(d => ({ ...d, phone: e.target.value }))}
-                              />
-                              <select
-                                defaultValue={m.role}
-                                onChange={e => setEditData(d => ({ ...d, role: e.target.value }))}
-                                disabled={m.isPrimaryAdmin}
-                              >
-                                {CLUB_ROLES.map(r => (
-                                  <option key={r.id} value={r.id}>{r.label}</option>
-                                ))}
-                              </select>
+                          <div style={{ background: 'var(--panel-subtle)', padding: '16px', borderRadius: '10px', border: '1px solid var(--line)' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                              <span style={{ font: '700 12px "DM Mono", monospace', color: 'var(--brand-primary)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                                <IconShield size={14} /> EDITING MEMBER: {m.name} ({m.memberId})
+                              </span>
+                              <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
+                                User ID is the unique login identifier used to sign in
+                              </span>
                             </div>
-                            <div className="action-buttons" style={{ marginTop: '10px' }}>
-                              <button className="action-btn save-btn" onClick={() => updateMember(m.id)}>Save {isMrdu ? 'MRDU Role' : 'Club Role'}</button>
-                              <button className="action-btn cancel-btn" onClick={() => { setEditingId(null); setEditData({}) }}>Cancel</button>
+                            <div className="edit-fields-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '12px' }}>
+                              <div>
+                                <label style={{ font: '700 10.5px "DM Mono", monospace', color: 'var(--brand-primary)', display: 'block', marginBottom: '4px' }}>
+                                  USER ID (LOGIN ID)
+                                </label>
+                                <input
+                                  placeholder="e.g. 23EU07R0015"
+                                  defaultValue={m.memberId}
+                                  onChange={e => setEditData(d => ({ ...d, memberId: e.target.value.trim().toUpperCase() }))}
+                                  style={{ fontFamily: '"DM Mono", monospace', fontWeight: 700, width: '100%', borderColor: 'rgba(82, 187, 245, 0.5)' }}
+                                  disabled={m.isPrimaryAdmin && !user.isPrimaryAdmin}
+                                  title="User ID used for student or admin login"
+                                />
+                              </div>
+                              <div>
+                                <label style={{ font: '600 10.5px "DM Mono", monospace', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                                  ROLL NUMBER
+                                </label>
+                                <input
+                                  placeholder="e.g. 23EU07R0015"
+                                  defaultValue={m.rollNumber || m.profile?.rollNumber || ''}
+                                  onChange={e => setEditData(d => ({ ...d, rollNumber: e.target.value.trim().toUpperCase() }))}
+                                  style={{ fontFamily: '"DM Mono", monospace', width: '100%' }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ font: '600 10.5px "DM Mono", monospace', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                                  FULL NAME
+                                </label>
+                                <input
+                                  placeholder="Full Name"
+                                  defaultValue={m.name}
+                                  onChange={e => setEditData(d => ({ ...d, name: e.target.value }))}
+                                  style={{ width: '100%' }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ font: '600 10.5px "DM Mono", monospace', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                                  EMAIL ADDRESS
+                                </label>
+                                <input
+                                  placeholder="email@example.com"
+                                  defaultValue={m.email || ''}
+                                  onChange={e => setEditData(d => ({ ...d, email: e.target.value }))}
+                                  style={{ width: '100%' }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ font: '600 10.5px "DM Mono", monospace', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                                  PHONE NUMBER
+                                </label>
+                                <input
+                                  placeholder="Phone"
+                                  defaultValue={m.phone || ''}
+                                  onChange={e => setEditData(d => ({ ...d, phone: e.target.value }))}
+                                  style={{ width: '100%' }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ font: '600 10.5px "DM Mono", monospace', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                                  ACCOUNT ROLE
+                                </label>
+                                <select
+                                  defaultValue={m.role}
+                                  onChange={e => setEditData(d => ({ ...d, role: e.target.value }))}
+                                  disabled={m.isPrimaryAdmin}
+                                  style={{ width: '100%' }}
+                                >
+                                  {CLUB_ROLES.map(r => (
+                                    <option key={r.id} value={r.id}>{r.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                              <div>
+                                <label style={{ font: '600 10.5px "DM Mono", monospace', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                                  DEPARTMENT / BRANCH
+                                </label>
+                                <input
+                                  placeholder="e.g. CSE - AIML"
+                                  defaultValue={m.department || m.profile?.department || ''}
+                                  onChange={e => setEditData(d => ({ ...d, department: e.target.value }))}
+                                  style={{ width: '100%' }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ font: '600 10.5px "DM Mono", monospace', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
+                                  YEAR OF STUDY
+                                </label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="5"
+                                  placeholder="1 - 4"
+                                  defaultValue={m.year || m.profile?.year || ''}
+                                  onChange={e => setEditData(d => ({ ...d, year: Number(e.target.value) || null }))}
+                                  style={{ width: '100%' }}
+                                />
+                              </div>
+                            </div>
+                            <div className="action-buttons" style={{ marginTop: '14px', display: 'flex', gap: '8px' }}>
+                              <button className="action-btn save-btn" onClick={() => updateMember(m.id)} style={{ padding: '8px 18px', fontSize: '11px' }}>
+                                Save Changes
+                              </button>
+                              <button className="action-btn cancel-btn" onClick={() => { setEditingId(null); setEditData({}) }} style={{ padding: '8px 14px', fontSize: '11px' }}>
+                                Cancel
+                              </button>
                             </div>
                           </div>
                         ) : (
