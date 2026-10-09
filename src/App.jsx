@@ -10596,12 +10596,22 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
   }, [availableEvents, selectedEventId])
 
   // Extract clean IDs / roll numbers from textarea
+  // Extract clean IDs / roll numbers from textarea
   const extractedIds = useMemo(() => {
     if (!memberIdsText.trim()) return []
-    const tokens = memberIdsText
-      .split(/[\r\n,;\t]+/)
-      .map(t => t.trim())
-      .filter(t => t.length >= 2 && !t.includes(' ') && t.length <= 64)
+    const tokens = []
+    const rawLines = memberIdsText.split(/[\r\n]+/)
+    for (const line of rawLines) {
+      const parts = line.split(/[,\t;]+/)
+      for (const p of parts) {
+        const trimmed = p.trim().replace(/^["']|["']$/g, '')
+        if (!trimmed) continue
+        const candidate = trimmed.split(/\s+/)[0].trim()
+        if (candidate.length >= 2 && candidate.length <= 64) {
+          tokens.push(candidate)
+        }
+      }
+    }
     return Array.from(new Set(tokens))
   }, [memberIdsText])
 
@@ -10669,8 +10679,9 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
               if (r === 0 && (lower.includes('member') || lower.includes('student') || lower.includes('roll') || lower.includes('id') || lower.includes('name') || lower.includes('email'))) {
                 continue
               }
-              if (val.length >= 2 && !val.includes(' ') && val.length <= 64) {
-                ids.push(val)
+              const firstWord = val.split(/[\s\t,]+/)[0].trim()
+              if (firstWord.length >= 2 && firstWord.length <= 64) {
+                ids.push(firstWord)
                 break
               }
             }
@@ -10698,8 +10709,9 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
               continue
             }
             for (const cell of parts) {
-              if (cell && !cell.includes(' ') && cell.length <= 64) {
-                ids.push(cell)
+              const firstWord = cell.split(/\s+/)[0].trim()
+              if (firstWord.length >= 2 && firstWord.length <= 64) {
+                ids.push(firstWord)
                 break
               }
             }
@@ -10916,16 +10928,22 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
 
               {previewData && (
                 <div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginBottom: '10px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', marginBottom: '10px' }}>
                     <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
                       <span style={{ color: '#10b981', font: '700 18px "DM Mono", monospace', display: 'block' }}>
-                        {previewData.eligibleCount}
+                        {previewData.newPassesCount ?? previewData.eligibleCount}
                       </span>
-                      <small style={{ color: '#10b981', fontSize: '10px', textTransform: 'uppercase' }}>Ready to Issue</small>
+                      <small style={{ color: '#10b981', fontSize: '10px', textTransform: 'uppercase' }}>New Passes</small>
+                    </div>
+                    <div style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.3)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
+                      <span style={{ color: '#3b82f6', font: '700 18px "DM Mono", monospace', display: 'block' }}>
+                        {previewData.waitingApprovedCount || 0}
+                      </span>
+                      <small style={{ color: '#3b82f6', fontSize: '10px', textTransform: 'uppercase' }}>Waiting Activated</small>
                     </div>
                     <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
                       <span style={{ color: '#f59e0b', font: '700 18px "DM Mono", monospace', display: 'block' }}>
-                        {previewData.skippedCount}
+                        {previewData.alreadyHadPassCount ?? previewData.skippedCount}
                       </span>
                       <small style={{ color: '#f59e0b', fontSize: '10px', textTransform: 'uppercase' }}>Already Has Pass</small>
                     </div>
@@ -10942,48 +10960,58 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
                       <thead>
                         <tr style={{ background: 'var(--panel-subtle)', textAlign: 'left', borderBottom: '1px solid var(--line)' }}>
                           <th style={{ padding: '6px 8px' }}>Student Name</th>
-                          <th style={{ padding: '6px 8px' }}>Member / Roll ID</th>
+                          <th style={{ padding: '6px 8px' }}>Roll / Member ID</th>
                           <th style={{ padding: '6px 8px' }}>Department</th>
                           <th style={{ padding: '6px 8px' }}>Status</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {previewData.eligible?.map(u => (
-                          <tr key={u.id} style={{ borderBottom: '1px solid var(--line)' }}>
+                        {previewData.eligible?.map((u, idx) => (
+                          <tr key={'el_' + idx} style={{ borderBottom: '1px solid var(--line)' }}>
                             <td style={{ padding: '6px 8px' }}><b>{u.name}</b></td>
-                            <td style={{ padding: '6px 8px', fontFamily: '"DM Mono", monospace' }}>{u.memberId}</td>
+                            <td style={{ padding: '6px 8px', fontFamily: '"DM Mono", monospace' }}>{u.rollNumber || u.memberId}</td>
                             <td style={{ padding: '6px 8px' }}>{u.department}</td>
                             <td style={{ padding: '6px 8px' }}>
-                              <span style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', padding: '2px 8px', borderRadius: '4px', font: '600 10px "DM Mono", monospace' }}>
-                                READY
-                              </span>
+                              {u.action === 'APPROVE_WAITING' ? (
+                                <span style={{ background: 'rgba(59, 130, 246, 0.2)', color: '#3b82f6', padding: '2px 8px', borderRadius: '4px', font: '600 10px "DM Mono", monospace' }}>
+                                  ACTIVATE PASS
+                                </span>
+                              ) : (
+                                <span style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', padding: '2px 8px', borderRadius: '4px', font: '600 10px "DM Mono", monospace' }}>
+                                  NEW PASS
+                                </span>
+                              )}
                             </td>
                           </tr>
                         ))}
                         {previewData.skipped?.map((s, idx) => (
                           <tr key={'skip_' + idx} style={{ borderBottom: '1px solid var(--line)', opacity: 0.7 }}>
                             <td style={{ padding: '6px 8px' }}>{s.name}</td>
-                            <td style={{ padding: '6px 8px', fontFamily: '"DM Mono", monospace' }}>{s.memberId}</td>
+                            <td style={{ padding: '6px 8px', fontFamily: '"DM Mono", monospace' }}>{s.rollNumber || s.memberId}</td>
                             <td style={{ padding: '6px 8px' }}>---</td>
                             <td style={{ padding: '6px 8px' }}>
                               <span style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', padding: '2px 8px', borderRadius: '4px', font: '600 10px "DM Mono", monospace' }}>
-                                ALREADY PASS
+                                ALREADY ACTIVE
                               </span>
                             </td>
                           </tr>
                         ))}
-                        {previewData.notFound?.map((nf, idx) => (
-                          <tr key={'nf_' + idx} style={{ borderBottom: '1px solid var(--line)', background: 'rgba(239, 68, 68, 0.05)' }}>
-                            <td style={{ padding: '6px 8px', color: '#ef4444' }}>Unknown Student</td>
-                            <td style={{ padding: '6px 8px', fontFamily: '"DM Mono", monospace', color: '#ef4444' }}>{nf}</td>
-                            <td style={{ padding: '6px 8px', color: '#ef4444' }}>Not in Club Database</td>
-                            <td style={{ padding: '6px 8px' }}>
-                              <span style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', padding: '2px 8px', borderRadius: '4px', font: '600 10px "DM Mono", monospace' }}>
-                                NOT FOUND
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
+                        {previewData.notFound?.map((nf, idx) => {
+                          const inputVal = typeof nf === 'string' ? nf : (nf.input || nf.memberId || 'Unknown')
+                          const msg = typeof nf === 'string' ? 'Not registered in portal' : (nf.message || 'Account not found')
+                          return (
+                            <tr key={'nf_' + idx} style={{ borderBottom: '1px solid var(--line)', background: 'rgba(239, 68, 68, 0.05)' }}>
+                              <td style={{ padding: '6px 8px', color: '#ef4444' }}>Unmatched Student</td>
+                              <td style={{ padding: '6px 8px', fontFamily: '"DM Mono", monospace', color: '#ef4444' }}>{inputVal}</td>
+                              <td style={{ padding: '6px 8px', color: '#ef4444' }}>{msg}</td>
+                              <td style={{ padding: '6px 8px' }}>
+                                <span style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', padding: '2px 8px', borderRadius: '4px', font: '600 10px "DM Mono", monospace' }}>
+                                  NOT FOUND
+                                </span>
+                              </td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -11029,20 +11057,35 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
                 {resultModal.message}
               </p>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '18px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: '8px', marginBottom: '18px' }}>
                 <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '8px', borderRadius: '8px' }}>
-                  <span style={{ color: '#10b981', font: '700 16px "DM Mono", monospace', display: 'block' }}>{resultModal.issuedCount}</span>
-                  <small style={{ color: '#10b981', fontSize: '9px' }}>ISSUED</small>
+                  <span style={{ color: '#10b981', font: '700 16px "DM Mono", monospace', display: 'block' }}>{resultModal.newPassesCount ?? resultModal.issuedCount}</span>
+                  <small style={{ color: '#10b981', fontSize: '9px' }}>NEW PASSES</small>
+                </div>
+                <div style={{ background: 'rgba(59, 130, 246, 0.1)', padding: '8px', borderRadius: '8px' }}>
+                  <span style={{ color: '#3b82f6', font: '700 16px "DM Mono", monospace', display: 'block' }}>{resultModal.waitingApprovedCount || 0}</span>
+                  <small style={{ color: '#3b82f6', fontSize: '9px' }}>WAITING ACTIVATED</small>
                 </div>
                 <div style={{ background: 'rgba(245, 158, 11, 0.1)', padding: '8px', borderRadius: '8px' }}>
-                  <span style={{ color: '#f59e0b', font: '700 16px "DM Mono", monospace', display: 'block' }}>{resultModal.skippedCount}</span>
-                  <small style={{ color: '#f59e0b', fontSize: '9px' }}>SKIPPED</small>
+                  <span style={{ color: '#f59e0b', font: '700 16px "DM Mono", monospace', display: 'block' }}>{resultModal.alreadyHadPassCount ?? resultModal.skippedCount}</span>
+                  <small style={{ color: '#f59e0b', fontSize: '9px' }}>ALREADY ACTIVE</small>
                 </div>
                 <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '8px', borderRadius: '8px' }}>
                   <span style={{ color: '#ef4444', font: '700 16px "DM Mono", monospace', display: 'block' }}>{resultModal.notFoundCount}</span>
                   <small style={{ color: '#ef4444', fontSize: '9px' }}>NOT FOUND</small>
                 </div>
               </div>
+
+              {resultModal.notFound && resultModal.notFound.length > 0 && (
+                <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '8px', padding: '10px', textAlign: 'left', marginBottom: '16px', maxHeight: '100px', overflowY: 'auto', fontSize: '11px' }}>
+                  <b style={{ color: '#ef4444', display: 'block', marginBottom: '4px' }}>⚠️ Unmatched Roll Numbers:</b>
+                  <div style={{ color: 'var(--text-muted)' }}>
+                    {resultModal.notFound.map((nf, i) => (
+                      <div key={i}>• {typeof nf === 'string' ? nf : (nf.input || nf.memberId)}: {typeof nf === 'string' ? 'Account not registered' : (nf.message || 'Not found')}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <button
                 type="button"

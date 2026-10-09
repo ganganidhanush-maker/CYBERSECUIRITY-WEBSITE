@@ -1302,111 +1302,248 @@ export async function bulkIssueEventPasses(request, response) {
   const { memberIds, assumePaid = true, notes } = parsed.data
   const isPreview = Boolean(request.body.previewOnly || request.query.preview === 'true')
 
-  // Deduplicate and trim input IDs
+  // Deduplicate and trim input IDs / roll numbers
   const rawTokens = Array.from(new Set(memberIds.map(t => String(t || '').trim()).filter(Boolean)))
   if (rawTokens.length === 0) {
     return response.status(400).json({ message: 'No valid student IDs provided.' })
   }
 
-  // Query database for matching active students by memberId or email
+  // Generate multi-format search tokens (exact, uppercase, lowercase, and clean alphanumeric)
+  const allSearchTokens = new Set()
+  for (const t of rawTokens) {
+    allSearchTokens.add(t)
+    allSearchTokens.add(t.toUpperCase())
+    allSearchTokens.add(t.toLowerCase())
+    const cleanAlpha = t.toUpperCase().replace(/[^A-Z0-9]/g, '')
+    if (cleanAlpha) allSearchTokens.add(cleanAlpha)
+  }
+  const searchTokenArray = Array.from(allSearchTokens)
+
+  // 1. Fetch matching active students by memberId, profile.rollNumber, or email
   const foundUsers = await prisma.user.findMany({
     where: {
-      OR: [
-        { memberId: { in: rawTokens } },
-        { email: { in: rawTokens } },
-      ],
       accountStatus: 'ACTIVE',
+      OR: [
+        { memberId: { in: searchTokenArray } },
+        { email: { in: searchTokenArray } },
+        { profile: { rollNumber: { in: searchTokenArray } } },
+        { profile: { email: { in: searchTokenArray } } },
+      ],
     },
     include: {
       profile: true,
     },
   })
 
-  // Map case-insensitively for student matching
-  const userByMemberId = new Map()
-  const userByEmail = new Map()
+  // 2. Build fast direct lookup dictionary
+  const userByExactKey = new Map()
   for (const u of foundUsers) {
-    if (u.memberId) userByMemberId.set(u.memberId.toLowerCase(), u)
-    if (u.email) userByEmail.set(u.email.toLowerCase(), u)
+    if (u.memberId) {
+      userByExactKey.set(u.memberId.trim().toLowerCase(), u)
+      const uMemberAlpha = u.memberId.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+      if (uMemberAlpha) userByExactKey.set(uMemberAlpha, u)
+    }
+    if (u.profile?.rollNumber) {
+      userByExactKey.set(u.profile.rollNumber.trim().toLowerCase(), u)
+      const uRollAlpha = u.profile.rollNumber.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+      if (uRollAlpha) userByExactKey.set(uRollAlpha, u)
+    }
+    if (u.email) userByExactKey.set(u.email.trim().toLowerCase(), u)
+    if (u.profile?.email) userByExactKey.set(u.profile.email.trim().toLowerCase(), u)
   }
 
-  const matchedUsers = []
-  const notFoundList = []
-  const seenUserIds = new Set()
-
+  // 3. For any tokens not found by direct lookup, run partial/suffix match for short vs full roll numbers
+  const unmatchedTokens = []
   for (const token of rawTokens) {
     const tLower = token.toLowerCase()
-    const user = userByMemberId.get(tLower) || userByEmail.get(tLower)
-    if (user) {
-      if (!seenUserIds.has(user.id)) {
-        seenUserIds.add(user.id)
-        matchedUsers.push(user)
-      }
-    } else {
-      notFoundList.push(token)
+    const tClean = token.toUpperCase().replace(/[^A-Z0-9]/g, '')
+    if (!userByExactKey.has(tLower) && !userByExactKey.has(tClean)) {
+      unmatchedTokens.push(token)
     }
   }
 
-  // Check which of the matched users already have a registration for this event
+  if (unmatchedTokens.length > 0) {
+    const partialFilters = []
+    for (const ut of unmatchedTokens) {
+      const clean = ut.toUpperCase().replace(/[^A-Z0-9]/g, '')
+      if (clean.length >= 4) {
+        partialFilters.push(
+          { memberId: { contains: clean } },
+          { profile: { rollNumber: { contains: clean } } }
+        )
+      }
+    }
+    if (partialFilters.length > 0) {
+      const partialMatchedUsers = await prisma.user.findMany({
+        where: {
+          accountStatus: 'ACTIVE',
+          OR: partialFilters,
+        },
+        include: { profile: true },
+      })
+      for (const pUser of partialMatchedUsers) {
+        if (!foundUsers.some(u => u.id === pUser.id)) {
+          foundUsers.push(pUser)
+        }
+      }
+    }
+  }
+
+  // 4. Resolve each token to an individual student or categorize error
+  const tokenResolution = []
+  const matchedUsers = []
+  const seenMatchedUserIds = new Set()
+
+  for (const token of rawTokens) {
+    const tLower = token.toLowerCase()
+    const tClean = token.toUpperCase().replace(/[^A-Z0-9]/g, '')
+
+    let user = userByExactKey.get(tLower) || userByExactKey.get(tClean)
+
+    // Suffix/partial resolution if not matched directly
+    if (!user && tClean.length >= 4) {
+      const candidates = foundUsers.filter(u => {
+        const uMemberClean = (u.memberId || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+        const uRollClean = (u.profile?.rollNumber || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+        return (
+          uMemberClean.endsWith(tClean) ||
+          tClean.endsWith(uMemberClean) ||
+          uRollClean.endsWith(tClean) ||
+          tClean.endsWith(uRollClean) ||
+          uMemberClean.includes(tClean) ||
+          uRollClean.includes(tClean)
+        )
+      })
+
+      if (candidates.length === 1) {
+        user = candidates[0]
+      } else if (candidates.length > 1) {
+        tokenResolution.push({
+          token,
+          user: null,
+          errorReason: 'AMBIGUOUS_ROLL_NUMBER',
+          errorMessage: `Roll number "${token}" matches multiple accounts (${candidates.map(c => c.profile?.name || c.memberId).join(', ')}). Enter the full unique roll number.`,
+        })
+        continue
+      }
+    }
+
+    if (user) {
+      if (!seenMatchedUserIds.has(user.id)) {
+        seenMatchedUserIds.add(user.id)
+        matchedUsers.push(user)
+      }
+      tokenResolution.push({ token, user, errorReason: null })
+    } else {
+      tokenResolution.push({
+        token,
+        user: null,
+        errorReason: 'STUDENT_NOT_FOUND',
+        errorMessage: `No registered student account found for Roll Number / ID "${token}". Make sure the student has created their account on the portal.`,
+      })
+    }
+  }
+
+  // 5. Query existing registrations for all matched students for THIS event
   const matchedUserIds = matchedUsers.map(u => u.id)
   const existingRegistrations = await prisma.eventRegistration.findMany({
     where: {
       eventId: event.id,
       userId: { in: matchedUserIds },
     },
-    select: {
-      userId: true,
-      status: true,
-      paymentStatus: true,
+    include: {
+      event: { select: { id: true, title: true, fee: true } },
     },
   })
-  const existingUserIdSet = new Set(existingRegistrations.map(r => r.userId))
+  const existingRegistrationByUserId = new Map(existingRegistrations.map(r => [r.userId, r]))
 
-  const eligibleUsers = []
-  const skippedList = []
+  // 6. Partition students:
+  //    - newPassUsers: No prior registration for this event -> will create registration & pass
+  //    - waitingUpgradeUsers: Prior registration exists, BUT is WAITING / UNVERIFIED -> will approve & activate pass
+  //    - alreadyHadPassList: Prior registration ALREADY has an active verified pass -> skipped safely
+  const newPassUsers = []
+  const waitingUpgradeUsers = []
+  const alreadyHadPassList = []
 
-  for (const u of matchedUsers) {
-    if (existingUserIdSet.has(u.id)) {
-      skippedList.push({
-        memberId: u.memberId,
-        name: u.profile?.name || u.name || u.memberId,
-        reason: 'ALREADY_REGISTERED',
+  for (const user of matchedUsers) {
+    const existingReg = existingRegistrationByUserId.get(user.id)
+    if (!existingReg) {
+      newPassUsers.push(user)
+    } else if (hasActiveEventPass(existingReg)) {
+      alreadyHadPassList.push({
+        memberId: user.memberId,
+        rollNumber: user.profile?.rollNumber || user.memberId,
+        name: user.profile?.name || user.memberId,
+        registrationId: existingReg.id,
+        reason: 'ALREADY_ACTIVE_PASS',
+        message: 'Student already holds an active verified pass for this event. Skipped to prevent duplicates.',
       })
     } else {
-      eligibleUsers.push(u)
+      // Student is already registered and waiting for pass / pending payment!
+      waitingUpgradeUsers.push({ user, existingReg })
     }
   }
 
-  // If this is just a pre-flight validation preview, return summary without modifying database
+  const notFoundList = tokenResolution
+    .filter(tr => tr.errorReason)
+    .map(tr => ({
+      input: tr.token,
+      reason: tr.errorReason,
+      message: tr.errorMessage,
+    }))
+
+  // Pre-flight validation preview
   if (isPreview) {
     return response.status(200).json({
       preview: true,
       totalSubmitted: rawTokens.length,
-      eligibleCount: eligibleUsers.length,
-      eligible: eligibleUsers.map(u => ({
-        id: u.id,
-        memberId: u.memberId,
-        name: u.profile?.name || u.name || u.memberId,
-        email: u.email,
-        department: u.profile?.department || u.department || 'CSE',
-        year: u.profile?.year || u.year || 1,
-      })),
-      skippedCount: skippedList.length,
-      skipped: skippedList,
+      eligibleCount: newPassUsers.length + waitingUpgradeUsers.length,
+      newPassesCount: newPassUsers.length,
+      waitingApprovedCount: waitingUpgradeUsers.length,
+      alreadyHadPassCount: alreadyHadPassList.length,
+      skippedCount: alreadyHadPassList.length,
       notFoundCount: notFoundList.length,
+      eligible: [
+        ...newPassUsers.map(u => ({
+          id: u.id,
+          memberId: u.memberId,
+          rollNumber: u.profile?.rollNumber || u.memberId,
+          name: u.profile?.name || u.memberId,
+          email: u.email,
+          department: u.profile?.department || 'CSE',
+          year: u.profile?.year || 1,
+          action: 'CREATE_NEW_PASS',
+          statusDescription: 'New Pass to be Issued',
+        })),
+        ...waitingUpgradeUsers.map(({ user: u, existingReg: r }) => ({
+          id: u.id,
+          memberId: u.memberId,
+          rollNumber: u.profile?.rollNumber || u.memberId,
+          name: u.profile?.name || u.memberId,
+          email: u.email,
+          department: u.profile?.department || 'CSE',
+          year: u.profile?.year || 1,
+          action: 'APPROVE_WAITING',
+          statusDescription: `Waiting (${r.paymentStatus || r.status}) -> Will be Approved & Pass Activated`,
+        })),
+      ],
+      skipped: alreadyHadPassList,
       notFound: notFoundList,
     })
   }
 
-  if (eligibleUsers.length === 0) {
+  if (newPassUsers.length === 0 && waitingUpgradeUsers.length === 0) {
     return response.status(200).json({
       success: true,
-      message: 'No new passes were issued. All eligible students are already registered or not found.',
+      message: 'No passes needed. All matched students already hold active verified passes, or student accounts were not found.',
       issuedCount: 0,
-      skippedCount: skippedList.length,
+      newPassesCount: 0,
+      waitingApprovedCount: 0,
+      alreadyHadPassCount: alreadyHadPassList.length,
+      skippedCount: alreadyHadPassList.length,
       notFoundCount: notFoundList.length,
       issued: [],
-      skipped: skippedList,
+      skipped: alreadyHadPassList,
       notFound: notFoundList,
     })
   }
@@ -1420,10 +1557,12 @@ export async function bulkIssueEventPasses(request, response) {
   const paymentMethod = shouldVerify ? 'OFFLINE_BULK_ORGANIZER' : null
   const paymentVerifiedAt = shouldVerify ? new Date() : null
   const paymentVerifiedBy = shouldVerify ? request.user.id : null
+  const auditOrganizerName = request.user.profile?.name || request.user.memberId || 'Organizer'
 
-  // Generate QR codes and create registrations inside a transaction
-  const registrationsToInsert = []
-  for (const student of eligibleUsers) {
+  // Prepare database transactions:
+  // 1. Creates for newPassUsers
+  const createOperations = []
+  for (const student of newPassUsers) {
     const regId = 'reg_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9)
     let qrCode = null
     try {
@@ -1434,30 +1573,69 @@ export async function bulkIssueEventPasses(request, response) {
       })
     } catch {}
 
-    registrationsToInsert.push({
-      id: regId,
-      eventId: event.id,
-      userId: student.id,
-      registrationType: 'INDIVIDUAL',
-      totalAmount: eventFee,
-      amountPaid,
-      paymentStatus,
-      paymentMethod,
-      paymentVerifiedAt,
-      paymentVerifiedBy,
-      paymentNotes: notes || `Bulk pass issued by ${request.user.profile?.name || request.user.memberId || 'Organizer'}`,
-      branch: student.profile?.department || student.department || null,
-      year: student.profile?.year ? Number(student.profile.year) : (student.year ? Number(student.year) : null),
-      gender: student.profile?.gender || null,
-      status: 'REGISTERED',
-      attendanceMarked: false,
-      qrCodeData: qrCode,
-    })
+    createOperations.push(
+      prisma.eventRegistration.create({
+        data: {
+          id: regId,
+          eventId: event.id,
+          userId: student.id,
+          registrationType: 'INDIVIDUAL',
+          totalAmount: eventFee,
+          amountPaid,
+          paymentStatus,
+          paymentMethod,
+          paymentVerifiedAt,
+          paymentVerifiedBy,
+          paymentNotes: notes || `Bulk pass issued by ${auditOrganizerName}`,
+          branch: student.profile?.department || student.department || null,
+          year: student.profile?.year ? Number(student.profile.year) : (student.year ? Number(student.year) : null),
+          gender: student.profile?.gender || null,
+          status: 'REGISTERED',
+          attendanceMarked: false,
+          qrCodeData: qrCode,
+        },
+      })
+    )
   }
 
-  await prisma.$transaction(
-    registrationsToInsert.map(data => prisma.eventRegistration.create({ data }))
-  )
+  // 2. Updates for waitingUpgradeUsers: approving and activating their registration
+  const updateOperations = []
+  for (const { user: student, existingReg } of waitingUpgradeUsers) {
+    let qrCode = existingReg.qrCodeData
+    if (!qrCode) {
+      try {
+        qrCode = await QRCode.toDataURL(`EVENT_PASS:${existingReg.id}`, {
+          margin: 2,
+          width: 300,
+          color: { dark: '#000000', light: '#ffffff' },
+        })
+      } catch {}
+    }
+
+    updateOperations.push(
+      prisma.eventRegistration.update({
+        where: { id: existingReg.id },
+        data: {
+          status: 'REGISTERED',
+          paymentStatus,
+          amountPaid: amountPaid ?? existingReg.amountPaid,
+          paymentMethod: existingReg.paymentMethod || paymentMethod,
+          paymentVerifiedAt,
+          paymentVerifiedBy,
+          paymentNotes: notes || (existingReg.paymentNotes ? `${existingReg.paymentNotes} · Pass activated by ${auditOrganizerName}` : `Pass activated by ${auditOrganizerName}`),
+          paymentRejectionReason: null,
+          qrCodeData: qrCode,
+        },
+      })
+    )
+  }
+
+  // Execute database batch inside an atomic transaction
+  if (createOperations.length > 0 || updateOperations.length > 0) {
+    await prisma.$transaction([...createOperations, ...updateOperations])
+  }
+
+  const totalProcessed = newPassUsers.length + waitingUpgradeUsers.length
 
   await tryWriteAuditLog({
     actorUserId: request.user.id,
@@ -1465,27 +1643,51 @@ export async function bulkIssueEventPasses(request, response) {
     metadata: {
       eventId: event.id,
       eventTitle: event.title,
-      issuedCount: registrationsToInsert.length,
-      skippedCount: skippedList.length,
+      totalIssued: totalProcessed,
+      newPassesCount: newPassUsers.length,
+      waitingApprovedCount: waitingUpgradeUsers.length,
+      alreadyHadPassCount: alreadyHadPassList.length,
       notFoundCount: notFoundList.length,
       assumePaid,
     },
     ...auditRequest(request),
   })
 
+  let successMessage = `Batch admission complete: `
+  if (newPassUsers.length > 0 && waitingUpgradeUsers.length > 0) {
+    successMessage += `${newPassUsers.length} new pass(es) issued, and ${waitingUpgradeUsers.length} waiting registration(s) approved and activated.`
+  } else if (newPassUsers.length > 0) {
+    successMessage += `${newPassUsers.length} new pass(es) successfully issued.`
+  } else {
+    successMessage += `${waitingUpgradeUsers.length} waiting registration(s) successfully approved and activated.`
+  }
+
   return response.status(200).json({
     success: true,
-    message: `Successfully issued ${registrationsToInsert.length} pass(es) for ${event.title}.`,
-    issuedCount: registrationsToInsert.length,
-    skippedCount: skippedList.length,
+    message: successMessage,
+    issuedCount: totalProcessed,
+    newPassesCount: newPassUsers.length,
+    waitingApprovedCount: waitingUpgradeUsers.length,
+    alreadyHadPassCount: alreadyHadPassList.length,
+    skippedCount: alreadyHadPassList.length,
     notFoundCount: notFoundList.length,
-    issued: eligibleUsers.map(u => ({
-      memberId: u.memberId,
-      name: u.profile?.name || u.name || u.memberId,
-      email: u.email,
-      department: u.profile?.department || u.department,
-    })),
-    skipped: skippedList,
+    issued: [
+      ...newPassUsers.map(u => ({
+        memberId: u.memberId,
+        rollNumber: u.profile?.rollNumber || u.memberId,
+        name: u.profile?.name || u.memberId,
+        type: 'NEW_PASS',
+        status: 'Pass Issued',
+      })),
+      ...waitingUpgradeUsers.map(({ user: u }) => ({
+        memberId: u.memberId,
+        rollNumber: u.profile?.rollNumber || u.memberId,
+        name: u.profile?.name || u.memberId,
+        type: 'APPROVED_WAITING',
+        status: 'Waiting Registration Approved & Pass Activated',
+      })),
+    ],
+    skipped: alreadyHadPassList,
     notFound: notFoundList,
   })
 }

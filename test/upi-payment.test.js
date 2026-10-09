@@ -205,5 +205,158 @@ describe('Bulk Event Pass Issuance & Solo Event Validation', () => {
     }
     assert.equal(hasActiveEventPass(unverifiedPass), false)
   })
+
+  it('upgrades a waiting or submitted registration to an active verified pass', async () => {
+    const { hasActiveEventPass } = await import('../server/utils/event-registration.js')
+
+    // Initial waiting state: student submitted registration waiting for approval/pass
+    const waitingRegistration = {
+      id: 'reg-wait-1',
+      eventId: 'event-1',
+      userId: 'user-1',
+      status: 'REGISTERED',
+      paymentStatus: 'SUBMITTED',
+      totalAmount: 100,
+      amountPaid: 0,
+      qrPassCode: null,
+    }
+
+    assert.equal(hasActiveEventPass(waitingRegistration), false, 'Waiting registration should not have active pass initially')
+
+    // Transition when pass is issued by organizer/admin
+    const upgradedRegistration = {
+      ...waitingRegistration,
+      status: 'REGISTERED',
+      paymentStatus: 'VERIFIED',
+      amountPaid: waitingRegistration.totalAmount,
+      paymentMethod: 'OFFLINE_BULK_ORGANIZER',
+      qrPassCode: 'PASS-TEST-12345',
+    }
+
+    assert.equal(hasActiveEventPass(upgradedRegistration), true, 'Upgraded registration must have active verified pass')
+    assert.equal(upgradedRegistration.paymentStatus, 'VERIFIED')
+    assert.ok(upgradedRegistration.qrPassCode)
+  })
+
+  it('partitions event candidates into new passes, waiting upgrades, and already active passes', async () => {
+    const { hasActiveEventPass } = await import('../server/utils/event-registration.js')
+
+    const users = [
+      { id: 'u1', memberId: '23EU07R0015', name: 'Student New' },
+      { id: 'u2', memberId: '23EU07R0016', name: 'Student Waiting' },
+      { id: 'u3', memberId: '23EU07R0017', name: 'Student Already Passed' },
+    ]
+
+    const existingRegistrations = new Map([
+      ['u2', { id: 'reg-2', status: 'REGISTERED', paymentStatus: 'SUBMITTED', totalAmount: 100 }],
+      ['u3', { id: 'reg-3', status: 'REGISTERED', paymentStatus: 'VERIFIED', totalAmount: 100, amountPaid: 100 }],
+    ])
+
+    const newPassUsers = []
+    const waitingUpgradeUsers = []
+    const alreadyHadPassList = []
+
+    for (const user of users) {
+      const existingReg = existingRegistrations.get(user.id)
+      if (!existingReg) {
+        newPassUsers.push(user)
+      } else if (hasActiveEventPass(existingReg)) {
+        alreadyHadPassList.push({
+          user,
+          reason: 'ALREADY_ACTIVE_PASS',
+        })
+      } else {
+        waitingUpgradeUsers.push({ user, existingReg })
+      }
+    }
+
+    assert.equal(newPassUsers.length, 1)
+    assert.equal(newPassUsers[0].id, 'u1')
+
+    assert.equal(waitingUpgradeUsers.length, 1)
+    assert.equal(waitingUpgradeUsers[0].user.id, 'u2')
+
+    assert.equal(alreadyHadPassList.length, 1)
+    assert.equal(alreadyHadPassList[0].user.id, 'u3')
+  })
+
+  it('correctly matches short, full, and symbol-separated roll numbers', () => {
+    const mockUsers = [
+      {
+        id: 'u-1',
+        memberId: '23EU07R0015',
+        profile: { rollNumber: '23EU07R0015', name: 'Dhanush' },
+      },
+      {
+        id: 'u-2',
+        memberId: 'GUEST2026042',
+        profile: { rollNumber: '24EU07R0099', name: 'Priya' },
+      },
+    ]
+
+    const resolveRollNumber = (token) => {
+      const tLower = token.trim().toLowerCase()
+      const tClean = token.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+
+      // Direct match
+      for (const u of mockUsers) {
+        const mClean = (u.memberId || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+        const rClean = (u.profile?.rollNumber || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+        if (mClean === tClean || rClean === tClean || u.memberId?.toLowerCase() === tLower || u.profile?.rollNumber?.toLowerCase() === tLower) {
+          return { user: u, status: 'MATCHED' }
+        }
+      }
+
+      // Suffix/partial match (min length 4)
+      if (tClean.length >= 4) {
+        const candidates = mockUsers.filter(u => {
+          const mClean = (u.memberId || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+          const rClean = (u.profile?.rollNumber || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+          return mClean.endsWith(tClean) || rClean.endsWith(tClean) || mClean.includes(tClean) || rClean.includes(tClean)
+        })
+
+        if (candidates.length === 1) return { user: candidates[0], status: 'MATCHED' }
+        if (candidates.length > 1) return { user: null, status: 'AMBIGUOUS' }
+      }
+
+      return { user: null, status: 'NOT_FOUND' }
+    }
+
+    // 1. Exact match
+    assert.equal(resolveRollNumber('23EU07R0015').user?.id, 'u-1')
+    // 2. Case insensitive
+    assert.equal(resolveRollNumber('23eu07r0015').user?.id, 'u-1')
+    // 3. Dashed / spaced formatting
+    assert.equal(resolveRollNumber('23-EU-07R-0015').user?.id, 'u-1')
+    // 4. Short roll number suffix matching
+    assert.equal(resolveRollNumber('07R0015').user?.id, 'u-1')
+    // 5. Guest account whose memberId is GUEST2026042 but profile roll number is 24EU07R0099
+    assert.equal(resolveRollNumber('24EU07R0099').user?.id, 'u-2')
+    assert.equal(resolveRollNumber('07R0099').user?.id, 'u-2')
+    // 6. Unknown / typo
+    assert.equal(resolveRollNumber('99INVALID99').status, 'NOT_FOUND')
+  })
+
+  it('detects ambiguous short roll numbers when multiple students share suffix', () => {
+    const mockUsers = [
+      { id: 'u-1', memberId: '23EU07R0015', profile: { rollNumber: '23EU07R0015' } },
+      { id: 'u-2', memberId: '24EU07R0015', profile: { rollNumber: '24EU07R0015' } },
+    ]
+
+    const resolveSuffix = (token) => {
+      const clean = token.toUpperCase().replace(/[^A-Z0-9]/g, '')
+      const candidates = mockUsers.filter(u => {
+        const mClean = u.memberId.replace(/[^A-Z0-9]/g, '')
+        return mClean.endsWith(clean)
+      })
+      if (candidates.length === 1) return { status: 'MATCHED', user: candidates[0] }
+      if (candidates.length > 1) return { status: 'AMBIGUOUS', count: candidates.length }
+      return { status: 'NOT_FOUND' }
+    }
+
+    const result = resolveSuffix('07R0015')
+    assert.equal(result.status, 'AMBIGUOUS')
+    assert.equal(result.count, 2)
+  })
 })
 
