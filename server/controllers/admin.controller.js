@@ -1353,7 +1353,7 @@ export async function bulkIssueEventPasses(request, response) {
     })
   }
 
-  const { memberIds, assumePaid = true, notes } = parsed.data
+  const { memberIds, assumePaid = true, autoCreateMissingAccounts = false, notes } = parsed.data
   const isPreview = Boolean(request.body.previewOnly || request.query.preview === 'true')
 
   // Deduplicate and trim input IDs / roll numbers, splitting any nested delimiters
@@ -1541,25 +1541,43 @@ export async function bulkIssueEventPasses(request, response) {
     }
   }
 
-  const notFoundList = tokenResolution
-    .filter(tr => tr.errorReason)
-    .map(tr => ({
-      input: tr.token,
-      reason: tr.errorReason,
-      message: tr.errorMessage,
-    }))
+  const autoCreateCandidates = []
+  const notFoundList = []
+
+  for (const tr of tokenResolution) {
+    if (tr.errorReason) {
+      if (autoCreateMissingAccounts && tr.errorReason === 'STUDENT_NOT_FOUND') {
+        const cleanRoll = tr.token.toUpperCase().replace(/[^A-Z0-9]/g, '')
+        if (cleanRoll.length >= 2) {
+          autoCreateCandidates.push({
+            token: tr.token,
+            rollNumber: cleanRoll,
+          })
+          continue
+        }
+      }
+      notFoundList.push({
+        input: tr.token,
+        reason: tr.errorReason,
+        message: tr.errorMessage,
+      })
+    }
+  }
 
   // Pre-flight validation preview
   if (isPreview) {
+    const eligibleCount = newPassUsers.length + waitingUpgradeUsers.length + autoCreateCandidates.length
     return response.status(200).json({
       preview: true,
       totalSubmitted: rawTokens.length,
-      eligibleCount: newPassUsers.length + waitingUpgradeUsers.length,
+      eligibleCount,
       newPassesCount: newPassUsers.length,
       waitingApprovedCount: waitingUpgradeUsers.length,
+      autoCreateCount: autoCreateCandidates.length,
       alreadyHadPassCount: alreadyHadPassList.length,
       skippedCount: alreadyHadPassList.length,
       notFoundCount: notFoundList.length,
+      autoCreateMissingAccounts,
       eligible: [
         ...newPassUsers.map(u => ({
           id: u.id,
@@ -1583,18 +1601,29 @@ export async function bulkIssueEventPasses(request, response) {
           action: 'APPROVE_WAITING',
           statusDescription: `Waiting (${r.paymentStatus || r.status}) -> Will be Approved & Pass Activated`,
         })),
+        ...autoCreateCandidates.map(c => ({
+          id: 'temp_' + c.rollNumber,
+          memberId: c.rollNumber,
+          rollNumber: c.rollNumber,
+          name: `Student (${c.rollNumber})`,
+          email: null,
+          department: 'CSE',
+          year: 1,
+          action: 'AUTO_CREATE_ACCOUNT_AND_PASS',
+          statusDescription: `Account Missing -> Will Auto-Create Account (Password: ${c.rollNumber}) & Issue Pass`,
+        })),
       ],
       skipped: alreadyHadPassList,
       notFound: notFoundList,
     })
   }
 
-  if (newPassUsers.length === 0 && waitingUpgradeUsers.length === 0) {
+  if (newPassUsers.length === 0 && waitingUpgradeUsers.length === 0 && autoCreateCandidates.length === 0) {
     if (!isPreview) {
       if (alreadyHadPassList.length === 0 && notFoundList.length > 0) {
         return response.status(400).json({
           success: false,
-          message: `Cannot issue pass: Student account(s) not found (${notFoundList.map(n => n.input).slice(0, 3).join(', ')}). The student must register an account on the website first.`,
+          message: `Cannot issue pass: Student account(s) not found (${notFoundList.map(n => n.input).slice(0, 3).join(', ')}). You can enable "Auto-Create Student Accounts" to automatically create their accounts, or have students register first.`,
           notFoundCount: notFoundList.length,
           notFound: notFoundList,
         })
@@ -1622,6 +1651,7 @@ export async function bulkIssueEventPasses(request, response) {
       issuedCount: 0,
       newPassesCount: 0,
       waitingApprovedCount: 0,
+      autoCreateCount: 0,
       alreadyHadPassCount: alreadyHadPassList.length,
       skippedCount: alreadyHadPassList.length,
       notFoundCount: notFoundList.length,
@@ -1629,6 +1659,49 @@ export async function bulkIssueEventPasses(request, response) {
       skipped: alreadyHadPassList,
       notFound: notFoundList,
     })
+  }
+
+  // Auto-create missing student accounts if Option 3 enabled
+  const autoCreatedUsers = []
+  if (autoCreateCandidates.length > 0) {
+    const studentPermissions = getRolePermissions('STUDENT')
+    for (const c of autoCreateCandidates) {
+      const cleanRoll = c.rollNumber
+      let user = await prisma.user.findFirst({
+        where: {
+          OR: [
+            { memberId: cleanRoll },
+            { profile: { rollNumber: cleanRoll } },
+          ],
+        },
+        include: { profile: true },
+      })
+      if (!user) {
+        const passwordHash = await bcrypt.hash(cleanRoll, env.bcryptRounds)
+        user = await prisma.user.create({
+          data: {
+            memberId: cleanRoll,
+            role: 'STUDENT',
+            accountStatus: 'ACTIVE',
+            passwordHash,
+            profile: {
+              create: {
+                rollNumber: cleanRoll,
+                name: `Student (${cleanRoll})`,
+                department: 'CSE',
+                year: 1,
+              },
+            },
+            permissions: {
+              create: studentPermissions.map(p => ({ permission: p })),
+            },
+          },
+          include: { profile: true },
+        })
+        autoCreatedUsers.push(user)
+      }
+      newPassUsers.push(user)
+    }
   }
 
   // Determine pricing & payment status
@@ -1728,29 +1801,32 @@ export async function bulkIssueEventPasses(request, response) {
       eventId: event.id,
       eventTitle: event.title,
       totalIssued: totalProcessed,
-      newPassesCount: newPassUsers.length,
+      newPassesCount: newPassUsers.length - autoCreatedUsers.length,
+      autoCreatedAccountsCount: autoCreatedUsers.length,
       waitingApprovedCount: waitingUpgradeUsers.length,
       alreadyHadPassCount: alreadyHadPassList.length,
       notFoundCount: notFoundList.length,
       assumePaid,
+      autoCreateMissingAccounts,
     },
     ...auditRequest(request),
   })
 
   let successMessage = `Batch admission complete: `
-  if (newPassUsers.length > 0 && waitingUpgradeUsers.length > 0) {
-    successMessage += `${newPassUsers.length} new pass(es) issued, and ${waitingUpgradeUsers.length} waiting registration(s) approved and activated.`
-  } else if (newPassUsers.length > 0) {
-    successMessage += `${newPassUsers.length} new pass(es) successfully issued.`
-  } else {
-    successMessage += `${waitingUpgradeUsers.length} waiting registration(s) successfully approved and activated.`
-  }
+  const summaryParts = []
+  const pureNewPasses = newPassUsers.length - autoCreatedUsers.length
+  if (pureNewPasses > 0) summaryParts.push(`${pureNewPasses} new pass(es) issued`)
+  if (waitingUpgradeUsers.length > 0) summaryParts.push(`${waitingUpgradeUsers.length} waiting registration(s) approved and pass activated`)
+  if (autoCreatedUsers.length > 0) summaryParts.push(`${autoCreatedUsers.length} student account(s) auto-created and pass issued`)
+  if (alreadyHadPassList.length > 0) summaryParts.push(`${alreadyHadPassList.length} student(s) skipped (already had active pass)`)
+  successMessage += (summaryParts.length > 0 ? summaryParts.join(', ') : `${totalProcessed} pass(es) processed`) + '.'
 
   return response.status(200).json({
     success: true,
     message: successMessage,
     issuedCount: totalProcessed,
-    newPassesCount: newPassUsers.length,
+    newPassesCount: pureNewPasses,
+    autoCreatedAccountsCount: autoCreatedUsers.length,
     waitingApprovedCount: waitingUpgradeUsers.length,
     alreadyHadPassCount: alreadyHadPassList.length,
     skippedCount: alreadyHadPassList.length,
@@ -1760,8 +1836,8 @@ export async function bulkIssueEventPasses(request, response) {
         memberId: u.memberId,
         rollNumber: u.profile?.rollNumber || u.memberId,
         name: u.profile?.name || u.memberId,
-        type: 'NEW_PASS',
-        status: 'Pass Issued',
+        type: autoCreatedUsers.some(a => a.id === u.id) ? 'AUTO_CREATED_ACCOUNT_AND_PASS' : 'NEW_PASS',
+        status: autoCreatedUsers.some(a => a.id === u.id) ? 'Account Created & Pass Issued' : 'Pass Issued',
       })),
       ...waitingUpgradeUsers.map(({ user: u }) => ({
         memberId: u.memberId,

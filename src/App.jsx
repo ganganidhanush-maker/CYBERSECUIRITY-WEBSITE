@@ -10643,6 +10643,7 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
   const [selectedEventId, setSelectedEventId] = useState('')
   const [memberIdsText, setMemberIdsText] = useState('')
   const [assumePaid, setAssumePaid] = useState(true)
+  const [autoCreateMissingAccounts, setAutoCreateMissingAccounts] = useState(false)
   const [notes, setNotes] = useState('Bulk pass issued by Organizer (Offline Verified)')
   const [previewData, setPreviewData] = useState(null)
   const [loadingPreview, setLoadingPreview] = useState(false)
@@ -10713,6 +10714,7 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
       adminApi.bulkIssueEventPasses(selectedEventId, {
         memberIds: extractedIds,
         assumePaid,
+        autoCreateMissingAccounts,
         previewOnly: true,
       })
         .then(res => {
@@ -10733,7 +10735,7 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
       active = false
       clearTimeout(timeout)
     }
-  }, [selectedEventId, extractedIds, assumePaid, isTeamOnly])
+  }, [selectedEventId, extractedIds, assumePaid, autoCreateMissingAccounts, isTeamOnly])
 
   // Handle Excel (.xlsx, .xls) and CSV file uploads
   function handleFileUpload(e) {
@@ -10855,7 +10857,7 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
     }
     if (previewData && (previewData.eligibleCount ?? 0) === 0) {
       if ((previewData.notFoundCount ?? 0) > 0 && (previewData.alreadyHadPassCount ?? 0) === 0) {
-        setError('Cannot issue passes: Entered student account(s) do not exist in the portal. Please ensure roll numbers are correct and students have registered accounts.')
+        setError('Cannot issue passes: Entered student account(s) do not exist in the portal. Enable "Auto-Create Student Accounts" below or ensure students register first.')
       } else if ((previewData.alreadyHadPassCount ?? 0) > 0 && (previewData.notFoundCount ?? 0) === 0) {
         setError('Cannot issue passes: All entered students already hold active verified passes for this event.')
       } else {
@@ -10874,6 +10876,7 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
       const result = await adminApi.bulkIssueEventPasses(selectedEventId, {
         memberIds: extractedIds,
         assumePaid,
+        autoCreateMissingAccounts,
         notes: notes.trim() || undefined,
         previewOnly: false,
       })
@@ -10913,7 +10916,7 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
     )
   } else if (isZeroEligible) {
     if (hasNotFound && !hasSkipped) {
-      submitButtonContent = 'CANNOT ISSUE: ACCOUNT DOES NOT EXIST'
+      submitButtonContent = autoCreateMissingAccounts ? 'CANNOT ISSUE: INVALID ROLL NUMBERS' : 'CANNOT ISSUE: ACCOUNT DOES NOT EXIST'
     } else if (hasSkipped && !hasNotFound) {
       submitButtonContent = 'ALREADY ISSUED: ALL HOLD ACTIVE PASSES'
     } else {
@@ -10921,11 +10924,29 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
     }
   } else if (isEligible) {
     const count = previewData.eligibleCount
-    submitButtonContent = (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-        <IconZap size={14} /> ISSUE {count} PASS{count > 1 ? 'ES' : ''} NOW
-      </span>
-    )
+    const autoCount = previewData.autoCreateCount || 0
+    const waitCount = previewData.waitingApprovedCount || 0
+    const newCount = previewData.newPassesCount || 0
+
+    if (autoCount > 0) {
+      submitButtonContent = (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <IconZap size={14} /> ISSUE {count} PASS{count > 1 ? 'ES' : ''} (INCL. {autoCount} NEW ACCOUNTS)
+        </span>
+      )
+    } else if (waitCount > 0 && newCount === 0) {
+      submitButtonContent = (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <IconZap size={14} /> ACTIVATE {waitCount} WAITING PASS{waitCount > 1 ? 'ES' : ''} NOW
+        </span>
+      )
+    } else {
+      submitButtonContent = (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          <IconZap size={14} /> ISSUE {count} PASS{count > 1 ? 'ES' : ''} NOW
+        </span>
+      )
+    }
   } else {
     submitButtonContent = 'CHECKING ACCOUNTS…'
   }
@@ -11036,8 +11057,8 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
             </small>
           </div>
 
-          {/* Step 3: Payment Settings */}
-          <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '12px' }}>
+          {/* Step 3: Payment & Provisioning Settings */}
+          <div style={{ marginBottom: '16px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
             <div style={{ background: 'var(--panel-subtle)', padding: '12px', borderRadius: '8px', border: '1px solid var(--line)' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, font: '600 12px Syne' }}>
                 <input
@@ -11046,10 +11067,25 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
                   onChange={e => setAssumePaid(e.target.checked)}
                   style={{ width: '16px', height: '16px', accentColor: 'var(--brand-primary)' }}
                 />
-                <span>Assume Payment Paid & Activate QR Pass</span>
+                <span>Assume Paid & Issue Pass</span>
               </label>
               <small style={{ color: 'var(--text-dim)', fontSize: '10.5px', display: 'block', marginTop: '4px' }}>
                 Generates verified pass with QR code immediately in the student's Ticket Wallet.
+              </small>
+            </div>
+
+            <div style={{ background: autoCreateMissingAccounts ? 'rgba(139, 92, 246, 0.08)' : 'var(--panel-subtle)', padding: '12px', borderRadius: '8px', border: autoCreateMissingAccounts ? '1px solid rgba(139, 92, 246, 0.4)' : '1px solid var(--line)', transition: 'all 0.2s ease' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, font: '600 12px Syne', color: autoCreateMissingAccounts ? '#8b5cf6' : 'var(--text-main)' }}>
+                <input
+                  type="checkbox"
+                  checked={autoCreateMissingAccounts}
+                  onChange={e => setAutoCreateMissingAccounts(e.target.checked)}
+                  style={{ width: '16px', height: '16px', accentColor: '#8b5cf6' }}
+                />
+                <span>Auto-Create Student Accounts</span>
+              </label>
+              <small style={{ color: 'var(--text-dim)', fontSize: '10.5px', display: 'block', marginTop: '4px' }}>
+                If account is missing, auto-create it. User ID & initial password = Roll Number.
               </small>
             </div>
 
@@ -11083,7 +11119,7 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
 
               {previewData && (
                 <div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px', marginBottom: '10px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '8px', marginBottom: '10px' }}>
                     <div style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
                       <span style={{ color: '#10b981', font: '700 18px "DM Mono", monospace', display: 'block' }}>
                         {previewData.newPassesCount ?? previewData.eligibleCount}
@@ -11096,6 +11132,14 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
                       </span>
                       <small style={{ color: '#3b82f6', fontSize: '10px', textTransform: 'uppercase' }}>Waiting Activated</small>
                     </div>
+                    {Boolean(autoCreateMissingAccounts || (previewData.autoCreateCount ?? 0) > 0) && (
+                      <div style={{ background: 'rgba(139, 92, 246, 0.1)', border: '1px solid rgba(139, 92, 246, 0.3)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
+                        <span style={{ color: '#8b5cf6', font: '700 18px "DM Mono", monospace', display: 'block' }}>
+                          {previewData.autoCreateCount || 0}
+                        </span>
+                        <small style={{ color: '#8b5cf6', fontSize: '10px', textTransform: 'uppercase' }}>Auto-Created</small>
+                      </div>
+                    )}
                     <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
                       <span style={{ color: '#f59e0b', font: '700 18px "DM Mono", monospace', display: 'block' }}>
                         {previewData.alreadyHadPassCount ?? previewData.skippedCount}
@@ -11116,10 +11160,12 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
                       <div>
                         <b style={{ display: 'block', marginBottom: '2px' }}>Pass Issuance Blocked (0 Eligible Accounts)</b>
                         {hasNotFound && !hasSkipped && (
-                          <span>The student account(s) you entered do not exist in the portal. Students must register on the portal (their Roll Number is their User ID) before an event pass can be assigned to them.</span>
+                          <span>
+                            The student account(s) you entered do not exist in the portal. You can check <b>&quot;Auto-Create Student Accounts&quot;</b> above to automatically register them and issue passes, or have students register first.
+                          </span>
                         )}
                         {hasSkipped && !hasNotFound && (
-                          <span>All entered student(s) already hold active verified passes for this event. No duplicates will be created.</span>
+                          <span>All entered student(s) already hold active verified passes for this event. No duplicate passes will be created.</span>
                         )}
                         {hasNotFound && hasSkipped && (
                           <span>None of the entered student roll numbers can receive a new pass (some accounts do not exist, and the rest already hold active passes).</span>
@@ -11128,11 +11174,39 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
                     </div>
                   )}
 
-                  {isEligible && hasNotFound && (
+                  {/* Informative banners */}
+                  {(previewData.autoCreateCount ?? 0) > 0 && (
+                    <div style={{ marginTop: '10px', marginBottom: '12px', padding: '10px 14px', background: 'rgba(139, 92, 246, 0.12)', border: '1px solid rgba(139, 92, 246, 0.35)', borderRadius: '8px', color: '#8b5cf6', fontSize: '12px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <IconZap size={18} style={{ flexShrink: 0, marginTop: '1px' }} />
+                      <div>
+                        <b>Auto-Account Creation Active:</b> {previewData.autoCreateCount} missing student account(s) will be automatically created with Role <b>STUDENT</b>. Their Roll Number will be both their User ID and default Password.
+                      </div>
+                    </div>
+                  )}
+
+                  {(previewData.waitingApprovedCount ?? 0) > 0 && (
+                    <div style={{ marginTop: '10px', marginBottom: '12px', padding: '10px 14px', background: 'rgba(59, 130, 246, 0.12)', border: '1px solid rgba(59, 130, 246, 0.35)', borderRadius: '8px', color: '#3b82f6', fontSize: '12px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <IconCheckCircle size={18} style={{ flexShrink: 0, marginTop: '1px' }} />
+                      <div>
+                        <b>Waiting Verification Upgrade:</b> {previewData.waitingApprovedCount} student(s) currently waiting for verification will have their registrations approved and passes activated immediately with valid QR codes.
+                      </div>
+                    </div>
+                  )}
+
+                  {hasSkipped && (
                     <div style={{ marginTop: '10px', marginBottom: '12px', padding: '10px 14px', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)', borderRadius: '8px', color: '#f59e0b', fontSize: '12px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
                       <IconAlertTriangle size={18} style={{ flexShrink: 0, marginTop: '1px' }} />
                       <div>
-                        <b>Partial Match Warning:</b> {previewData.notFoundCount} student ID(s) could not be found in the portal and will be skipped. Only the {previewData.eligibleCount} verified student(s) listed below will receive passes.
+                        <b>Duplicate Pass Protection:</b> {skippedCount} student(s) already hold active verified passes for this event and will be skipped.
+                      </div>
+                    </div>
+                  )}
+
+                  {isEligible && hasNotFound && !autoCreateMissingAccounts && (
+                    <div style={{ marginTop: '10px', marginBottom: '12px', padding: '10px 14px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.35)', borderRadius: '8px', color: '#ef4444', fontSize: '12px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <IconAlertTriangle size={18} style={{ flexShrink: 0, marginTop: '1px' }} />
+                      <div>
+                        <b>Missing Accounts Warning:</b> {previewData.notFoundCount} roll number(s) do not exist in the portal and will be skipped. Enable <b>&quot;Auto-Create Student Accounts&quot;</b> above to register them automatically.
                       </div>
                     </div>
                   )}
@@ -11154,7 +11228,11 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
                             <td style={{ padding: '6px 8px', fontFamily: '"DM Mono", monospace' }}>{u.rollNumber || u.memberId}</td>
                             <td style={{ padding: '6px 8px' }}>{u.department}</td>
                             <td style={{ padding: '6px 8px' }}>
-                              {u.action === 'APPROVE_WAITING' ? (
+                              {u.action === 'AUTO_CREATE_ACCOUNT_AND_PASS' ? (
+                                <span style={{ background: 'rgba(139, 92, 246, 0.2)', color: '#8b5cf6', padding: '2px 8px', borderRadius: '4px', font: '600 10px "DM Mono", monospace' }}>
+                                  AUTO-CREATE & ISSUE
+                                </span>
+                              ) : u.action === 'APPROVE_WAITING' ? (
                                 <span style={{ background: 'rgba(59, 130, 246, 0.2)', color: '#3b82f6', padding: '2px 8px', borderRadius: '4px', font: '600 10px "DM Mono", monospace' }}>
                                   ACTIVATE PASS
                                 </span>
@@ -11248,7 +11326,7 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
                 {resultModal.message}
               </p>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))', gap: '8px', marginBottom: '18px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(70px, 1fr))', gap: '8px', marginBottom: '18px' }}>
                 <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '8px', borderRadius: '8px' }}>
                   <span style={{ color: '#10b981', font: '700 16px "DM Mono", monospace', display: 'block' }}>{resultModal.newPassesCount ?? resultModal.issuedCount}</span>
                   <small style={{ color: '#10b981', fontSize: '9px' }}>NEW PASSES</small>
@@ -11257,6 +11335,12 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
                   <span style={{ color: '#3b82f6', font: '700 16px "DM Mono", monospace', display: 'block' }}>{resultModal.waitingApprovedCount || 0}</span>
                   <small style={{ color: '#3b82f6', fontSize: '9px' }}>WAITING ACTIVATED</small>
                 </div>
+                {(resultModal.autoCreatedAccountsCount || 0) > 0 && (
+                  <div style={{ background: 'rgba(139, 92, 246, 0.1)', padding: '8px', borderRadius: '8px' }}>
+                    <span style={{ color: '#8b5cf6', font: '700 16px "DM Mono", monospace', display: 'block' }}>{resultModal.autoCreatedAccountsCount}</span>
+                    <small style={{ color: '#8b5cf6', fontSize: '9px' }}>ACCOUNTS CREATED</small>
+                  </div>
+                )}
                 <div style={{ background: 'rgba(245, 158, 11, 0.1)', padding: '8px', borderRadius: '8px' }}>
                   <span style={{ color: '#f59e0b', font: '700 16px "DM Mono", monospace', display: 'block' }}>{resultModal.alreadyHadPassCount ?? resultModal.skippedCount}</span>
                   <small style={{ color: '#f59e0b', fontSize: '9px' }}>ALREADY ACTIVE</small>

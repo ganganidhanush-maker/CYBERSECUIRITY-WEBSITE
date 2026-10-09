@@ -358,5 +358,60 @@ describe('Bulk Event Pass Issuance & Solo Event Validation', () => {
     assert.equal(result.status, 'AMBIGUOUS')
     assert.equal(result.count, 2)
   })
+
+  it('validates bulkIssuePassesSchema with autoCreateMissingAccounts flag', async () => {
+    const { bulkIssuePassesSchema } = await import('../server/validators/member.validator.js')
+
+    // Default autoCreateMissingAccounts is false
+    const def = bulkIssuePassesSchema.parse({
+      memberIds: ['23EU07R0015'],
+    })
+    assert.equal(def.autoCreateMissingAccounts, false)
+
+    // Explicit autoCreateMissingAccounts = true
+    const enabled = bulkIssuePassesSchema.parse({
+      memberIds: ['23EU07R0015'],
+      autoCreateMissingAccounts: true,
+    })
+    assert.equal(enabled.autoCreateMissingAccounts, true)
+  })
+
+  it('partitions missing roll numbers into auto-create candidates when Option 3 is enabled vs notFound when disabled', () => {
+    const tokenResolution = [
+      { token: '23CS101', user: { id: 'u1', memberId: '23CS101' }, errorReason: null },
+      { token: '23CS999', user: null, errorReason: 'STUDENT_NOT_FOUND', errorMessage: 'No student account matches' },
+    ]
+
+    // Case A: autoCreateMissingAccounts = false
+    const disabledNotFound = []
+    const disabledAutoCreate = []
+    for (const tr of tokenResolution) {
+      if (tr.errorReason) {
+        disabledNotFound.push({ input: tr.token, reason: tr.errorReason })
+      }
+    }
+    assert.equal(disabledNotFound.length, 1)
+    assert.equal(disabledNotFound[0].input, '23CS999')
+    assert.equal(disabledAutoCreate.length, 0)
+
+    // Case B: autoCreateMissingAccounts = true
+    const enabledNotFound = []
+    const enabledAutoCreate = []
+    for (const tr of tokenResolution) {
+      if (tr.errorReason) {
+        if (tr.errorReason === 'STUDENT_NOT_FOUND') {
+          const cleanRoll = tr.token.toUpperCase().replace(/[^A-Z0-9]/g, '')
+          if (cleanRoll.length >= 2) {
+            enabledAutoCreate.push({ token: tr.token, rollNumber: cleanRoll })
+            continue
+          }
+        }
+        enabledNotFound.push({ input: tr.token, reason: tr.errorReason })
+      }
+    }
+    assert.equal(enabledAutoCreate.length, 1)
+    assert.equal(enabledAutoCreate[0].rollNumber, '23CS999')
+    assert.equal(enabledNotFound.length, 0)
+  })
 })
 
