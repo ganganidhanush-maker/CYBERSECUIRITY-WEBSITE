@@ -1378,13 +1378,12 @@ export async function bulkIssueEventPasses(request, response) {
   }
   const searchTokenArray = Array.from(allSearchTokens)
 
-  // 1. Fetch matching active students by memberId, profile.rollNumber, or email
+  // 1. Fetch matching active students by memberId, profile.rollNumber, or profile.email
   const foundUsers = await prisma.user.findMany({
     where: {
       accountStatus: 'ACTIVE',
       OR: [
         { memberId: { in: searchTokenArray } },
-        { email: { in: searchTokenArray } },
         { profile: { rollNumber: { in: searchTokenArray } } },
         { profile: { email: { in: searchTokenArray } } },
       ],
@@ -1407,7 +1406,6 @@ export async function bulkIssueEventPasses(request, response) {
       const uRollAlpha = u.profile.rollNumber.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
       if (uRollAlpha) userByExactKey.set(uRollAlpha, u)
     }
-    if (u.email) userByExactKey.set(u.email.trim().toLowerCase(), u)
     if (u.profile?.email) userByExactKey.set(u.profile.email.trim().toLowerCase(), u)
   }
 
@@ -1568,7 +1566,7 @@ export async function bulkIssueEventPasses(request, response) {
           memberId: u.memberId,
           rollNumber: u.profile?.rollNumber || u.memberId,
           name: u.profile?.name || u.memberId,
-          email: u.email,
+          email: u.profile?.email || null,
           department: u.profile?.department || 'CSE',
           year: u.profile?.year || 1,
           action: 'CREATE_NEW_PASS',
@@ -1579,7 +1577,7 @@ export async function bulkIssueEventPasses(request, response) {
           memberId: u.memberId,
           rollNumber: u.profile?.rollNumber || u.memberId,
           name: u.profile?.name || u.memberId,
-          email: u.email,
+          email: u.profile?.email || null,
           department: u.profile?.department || 'CSE',
           year: u.profile?.year || 1,
           action: 'APPROVE_WAITING',
@@ -1669,8 +1667,8 @@ export async function bulkIssueEventPasses(request, response) {
         paymentVerifiedAt,
         paymentVerifiedBy,
         paymentNotes: notes || `Bulk pass issued by ${auditOrganizerName}`,
-        branch: student.profile?.department || student.department || null,
-        year: student.profile?.year ? Number(student.profile.year) : (student.year ? Number(student.year) : null),
+        branch: student.profile?.department || null,
+        year: student.profile?.year ? Number(student.profile.year) : null,
         gender: student.profile?.gender || null,
         status: 'REGISTERED',
         attendanceMarked: false,
