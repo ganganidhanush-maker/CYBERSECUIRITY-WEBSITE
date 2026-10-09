@@ -10703,12 +10703,13 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
   useEffect(() => {
     if (!selectedEventId || isTeamOnly || extractedIds.length === 0) {
       setPreviewData(null)
+      setLoadingPreview(false)
       return
     }
 
     let active = true
+    setLoadingPreview(true)
     const timeout = setTimeout(() => {
-      setLoadingPreview(true)
       adminApi.bulkIssueEventPasses(selectedEventId, {
         memberIds: extractedIds,
         assumePaid,
@@ -10845,7 +10846,25 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
       return
     }
     if (extractedIds.length === 0) {
-      setError('Please provide at least one student ID.')
+      setError('Please enter student roll number(s).')
+      return
+    }
+    if (loadingPreview) {
+      setError('Still verifying student roll numbers. Please wait a moment...')
+      return
+    }
+    if (previewData && (previewData.eligibleCount ?? 0) === 0) {
+      if ((previewData.notFoundCount ?? 0) > 0 && (previewData.alreadyHadPassCount ?? 0) === 0) {
+        setError('Cannot issue passes: Entered student account(s) do not exist in the portal. Please ensure roll numbers are correct and students have registered accounts.')
+      } else if ((previewData.alreadyHadPassCount ?? 0) > 0 && (previewData.notFoundCount ?? 0) === 0) {
+        setError('Cannot issue passes: All entered students already hold active verified passes for this event.')
+      } else {
+        setError('Cannot issue passes: 0 eligible student accounts found.')
+      }
+      return
+    }
+    if (!canIssue) {
+      setError('Cannot proceed. Please ensure you have entered valid registered student roll numbers.')
       return
     }
 
@@ -10869,6 +10888,48 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
     }
   }
 
+  const hasInput = extractedIds.length > 0
+  const isEligible = Boolean(previewData && (previewData.eligibleCount ?? 0) > 0)
+  const isZeroEligible = Boolean(previewData && (previewData.eligibleCount ?? 0) === 0)
+  const notFoundCount = previewData?.notFoundCount ?? 0
+  const skippedCount = previewData?.alreadyHadPassCount ?? previewData?.skippedCount ?? 0
+  const hasNotFound = notFoundCount > 0
+  const hasSkipped = skippedCount > 0
+
+  const canIssue = !submitting && !isTeamOnly && hasInput && !loadingPreview && isEligible
+
+  let submitButtonContent = null
+  if (submitting) {
+    submitButtonContent = 'GENERATING PASSES…'
+  } else if (!hasInput) {
+    submitButtonContent = 'ENTER STUDENT ROLL NUMBER(S)'
+  } else if (isTeamOnly) {
+    submitButtonContent = 'INELIGIBLE: SOLO EVENTS ONLY'
+  } else if (loadingPreview) {
+    submitButtonContent = (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+        <IconRefresh size={13} className="spin-inline" /> CHECKING STUDENT ACCOUNT(S)…
+      </span>
+    )
+  } else if (isZeroEligible) {
+    if (hasNotFound && !hasSkipped) {
+      submitButtonContent = 'CANNOT ISSUE: ACCOUNT DOES NOT EXIST'
+    } else if (hasSkipped && !hasNotFound) {
+      submitButtonContent = 'ALREADY ISSUED: ALL HOLD ACTIVE PASSES'
+    } else {
+      submitButtonContent = 'CANNOT ISSUE: 0 ELIGIBLE STUDENTS'
+    }
+  } else if (isEligible) {
+    const count = previewData.eligibleCount
+    submitButtonContent = (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+        <IconZap size={14} /> ISSUE {count} PASS{count > 1 ? 'ES' : ''} NOW
+      </span>
+    )
+  } else {
+    submitButtonContent = 'CHECKING ACCOUNTS…'
+  }
+
   if (!isOpen) return null
 
   return (
@@ -10882,7 +10943,7 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
           <p className="eyebrow" style={{ color: '#10b981' }}>BATCH ADMISSION ENGINE</p>
           <h2 style={{ margin: '4px 0 6px', fontSize: '20px' }}>⚡ Bulk Event Pass Issuance (Excel / CSV Batch)</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: 1.5, margin: 0 }}>
-            Drop an Excel sheet or paste student IDs to issue verified event passes instantly in one batch, bypassing simultaneous server checkout traffic.
+            Enter student roll numbers or drop an Excel sheet to issue verified event passes instantly in one batch, bypassing checkout queues.
           </p>
         </div>
 
@@ -10928,9 +10989,14 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
           {/* Step 2: Excel / CSV File Drop or ID Paste */}
           <div style={{ marginBottom: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', flexWrap: 'wrap', gap: '8px' }}>
-              <label style={{ font: '700 12px "DM Mono", monospace', color: 'var(--text-main)' }}>
-                2. DROP EXCEL (.XLSX) / CSV SHEET OR PASTE IDS
-              </label>
+              <div>
+                <label style={{ font: '700 12px "DM Mono", monospace', color: 'var(--text-main)', display: 'block' }}>
+                  2. ENTER ROLL NUMBERS OR UPLOAD EXCEL / CSV
+                </label>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                  Only Roll Numbers required — passes link directly to student accounts.
+                </span>
+              </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input
                   type="file"
@@ -10960,7 +11026,7 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
 
             <textarea
               className="bulk-textarea"
-              placeholder={`Paste Student IDs, Roll Numbers, or Emails (one per line or comma separated):\n\n23CS101\n23CS102\n23CS103\n23CS104`}
+              placeholder={`Just enter Student Roll Numbers (one per line or comma separated):\n\n23EU07R0015\n23CS101\n23CS102\n\nNo other info needed. Passes appear directly in each student's wallet.`}
               value={memberIdsText}
               onChange={e => setMemberIdsText(e.target.value)}
               style={{ minHeight: '110px', fontFamily: '"DM Mono", monospace', fontSize: '12px', lineHeight: 1.5, width: '100%' }}
@@ -11008,7 +11074,11 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
                 <label style={{ font: '700 11px "DM Mono", monospace', color: 'var(--text-main)' }}>
                   3. PRE-FLIGHT VALIDATION PREVIEW
                 </label>
-                {loadingPreview && <span style={{ color: 'var(--brand-primary)', fontSize: '11px' }}>Validating IDs…</span>}
+                {loadingPreview && (
+                  <span style={{ color: 'var(--brand-primary)', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <IconRefresh size={12} className="spin-inline" /> Validating IDs…
+                  </span>
+                )}
               </div>
 
               {previewData && (
@@ -11039,6 +11109,33 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
                       <small style={{ color: '#ef4444', fontSize: '10px', textTransform: 'uppercase' }}>Account Missing</small>
                     </div>
                   </div>
+
+                  {isZeroEligible && (
+                    <div style={{ marginTop: '10px', marginBottom: '12px', padding: '12px 14px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.35)', borderRadius: '8px', color: '#ef4444', fontSize: '12px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <IconXCircle size={18} style={{ flexShrink: 0, marginTop: '1px' }} />
+                      <div>
+                        <b style={{ display: 'block', marginBottom: '2px' }}>Pass Issuance Blocked (0 Eligible Accounts)</b>
+                        {hasNotFound && !hasSkipped && (
+                          <span>The student account(s) you entered do not exist in the portal. Students must register on the portal (their Roll Number is their User ID) before an event pass can be assigned to them.</span>
+                        )}
+                        {hasSkipped && !hasNotFound && (
+                          <span>All entered student(s) already hold active verified passes for this event. No duplicates will be created.</span>
+                        )}
+                        {hasNotFound && hasSkipped && (
+                          <span>None of the entered student roll numbers can receive a new pass (some accounts do not exist, and the rest already hold active passes).</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {isEligible && hasNotFound && (
+                    <div style={{ marginTop: '10px', marginBottom: '12px', padding: '10px 14px', background: 'rgba(245, 158, 11, 0.12)', border: '1px solid rgba(245, 158, 11, 0.35)', borderRadius: '8px', color: '#f59e0b', fontSize: '12px', display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                      <IconAlertTriangle size={18} style={{ flexShrink: 0, marginTop: '1px' }} />
+                      <div>
+                        <b>Partial Match Warning:</b> {previewData.notFoundCount} student ID(s) could not be found in the portal and will be skipped. Only the {previewData.eligibleCount} verified student(s) listed below will receive passes.
+                      </div>
+                    </div>
+                  )}
 
                   <div className="bulk-preview-wrap" style={{ maxHeight: '200px', overflowY: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
@@ -11118,14 +11215,23 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
             <button
               type="submit"
               className="primary"
-              disabled={submitting || isTeamOnly || extractedIds.length === 0 || (previewData && previewData.eligibleCount === 0)}
-              style={{ flex: 2, height: '42px', fontSize: '11px', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none', color: '#fff' }}
+              disabled={!canIssue}
+              style={{
+                flex: 2,
+                height: '42px',
+                fontSize: '11px',
+                fontWeight: '700',
+                letterSpacing: '0.04em',
+                background: canIssue ? 'linear-gradient(135deg, #10b981, #059669)' : 'var(--panel-subtle)',
+                border: canIssue ? 'none' : '1px solid var(--line)',
+                color: canIssue ? '#ffffff' : 'var(--text-dim)',
+                cursor: canIssue ? 'pointer' : 'not-allowed',
+                opacity: canIssue ? 1 : 0.65,
+                boxShadow: canIssue ? '0 4px 14px rgba(16, 185, 129, 0.35)' : 'none',
+                transition: 'all 0.2s ease',
+              }}
             >
-              {submitting ? 'GENERATING PASSES…' : (
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                  <IconZap size={14} /> ISSUE {previewData ? previewData.eligibleCount : extractedIds.length} PASSES NOW
-                </span>
-              )}
+              {submitButtonContent}
             </button>
           </div>
         </form>

@@ -1592,7 +1592,33 @@ export async function bulkIssueEventPasses(request, response) {
   }
 
   if (newPassUsers.length === 0 && waitingUpgradeUsers.length === 0) {
+    if (!isPreview) {
+      if (alreadyHadPassList.length === 0 && notFoundList.length > 0) {
+        return response.status(400).json({
+          success: false,
+          message: `Cannot issue pass: Student account(s) not found (${notFoundList.map(n => n.input).slice(0, 3).join(', ')}). The student must register an account on the website first.`,
+          notFoundCount: notFoundList.length,
+          notFound: notFoundList,
+        })
+      }
+      if (alreadyHadPassList.length > 0 && notFoundList.length === 0) {
+        return response.status(400).json({
+          success: false,
+          message: `All entered student(s) already hold active verified passes for this event. No new passes were issued.`,
+          alreadyHadPassCount: alreadyHadPassList.length,
+          skipped: alreadyHadPassList,
+        })
+      }
+      return response.status(400).json({
+        success: false,
+        message: `No passes issued: ${alreadyHadPassList.length} already hold active passes, and ${notFoundList.length} student account(s) do not exist.`,
+        notFound: notFoundList,
+        skipped: alreadyHadPassList,
+      })
+    }
+
     return response.status(200).json({
+      preview: true,
       success: true,
       message: 'No passes needed. All matched students already hold active verified passes, or student accounts were not found.',
       issuedCount: 0,
