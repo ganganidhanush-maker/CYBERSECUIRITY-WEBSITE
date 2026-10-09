@@ -407,11 +407,15 @@ export async function switchAccount(request, response) {
     return response.status(400).json({ message: 'Target user ID or Member ID is required.' })
   }
 
+  const cleanTarget = targetIdentifier.toUpperCase().replace(/[^A-Z0-9]/g, '')
   const targetUser = await prisma.user.findFirst({
     where: {
       OR: [
         { id: targetIdentifier },
         { memberId: targetIdentifier.toUpperCase() },
+        ...(cleanTarget.length >= 2 ? [{ memberId: cleanTarget }] : []),
+        { profile: { rollNumber: targetIdentifier.toUpperCase() } },
+        ...(cleanTarget.length >= 2 ? [{ profile: { rollNumber: cleanTarget } }] : []),
       ],
     },
     include: userInclude,
