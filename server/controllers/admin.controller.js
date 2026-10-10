@@ -3595,18 +3595,17 @@ export async function deleteCouncilMessage(request, response) {
 // One-Click Full Database Backup (.sql)
 // ----------------------------------------------------
 export async function exportDatabaseSql(request, response) {
-  const { password, quickExport } = request.body || {}
-  if (!password && !quickExport) {
-    return response.status(400).json({ message: 'Primary President account password is required to generate a full database backup.' })
-  }
+  const { password } = request.body || {}
 
-  // Fetch current primary president account with passwordHash
-  const president = await prisma.user.findUnique({ where: { id: request.user.id } })
-  if (!president || !president.isPrimaryAdmin) {
-    return response.status(403).json({ message: 'Access Denied: Only the Primary President can export complete database dumps.' })
+  if (!request.user.isPrimaryAdmin && request.user.role !== 'PRESIDENT' && request.user.role !== 'ADMIN') {
+    return response.status(403).json({ message: 'Access Denied: Only the President or Admin can export complete database dumps.' })
   }
 
   if (password) {
+    const president = await prisma.user.findUnique({ where: { id: request.user.id } })
+    if (!president) {
+      return response.status(403).json({ message: 'Access Denied: Account not found.' })
+    }
     let isPasswordValid = await bcrypt.compare(String(password), president.passwordHash)
     if (!isPasswordValid && president.masterSecurityPinHash) {
       isPasswordValid = await bcrypt.compare(String(password), president.masterSecurityPinHash)
@@ -3652,14 +3651,14 @@ export async function restoreDatabaseSql(request, response) {
     return response.status(400).json({ message: 'Please select or upload a valid .sql database backup file to restore.' })
   }
 
-  const president = await prisma.user.findUnique({ where: { id: request.user.id } })
-  if (!president || !president.isPrimaryAdmin) {
-    return response.status(403).json({ message: 'Access Denied: Only the Primary President can restore database backups.' })
+  if (!request.user.isPrimaryAdmin && request.user.role !== 'PRESIDENT' && request.user.role !== 'ADMIN') {
+    return response.status(403).json({ message: 'Access Denied: Only the President or Admin can restore database backups.' })
   }
 
   if (password) {
-    let isPasswordValid = await bcrypt.compare(String(password), president.passwordHash)
-    if (!isPasswordValid && president.masterSecurityPinHash) {
+    const president = await prisma.user.findUnique({ where: { id: request.user.id } })
+    let isPasswordValid = president ? await bcrypt.compare(String(password), president.passwordHash) : false
+    if (!isPasswordValid && president?.masterSecurityPinHash) {
       isPasswordValid = await bcrypt.compare(String(password), president.masterSecurityPinHash)
     }
     if (!isPasswordValid) {

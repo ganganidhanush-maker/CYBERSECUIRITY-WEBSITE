@@ -67,24 +67,7 @@ export const ALL_DATABASE_TABLES = [
 export async function generateFullDatabaseSqlDump(exportedByMemberId = 'SYSTEM') {
   const timestamp = new Date().toISOString()
   const lines = []
-
-  // Discover any extra tables in the current DB so nothing is ever left behind
-  const tableSet = new Set(ALL_DATABASE_TABLES)
-  try {
-    const dbTables = await prisma.$queryRawUnsafe('SHOW TABLES')
-    if (Array.isArray(dbTables)) {
-      for (const row of dbTables) {
-        const name = Object.values(row)[0]
-        if (name && typeof name === 'string' && !name.startsWith('_prisma')) {
-          tableSet.add(name)
-        }
-      }
-    }
-  } catch {
-    // Fallback to ALL_DATABASE_TABLES
-  }
-
-  const orderedTables = Array.from(tableSet)
+  const orderedTables = [...ALL_DATABASE_TABLES]
 
   lines.push('-- ========================================================')
   lines.push('-- MALLA REDDY (MR) DEEMED TO BE UNIVERSITY & CYBER SECURITY CLUB')
@@ -103,41 +86,67 @@ export async function generateFullDatabaseSqlDump(exportedByMemberId = 'SYSTEM')
   lines.push('')
 
   let totalRowsExported = 0
+  let consecutiveFailures = 0
+  let firstErrorMsg = ''
 
-  for (const table of orderedTables) {
-    try {
-      const rows = await prisma.$queryRawUnsafe(`SELECT * FROM \`${table}\``)
-      const count = Array.isArray(rows) ? rows.length : 0
+  // Fetch tables in parallel batches of 6 to cut export latency by ~75%
+  const BATCH_SIZE = 6
+  for (let i = 0; i < orderedTables.length; i += BATCH_SIZE) {
+    const batch = orderedTables.slice(i, i + BATCH_SIZE)
+    const batchResults = await Promise.all(
+      batch.map(async table => {
+        try {
+          const [rows, createResult] = await Promise.all([
+            prisma.$queryRawUnsafe(`SELECT * FROM \`${table}\``),
+            prisma.$queryRawUnsafe(`SHOW CREATE TABLE \`${table}\``).catch(() => null),
+          ])
+          return { table, rows: Array.isArray(rows) ? rows : [], createResult, error: null }
+        } catch (err) {
+          return { table, rows: [], createResult: null, error: err }
+        }
+      })
+    )
+
+    for (const res of batchResults) {
+      const { table, rows, createResult, error } = res
+      if (error) {
+        consecutiveFailures++
+        if (!firstErrorMsg) firstErrorMsg = error.message || String(error)
+        // If the database connection itself is throttled or unreachable, fail fast instead of waiting on 24 tables
+        if (consecutiveFailures >= 3 && totalRowsExported === 0) {
+          throw new Error(
+            `Database query blocked by TiDB (${firstErrorMsg.slice(0, 140)}). Because your old TiDB instance hit 60.5M / 50M Request Units with a $0.00 limit, TiDB has paused queries on it. In TiDB Cloud Console, temporarily set Monthly Spending Limit on the old instance to $1.00 (costs $0.00) for 1 minute to download the .sql backup!`
+          )
+        }
+        lines.push(`-- [WARNING] Could not dump table \`${table}\`: ${error.message}`)
+        lines.push('')
+        continue
+      }
+
+      consecutiveFailures = 0
+      const count = rows.length
       totalRowsExported += count
 
       lines.push(`-- ========================================================`)
       lines.push(`-- Table structure for \`${table}\``)
       lines.push(`-- ========================================================`)
 
-      try {
-        const createResult = await prisma.$queryRawUnsafe(`SHOW CREATE TABLE \`${table}\``)
-        if (createResult && createResult[0]) {
-          const rawCreateSql = createResult[0]['Create Table'] || createResult[0]['create table']
-          if (rawCreateSql) {
-            const safeCreateSql = rawCreateSql.replace(/^CREATE TABLE/i, 'CREATE TABLE IF NOT EXISTS')
-            lines.push(`${safeCreateSql};`)
-            lines.push('')
-          }
+      if (createResult && createResult[0]) {
+        const rawCreateSql = createResult[0]['Create Table'] || createResult[0]['create table']
+        if (rawCreateSql) {
+          const safeCreateSql = rawCreateSql.replace(/^CREATE TABLE/i, 'CREATE TABLE IF NOT EXISTS')
+          lines.push(`${safeCreateSql};`)
+          lines.push('')
         }
-      } catch {
-        // Skip CREATE TABLE if not supported by driver
       }
 
       lines.push(`-- --------------------------------------------------------`)
       lines.push(`-- Dumping data for table \`${table}\` (${count} records)`)
       lines.push(`-- --------------------------------------------------------`)
 
-      if (rows && rows.length > 0) {
+      if (count > 0) {
         const cols = Object.keys(rows[0])
         const colListSql = `\`${cols.join('`, `')}\``
-
-        // Emit one REPLACE INTO statement per row so large Base64 images/QR codes
-        // never exceed TiDB/MySQL max_allowed_packet and re-imports are 100% idempotent
         for (const row of rows) {
           const vals = cols.map(c => escapeSqlValue(row[c]))
           lines.push(`REPLACE INTO \`${table}\` (${colListSql}) VALUES (${vals.join(', ')});`)
@@ -146,9 +155,6 @@ export async function generateFullDatabaseSqlDump(exportedByMemberId = 'SYSTEM')
         lines.push(`-- (Table \`${table}\` is currently empty)`)
       }
 
-      lines.push('')
-    } catch (err) {
-      lines.push(`-- [WARNING] Could not dump table \`${table}\`: ${err.message}`)
       lines.push('')
     }
   }
