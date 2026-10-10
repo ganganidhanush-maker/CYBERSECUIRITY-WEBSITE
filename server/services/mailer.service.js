@@ -335,7 +335,7 @@ export async function sendEventPassEmail({
         ${hasInlineQr ? `
         <!-- QR Code Box -->
         <div style="text-align:center;background-color:#ffffff;border-radius:12px;padding:20px;margin:0 auto 20px;max-width:240px;">
-          <img src="cid:eventpassqr@cyberclubmrdu" alt="Event Admission QR Pass" style="width:190px;height:190px;display:block;margin:0 auto;" />
+          <img src="${rawQrData && rawQrData.startsWith('data:image/') ? rawQrData : 'cid:eventpassqr@cyberclubmrdu'}" alt="Event Admission QR Pass" style="width:190px;height:190px;display:block;margin:0 auto;" />
           <div style="margin-top:8px;font-size:11px;font-weight:700;color:#0f172a;letter-spacing:0.5px;">
             SCAN AT VENUE ENTRANCE GATE
           </div>
@@ -349,7 +349,7 @@ export async function sendEventPassEmail({
 
       <!-- Footer -->
       <div style="background-color:#06101e;padding:14px 24px;border-top:1px solid #1e3a5f;text-align:center;font-size:11px;color:#64748b;">
-        Sent officially by Cyber Security Club MRDU (${escapeHtml(env.smtpUser || 'cyberclubmrdu2025@gmail.com')})
+        Malla Reddy (MR) Deemed to be University · Cyber Security Club (${escapeHtml(env.smtpUser || 'cyberclubmrdu2025@gmail.com')})
       </div>
     </div>
   </div>
@@ -381,7 +381,7 @@ export async function sendEventPassEmail({
     from: formatFromAddress(),
     replyTo: env.smtpUser || 'cyberclubmrdu2025@gmail.com',
     to: resolvedRecipient,
-    subject: `🎟️ Event Pass Confirmed: ${eventTitle} (${resolvedRoll})`,
+    subject: `Official Event Pass: ${eventTitle} - ${resolvedName} (${resolvedRoll})`,
     text,
     html,
     attachments,
