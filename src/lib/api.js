@@ -36,7 +36,35 @@ async function fetchWithTimeoutAndRetry(url, fetchOptions, retries = 1, timeoutM
   }
 }
 
+// In-memory + persistent client cache for low-bandwidth devices & tab-switching throttle
+const memoryCache = new Map()
+const CACHE_TTL_MS = 25_000 // 25s fresh window: micro tab-switches within 25s make 0 network requests
+
+export function invalidateApiCache(pathPrefix = '') {
+  if (!pathPrefix) {
+    memoryCache.clear()
+    return
+  }
+  for (const key of memoryCache.keys()) {
+    if (key.startsWith(pathPrefix)) {
+      memoryCache.delete(key)
+    }
+  }
+}
+
 async function request(path, options = {}) {
+  const isGet = !options.method || options.method === 'GET'
+  const cacheKey = `csc_api_${path}`
+  const now = Date.now()
+
+  // 1. Fresh Cache Check for GET requests (prevents rapid tab-switching database hits)
+  if (isGet && !options.skipCache) {
+    const cached = memoryCache.get(cacheKey)
+    if (cached && (now - cached.timestamp < (options.cacheTtlMs || CACHE_TTL_MS))) {
+      return cached.data
+    }
+  }
+
   const headers = new Headers(options.headers || {})
   headers.set('X-Requested-With', 'XMLHttpRequest')
   if (currentCsrfToken && !headers.has('X-CSRF-Token')) {
@@ -46,32 +74,61 @@ async function request(path, options = {}) {
     headers.set('Content-Type', 'application/json')
   }
 
-  const isGet = !options.method || options.method === 'GET'
-  const response = await fetchWithTimeoutAndRetry(
-    `/api${path}`,
-    {
-      ...options,
-      headers,
-      credentials: 'same-origin',
-    },
-    isGet ? 1 : 0, // Auto-retry once on GET requests for weak mobile connections
-    options.timeoutMs || 22000
-  )
+  try {
+    const response = await fetchWithTimeoutAndRetry(
+      `/api${path}`,
+      {
+        ...options,
+        headers,
+        credentials: 'same-origin',
+      },
+      isGet ? 1 : 0, // Auto-retry once on GET requests for weak mobile connections
+      options.timeoutMs || 22000
+    )
 
-  if (response.status === 204) return {}
+    if (response.status === 204) return {}
 
-  const payload = await response.json().catch(() => ({}))
-  if (payload.csrfToken) {
-    currentCsrfToken = payload.csrfToken
+    const payload = await response.json().catch(() => ({}))
+    if (payload.csrfToken) {
+      currentCsrfToken = payload.csrfToken
+    }
+    if (!response.ok) {
+      const error = new Error(payload.message || 'Request failed.')
+      error.status = response.status
+      error.code = payload.code
+      error.hibernating = response.status === 503 || payload.code === 'SITE_HIBERNATING'
+      throw error
+    }
+
+    // Save successful GET response to memory + localStorage for low-internet/offline devices
+    if (isGet) {
+      memoryCache.set(cacheKey, { timestamp: now, data: payload })
+      try {
+        if (path.startsWith('/member/') || path.startsWith('/auth/settings')) {
+          localStorage.setItem(`offline_${cacheKey}`, JSON.stringify({ timestamp: now, data: payload }))
+        }
+      } catch {}
+    } else {
+      // Invalidate related cache on write/mutation
+      memoryCache.clear()
+    }
+
+    return payload
+  } catch (err) {
+    // 2. Offline / Low Internet Fallback: Return cached data if available on network failure
+    if (isGet) {
+      const memCached = memoryCache.get(cacheKey)
+      if (memCached?.data) return memCached.data
+      try {
+        const stored = localStorage.getItem(`offline_${cacheKey}`)
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          if (parsed?.data) return parsed.data
+        }
+      } catch {}
+    }
+    throw err
   }
-  if (!response.ok) {
-    const error = new Error(payload.message || 'Request failed.')
-    error.status = response.status
-    error.code = payload.code
-    error.hibernating = response.status === 503 || payload.code === 'SITE_HIBERNATING'
-    throw error
-  }
-  return payload
 }
 
 /**

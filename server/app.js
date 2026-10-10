@@ -34,11 +34,15 @@ function corsOptions() {
 export function createApp() {
   const app = express()
   if (env.isProduction) app.set('trust proxy', 1)
+  app.set('etag', 'weak')
   app.disable('x-powered-by')
   app.use(compression({ threshold: 1024 }))
   app.use(requestContext)
   // Prevent connection hanging on slow networks: 30s timeout guard for APIs
   app.use('/api', (request, response, next) => {
+    if (request.method === 'GET') {
+      response.set('Cache-Control', 'private, no-cache, must-revalidate')
+    }
     request.setTimeout(30_000, () => {
       if (!response.headersSent) {
         response.status(504).json({ error: 'GATEWAY_TIMEOUT', message: 'Request timed out due to slow network.' })
