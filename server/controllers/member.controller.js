@@ -10,6 +10,7 @@ import { hasActiveEventPass, isDraftRegistration, resolveEventPricing, resolveEv
 import { acquirePaymentReferenceLock, findActivePaymentReferenceDuplicate, releasePaymentReferenceLock } from '../utils/payment-reference-lock.js'
 import { parseUtrFromText } from '../utils/upi-utr.js'
 import { evaluateUserQueue, admitFromQueue, heartbeatSlot, releaseSlot } from '../services/queue.service.js'
+import { getCachedClubSetting, getCachedClubSettingsDictionary } from '../services/platform-role.service.js'
 
 function auditRequest(request) {
   return { ipAddress: request.ip, userAgent: request.get('user-agent') || null }
@@ -1089,11 +1090,7 @@ export async function listClubTeam(request, response) {
 }
 
 export async function getPublicClubSettings(request, response) {
-  const settings = await prisma.clubSetting.findMany()
-  const dictionary = {}
-  settings.forEach(s => {
-    try { dictionary[s.key] = JSON.parse(s.value) } catch { dictionary[s.key] = s.value }
-  })
+  const dictionary = await getCachedClubSettingsDictionary()
   return response.status(200).json({ settings: dictionary })
 }
 
@@ -1108,30 +1105,19 @@ export async function getSessionStatus(request, response) {
   const isStudent = request.user.role === 'STUDENT'
   const isPrimary = Boolean(request.user.isPrimaryAdmin)
 
-  const introVideoSetting = await prisma.clubSetting.findUnique({ where: { key: 'introVideoEnabled' } })
-  const isVideoEnabled = introVideoSetting?.value !== 'false' && introVideoSetting?.value !== false
+  const introVideoVal = await getCachedClubSetting('introVideoEnabled', 'true')
+  const isVideoEnabled = introVideoVal !== 'false' && introVideoVal !== false
 
   const introVideoCompleted = isPrimary || !isStudent || !isVideoEnabled || Boolean(request.session?.introVideoCompleted)
 
-  // Fetch customizable queue limits from ClubSetting
-  let queueEnabled = true
-  let maxConcurrent = 5
-  let waitTimeSeconds = 15
+  // Fetch customizable queue limits from cached ClubSetting
+  const qEnabledVal = await getCachedClubSetting('queueEnabled', 'false')
+  const qMaxVal = await getCachedClubSetting('queueMaxConcurrent', '5')
+  const qWaitVal = await getCachedClubSetting('queueWaitTimeSeconds', '15')
 
-  try {
-    const queueSettings = await prisma.clubSetting.findMany({
-      where: {
-        key: { in: ['queueEnabled', 'queueMaxConcurrent', 'queueWaitTimeSeconds'] },
-      },
-    })
-    for (const s of queueSettings) {
-      if (s.key === 'queueEnabled') queueEnabled = s.value !== 'false'
-      if (s.key === 'queueMaxConcurrent') maxConcurrent = Math.max(1, Number(s.value) || 5)
-      if (s.key === 'queueWaitTimeSeconds') waitTimeSeconds = Math.max(5, Number(s.value) || 15)
-    }
-  } catch {
-    // In-memory fallback
-  }
+  const queueEnabled = qEnabledVal === 'true' || qEnabledVal === true
+  const maxConcurrent = Math.max(1, Number(qMaxVal) || 5)
+  const waitTimeSeconds = Math.max(5, Number(qWaitVal) || 15)
 
   const queueResult = evaluateUserQueue(request.user, request.session, {
     queueEnabled,

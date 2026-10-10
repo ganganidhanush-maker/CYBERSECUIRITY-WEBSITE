@@ -1,5 +1,5 @@
-import { prisma } from '../db/prisma.js'
 import { isAdmin, isPrimaryPresident } from '../utils/safe-user.js'
+import { getCachedClubSetting } from '../services/platform-role.service.js'
 
 /**
  * Middleware enforcing site hibernation.
@@ -20,8 +20,7 @@ export async function requireActiveSite(request, response, next) {
   }
 
   try {
-    const statusSetting = await prisma.clubSetting.findUnique({ where: { key: 'siteStatus' } })
-    const siteStatus = statusSetting?.value || 'ACTIVE'
+    const siteStatus = (await getCachedClubSetting('siteStatus', 'ACTIVE')) || 'ACTIVE'
 
     if (siteStatus !== 'HIBERNATING') {
       return next()
@@ -32,11 +31,11 @@ export async function requireActiveSite(request, response, next) {
       return next()
     }
 
-    const startedSetting = await prisma.clubSetting.findUnique({ where: { key: 'hibernationStartedAt' } })
+    const hibernationStartedAt = await getCachedClubSetting('hibernationStartedAt', null)
     return response.status(503).json({
       hibernating: true,
       siteStatus: 'HIBERNATING',
-      hibernationStartedAt: startedSetting?.value || null,
+      hibernationStartedAt: hibernationStartedAt || null,
       message: 'The website is temporarily in hibernation.',
     })
   } catch (error) {

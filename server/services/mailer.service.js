@@ -1,5 +1,19 @@
+import dns from 'node:dns'
 import nodemailer from 'nodemailer'
 import { env } from '../config/env.js'
+import { getCachedClubSetting } from './platform-role.service.js'
+
+try {
+  dns.setDefaultResultOrder('ipv4first')
+} catch {
+  // Ignore if unsupported in older runtime
+}
+
+function ipv4Lookup(hostname, options, callback) {
+  const cb = typeof options === 'function' ? options : callback
+  const opts = typeof options === 'object' && options !== null ? { ...options, family: 4 } : { family: 4 }
+  return dns.lookup(hostname, opts, cb)
+}
 
 let transporter
 let fallbackTransporter
@@ -19,9 +33,15 @@ function getTransporter() {
       port: env.smtpPort,
       secure: Number(env.smtpPort) === 465,
       auth: { user: env.smtpUser, pass: env.smtpPassword },
-      connectionTimeout: 12000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
+      family: 4,
+      lookup: ipv4Lookup,
+      connectionTimeout: 10000,
+      greetingTimeout: 8000,
+      socketTimeout: 12000,
+      tls: {
+        rejectUnauthorized: false,
+        servername: env.smtpHost,
+      },
     })
   }
   return transporter
@@ -35,19 +55,80 @@ function getFallbackTransporter() {
       host: env.smtpHost,
       port: altPort,
       secure: altPort === 465,
+      requireTLS: altPort === 587,
       auth: { user: env.smtpUser, pass: env.smtpPassword },
-      connectionTimeout: 12000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
+      family: 4,
+      lookup: ipv4Lookup,
+      connectionTimeout: 10000,
+      greetingTimeout: 8000,
+      socketTimeout: 12000,
+      tls: {
+        rejectUnauthorized: false,
+        servername: env.smtpHost,
+      },
     })
   }
   return fallbackTransporter
 }
 
+async function dispatchViaHttpsRelay(relayUrl, mailOptions) {
+  const cleanUrl = String(relayUrl || '').trim()
+  if (!cleanUrl || !cleanUrl.startsWith('https://')) {
+    return null
+  }
+
+  let qrBase64 = null
+  if (Array.isArray(mailOptions.attachments) && mailOptions.attachments[0]?.content) {
+    const buf = mailOptions.attachments[0].content
+    qrBase64 = Buffer.isBuffer(buf) ? buf.toString('base64') : String(buf)
+  }
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 15000)
+  try {
+    const res = await fetch(cleanUrl, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        to: mailOptions.to,
+        subject: mailOptions.subject,
+        text: mailOptions.text || '',
+        html: mailOptions.html || '',
+        from: env.smtpUser || 'cyberclubmrdu2025@gmail.com',
+        senderName: 'Cyber Security Club MRDU',
+        qrBase64,
+      }),
+    })
+    clearTimeout(timeout)
+    if (!res.ok) {
+      throw new Error(`HTTPS Gmail Relay returned HTTP ${res.status}`)
+    }
+    const data = await res.json().catch(() => ({ ok: true }))
+    if (data && data.ok === false) {
+      throw new Error(data.error || 'HTTPS Gmail Relay rejected the request.')
+    }
+    return { messageId: data?.messageId || `relay-${Date.now()}`, accepted: [mailOptions.to], via: 'HTTPS_RELAY' }
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 async function dispatchMailWithFallback(mailOptions) {
-  if (env.nodeEnv === 'test' && process.env.FORCE_LIVE_SMTP !== 'true') {
+  if ((env.nodeEnv === 'test' || process.env.NODE_ENV === 'test') && process.env.FORCE_LIVE_SMTP !== 'true') {
     testSentEmails.push({ ...mailOptions, sentAt: new Date().toISOString() })
-    return { messageId: `test-${Date.now()}`, accepted: [mailOptions.to] }
+    return { delivered: true, messageId: `test-${Date.now()}`, accepted: [mailOptions.to] }
+  }
+
+  // 1. Check if an HTTPS Port-443 Gmail Relay URL is configured (bypasses Render Free Tier port 465/587 block)
+  const configuredRelayUrl = process.env.GMAIL_RELAY_URL || (await getCachedClubSetting('gmailRelayUrl', ''))
+  if (configuredRelayUrl && String(configuredRelayUrl).trim().startsWith('https://')) {
+    try {
+      const relayResult = await dispatchViaHttpsRelay(configuredRelayUrl, mailOptions)
+      if (relayResult) return { delivered: true, ...relayResult }
+    } catch (relayErr) {
+      console.warn('[MAIL WARN] HTTPS Relay attempt failed, trying direct IPv4 SMTP:', relayErr.message)
+    }
   }
 
   const primary = getTransporter()
@@ -56,20 +137,29 @@ async function dispatchMailWithFallback(mailOptions) {
   }
 
   try {
-    return await primary.sendMail(mailOptions)
+    const info = await primary.sendMail(mailOptions)
+    return { delivered: true, ...info }
   } catch (primaryErr) {
     const secondary = getFallbackTransporter()
     if (!secondary) throw primaryErr
     try {
-      return await secondary.sendMail(mailOptions)
-    } catch {
+      const info = await secondary.sendMail(mailOptions)
+      return { delivered: true, ...info }
+    } catch (secondaryErr) {
+      const code = secondaryErr?.code || primaryErr?.code || ''
+      const msg = secondaryErr?.message || primaryErr?.message || ''
+      if (['ETIMEDOUT', 'ENETUNREACH', 'EHOSTUNREACH', 'ECONNREFUSED', 'ESOCKET'].includes(code) || /ETIMEDOUT|ENETUNREACH|timeout/i.test(msg)) {
+        throw new Error(
+          `Render Free Tier blocked outbound SMTP ports 465/587 (${code || 'TIMEOUT'}). Click "Activate Free HTTPS Gmail Bridge" above (takes 30 seconds) or click "Open in Gmail" on the row to send via Port 443!`
+        )
+      }
       throw primaryErr
     }
   }
 }
 
 export async function verifyMailConfiguration() {
-  if (env.nodeEnv === 'test') return
+  if (env.nodeEnv === 'test' || process.env.NODE_ENV === 'test') return
   const activeTransporter = getTransporter()
   if (!activeTransporter) return
   try {
@@ -120,6 +210,7 @@ export function interpolatePassMessage(template, context) {
 
 export async function sendEventPassEmail({
   recipient,
+  to,
   studentName,
   rollNumber,
   memberId,
@@ -127,10 +218,14 @@ export async function sendEventPassEmail({
   eventType,
   eventDate,
   venue,
+  eventVenue,
   passId,
   qrCodeData,
+  qrCodeDataUrl,
   customMessage,
 }) {
+  const resolvedRecipient = recipient || to
+  const rawQrData = qrCodeData || qrCodeDataUrl
   const eventDateFormatted = eventDate
     ? new Date(eventDate).toLocaleString('en-IN', {
         dateStyle: 'medium',
@@ -140,7 +235,7 @@ export async function sendEventPassEmail({
 
   const resolvedName = studentName || rollNumber || memberId || 'Student'
   const resolvedRoll = rollNumber || memberId || 'N/A'
-  const resolvedVenue = venue || 'MRDU Campus Venue'
+  const resolvedVenue = venue || eventVenue || 'MRDU Campus Venue'
 
   const finalCustomMessage = interpolatePassMessage(customMessage, {
     studentName: resolvedName,
@@ -154,8 +249,8 @@ export async function sendEventPassEmail({
 
   const attachments = []
   let hasInlineQr = false
-  if (qrCodeData && typeof qrCodeData === 'string' && qrCodeData.startsWith('data:image/')) {
-    const base64Data = qrCodeData.split(',')[1]
+  if (rawQrData && typeof rawQrData === 'string' && rawQrData.startsWith('data:image/')) {
+    const base64Data = rawQrData.split(',')[1]
     if (base64Data) {
       attachments.push({
         filename: `event-pass-${String(resolvedRoll).replace(/[^a-zA-Z0-9_-]/g, '')}.png`,
@@ -285,7 +380,7 @@ export async function sendEventPassEmail({
   return await dispatchMailWithFallback({
     from: formatFromAddress(),
     replyTo: env.smtpUser || 'cyberclubmrdu2025@gmail.com',
-    to: recipient,
+    to: resolvedRecipient,
     subject: `🎟️ Event Pass Confirmed: ${eventTitle} (${resolvedRoll})`,
     text,
     html,

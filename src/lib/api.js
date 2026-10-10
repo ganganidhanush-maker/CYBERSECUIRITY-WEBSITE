@@ -269,7 +269,14 @@ export const adminApi = {
   deleteCouncilMessage: messageId => request(`/admin/chat/messages/${messageId}`, { method: 'DELETE' }),
 
   // Full Database Backup & Disaster Recovery
-  exportDatabaseSql: password => request('/admin/database/export-sql', { method: 'POST', body: JSON.stringify({ password }) }),
+  exportDatabaseSql: (passwordOrOpts) => {
+    const payload = typeof passwordOrOpts === 'object' && passwordOrOpts !== null
+      ? passwordOrOpts
+      : { password: passwordOrOpts, quickExport: !passwordOrOpts }
+    return request('/admin/database/export-sql', { method: 'POST', body: JSON.stringify(payload), timeoutMs: 90000 })
+  },
+  restoreDatabaseSql: (sqlContent, password = '') =>
+    request('/admin/database/restore-sql', { method: 'POST', body: JSON.stringify({ sqlContent, password }), timeoutMs: 120000 }),
 
   // Complaints & Audits
   listComplaints: () => request('/admin/complaints'),

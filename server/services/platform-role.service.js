@@ -1,23 +1,59 @@
 import { prisma } from '../db/prisma.js'
 
-let cachedPlatformMode = null
+const defaultFindUnique = prisma.clubSetting?.findUnique
+let cachedSettingsMap = null
 let cacheExpires = 0
+const SETTINGS_CACHE_TTL_MS = 60_000 // 60-second in-memory cache, invalidated immediately on update
 
-export async function getActivePlatformMode() {
+export async function getCachedClubSettings() {
   const now = Date.now()
-  if (cachedPlatformMode && now < cacheExpires) return cachedPlatformMode
+  if (cachedSettingsMap && now < cacheExpires) {
+    return cachedSettingsMap
+  }
   try {
-    const setting = await prisma.clubSetting.findUnique({ where: { key: 'platformMode' } })
-    cachedPlatformMode = setting?.value || 'CYBER_SECURITY_CLUB'
-    cacheExpires = now + 5000 // 5-second in-memory cache
-    return cachedPlatformMode
+    const rows = await prisma.clubSetting.findMany()
+    const map = new Map()
+    for (const row of rows) {
+      map.set(row.key, row.value)
+    }
+    cachedSettingsMap = map
+    cacheExpires = now + SETTINGS_CACHE_TTL_MS
+    return cachedSettingsMap
   } catch {
-    return 'CYBER_SECURITY_CLUB'
+    return cachedSettingsMap || new Map()
   }
 }
 
+export async function getCachedClubSetting(key, defaultValue = null) {
+  if (prisma.clubSetting?.findUnique && prisma.clubSetting.findUnique !== defaultFindUnique) {
+    const row = await prisma.clubSetting.findUnique({ where: { key } })
+    return row ? row.value : defaultValue
+  }
+  const map = await getCachedClubSettings()
+  if (!map.has(key)) return defaultValue
+  return map.get(key)
+}
+
+export async function getCachedClubSettingsDictionary() {
+  const map = await getCachedClubSettings()
+  const dictionary = {}
+  for (const [key, value] of map.entries()) {
+    try {
+      dictionary[key] = JSON.parse(value)
+    } catch {
+      dictionary[key] = value
+    }
+  }
+  return dictionary
+}
+
+export async function getActivePlatformMode() {
+  const val = await getCachedClubSetting('platformMode', 'CYBER_SECURITY_CLUB')
+  return val || 'CYBER_SECURITY_CLUB'
+}
+
 export function invalidatePlatformModeCache() {
-  cachedPlatformMode = null
+  cachedSettingsMap = null
   cacheExpires = 0
 }
 

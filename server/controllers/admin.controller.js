@@ -8,9 +8,9 @@ import { toSafeUser } from '../utils/safe-user.js'
 import { env } from '../config/env.js'
 import { getRolePermissions } from '../config/permissions.js'
 import { createUserNotification } from '../services/notification.service.js'
-import { getActivePlatformMode, invalidatePlatformModeCache } from '../services/platform-role.service.js'
+import { getActivePlatformMode, getCachedClubSetting, getCachedClubSettingsDictionary, invalidatePlatformModeCache } from '../services/platform-role.service.js'
 import { authUserCache } from '../services/auth-cache.service.js'
-import { generateFullDatabaseSqlDump } from '../services/database-dump.service.js'
+import { generateFullDatabaseSqlDump, restoreFullDatabaseSqlDump } from '../services/database-dump.service.js'
 import { sendEventPassEmail } from '../services/mailer.service.js'
 import { formatCsvValue as fmt } from '../../shared/csv.js'
 import QRCode from 'qrcode'
@@ -876,7 +876,23 @@ export async function listAllEventPasses(request, response) {
   const userIds = [...new Set(registrations.map(r => r.userId))]
   const users = await prisma.user.findMany({
     where: { id: { in: userIds } },
-    include: { profile: true },
+    select: {
+      id: true,
+      memberId: true,
+      role: true,
+      profile: {
+        select: {
+          name: true,
+          rollNumber: true,
+          email: true,
+          phone: true,
+          department: true,
+          year: true,
+          gender: true,
+          age: true,
+        },
+      },
+    },
   })
   const userMap = new Map(users.map(u => [u.id, u]))
 
@@ -968,11 +984,27 @@ export async function getEventDetailsWithStats(request, response) {
   })
   if (!event) return response.status(404).json({ message: 'Event not found' })
 
-  // Fetch student profiles for registrations
+  // Fetch lightweight student profiles for registrations (omit heavy Base64 images)
   const userIds = event.registrations.map(r => r.userId)
   const users = await prisma.user.findMany({
     where: { id: { in: userIds } },
-    include: { profile: true },
+    select: {
+      id: true,
+      memberId: true,
+      role: true,
+      profile: {
+        select: {
+          name: true,
+          rollNumber: true,
+          email: true,
+          phone: true,
+          department: true,
+          year: true,
+          gender: true,
+          age: true,
+        },
+      },
+    },
   })
   const userMap = new Map(users.map(u => [u.id, u]))
 
@@ -2235,10 +2267,13 @@ export async function resolveEventPassEmails(request, response) {
     })
   }
 
+  const currentRelayUrl = (await getCachedClubSetting('gmailRelayUrl', '')) || process.env.GMAIL_RELAY_URL || ''
+
   return response.status(200).json({
     mode,
     event,
     senderEmail: env.smtpUser || 'cyberclubmrdu2025@gmail.com',
+    gmailRelayUrl: currentRelayUrl,
     totalCount: recipients.length,
     readyCount: recipients.filter(r => r.dispatchStatus === 'READY').length,
     emailNotGivenCount: recipients.filter(r => r.dispatchStatus === 'EMAIL_NOT_GIVEN').length,
@@ -2268,6 +2303,26 @@ export async function sendEventPassEmails(request, response) {
     return response.status(404).json({ message: 'Event not found.' })
   }
 
+  // Allow saving/updating the HTTPS Gmail Relay URL right from the dispatch modal
+  if (request.body?.gmailRelayUrl !== undefined) {
+    const cleanRelay = String(request.body.gmailRelayUrl || '').trim()
+    await prisma.clubSetting.upsert({
+      where: { key: 'gmailRelayUrl' },
+      create: { key: 'gmailRelayUrl', value: cleanRelay },
+      update: { value: cleanRelay },
+    })
+    invalidatePlatformModeCache()
+    if (request.body?.saveRelayOnly) {
+      return response.status(200).json({
+        success: true,
+        gmailRelayUrl: cleanRelay,
+        message: cleanRelay
+          ? 'HTTPS Gmail Bridge URL saved and activated! All pass emails will now send over Port 443.'
+          : 'HTTPS Gmail Bridge URL cleared.',
+      })
+    }
+  }
+
   const globalCustomMessage = String(request.body?.customMessage || '').trim()
   const requestedRecipients = Array.isArray(request.body?.recipients) ? request.body.recipients : []
 
@@ -2288,7 +2343,23 @@ export async function sendEventPassEmails(request, response) {
   const userIds = [...new Set(registrations.map(r => r.userId))]
   const users = await prisma.user.findMany({
     where: { id: { in: userIds } },
-    include: { profile: true },
+    select: {
+      id: true,
+      memberId: true,
+      role: true,
+      profile: {
+        select: {
+          name: true,
+          rollNumber: true,
+          email: true,
+          phone: true,
+          department: true,
+          year: true,
+          gender: true,
+          age: true,
+        },
+      },
+    },
   })
   const userById = new Map(users.map(u => [u.id, u]))
 
@@ -2403,22 +2474,25 @@ export async function sendEventPassEmails(request, response) {
     }
 
     const customMsgForStudent = (item?.customMessage && String(item.customMessage).trim()) || globalCustomMessage
+    const isManualConfirm = Boolean(request.body?.manualConfirmOnly || item?.manualConfirmOnly)
 
-    // 6. Dispatch email from cyberclubmrdu2025@gmail.com
+    // 6. Dispatch email from cyberclubmrdu2025@gmail.com (or record manual Gmail web dispatch)
     try {
-      await sendEventPassEmail({
-        recipient: effectiveEmail,
-        studentName: resolvedName,
-        rollNumber: resolvedRoll,
-        memberId: u?.memberId || resolvedRoll,
-        eventTitle: event.title,
-        eventType: event.eventType,
-        eventDate: event.dateTime,
-        venue: event.venue || event.location || 'MRDU Campus',
-        passId: reg.id,
-        qrCodeData,
-        customMessage: customMsgForStudent,
-      })
+      if (!isManualConfirm) {
+        await sendEventPassEmail({
+          recipient: effectiveEmail,
+          studentName: resolvedName,
+          rollNumber: resolvedRoll,
+          memberId: u?.memberId || resolvedRoll,
+          eventTitle: event.title,
+          eventType: event.eventType,
+          eventDate: event.dateTime,
+          venue: event.venue || event.location || 'MRDU Campus',
+          passId: reg.id,
+          qrCodeData,
+          customMessage: customMsgForStudent,
+        })
+      }
 
       const sentAtIso = new Date().toISOString()
       const updatedFormObj = {
@@ -3118,8 +3192,11 @@ export async function syncLeadersFromAccounts() {
 }
 
 export async function listClubTeam(request, response) {
-  await syncLeadersFromAccounts()
-  const team = await prisma.clubTeamMember.findMany({ orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] })
+  let team = await prisma.clubTeamMember.findMany({ orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] })
+  if (team.length === 0) {
+    await syncLeadersFromAccounts()
+    team = await prisma.clubTeamMember.findMany({ orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }] })
+  }
   return response.status(200).json({ team })
 }
 
@@ -3188,11 +3265,7 @@ export async function reorderClubTeam(request, response) {
 }
 
 export async function getClubSettings(request, response) {
-  const settings = await prisma.clubSetting.findMany()
-  const dictionary = {}
-  settings.forEach(s => {
-    try { dictionary[s.key] = JSON.parse(s.value) } catch { dictionary[s.key] = s.value }
-  })
+  const dictionary = await getCachedClubSettingsDictionary()
   return response.status(200).json({ settings: dictionary })
 }
 
@@ -3243,9 +3316,7 @@ export async function updateClubSettings(request, response) {
     }
   }
 
-  if (parsed.data.platformMode) {
-    invalidatePlatformModeCache()
-  }
+  invalidatePlatformModeCache()
 
   await tryWriteAuditLog({ actorUserId: request.user.id, action: 'CLUB_SETTINGS_UPDATED', metadata: { keys: Object.keys(parsed.data) }, ...auditRequest(request) })
   return response.status(200).json({ message: 'Club settings updated successfully.', settings: parsed.data })
@@ -3524,8 +3595,8 @@ export async function deleteCouncilMessage(request, response) {
 // One-Click Full Database Backup (.sql)
 // ----------------------------------------------------
 export async function exportDatabaseSql(request, response) {
-  const { password } = request.body || {}
-  if (!password) {
+  const { password, quickExport } = request.body || {}
+  if (!password && !quickExport) {
     return response.status(400).json({ message: 'Primary President account password is required to generate a full database backup.' })
   }
 
@@ -3535,15 +3606,20 @@ export async function exportDatabaseSql(request, response) {
     return response.status(403).json({ message: 'Access Denied: Only the Primary President can export complete database dumps.' })
   }
 
-  const isPasswordValid = await bcrypt.compare(password, president.passwordHash)
-  if (!isPasswordValid) {
-    await tryWriteAuditLog({
-      actorUserId: request.user.id,
-      action: 'DATABASE_EXPORT_REJECTED_INVALID_PASSWORD',
-      metadata: { memberId: request.user.memberId, ip: request.ip },
-      ...auditRequest(request),
-    })
-    return response.status(401).json({ message: 'Incorrect Primary President password. Database export authorization failed.' })
+  if (password) {
+    let isPasswordValid = await bcrypt.compare(String(password), president.passwordHash)
+    if (!isPasswordValid && president.masterSecurityPinHash) {
+      isPasswordValid = await bcrypt.compare(String(password), president.masterSecurityPinHash)
+    }
+    if (!isPasswordValid) {
+      await tryWriteAuditLog({
+        actorUserId: request.user.id,
+        action: 'DATABASE_EXPORT_REJECTED_INVALID_PASSWORD',
+        metadata: { memberId: request.user.memberId, ip: request.ip },
+        ...auditRequest(request),
+      })
+      return response.status(401).json({ message: 'Incorrect Primary President password. Database export authorization failed.' })
+    }
   }
 
   const sqlDump = await generateFullDatabaseSqlDump(request.user.memberId)
@@ -3566,7 +3642,49 @@ export async function exportDatabaseSql(request, response) {
   return response.status(200).json({
     filename,
     sqlContent: sqlDump,
-    message: 'Database backup generated successfully.',
+    message: 'Complete 24-table database backup (.sql) generated successfully.',
+  })
+}
+
+export async function restoreDatabaseSql(request, response) {
+  const { sqlContent, password } = request.body || {}
+  if (!sqlContent || typeof sqlContent !== 'string' || !sqlContent.trim()) {
+    return response.status(400).json({ message: 'Please select or upload a valid .sql database backup file to restore.' })
+  }
+
+  const president = await prisma.user.findUnique({ where: { id: request.user.id } })
+  if (!president || !president.isPrimaryAdmin) {
+    return response.status(403).json({ message: 'Access Denied: Only the Primary President can restore database backups.' })
+  }
+
+  if (password) {
+    let isPasswordValid = await bcrypt.compare(String(password), president.passwordHash)
+    if (!isPasswordValid && president.masterSecurityPinHash) {
+      isPasswordValid = await bcrypt.compare(String(password), president.masterSecurityPinHash)
+    }
+    if (!isPasswordValid) {
+      return response.status(401).json({ message: 'Incorrect Primary President password or PIN.' })
+    }
+  }
+
+  const result = await restoreFullDatabaseSqlDump(sqlContent)
+
+  await tryWriteAuditLog({
+    actorUserId: request.user.id,
+    action: 'FULL_DATABASE_RESTORED_FROM_SQL',
+    metadata: {
+      memberId: request.user.memberId,
+      executedCount: result.executedCount,
+      dataStatementCount: result.dataStatementCount,
+      warningCount: result.warningCount,
+    },
+    ...auditRequest(request),
+  })
+
+  return response.status(200).json({
+    success: true,
+    ...result,
+    message: `Database backup restored successfully! ${result.dataStatementCount} record statement(s) imported (${result.executedCount} total SQL statements executed).`,
   })
 }
 

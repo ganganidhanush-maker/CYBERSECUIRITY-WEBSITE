@@ -3617,7 +3617,7 @@ function MemberManagement({ user, logout, onNavigate }) {
           if (list.length > 0) setMembers(list)
         })
         .catch(() => {})
-    }, 10000)
+    }, 60000)
     return () => clearInterval(interval)
   }, [platformMode, editingId, permissionsModalUser, resetModalUser])
 
@@ -3879,6 +3879,28 @@ function MemberManagement({ user, logout, onNavigate }) {
     downloadCsv('club_members_roster.csv', headers, rows)
   }
 
+  const [exportingSqlDump, setExportingSqlDump] = useState(false)
+  async function handleQuickSqlDump() {
+    setExportingSqlDump(true)
+    setError('')
+    setMessage('')
+    try {
+      const res = await adminApi.exportDatabaseSql({ quickExport: true })
+      const blob = new Blob([res.sqlContent], { type: 'application/sql;charset=utf-8;' })
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = res.filename || `mrdu_csc_full_database_backup_${Date.now()}.sql`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      setMessage(`✅ Exported Full Database Backup (.sql) containing all 24 tables (${(res.sqlContent.length / 1024).toFixed(1)} KB)!`)
+    } catch (err) {
+      setError(err.message || 'Failed to export full database backup (.sql).')
+    } finally {
+      setExportingSqlDump(false)
+    }
+  }
+
   return (
     <LivePortal user={user} logout={logout} activeTab="admin-members" onNavigate={onNavigate} title="MEMBER & ROLE DIRECTORY">
       <section className="member-management">
@@ -3897,6 +3919,29 @@ function MemberManagement({ user, logout, onNavigate }) {
             {user.isPrimaryAdmin && (
               <button className="outline" type="button" onClick={() => setTransferModalOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '7px 14px' }}>
                 <IconCrown size={14} /> Transfer Leadership
+              </button>
+            )}
+            {(user.isPrimaryAdmin || user.role === 'PRESIDENT' || user.role === 'ADMIN') && (
+              <button
+                type="button"
+                className="primary"
+                onClick={handleQuickSqlDump}
+                disabled={exportingSqlDump}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '11px',
+                  padding: '7px 14px',
+                  background: 'linear-gradient(135deg, #ea580c, #c2410c)',
+                  borderColor: '#ea580c',
+                  color: '#fff',
+                  fontWeight: 700,
+                }}
+                title="Download complete 24-table database backup (.sql)"
+              >
+                <IconDownload size={13} />
+                {exportingSqlDump ? 'Exporting (.sql)…' : 'Export Full Database Backup (.sql)'}
               </button>
             )}
             <button
@@ -5214,7 +5259,7 @@ function CoordinatorConsole({ user, logout, onNavigate }) {
           if (list.length > 0) setMembers(list)
         })
         .catch(() => {})
-    }, 8000)
+    }, 60000)
     return () => clearInterval(interval)
   }, [savingId])
 
@@ -7215,14 +7260,14 @@ function EventManagement({ user, logout, onNavigate }) {
         .finally(() => { if (mounted) setLoading(false) })
     }
     fetchEvents()
-    const interval = setInterval(fetchEvents, 8000)
+    const interval = setInterval(fetchEvents, 60000)
     return () => {
       mounted = false
       clearInterval(interval)
     }
   }, [editingEventId])
 
-  // Live Auto-Refresh for Attendee Roster Modal (fetches new registrations in seconds)
+  // Live Auto-Refresh for Attendee Roster Modal
   useEffect(() => {
     if (!analyticsModalEvent) return
     let mounted = true
@@ -7232,7 +7277,7 @@ function EventManagement({ user, logout, onNavigate }) {
         .then(data => { if (mounted) setAnalyticsData(data) })
         .catch(() => {})
     }
-    const interval = setInterval(refreshRoster, 6000)
+    const interval = setInterval(refreshRoster, 30000)
     return () => {
       mounted = false
       clearInterval(interval)
@@ -11464,6 +11509,10 @@ function PassEmailDispatchModal({
   const [searchFilter, setSearchFilter] = useState('')
   const [error, setError] = useState('')
   const [feedback, setFeedback] = useState(null)
+  const [showRelayConfig, setShowRelayConfig] = useState(false)
+  const [gmailRelayUrlInput, setGmailRelayUrlInput] = useState('')
+  const [savingRelayUrl, setSavingRelayUrl] = useState(false)
+  const [copiedAppsScript, setCopiedAppsScript] = useState(false)
   const fileInputRef = useRef(null)
 
   const availableEvents = useMemo(() => {
@@ -11549,6 +11598,9 @@ function PassEmailDispatchModal({
       }
       const res = await adminApi.resolveEventPassEmails(selectedEventId, payload)
       setResolvedData(res)
+      if (res?.gmailRelayUrl !== undefined) {
+        setGmailRelayUrlInput(prev => prev || res.gmailRelayUrl || '')
+      }
       if (mode === 'EXCEL_CSV' && (res.emailsLinkedCount || 0) > 0) {
         setFeedback({
           type: 'success',
@@ -11732,6 +11784,163 @@ function PassEmailDispatchModal({
     }
   }
 
+  // Save HTTPS Port-443 Gmail Bridge URL (bypasses Render Free Tier outbound SMTP port blocks)
+  async function handleSaveRelayUrl() {
+    if (!selectedEventId) return
+    setSavingRelayUrl(true)
+    setError('')
+    try {
+      const res = await adminApi.sendEventPassEmails(selectedEventId, {
+        saveRelayOnly: true,
+        gmailRelayUrl: gmailRelayUrlInput.trim(),
+      })
+      setFeedback({
+        type: 'success',
+        text: res.message || 'HTTPS Port-443 Gmail Bridge saved! Emails will now dispatch over HTTPS Port 443.',
+      })
+      setShowRelayConfig(false)
+      await triggerResolve()
+    } catch (err) {
+      setError(err.message || 'Failed to save HTTPS Gmail Bridge URL.')
+    } finally {
+      setSavingRelayUrl(false)
+    }
+  }
+
+  function handleCopyAppsScript() {
+    const scriptCode = `function doPost(e) {
+  try {
+    var d = JSON.parse(e.postData.contents);
+    var opts = { htmlBody: d.html, name: "MRDU Cyber Security Club" };
+    if (d.qrBase64) {
+      var blob = Utilities.newBlob(Utilities.base64Decode(d.qrBase64), "image/png", d.qrFilename || "pass_qr.png");
+      opts.inlineImages = { passqr_cid: blob };
+      opts.attachments = [blob];
+    }
+    GmailApp.sendEmail(d.to, d.subject, d.text || "", opts);
+    return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ ok: false, error: err.toString() })).setMimeType(ContentService.MimeType.JSON);
+  }
+}`
+    navigator.clipboard?.writeText(scriptCode).then(() => {
+      setCopiedAppsScript(true)
+      setTimeout(() => setCopiedAppsScript(false), 3000)
+    }).catch(() => {})
+  }
+
+  // 1-Click Open in Gmail Web + Mark as SENT / DONE in Database (instant zero-setup fallback if SMTP is blocked)
+  async function handleOpenGmailAndMarkSent(recipient) {
+    if (!selectedEventId || !recipient?.registrationId) return
+    const rowKey = recipient.registrationId
+    const inlineEmail = (inlineEmails[rowKey] || '').trim()
+    const effectiveEmail = inlineEmail || recipient.email || ''
+    if (!effectiveEmail) {
+      setError(`EMAIL NOT GIVEN for ${recipient.rollNumber} (${recipient.name}). Please type their email in the row input box first.`)
+      return
+    }
+
+    const rawTemplate =
+      (rowCustomMessages[rowKey] !== undefined ? rowCustomMessages[rowKey] : recipient.customMessage) ||
+      globalCustomMessage ||
+      'Congratulations {name} ({rollNumber})! Your official Event Entry Pass for {event} is confirmed and active.'
+
+    const evTitle = selectedEvent?.title || resolvedData?.event?.title || 'MRDU Event'
+    const evVenue = selectedEvent?.venue || selectedEvent?.location || resolvedData?.event?.venue || 'MRDU Campus'
+    const evDate = selectedEvent?.dateTime
+      ? new Date(selectedEvent.dateTime).toLocaleString('en-IN', { dateStyle: 'full', timeStyle: 'short' })
+      : 'Check Portal'
+
+    const personalizedMsg = rawTemplate
+      .replace(/\{name\}/gi, recipient.name || 'Student')
+      .replace(/\{rollNumber\}/gi, recipient.rollNumber || '')
+      .replace(/\{roll\}/gi, recipient.rollNumber || '')
+      .replace(/\{event\}/gi, evTitle)
+      .replace(/\{venue\}/gi, evVenue)
+      .replace(/\{passId\}/gi, recipient.registrationId)
+
+    const subject = `🎟️ Official Event Entry Pass — ${evTitle} (${recipient.rollNumber})`
+    const body = [
+      `Hello ${recipient.name} (${recipient.rollNumber}),`,
+      '',
+      personalizedMsg,
+      '',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      'OFFICIAL EVENT ENTRY PASS DETAILS',
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      `• Event: ${evTitle}`,
+      `• Student Name: ${recipient.name}`,
+      `• Roll Number: ${recipient.rollNumber}`,
+      `• Pass ID: ${recipient.registrationId}`,
+      `• Date & Time: ${evDate}`,
+      `• Venue: ${evVenue}`,
+      `• Pass Status: ISSUED & VERIFIED ✅`,
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      '',
+      'You can also view & present your digital QR pass directly by logging into your student portal account.',
+      '',
+      'Warm regards,',
+      'MRDU Cyber Security Club & Events Command Center',
+      'cyberclubmrdu2025@gmail.com',
+    ].join('\n')
+
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&tf=1&to=${encodeURIComponent(effectiveEmail)}&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
+    window.open(gmailUrl, '_blank', 'noopener,noreferrer')
+
+    setSendingRowKey(rowKey)
+    setError('')
+    try {
+      const res = await adminApi.sendEventPassEmails(selectedEventId, {
+        manualConfirmOnly: true,
+        customMessage: globalCustomMessage,
+        gmailRelayUrl: gmailRelayUrlInput.trim() || undefined,
+        recipients: [
+          {
+            registrationId: recipient.registrationId,
+            rollNumber: recipient.rollNumber,
+            name: recipient.name,
+            email: effectiveEmail,
+            customMessage: personalizedMsg,
+          },
+        ],
+      })
+      if ((res.sentCount || 0) > 0) {
+        const sentInfo = res.sent?.[0]
+        setFeedback({
+          type: 'success',
+          text: `✅ Opened Gmail for ${recipient.name} (${recipient.rollNumber}) & locked status to SENT / DONE (${sentInfo?.email || effectiveEmail})!`,
+        })
+        setResolvedData(prev => {
+          if (!prev) return prev
+          const updatedRecipients = (prev.recipients || []).map(r => {
+            if (r.registrationId !== rowKey) return r
+            return {
+              ...r,
+              email: sentInfo?.email || effectiveEmail,
+              emailSent: true,
+              emailSentAt: sentInfo?.emailSentAt || new Date().toISOString(),
+              emailSentTo: sentInfo?.email || effectiveEmail,
+              dispatchStatus: 'ALREADY_SENT',
+              statusMessage: `SENT / DONE (${sentInfo?.email || effectiveEmail})`,
+            }
+          })
+          return {
+            ...prev,
+            readyCount: updatedRecipients.filter(r => r.dispatchStatus === 'READY').length,
+            emailNotGivenCount: updatedRecipients.filter(r => r.dispatchStatus === 'EMAIL_NOT_GIVEN').length,
+            alreadySentCount: updatedRecipients.filter(r => r.dispatchStatus === 'ALREADY_SENT').length,
+            recipients: updatedRecipients,
+          }
+        })
+        if (onSuccess) onSuccess()
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to mark email as sent.')
+    } finally {
+      setSendingRowKey(null)
+    }
+  }
+
   // 1-Click Send to a SINGLE student
   async function handleSendSingle(recipient) {
     if (!selectedEventId || !recipient?.registrationId) return
@@ -11758,6 +11967,7 @@ function PassEmailDispatchModal({
 
       const res = await adminApi.sendEventPassEmails(selectedEventId, {
         customMessage: globalCustomMessage,
+        gmailRelayUrl: gmailRelayUrlInput.trim() || undefined,
         recipients: [
           {
             registrationId: recipient.registrationId,
@@ -11810,7 +12020,11 @@ function PassEmailDispatchModal({
       } else if ((res.missingEmailCount || 0) > 0) {
         setError(`EMAIL NOT GIVEN for ${recipient.rollNumber}. Please provide a valid email address.`)
       } else if ((res.failedCount || 0) > 0) {
-        setError(res.failed?.[0]?.message || 'Failed to send email.')
+        const failMsg = res.failed?.[0]?.message || 'Failed to send email.'
+        setError(failMsg)
+        if (/ENETUNREACH|ETIMEDOUT|ECONNREFUSED|Port 443|blocks outbound/i.test(failMsg)) {
+          setShowRelayConfig(true)
+        }
       }
     } catch (err) {
       setError(err.message || 'Failed to send pass email.')
@@ -11855,13 +12069,22 @@ function PassEmailDispatchModal({
 
       const res = await adminApi.sendEventPassEmails(selectedEventId, {
         customMessage: globalCustomMessage,
+        gmailRelayUrl: gmailRelayUrlInput.trim() || undefined,
         recipients: payloadRecipients,
       })
 
-      setFeedback({
-        type: (res.failedCount || 0) > 0 ? 'warning' : 'success',
-        text: res.message || `Sent ${res.sentCount || 0} pass email(s) from cyberclubmrdu2025@gmail.com.`,
-      })
+      if ((res.failedCount || 0) > 0 && (res.sentCount || 0) === 0) {
+        const firstErr = res.failed?.[0]?.message || ''
+        setError(firstErr || res.message || 'Batch email dispatch failed.')
+        if (/ENETUNREACH|ETIMEDOUT|ECONNREFUSED|Port 443|blocks outbound/i.test(firstErr)) {
+          setShowRelayConfig(true)
+        }
+      } else {
+        setFeedback({
+          type: (res.failedCount || 0) > 0 ? 'warning' : 'success',
+          text: res.message || `Sent ${res.sentCount || 0} pass email(s) from cyberclubmrdu2025@gmail.com.`,
+        })
+      }
       await triggerResolve()
       if (onSuccess) onSuccess()
     } catch (err) {
@@ -11915,18 +12138,100 @@ function PassEmailDispatchModal({
           <IconX size={16} />
         </button>
 
-        <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '14px' }}>
           <p className="eyebrow" style={{ color: '#38bdf8' }}>
-            OFFICIAL SMTP DISPATCHER · SENDER: {resolvedData?.senderEmail || 'cyberclubmrdu2025@gmail.com'}
+            OFFICIAL SMTP + PORT-443 HTTPS DISPATCHER · SENDER: {resolvedData?.senderEmail || 'cyberclubmrdu2025@gmail.com'}
           </p>
           <h2 style={{ margin: '4px 0 6px', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
             <IconMail size={20} /> 1-Click Event Pass Email Dispatch Center
           </h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: 1.5, margin: 0 }}>
+          <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: 1.5, margin: '0 0 8px' }}>
             Send verified QR event passes with a custom message to each student individually (1-click) or in batch.
             Students without an email clearly show <b>EMAIL NOT GIVEN</b>, and once sent, passes lock to <b>SENT / DONE ✅</b> so duplicate emails are never sent.
           </p>
+          <div style={{ display: 'inline-flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <button
+              type="button"
+              className="outline"
+              onClick={() => setShowRelayConfig(prev => !prev)}
+              style={{
+                fontSize: '11px',
+                padding: '4px 10px',
+                borderRadius: '6px',
+                borderColor: resolvedData?.gmailRelayConfigured ? 'rgba(16, 185, 129, 0.45)' : 'rgba(56, 189, 248, 0.45)',
+                color: resolvedData?.gmailRelayConfigured ? '#10b981' : '#38bdf8',
+              }}
+            >
+              {resolvedData?.gmailRelayConfigured
+                ? '⚡ Port-443 HTTPS Gmail Bridge: CONNECTED (Click to Configure)'
+                : '⚙️ Render Free Tier Port-443 HTTPS Gmail Bridge Setup (Fixes ENETUNREACH)'}
+            </button>
+          </div>
         </div>
+
+        {/* Collapsible Port-443 HTTPS Gmail Bridge Setup (bypasses Render Free Tier SMTP Port 465/587 block) */}
+        {showRelayConfig && (
+          <div
+            style={{
+              marginBottom: '14px',
+              padding: '12px 14px',
+              borderRadius: '10px',
+              background: 'rgba(56, 189, 248, 0.08)',
+              border: '1px solid rgba(56, 189, 248, 0.35)',
+              fontSize: '11.5px',
+              lineHeight: 1.55,
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
+              <b style={{ color: '#38bdf8', fontSize: '12px' }}>
+                ⚡ Why did &quot;connect ENETUNREACH 2607:f8b0...&quot; happen on Render?
+              </b>
+              <button
+                type="button"
+                className="outline"
+                onClick={handleCopyAppsScript}
+                style={{ fontSize: '10.5px', padding: '4px 10px', borderColor: '#38bdf8', color: '#38bdf8' }}
+              >
+                {copiedAppsScript ? '✅ Copied 10-Line Script!' : '📋 Copy 10-Line Google Apps Script'}
+              </button>
+            </div>
+            <p style={{ margin: '0 0 8px', color: 'var(--text-muted)' }}>
+              Render&apos;s Free Tier blocks outbound SMTP ports (25, 465, 587) and IPv6. We already forced IPv4 on the server, AND you can either:
+              <br />
+              1️⃣ Click <b>&quot;Gmail Web ↗&quot;</b> on any student row below to open the pre-filled email in Gmail &amp; mark it <b>SENT · DONE</b> immediately, OR
+              <br />
+              2️⃣ Enable <b>100% Automatic 1-Click Background Sending over HTTPS Port 443</b> in 30 seconds: open <a href="https://script.new" target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8', fontWeight: 700 }}>script.new</a> while logged into <b>cyberclubmrdu2025@gmail.com</b>, paste the copied 10-line script, click <b>Deploy → New deployment → Web app</b> (Execute as: <i>Me</i>, Who has access: <i>Anyone</i>), and paste the Web App URL below:
+            </p>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <input
+                type="url"
+                placeholder="https://script.google.com/macros/s/.../exec"
+                value={gmailRelayUrlInput}
+                onChange={e => setGmailRelayUrlInput(e.target.value)}
+                style={{
+                  flex: 1,
+                  minWidth: '240px',
+                  padding: '7px 10px',
+                  borderRadius: '7px',
+                  border: '1px solid var(--line)',
+                  background: 'var(--bg-input)',
+                  color: 'var(--text-main)',
+                  fontSize: '12px',
+                  fontFamily: '"DM Mono", monospace',
+                }}
+              />
+              <button
+                type="button"
+                className="primary"
+                disabled={savingRelayUrl}
+                onClick={handleSaveRelayUrl}
+                style={{ padding: '7px 14px', fontSize: '11.5px', fontWeight: 700, background: '#10b981', border: 'none', color: '#fff', borderRadius: '7px' }}
+              >
+                {savingRelayUrl ? 'Saving…' : 'Save HTTPS Bridge URL'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {error && <p className="member-form-error" style={{ marginBottom: '12px' }}>{error}</p>}
         {feedback && (
@@ -12517,36 +12822,53 @@ function PassEmailDispatchModal({
                                   <IconCheck size={12} /> Sent (No Duplicate)
                                 </button>
                               ) : r.registrationId && r.hasActivePass ? (
-                                <button
-                                  type="button"
-                                  disabled={isSendingThisRow || (isEmailMissing && !inlineVal.trim())}
-                                  onClick={() => handleSendSingle(r)}
-                                  style={{
-                                    fontSize: '10.5px',
-                                    padding: '5px 12px',
-                                    borderRadius: '6px',
-                                    border: 'none',
-                                    fontWeight: 700,
-                                    background:
-                                      isEmailMissing && !inlineVal.trim()
-                                        ? 'var(--panel-subtle)'
-                                        : 'linear-gradient(135deg, #10b981, #059669)',
-                                    color: isEmailMissing && !inlineVal.trim() ? 'var(--text-dim)' : '#fff',
-                                    cursor: isEmailMissing && !inlineVal.trim() ? 'not-allowed' : 'pointer',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '5px',
-                                  }}
-                                >
-                                  <IconMail size={12} />
-                                  {isSendingThisRow
-                                    ? 'Sending…'
-                                    : isEmailMissing
-                                      ? inlineVal.trim()
-                                        ? 'Save Email & Send'
-                                        : 'Email Required'
-                                      : 'Send Pass Email'}
-                                </button>
+                                <>
+                                  <button
+                                    type="button"
+                                    disabled={isSendingThisRow || (isEmailMissing && !inlineVal.trim())}
+                                    onClick={() => handleSendSingle(r)}
+                                    style={{
+                                      fontSize: '10.5px',
+                                      padding: '5px 12px',
+                                      borderRadius: '6px',
+                                      border: 'none',
+                                      fontWeight: 700,
+                                      background:
+                                        isEmailMissing && !inlineVal.trim()
+                                          ? 'var(--panel-subtle)'
+                                          : 'linear-gradient(135deg, #10b981, #059669)',
+                                      color: isEmailMissing && !inlineVal.trim() ? 'var(--text-dim)' : '#fff',
+                                      cursor: isEmailMissing && !inlineVal.trim() ? 'not-allowed' : 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '5px',
+                                    }}
+                                  >
+                                    <IconMail size={12} />
+                                    {isSendingThisRow
+                                      ? 'Sending…'
+                                      : isEmailMissing
+                                        ? inlineVal.trim()
+                                          ? 'Save Email & Send'
+                                          : 'Email Required'
+                                        : 'Send Pass Email'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="outline"
+                                    disabled={isSendingThisRow || (isEmailMissing && !inlineVal.trim())}
+                                    onClick={() => handleOpenGmailAndMarkSent(r)}
+                                    style={{
+                                      fontSize: '10px',
+                                      padding: '4px 8px',
+                                      borderColor: 'rgba(56, 189, 248, 0.45)',
+                                      color: '#38bdf8',
+                                    }}
+                                    title="Open pre-filled pass email in Gmail Web & mark as SENT / DONE (works even if Render blocks SMTP)"
+                                  >
+                                    Gmail Web ↗
+                                  </button>
+                                </>
                               ) : (
                                 <span style={{ fontSize: '10.5px', color: 'var(--text-dim)' }}>
                                   Cannot Send
@@ -12681,7 +13003,7 @@ function PaymentManagement({ user, logout, onNavigate }) {
       }).then(passRes => {
         if (passRes?.passes) setPasses(passRes.passes)
       }).catch(() => {})
-    }, 6000)
+    }, 45000)
     return () => clearInterval(interval)
   }, [eventFilter, paymentFilter, attendanceFilter, selectedPass, rejectingPass])
 
@@ -15380,12 +15702,17 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  // One-Click Full Database (.sql) Export States
+  // One-Click Full Database (.sql) Export & Restore States
   const [sqlExportModalOpen, setSqlExportModalOpen] = useState(false)
   const [sqlExportPassword, setSqlExportPassword] = useState('')
   const [sqlExportSubmitting, setSqlExportSubmitting] = useState(false)
   const [sqlExportError, setSqlExportError] = useState('')
   const [sqlExportSuccess, setSqlExportSuccess] = useState('')
+  const [quickExportingSql, setQuickExportingSql] = useState(false)
+  const [restoringSql, setRestoringSql] = useState(false)
+  const [sqlRestoreMessage, setSqlRestoreMessage] = useState('')
+  const [sqlRestoreError, setSqlRestoreError] = useState('')
+  const sqlRestoreInputRef = useRef(null)
 
   useEffect(() => {
     let mounted = true
@@ -15482,12 +15809,66 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
     }
   }
 
+  async function handleQuickSqlExport() {
+    setSqlRestoreError('')
+    setSqlRestoreMessage('')
+    setQuickExportingSql(true)
+    try {
+      const res = await adminApi.exportDatabaseSql({ quickExport: true })
+      const blob = new Blob([res.sqlContent], { type: 'application/sql;charset=utf-8;' })
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = res.filename || `mrdu_csc_full_database_backup_${Date.now()}.sql`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      setSqlRestoreMessage(
+        `✅ Complete 24-table database backup (${(res.sqlContent.length / 1024).toFixed(1)} KB) downloaded! You can import this .sql file into any new TiDB / MySQL database in 1 click.`
+      )
+    } catch (err) {
+      setSqlRestoreError(err.message || 'Failed to generate .SQL database backup.')
+    } finally {
+      setQuickExportingSql(false)
+    }
+  }
+
+  async function handleRestoreSqlUpload(e) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (
+      !window.confirm(
+        `Restore & sync all website data from "${file.name}" into the connected database?\n\nThis will safely create/update all 24 tables, student accounts, profiles, events, issued passes, QR codes, email statuses, teams, reels, and settings.`
+      )
+    ) {
+      return
+    }
+    setSqlRestoreError('')
+    setSqlRestoreMessage('')
+    setRestoringSql(true)
+    try {
+      const sqlContent = await file.text()
+      const res = await adminApi.restoreDatabaseSql({
+        sqlContent,
+        quickRestore: true,
+      })
+      setSqlRestoreMessage(
+        res.message ||
+          `✅ Database restored successfully! Executed ${res.executedStatements || 0} SQL statements across ${(res.tablesTouched || []).length} tables.`
+      )
+    } catch (err) {
+      setSqlRestoreError(err.message || 'Failed to restore database from .SQL file.')
+    } finally {
+      setRestoringSql(false)
+    }
+  }
+
   async function handleExecuteSqlExport(e) {
     e.preventDefault()
     setSqlExportError('')
     setSqlExportSuccess('')
     if (!sqlExportPassword) {
-      setSqlExportError('Please enter your account password.')
+      setSqlExportError('Please enter your account password or Master Security PIN.')
       return
     }
 
@@ -15539,32 +15920,39 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
         {message && <p className="member-form-success">{message}</p>}
         {error && <p className="member-form-error">{error}</p>}
 
-        {/* Card: Full Database Backup (.SQL One-Click Export) */}
-        {user.isPrimaryAdmin && (
+        {/* Card: Full Database Backup (.SQL One-Click Export & New Database Restore) */}
+        {(user.isPrimaryAdmin || user.role === 'PRESIDENT' || user.role === 'ADMIN') && (
           <article className="settings-section-card" style={{ border: '1px solid rgba(234, 88, 12, 0.35)', background: 'linear-gradient(180deg, rgba(234, 88, 12, 0.05) 0%, var(--bg-card) 100%)', marginBottom: '24px' }}>
             <div className="settings-card-header">
               <div>
-                <p className="eyebrow" style={{ color: '#ea580c' }}>DISASTER RECOVERY & ARCHIVAL</p>
-                <h3 style={{ color: 'var(--text-main)' }}>Full Database Backup (.SQL One-Click Export)</h3>
+                <p className="eyebrow" style={{ color: '#ea580c' }}>DISASTER RECOVERY, NEW DATABASE MIGRATION & ARCHIVAL</p>
+                <h3 style={{ color: 'var(--text-main)' }}>Export Full Database Backup (.sql) & 1-Click New Database Restore</h3>
               </div>
               <span className="platform-active-pill" style={{ background: '#fff7ed', color: '#ea580c', borderColor: 'rgba(234, 88, 12, 0.3)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                <IconCrown size={13} /> PRIMARY PRESIDENT SECURE TOOL
+                <IconCrown size={13} /> ALL 24 TABLES · TIDB & MYSQL READY
               </span>
             </div>
-            <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.6', margin: '0 0 16px' }}>
-              Download a complete, unencrypted <b>.SQL database dump</b> containing all 19 system tables (all members, accounts, profiles, events, registrations, settings, gallery, complaints, support tickets, and audit records). The downloaded file can be imported directly into any MySQL database with a single click.
+            <p style={{ color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.6', margin: '0 0 14px' }}>
+              Download a complete, unencrypted <b>.SQL database dump</b> containing <b>100% of all 24 system tables</b> (all student &amp; leader accounts, profiles, linked emails, events, issued QR passes, pass email dispatch logs, event teams, team members, project submissions, reels, hashtags, gallery, club settings, support tickets, and audit records). When you switch to a new database, click <b>&quot;Restore / Import .SQL Backup&quot;</b> to bring every single record into your new database in one click.
             </p>
 
-            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+            {sqlRestoreMessage && (
+              <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.14)', border: '1px solid rgba(16, 185, 129, 0.4)', color: '#10b981', fontSize: '12px', fontWeight: 600, marginBottom: '14px' }}>
+                {sqlRestoreMessage}
+              </div>
+            )}
+            {sqlRestoreError && (
+              <div style={{ padding: '10px 14px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.14)', border: '1px solid rgba(239, 68, 68, 0.4)', color: '#ef4444', fontSize: '12px', fontWeight: 600, marginBottom: '14px' }}>
+                {sqlRestoreError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
               <button
                 type="button"
                 className="primary"
-                onClick={() => {
-                  setSqlExportPassword('')
-                  setSqlExportError('')
-                  setSqlExportSuccess('')
-                  setSqlExportModalOpen(true)
-                }}
+                disabled={quickExportingSql}
+                onClick={handleQuickSqlExport}
                 style={{
                   background: 'linear-gradient(135deg, #ea580c, #c2410c)',
                   borderColor: '#ea580c',
@@ -15572,17 +15960,65 @@ function ClubSettingsManager({ user, logout, onNavigate }) {
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '8px',
-                  padding: '10px 20px',
+                  padding: '10px 18px',
                   fontWeight: 700,
                   fontSize: '12px',
                   borderRadius: '8px',
                 }}
               >
-                <IconDownload size={15} /> DOWNLOAD ALL WEBSITE DATA (.SQL)
+                <IconDownload size={15} />
+                {quickExportingSql ? 'EXPORTING ALL 24 TABLES (.SQL)…' : '1-CLICK EXPORT FULL DATABASE BACKUP (.SQL)'}
               </button>
-              <small style={{ color: 'var(--text-dim)', fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                <Icon8 name="keySecurity" size={13} /> Requires Primary President account password for authorization
-              </small>
+
+              <input
+                type="file"
+                ref={sqlRestoreInputRef}
+                onChange={handleRestoreSqlUpload}
+                accept=".sql,.txt"
+                style={{ display: 'none' }}
+              />
+              <button
+                type="button"
+                className="primary"
+                disabled={restoringSql}
+                onClick={() => sqlRestoreInputRef.current?.click()}
+                style={{
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  borderColor: '#10b981',
+                  color: '#ffffff',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 18px',
+                  fontWeight: 700,
+                  fontSize: '12px',
+                  borderRadius: '8px',
+                }}
+              >
+                <IconUpload size={15} />
+                {restoringSql ? 'RESTORING DATABASE (.SQL)…' : 'RESTORE / IMPORT .SQL INTO NEW DATABASE'}
+              </button>
+
+              <button
+                type="button"
+                className="outline"
+                onClick={() => {
+                  setSqlExportPassword('')
+                  setSqlExportError('')
+                  setSqlExportSuccess('')
+                  setSqlExportModalOpen(true)
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  padding: '9px 14px',
+                  fontSize: '11.5px',
+                  borderRadius: '8px',
+                }}
+              >
+                <Icon8 name="keySecurity" size={13} /> Export with Password / PIN
+              </button>
             </div>
           </article>
         )}
@@ -16262,7 +16698,7 @@ function StudentEvents({ user, logout, onNavigate }) {
         .finally(() => { if (mounted) setLoading(false) })
     }
     fetchEvents()
-    const interval = setInterval(fetchEvents, 8000)
+    const interval = setInterval(fetchEvents, 60000)
     return () => {
       mounted = false
       clearInterval(interval)
@@ -16468,7 +16904,7 @@ function StudentRegistrations({ user, logout, onNavigate }) {
 
   useEffect(() => {
     fetchRegistrations()
-    const interval = setInterval(fetchRegistrations, 6000)
+    const interval = setInterval(fetchRegistrations, 45000)
     return () => clearInterval(interval)
   }, [cacheKey])
 
@@ -19530,6 +19966,28 @@ function LivePresidentDashboard({ user, logout, onNavigate }) {
 
   const pendingCount = allTodos.filter(t => !t.completed).length
   const completedCount = allTodos.filter(t => t.completed).length
+  const [exportingSqlBackup, setExportingSqlBackup] = useState(false)
+
+  async function handleQuickDatabaseBackup() {
+    setExportingSqlBackup(true)
+    setDirectivesError('')
+    try {
+      const res = await adminApi.exportDatabaseSql({ quickExport: true })
+      const blob = new Blob([res.sqlContent], { type: 'application/sql;charset=utf-8;' })
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = res.filename || `mrdu_csc_full_database_backup_${Date.now()}.sql`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      setDirectivesMessage(`✅ Exported Full Database Backup (.sql) with all 24 tables (${(res.sqlContent.length / 1024).toFixed(1)} KB)!`)
+      setTimeout(() => setDirectivesMessage(''), 6000)
+    } catch (err) {
+      setDirectivesError(err.message || 'Failed to export database backup.')
+    } finally {
+      setExportingSqlBackup(false)
+    }
+  }
 
   return (
     <LivePortal user={user} logout={logout} activeTab="admin-dashboard" onNavigate={onNavigate} title="COMMAND CENTER">
@@ -19542,6 +20000,29 @@ function LivePresidentDashboard({ user, logout, onNavigate }) {
           <p>{getRoleLabel(user.role)} Command Center · Operational directives, task dispatch, and club access controls.</p>
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {(user.isPrimaryAdmin || user.role === 'PRESIDENT' || user.role === 'ADMIN') && (
+            <button
+              className="primary"
+              type="button"
+              disabled={exportingSqlBackup}
+              onClick={handleQuickDatabaseBackup}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '7px',
+                padding: '9px 15px',
+                fontSize: '11px',
+                fontWeight: 700,
+                background: 'linear-gradient(135deg, #ea580c, #c2410c)',
+                borderColor: '#ea580c',
+                color: '#fff',
+              }}
+              title="1-Click Export Full 24-Table Database Backup (.sql)"
+            >
+              <IconDownload size={14} />
+              {exportingSqlBackup ? 'EXPORTING (.SQL)…' : 'Export Full Database Backup (.sql)'}
+            </button>
+          )}
           <button className="outline" type="button" onClick={() => onNavigate('admin-qr-scanner')} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '9px 16px', fontSize: '11px', fontWeight: 700 }}>
             <Icon8 name="faceId" size={17} /> QR ENTRY GATE
           </button>
@@ -21305,6 +21786,7 @@ function CouncilChatView({ user, logout, onNavigate }) {
   }
 
   function loadMessages() {
+    if (document.hidden) return
     adminApi.listCouncilMessages()
       .then(res => {
         const incoming = res?.messages || []
@@ -21327,7 +21809,7 @@ function CouncilChatView({ user, logout, onNavigate }) {
 
   useEffect(() => {
     loadMessages()
-    const interval = setInterval(loadMessages, 3500)
+    const interval = setInterval(loadMessages, 15000)
     return () => clearInterval(interval)
   }, [])
 
@@ -21823,17 +22305,19 @@ function App() {
     navigateTo(portalUser.role === 'STUDENT' ? 'student-dashboard' : 'admin-dashboard')
   }
 
-  // Periodic heartbeat for active student sessions to retain concurrency slot
+  // Periodic heartbeat for active student sessions to retain concurrency slot (only when queue is enabled)
   useEffect(() => {
-    if (!effectiveUser || effectiveUser.role !== 'STUDENT' || showWaitingQueue || showIntroVideo || isHibernating) {
+    const isQueueEnabled = clubSettings?.queueEnabled === true || clubSettings?.queueEnabled === 'true'
+    if (!isQueueEnabled || !effectiveUser || effectiveUser.role !== 'STUDENT' || showWaitingQueue || showIntroVideo || isHibernating) {
       return
     }
     const heartbeatInterval = setInterval(() => {
+      if (document.hidden) return
       memberApi.queueHeartbeat().catch(() => {})
-    }, 30000)
+    }, 60000)
 
     return () => clearInterval(heartbeatInterval)
-  }, [effectiveUser, showWaitingQueue, showIntroVideo, isHibernating])
+  }, [effectiveUser, showWaitingQueue, showIntroVideo, isHibernating, clubSettings?.queueEnabled])
 
   async function logout() {
     try {

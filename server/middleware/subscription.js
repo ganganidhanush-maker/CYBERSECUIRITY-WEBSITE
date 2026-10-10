@@ -1,5 +1,6 @@
 import { prisma } from '../db/prisma.js'
 import { isSubscriptionActive } from '../utils/expiry.js'
+import { getCachedClubSetting } from '../services/platform-role.service.js'
 
 /**
  * Middleware ensuring students have an active verified subscription when the subscription system is enabled.
@@ -15,12 +16,9 @@ export async function requireActiveSubscription(request, response, next) {
   }
 
   try {
-    // Check if subscription system is globally enabled
-    const setting = await prisma.clubSetting.findUnique({
-      where: { key: 'subscriptionEnabled' },
-    })
-
-    const isEnabled = setting?.value === 'true' || setting?.value === true || (setting?.value && JSON.parse(setting.value) === true)
+    // Check if subscription system is globally enabled (using 60s shared cache)
+    const rawEnabled = await getCachedClubSetting('subscriptionEnabled', 'false')
+    const isEnabled = rawEnabled === 'true' || rawEnabled === true || (rawEnabled && (() => { try { return JSON.parse(rawEnabled) === true } catch { return false } })())
     if (!isEnabled) {
       return next()
     }

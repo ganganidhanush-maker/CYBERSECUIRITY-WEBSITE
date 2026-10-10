@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Ultra-fast In-Memory Authentication Cache
  * Eliminates repeated remote TiDB Cloud round-trips for the same session.
  * Default TTL: 20 seconds.
@@ -43,4 +43,4 @@ class AuthUserCache {
   }
 }
 
-export const authUserCache = new AuthUserCache(20_000)
+export const authUserCache = new AuthUserCache(60_000)

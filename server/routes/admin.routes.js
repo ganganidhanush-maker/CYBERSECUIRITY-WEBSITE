@@ -21,6 +21,7 @@ import {
   disableMemberTwoFactor,
   editMember,
   exportDatabaseSql,
+  restoreDatabaseSql,
   exportEventRegistrationsCsv,
   exportMembersCsv,
   getClubSettings,
@@ -179,8 +180,9 @@ adminRouter.put('/complaints/:complaintId/status', adminWriteRateLimiter, asyncH
 adminRouter.get('/audit-logs', requirePermission('AUDIT_VIEW'), asyncHandler(listAuditLogs))
 adminRouter.post('/audit-logs/clear', requirePrimaryPresident, adminWriteRateLimiter, asyncHandler(clearAuditLogs))
 
-// Full Database Backup (.sql) — Primary President Protected Action
+// Full Database Backup & Restore (.sql) — Primary President Protected Action
 adminRouter.post('/database/export-sql', requireAuth, requirePrimaryPresident, adminWriteRateLimiter, asyncHandler(exportDatabaseSql))
+adminRouter.post('/database/restore-sql', requireAuth, requirePrimaryPresident, adminWriteRateLimiter, asyncHandler(restoreDatabaseSql))
 
 // QR Code Scanner & Event Entry Gate (Admins & Coordinators)
 adminRouter.get('/qr/scan', scannerRateLimiter, asyncHandler(scanQrCode))

@@ -301,6 +301,7 @@ export const clubSettingsSchema = z.object({
   discordUrl: optionalText(255),
   whatsappUrl: optionalText(255),
   websiteUrl: optionalText(255),
+  gmailRelayUrl: optionalText(1000),
 })
 
 export function newId() {
