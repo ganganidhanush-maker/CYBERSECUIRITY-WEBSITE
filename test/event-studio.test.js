@@ -5,6 +5,7 @@ import { formatCsvValue } from '../src/lib/export-csv.js'
 import { hasActiveEventPass, isDraftRegistration, isPaymentAwaitingReview, isRejectedPayment, resolveEventPricing, resolveEventRegistrationMode } from '../server/utils/event-registration.js'
 import { paymentReferenceLockName } from '../server/utils/payment-reference-lock.js'
 import { resolvePublicAppUrl } from '../server/config/public-url.js'
+import { sendEventPassEmail, testSentEmails } from '../server/services/mailer.service.js'
 
 describe('Event Studio & Registrations Management', () => {
   it('validates comprehensive event studio payload with pricing, tracks, and custom questions', () => {
@@ -250,5 +251,39 @@ describe('Event Studio & Registrations Management', () => {
     assert.equal(safeExportRow.includes(sensitiveUser.passwordHash), false)
     assert.equal(safeExportRow.includes(sensitiveUser.masterPinHash), false)
     assert.equal(safeExportRow.includes(sensitiveUser.twoFactorSecret), false)
+  })
+
+  it('dispatches official event pass email with interpolated custom message and inline QR PNG attachment', async () => {
+    const prevEnv = process.env.NODE_ENV
+    process.env.NODE_ENV = 'test'
+    testSentEmails.length = 0
+    try {
+      const sampleQrDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+      const res = await sendEventPassEmail({
+        to: 'student23@mallareddyuniversity.ac.in',
+        studentName: 'Dhanush G',
+        rollNumber: '23EU07R0015',
+        memberId: '23EU07R0015',
+        eventTitle: 'Cyber HackFest 2026',
+        eventDate: '2026-10-15T10:00:00.000Z',
+        eventVenue: 'Main Auditorium',
+        passId: 'PASS-998877',
+        qrCodeDataUrl: sampleQrDataUrl,
+        customMessage: 'Hello {name} ({rollNumber}), welcome to {event} at {venue}! Pass ID: {passId}',
+      })
+
+      assert.equal(res.delivered, true)
+      assert.equal(testSentEmails.length, 1)
+      const sent = testSentEmails[0]
+      assert.equal(sent.to, 'student23@mallareddyuniversity.ac.in')
+      assert.ok(sent.subject.includes('Cyber HackFest 2026'))
+      assert.ok(sent.subject.includes('23EU07R0015'))
+      assert.ok(sent.text.includes('Hello Dhanush G (23EU07R0015), welcome to Cyber HackFest 2026 at Main Auditorium! Pass ID: PASS-998877'))
+      assert.ok(sent.html.includes('cid:eventpassqr@cyberclubmrdu'))
+      assert.equal(sent.attachments.length, 1)
+      assert.equal(sent.attachments[0].cid, 'eventpassqr@cyberclubmrdu')
+    } finally {
+      process.env.NODE_ENV = prevEnv
+    }
   })
 })

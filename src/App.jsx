@@ -7202,6 +7202,8 @@ function EventManagement({ user, logout, onNavigate }) {
   const [loadingAnalytics, setLoadingAnalytics] = useState(false)
   const [rosterSearch, setRosterSearch] = useState('')
   const [selectedRosterPass, setSelectedRosterPass] = useState(null)
+  const [passEmailModalOpen, setPassEmailModalOpen] = useState(false)
+  const [passEmailTargetEventId, setPassEmailTargetEventId] = useState('')
 
   useEffect(() => {
     let mounted = true
@@ -8634,17 +8636,31 @@ function EventManagement({ user, logout, onNavigate }) {
               </div>
               <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                 {!isReadOnly && (
-                  <button
-                    type="button"
-                    className="primary"
-                    onClick={() => {
-                      if (!editingEventId) setFormData(initialEventForm)
-                      setEventView('BUILDER')
-                    }}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px' }}
-                  >
-                    <IconPlus size={14} /> CREATE NEW EVENT
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={() => {
+                        if (!editingEventId) setFormData(initialEventForm)
+                        setEventView('BUILDER')
+                      }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px' }}
+                    >
+                      <IconPlus size={14} /> CREATE NEW EVENT
+                    </button>
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={() => {
+                        setPassEmailTargetEventId(events[0]?.id || '')
+                        setPassEmailModalOpen(true)
+                      }}
+                      disabled={events.length === 0}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px', background: 'linear-gradient(135deg, #0ea5e9, #2563eb)', border: 'none', color: '#fff' }}
+                    >
+                      <IconMail size={14} /> SEND PASS EMAILS (3 MODES)
+                    </button>
+                  </>
                 )}
                 <button
                   type="button"
@@ -8714,6 +8730,19 @@ function EventManagement({ user, logout, onNavigate }) {
                       <div className="action-buttons" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                         {!isReadOnly && <button className="action-btn edit-btn" onClick={() => startEditEvent(ev)} title="Edit event settings">Edit</button>}
                         <button className="action-btn save-btn" onClick={() => openAnalytics(ev)} title="View attendee passes and check-in roster">Passes</button>
+                        {!isReadOnly && (
+                          <button
+                            className="action-btn"
+                            onClick={() => {
+                              setPassEmailTargetEventId(ev.id)
+                              setPassEmailModalOpen(true)
+                            }}
+                            style={{ background: 'rgba(14, 165, 233, 0.14)', color: '#38bdf8', border: '1px solid rgba(14, 165, 233, 0.35)' }}
+                            title="Send pass emails for this event"
+                          >
+                            Email
+                          </button>
+                        )}
                         {!isReadOnly && <button className="action-btn delete-btn" onClick={() => removeEvent(ev.id)} title="Delete event">Delete</button>}
                       </div>
                     </div>
@@ -8739,6 +8768,19 @@ function EventManagement({ user, logout, onNavigate }) {
                   </small>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {!isReadOnly && (
+                    <button
+                      type="button"
+                      className="primary"
+                      onClick={() => {
+                        setPassEmailTargetEventId(analyticsModalEvent.id)
+                        setPassEmailModalOpen(true)
+                      }}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px', background: 'linear-gradient(135deg, #0ea5e9, #2563eb)', border: 'none', color: '#fff' }}
+                    >
+                      <IconMail size={13} /> SEND PASS EMAILS
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="outline"
@@ -8854,8 +8896,8 @@ function EventManagement({ user, logout, onNavigate }) {
 
                             {/* Contact & Logistics */}
                             <div>
-                              <small style={{ color: 'var(--text-main)', display: 'block', wordBreak: 'break-all' }}>
-                                {r.email || r.user?.profile?.email || 'No email'}
+                              <small style={{ color: (r.email || r.user?.profile?.email) ? 'var(--text-main)' : '#ef4444', display: 'block', wordBreak: 'break-all' }}>
+                                {r.email || r.user?.profile?.email || 'EMAIL NOT GIVEN'}
                               </small>
                               <small style={{ color: 'var(--brand-primary)', display: 'block', marginTop: '2px' }}>
                                 {r.phone || r.user?.profile?.phone || 'No phone'}
@@ -8999,8 +9041,8 @@ function EventManagement({ user, logout, onNavigate }) {
                 </div>
                 <div>
                   <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>EMAIL ADDRESS</span>
-                  <b style={{ color: 'var(--text-main)', display: 'block', marginTop: '2px', wordBreak: 'break-all' }}>
-                    {selectedRosterPass.email || selectedRosterPass.user?.profile?.email || '---'}
+                  <b style={{ color: (selectedRosterPass.email || selectedRosterPass.user?.profile?.email) ? 'var(--text-main)' : '#ef4444', display: 'block', marginTop: '2px', wordBreak: 'break-all' }}>
+                    {selectedRosterPass.email || selectedRosterPass.user?.profile?.email || 'EMAIL NOT GIVEN'}
                   </b>
                 </div>
                 <div>
@@ -9111,6 +9153,19 @@ function EventManagement({ user, logout, onNavigate }) {
               </div>
             </div>
           </div>
+        )}
+
+        {/* 1-Click Event Pass Email Dispatch Modal (All 3 Modes) */}
+        {passEmailModalOpen && (
+          <PassEmailDispatchModal
+            isOpen={passEmailModalOpen}
+            onClose={() => setPassEmailModalOpen(false)}
+            events={events}
+            initialEventId={passEmailTargetEventId}
+            onSuccess={() => {
+              if (analyticsModalEvent) openAnalytics(analyticsModalEvent)
+            }}
+          />
         )}
       </section>
     </LivePortal>
@@ -11379,6 +11434,1192 @@ function BulkEventPassModal({ isOpen, onClose, events = [], onSuccess }) {
 }
 
 // ----------------------------------------------------
+// 1-Click Event Pass Email Dispatch Modal (All 3 Modes)
+// ----------------------------------------------------
+function PassEmailDispatchModal({
+  isOpen,
+  onClose,
+  events = [],
+  initialEventId = '',
+  initialRollNumbers = [],
+  onSuccess,
+}) {
+  const [selectedEventId, setSelectedEventId] = useState('')
+  const [mode, setMode] = useState('EVENT_ROSTER') // 'EVENT_ROSTER' | 'ROLL_NUMBERS' | 'EXCEL_CSV'
+  const [rollNumbersText, setRollNumbersText] = useState('')
+  const [uploadedEntries, setUploadedEntries] = useState([])
+  const [uploadedFileName, setUploadedFileName] = useState('')
+  const [linkEmailsToProfile, setLinkEmailsToProfile] = useState(true)
+  const [globalCustomMessage, setGlobalCustomMessage] = useState(
+    'Congratulations {name} ({rollNumber})! Your official Event Entry Pass for {event} is confirmed and active. Please present the attached QR code at the venue gate ({venue}) for check-in.'
+  )
+  const [rowCustomMessages, setRowCustomMessages] = useState({})
+  const [expandedCustomRowId, setExpandedCustomRowId] = useState(null)
+  const [inlineEmails, setInlineEmails] = useState({})
+  const [resolvedData, setResolvedData] = useState(null)
+  const [loadingResolve, setLoadingResolve] = useState(false)
+  const [sendingRowKey, setSendingRowKey] = useState(null)
+  const [sendingBatch, setSendingBatch] = useState(false)
+  const [statusFilter, setStatusFilter] = useState('ALL')
+  const [searchFilter, setSearchFilter] = useState('')
+  const [error, setError] = useState('')
+  const [feedback, setFeedback] = useState(null)
+  const fileInputRef = useRef(null)
+
+  const availableEvents = useMemo(() => {
+    return (events || []).filter(e => !e.archived && e.status !== 'ARCHIVED')
+  }, [events])
+
+  const selectedEvent = useMemo(() => {
+    return availableEvents.find(e => e.id === selectedEventId) || null
+  }, [availableEvents, selectedEventId])
+
+  useEffect(() => {
+    if (!isOpen) return
+    if (initialEventId && initialEventId !== 'ALL' && availableEvents.some(e => e.id === initialEventId)) {
+      setSelectedEventId(initialEventId)
+    } else if (!selectedEventId && availableEvents.length > 0) {
+      setSelectedEventId(availableEvents[0].id)
+    }
+    if (Array.isArray(initialRollNumbers) && initialRollNumbers.length > 0) {
+      setMode('ROLL_NUMBERS')
+      setRollNumbersText(initialRollNumbers.join('\n'))
+    }
+  }, [isOpen, initialEventId, initialRollNumbers, availableEvents, selectedEventId])
+
+  // Parse pasted roll numbers for Mode 2
+  const parsedRollEntries = useMemo(() => {
+    if (!rollNumbersText.trim()) return []
+    const seen = new Set()
+    const list = []
+    const lines = rollNumbersText.split(/[\r\n]+/)
+    for (const line of lines) {
+      const trimmedLine = line.trim()
+      if (!trimmedLine) continue
+      // Support either "23EU07R0015" or "23EU07R0015, student@gmail.com"
+      const parts = trimmedLine.split(/[,\t;]+/).map(p => p.trim().replace(/^["']|["']$/g, '')).filter(Boolean)
+      if (parts.length === 0) continue
+      let roll = ''
+      let email = ''
+      for (const part of parts) {
+        if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(part)) {
+          if (!email) email = part.toLowerCase()
+        } else if (!roll) {
+          const candidate = part.split(/\s+/)[0].trim()
+          if (candidate.length >= 2 && candidate.length <= 64) {
+            roll = candidate
+          }
+        }
+      }
+      if (roll) {
+        const key = roll.toUpperCase()
+        if (!seen.has(key)) {
+          seen.add(key)
+          list.push({ rollNumber: roll, ...(email ? { email } : {}) })
+        }
+      }
+    }
+    return list
+  }, [rollNumbersText])
+
+  // Resolve recipients from backend whenever event, mode, or inputs change
+  const triggerResolve = useCallback(async () => {
+    if (!selectedEventId) return
+    if (mode === 'ROLL_NUMBERS' && parsedRollEntries.length === 0) {
+      setResolvedData(null)
+      return
+    }
+    if (mode === 'EXCEL_CSV' && uploadedEntries.length === 0) {
+      setResolvedData(null)
+      return
+    }
+
+    setLoadingResolve(true)
+    setError('')
+    try {
+      const payload = {
+        mode,
+        linkEmails: mode === 'EXCEL_CSV' ? linkEmailsToProfile : true,
+        entries:
+          mode === 'ROLL_NUMBERS'
+            ? parsedRollEntries
+            : mode === 'EXCEL_CSV'
+              ? uploadedEntries
+              : [],
+      }
+      const res = await adminApi.resolveEventPassEmails(selectedEventId, payload)
+      setResolvedData(res)
+      if (mode === 'EXCEL_CSV' && (res.emailsLinkedCount || 0) > 0) {
+        setFeedback({
+          type: 'success',
+          text: `Automatically linked ${res.emailsLinkedCount} email address(es) from your uploaded file directly to student accounts!`,
+        })
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to load student pass email list.')
+    } finally {
+      setLoadingResolve(false)
+    }
+  }, [selectedEventId, mode, parsedRollEntries, uploadedEntries, linkEmailsToProfile])
+
+  useEffect(() => {
+    if (!isOpen || !selectedEventId) return
+    const timer = setTimeout(() => {
+      triggerResolve()
+    }, mode === 'ROLL_NUMBERS' ? 350 : 80)
+    return () => clearTimeout(timer)
+  }, [isOpen, selectedEventId, mode, parsedRollEntries, uploadedEntries, triggerResolve])
+
+  // Handle Excel (.xlsx, .xls) or CSV upload for Mode 3
+  function handleExcelCsvUpload(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setError('')
+    setFeedback(null)
+    setUploadedFileName(file.name)
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const parseRowsMatrix = rows => {
+      const entries = []
+      const seen = new Set()
+      let rollColIdx = -1
+      let emailColIdx = -1
+      let msgColIdx = -1
+
+      for (let r = 0; r < rows.length; r++) {
+        const row = rows[r]
+        if (!Array.isArray(row)) continue
+        const cells = row.map(c => String(c ?? '').trim().replace(/^["']|["']$/g, ''))
+        if (cells.every(c => !c)) continue
+
+        // Detect header row
+        if (r === 0) {
+          const lowerCells = cells.map(c => c.toLowerCase())
+          const hasHeaderKeyword = lowerCells.some(
+            c =>
+              c.includes('roll') ||
+              c.includes('member') ||
+              c.includes('student') ||
+              c.includes('email') ||
+              c.includes('mail') ||
+              c === 'id' ||
+              c.includes('htno')
+          )
+          if (hasHeaderKeyword) {
+            lowerCells.forEach((colName, idx) => {
+              if (rollColIdx === -1 && (colName.includes('roll') || colName.includes('member') || colName.includes('htno') || colName === 'id' || colName.includes('student id'))) {
+                rollColIdx = idx
+              } else if (emailColIdx === -1 && (colName.includes('email') || colName.includes('mail'))) {
+                emailColIdx = idx
+              } else if (msgColIdx === -1 && (colName.includes('message') || colName.includes('custom') || colName.includes('note'))) {
+                msgColIdx = idx
+              }
+            })
+            continue
+          }
+        }
+
+        let rollVal = ''
+        let emailVal = ''
+        let customMsgVal = ''
+
+        if (rollColIdx >= 0 && cells[rollColIdx]) {
+          rollVal = cells[rollColIdx].split(/\s+/)[0].trim()
+        }
+        if (emailColIdx >= 0 && cells[emailColIdx]) {
+          emailVal = cells[emailColIdx].trim().toLowerCase()
+        }
+        if (msgColIdx >= 0 && cells[msgColIdx]) {
+          customMsgVal = cells[msgColIdx].trim()
+        }
+
+        // Auto-detect columns if no explicit headers matched
+        for (let cIdx = 0; cIdx < cells.length; cIdx++) {
+          const val = cells[cIdx]
+          if (!val) continue
+          if (emailPattern.test(val)) {
+            if (!emailVal) emailVal = val.toLowerCase()
+          } else if (!rollVal && cIdx !== emailColIdx && cIdx !== msgColIdx) {
+            const firstToken = val.split(/[\s,;]+/)[0].trim()
+            if (firstToken.length >= 2 && firstToken.length <= 64 && /[0-9]/.test(firstToken)) {
+              rollVal = firstToken
+            }
+          }
+        }
+
+        // Fallback if roll number still not picked and first cell is non-empty
+        if (!rollVal && cells[0] && !emailPattern.test(cells[0])) {
+          const candidate = cells[0].split(/\s+/)[0].trim()
+          if (candidate.length >= 2 && candidate.length <= 64) {
+            rollVal = candidate
+          }
+        }
+
+        if (!rollVal) continue
+        const key = rollVal.toUpperCase()
+        if (seen.has(key)) continue
+        seen.add(key)
+
+        entries.push({
+          rollNumber: rollVal,
+          email: emailVal || undefined,
+          customMessage: customMsgVal || undefined,
+        })
+      }
+      return entries
+    }
+
+    const fileName = (file.name || '').toLowerCase()
+    const isBinary = fileName.endsWith('.xlsx') || fileName.endsWith('.xls')
+    const reader = new FileReader()
+
+    if (isBinary) {
+      reader.onload = evt => {
+        try {
+          const data = new Uint8Array(evt.target.result)
+          const workbook = XLSX.read(data, { type: 'array' })
+          const firstSheet = workbook.Sheets[workbook.SheetNames[0]]
+          const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 })
+          const parsed = parseRowsMatrix(rows)
+          if (parsed.length === 0) {
+            setError('No valid Student Roll Numbers found in the uploaded Excel sheet.')
+            return
+          }
+          setUploadedEntries(parsed)
+        } catch (err) {
+          setError('Failed to parse Excel file: ' + (err.message || 'Invalid format'))
+        }
+      }
+      reader.readAsArrayBuffer(file)
+    } else {
+      reader.onload = evt => {
+        try {
+          const text = String(evt.target.result || '')
+          const rows = text
+            .split(/\r?\n/)
+            .map(line => line.trim())
+            .filter(Boolean)
+            .map(line => line.split(/[,\t;]/).map(cell => cell.trim()))
+          const parsed = parseRowsMatrix(rows)
+          if (parsed.length === 0) {
+            setError('No valid Student Roll Numbers found in the uploaded CSV file.')
+            return
+          }
+          setUploadedEntries(parsed)
+        } catch (err) {
+          setError('Failed to read CSV file: ' + (err.message || 'Invalid format'))
+        }
+      }
+      reader.readAsText(file)
+    }
+    e.target.value = ''
+  }
+
+  function handleDownloadSampleTemplate() {
+    const headers = ['Roll Number', 'Email (Optional - Auto Links to Account)', 'Custom Message (Optional per Student)']
+    const sampleRows = [
+      ['23EU07R0015', 'student1@mallareddyuniversity.ac.in', 'Welcome! Please report to Desk A by 9:30 AM.'],
+      ['23CS101', 'student2@gmail.com', ''],
+      ['23CS102', '', ''],
+    ]
+    try {
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...sampleRows])
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Pass_Emails')
+      XLSX.writeFile(wb, 'event_pass_email_template.xlsx')
+    } catch {
+      downloadCsv('event_pass_email_template.csv', headers, sampleRows)
+    }
+  }
+
+  // 1-Click Send to a SINGLE student
+  async function handleSendSingle(recipient) {
+    if (!selectedEventId || !recipient?.registrationId) return
+    const rowKey = recipient.registrationId
+    const inlineEmail = (inlineEmails[rowKey] || '').trim()
+    const effectiveEmail = inlineEmail || recipient.email || ''
+    if (!effectiveEmail) {
+      setError(`EMAIL NOT GIVEN for ${recipient.rollNumber} (${recipient.name}). Please type their email in the row input box first.`)
+      return
+    }
+    if (recipient.emailSent || recipient.dispatchStatus === 'ALREADY_SENT') {
+      setError(`Duplicate Blocked: Pass email was already sent to ${recipient.rollNumber} (${recipient.emailSentTo || recipient.email}).`)
+      return
+    }
+
+    setSendingRowKey(rowKey)
+    setError('')
+    setFeedback(null)
+    try {
+      const studentCustomMsg =
+        rowCustomMessages[rowKey] !== undefined
+          ? rowCustomMessages[rowKey]
+          : recipient.customMessage || ''
+
+      const res = await adminApi.sendEventPassEmails(selectedEventId, {
+        customMessage: globalCustomMessage,
+        recipients: [
+          {
+            registrationId: recipient.registrationId,
+            rollNumber: recipient.rollNumber,
+            name: recipient.name,
+            email: inlineEmail || recipient.email,
+            customMessage: studentCustomMsg.trim() || undefined,
+          },
+        ],
+      })
+
+      if ((res.sentCount || 0) > 0) {
+        const sentInfo = res.sent?.[0]
+        setFeedback({
+          type: 'success',
+          text: `✅ Pass email sent to ${recipient.name} (${recipient.rollNumber}) at ${sentInfo?.email || effectiveEmail}! Marked as DONE (no duplicate can be sent).`,
+        })
+        // Update local state immediately so button locks to SENT / DONE
+        setResolvedData(prev => {
+          if (!prev) return prev
+          const updatedRecipients = (prev.recipients || []).map(r => {
+            if (r.registrationId !== rowKey) return r
+            const wasMissingEmail = r.dispatchStatus === 'EMAIL_NOT_GIVEN'
+            return {
+              ...r,
+              email: sentInfo?.email || effectiveEmail,
+              emailSent: true,
+              emailSentAt: sentInfo?.emailSentAt || new Date().toISOString(),
+              emailSentTo: sentInfo?.email || effectiveEmail,
+              dispatchStatus: 'ALREADY_SENT',
+              statusMessage: `SENT / DONE (${sentInfo?.email || effectiveEmail})`,
+              _wasMissingEmail: wasMissingEmail,
+            }
+          })
+          return {
+            ...prev,
+            readyCount: updatedRecipients.filter(r => r.dispatchStatus === 'READY').length,
+            emailNotGivenCount: updatedRecipients.filter(r => r.dispatchStatus === 'EMAIL_NOT_GIVEN').length,
+            alreadySentCount: updatedRecipients.filter(r => r.dispatchStatus === 'ALREADY_SENT').length,
+            recipients: updatedRecipients,
+          }
+        })
+        if (onSuccess) onSuccess()
+      } else if ((res.alreadySentCount || 0) > 0) {
+        setFeedback({
+          type: 'warning',
+          text: `Duplicate Blocked: Email was already sent to ${recipient.rollNumber}.`,
+        })
+        triggerResolve()
+      } else if ((res.missingEmailCount || 0) > 0) {
+        setError(`EMAIL NOT GIVEN for ${recipient.rollNumber}. Please provide a valid email address.`)
+      } else if ((res.failedCount || 0) > 0) {
+        setError(res.failed?.[0]?.message || 'Failed to send email.')
+      }
+    } catch (err) {
+      setError(err.message || 'Failed to send pass email.')
+    } finally {
+      setSendingRowKey(null)
+    }
+  }
+
+  // 1-Click Batch Send to ALL Ready Students (plus any EMAIL_NOT_GIVEN rows where admin typed an inline email)
+  async function handleSendAllReady() {
+    if (!selectedEventId || !resolvedData?.recipients) return
+    const eligibleToSend = resolvedData.recipients.filter(r => {
+      if (!r.registrationId || !r.hasActivePass || r.emailSent || r.dispatchStatus === 'ALREADY_SENT') return false
+      const inlineEmail = (inlineEmails[r.registrationId] || '').trim()
+      return Boolean(r.dispatchStatus === 'READY' || (r.dispatchStatus === 'EMAIL_NOT_GIVEN' && inlineEmail))
+    })
+
+    if (eligibleToSend.length === 0) {
+      setError('No ready students to send emails to. Students with "SENT / DONE" are skipped to prevent duplicates, and "EMAIL NOT GIVEN" requires an email.')
+      return
+    }
+
+    setSendingBatch(true)
+    setError('')
+    setFeedback(null)
+    try {
+      const payloadRecipients = eligibleToSend.map(r => {
+        const rowKey = r.registrationId
+        const inlineEmail = (inlineEmails[rowKey] || '').trim()
+        const studentCustomMsg =
+          rowCustomMessages[rowKey] !== undefined
+            ? rowCustomMessages[rowKey]
+            : r.customMessage || ''
+        return {
+          registrationId: r.registrationId,
+          rollNumber: r.rollNumber,
+          name: r.name,
+          email: inlineEmail || r.email,
+          customMessage: studentCustomMsg.trim() || undefined,
+        }
+      })
+
+      const res = await adminApi.sendEventPassEmails(selectedEventId, {
+        customMessage: globalCustomMessage,
+        recipients: payloadRecipients,
+      })
+
+      setFeedback({
+        type: (res.failedCount || 0) > 0 ? 'warning' : 'success',
+        text: res.message || `Sent ${res.sentCount || 0} pass email(s) from cyberclubmrdu2025@gmail.com.`,
+      })
+      await triggerResolve()
+      if (onSuccess) onSuccess()
+    } catch (err) {
+      setError(err.message || 'Batch email dispatch failed.')
+    } finally {
+      setSendingBatch(false)
+    }
+  }
+
+  const recipients = useMemo(() => resolvedData?.recipients || [], [resolvedData])
+  const readyWithInlineCount = useMemo(() => {
+    return recipients.filter(r => {
+      if (!r.registrationId || !r.hasActivePass || r.emailSent || r.dispatchStatus === 'ALREADY_SENT') return false
+      const inlineEmail = (inlineEmails[r.registrationId] || '').trim()
+      return Boolean(r.dispatchStatus === 'READY' || (r.dispatchStatus === 'EMAIL_NOT_GIVEN' && inlineEmail))
+    }).length
+  }, [recipients, inlineEmails])
+
+  const filteredRecipients = useMemo(() => {
+    return recipients.filter(r => {
+      if (statusFilter === 'READY' && r.dispatchStatus !== 'READY') return false
+      if (statusFilter === 'EMAIL_NOT_GIVEN' && r.dispatchStatus !== 'EMAIL_NOT_GIVEN') return false
+      if (statusFilter === 'ALREADY_SENT' && r.dispatchStatus !== 'ALREADY_SENT') return false
+      if (statusFilter === 'ISSUES' && !['ACCOUNT_NOT_FOUND', 'NO_PASS_ISSUED', 'PASS_WAITING_VERIFICATION', 'AMBIGUOUS_ROLL_NUMBER'].includes(r.dispatchStatus)) {
+        return false
+      }
+      if (searchFilter.trim()) {
+        const q = searchFilter.trim().toLowerCase()
+        const match =
+          (r.name && r.name.toLowerCase().includes(q)) ||
+          (r.rollNumber && r.rollNumber.toLowerCase().includes(q)) ||
+          (r.memberId && r.memberId.toLowerCase().includes(q)) ||
+          (r.email && r.email.toLowerCase().includes(q)) ||
+          (r.statusMessage && r.statusMessage.toLowerCase().includes(q))
+        if (!match) return false
+      }
+      return true
+    })
+  }, [recipients, statusFilter, searchFilter])
+
+  if (!isOpen) return null
+
+  return (
+    <div className="photo-lightbox" onClick={onClose} style={{ zIndex: 9999 }}>
+      <div
+        className="guest-modal-content"
+        onClick={e => e.stopPropagation()}
+        style={{ maxWidth: '980px', width: '96vw', maxHeight: '92vh', overflowY: 'auto', padding: 'clamp(16px, 3vw, 26px)' }}
+      >
+        <button className="lightbox-close" onClick={onClose} aria-label="Close">
+          <IconX size={16} />
+        </button>
+
+        <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+          <p className="eyebrow" style={{ color: '#38bdf8' }}>
+            OFFICIAL SMTP DISPATCHER · SENDER: {resolvedData?.senderEmail || 'cyberclubmrdu2025@gmail.com'}
+          </p>
+          <h2 style={{ margin: '4px 0 6px', fontSize: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            <IconMail size={20} /> 1-Click Event Pass Email Dispatch Center
+          </h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '12px', lineHeight: 1.5, margin: 0 }}>
+            Send verified QR event passes with a custom message to each student individually (1-click) or in batch.
+            Students without an email clearly show <b>EMAIL NOT GIVEN</b>, and once sent, passes lock to <b>SENT / DONE ✅</b> so duplicate emails are never sent.
+          </p>
+        </div>
+
+        {error && <p className="member-form-error" style={{ marginBottom: '12px' }}>{error}</p>}
+        {feedback && (
+          <div
+            style={{
+              marginBottom: '14px',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              fontSize: '12px',
+              fontWeight: 600,
+              background: feedback.type === 'warning' ? 'rgba(245, 158, 11, 0.14)' : 'rgba(16, 185, 129, 0.14)',
+              border: feedback.type === 'warning' ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
+              color: feedback.type === 'warning' ? '#f59e0b' : '#10b981',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '10px',
+            }}
+          >
+            <span>{feedback.text}</span>
+            <button
+              type="button"
+              onClick={() => setFeedback(null)}
+              style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer' }}
+            >
+              <IconX size={14} />
+            </button>
+          </div>
+        )}
+
+        {/* STEP 1: Select Event */}
+        <div style={{ marginBottom: '14px', background: 'var(--panel-subtle)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--line)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
+            <label style={{ font: '700 11.5px "DM Mono", monospace', color: 'var(--text-main)' }}>
+              1. SELECT TARGET EVENT
+            </label>
+            {selectedEvent && (
+              <span style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
+                Venue: <b>{selectedEvent.venue || selectedEvent.location || 'MRDU Campus'}</b> · Sender: <b style={{ color: '#38bdf8' }}>cyberclubmrdu2025@gmail.com</b>
+              </span>
+            )}
+          </div>
+          <select
+            value={selectedEventId}
+            onChange={e => {
+              setSelectedEventId(e.target.value)
+              setFeedback(null)
+              setError('')
+            }}
+            style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid var(--line)', background: 'var(--bg-input)', color: 'var(--text-main)', fontSize: '13px' }}
+          >
+            {availableEvents.map(ev => (
+              <option key={ev.id} value={ev.id}>
+                {ev.title} ({ev.eventType || 'Event'}) — {ev.dateTime ? new Date(ev.dateTime).toLocaleDateString() : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* STEP 2: Choose 1 of the 3 Input Modes */}
+        <div style={{ marginBottom: '14px' }}>
+          <label style={{ font: '700 11.5px "DM Mono", monospace', color: 'var(--text-main)', display: 'block', marginBottom: '8px' }}>
+            2. CHOOSE HOW TO LOAD STUDENTS (3 OPTIONS FOR DIFFERENT CONDITIONS)
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '10px' }}>
+            {/* Option 1 */}
+            <div
+              onClick={() => { setMode('EVENT_ROSTER'); setError(''); setFeedback(null) }}
+              style={{
+                padding: '12px',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                background: mode === 'EVENT_ROSTER' ? 'rgba(16, 185, 129, 0.12)' : 'var(--panel-subtle)',
+                border: mode === 'EVENT_ROSTER' ? '1.5px solid #10b981' : '1px solid var(--line)',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <b style={{ fontSize: '12.5px', color: mode === 'EVENT_ROSTER' ? '#10b981' : 'var(--text-main)' }}>
+                  Option 1: Zero Upload (Auto List)
+                </b>
+                <span className="badge" style={{ fontSize: '9px', background: 'rgba(16, 185, 129, 0.2)', color: '#10b981' }}>EASIEST</span>
+              </div>
+              <small style={{ color: 'var(--text-muted)', fontSize: '11px', lineHeight: 1.4, display: 'block' }}>
+                Automatically loads every student who holds an Issued Pass for this event along with their saved account email.
+              </small>
+            </div>
+
+            {/* Option 2 */}
+            <div
+              onClick={() => { setMode('ROLL_NUMBERS'); setError(''); setFeedback(null) }}
+              style={{
+                padding: '12px',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                background: mode === 'ROLL_NUMBERS' ? 'rgba(56, 189, 248, 0.12)' : 'var(--panel-subtle)',
+                border: mode === 'ROLL_NUMBERS' ? '1.5px solid #38bdf8' : '1px solid var(--line)',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <b style={{ fontSize: '12.5px', color: mode === 'ROLL_NUMBERS' ? '#38bdf8' : 'var(--text-main)' }}>
+                  Option 2: Paste Roll Numbers
+                </b>
+                <span className="badge" style={{ fontSize: '9px', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8' }}>QUICK LOOKUP</span>
+              </div>
+              <small style={{ color: 'var(--text-muted)', fontSize: '11px', lineHeight: 1.4, display: 'block' }}>
+                Paste one or more Roll Numbers (e.g. <code>23EU07R0015</code>). Checks their account in DB and pulls their saved email automatically.
+              </small>
+            </div>
+
+            {/* Option 3 */}
+            <div
+              onClick={() => { setMode('EXCEL_CSV'); setError(''); setFeedback(null) }}
+              style={{
+                padding: '12px',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                background: mode === 'EXCEL_CSV' ? 'rgba(168, 85, 247, 0.12)' : 'var(--panel-subtle)',
+                border: mode === 'EXCEL_CSV' ? '1.5px solid #a855f7' : '1px solid var(--line)',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                <b style={{ fontSize: '12.5px', color: mode === 'EXCEL_CSV' ? '#a855f7' : 'var(--text-main)' }}>
+                  Option 3: Upload Excel / CSV
+                </b>
+                <span className="badge" style={{ fontSize: '9px', background: 'rgba(168, 85, 247, 0.2)', color: '#a855f7' }}>AUTO-LINKS EMAIL</span>
+              </div>
+              <small style={{ color: 'var(--text-muted)', fontSize: '11px', lineHeight: 1.4, display: 'block' }}>
+                Upload <code>Roll Number</code> or <code>Roll Number, Email</code>. Automatically links emails to auto-created student accounts!
+              </small>
+            </div>
+          </div>
+
+          {/* Mode 2 Input Area */}
+          {mode === 'ROLL_NUMBERS' && (
+            <div style={{ marginTop: '10px', background: 'var(--panel-subtle)', padding: '12px', borderRadius: '10px', border: '1px solid var(--line)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#38bdf8' }}>
+                  Enter / Paste Student Roll Numbers (one per line or comma-separated):
+                </span>
+                <small style={{ color: 'var(--text-dim)', fontSize: '11px' }}>
+                  Detected: <b>{parsedRollEntries.length}</b> Roll Number(s)
+                </small>
+              </div>
+              <textarea
+                rows={4}
+                className="bulk-textarea"
+                placeholder={`Paste Roll Numbers (or Roll Number, Email):\n23EU07R0015\n23CS101\n23CS102, student@gmail.com`}
+                value={rollNumbersText}
+                onChange={e => setRollNumbersText(e.target.value)}
+                style={{ width: '100%', fontFamily: '"DM Mono", monospace', fontSize: '12px', padding: '8px 10px' }}
+              />
+            </div>
+          )}
+
+          {/* Mode 3 Input Area */}
+          {mode === 'EXCEL_CSV' && (
+            <div style={{ marginTop: '10px', background: 'var(--panel-subtle)', padding: '12px', borderRadius: '10px', border: '1px solid var(--line)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: '#a855f7', display: 'block' }}>
+                    Upload Excel (.xlsx, .xls) or CSV (.csv) with Roll Number & optional Email
+                  </span>
+                  <small style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
+                    If your sheet has <b>Roll Number, Email</b>, the system automatically saves & links that email to their account profile.
+                  </small>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleExcelCsvUpload}
+                    accept=".xlsx,.xls,.csv,.txt"
+                    style={{ display: 'none' }}
+                  />
+                  <button
+                    type="button"
+                    className="primary"
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px', background: '#a855f7', border: 'none', color: '#fff' }}
+                  >
+                    <IconUpload size={13} /> Choose Excel / CSV File
+                  </button>
+                  <button
+                    type="button"
+                    className="outline"
+                    onClick={handleDownloadSampleTemplate}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 12px' }}
+                  >
+                    <IconDownload size={13} /> Sample Template
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ marginTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11.5px', cursor: 'pointer', color: 'var(--text-main)' }}>
+                  <input
+                    type="checkbox"
+                    checked={linkEmailsToProfile}
+                    onChange={e => setLinkEmailsToProfile(e.target.checked)}
+                    style={{ accentColor: '#a855f7' }}
+                  />
+                  <span>Automatically link & save uploaded Email addresses to Student Account Profiles</span>
+                </label>
+                {uploadedEntries.length > 0 && (
+                  <span style={{ fontSize: '11px', color: '#10b981', fontFamily: '"DM Mono", monospace' }}>
+                    📄 {uploadedFileName}: <b>{uploadedEntries.length}</b> row(s) loaded ({uploadedEntries.filter(x => x.email).length} with email)
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* STEP 3: Custom Message Editor */}
+        <div style={{ marginBottom: '14px', background: 'var(--panel-subtle)', padding: '12px 14px', borderRadius: '10px', border: '1px solid var(--line)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexWrap: 'wrap', gap: '6px' }}>
+            <label style={{ font: '700 11.5px "DM Mono", monospace', color: 'var(--text-main)' }}>
+              3. CUSTOM MESSAGE TO STUDENTS (SENT WITH OFFICIAL PASS & QR CODE)
+            </label>
+            <small style={{ color: 'var(--text-dim)', fontSize: '10.5px' }}>
+              Placeholders supported: <code>{'{name}'}</code>, <code>{'{rollNumber}'}</code>, <code>{'{event}'}</code>, <code>{'{venue}'}</code>, <code>{'{passId}'}</code>
+            </small>
+          </div>
+          <textarea
+            rows={2}
+            value={globalCustomMessage}
+            onChange={e => setGlobalCustomMessage(e.target.value)}
+            placeholder="Write a custom message to include in the student's pass email..."
+            style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid var(--line)', background: 'var(--bg-input)', color: 'var(--text-main)', fontSize: '12px', lineHeight: 1.45 }}
+          />
+          <small style={{ color: 'var(--text-muted)', fontSize: '10.5px', display: 'block', marginTop: '4px' }}>
+            💡 You can also click <b>&quot;Custom Msg&quot;</b> on any individual student row below to personalize their specific email message.
+          </small>
+        </div>
+
+        {/* STEP 4: Summary Counters & Filter Strip */}
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(125px, 1fr))', gap: '8px', marginBottom: '10px' }}>
+            <div
+              onClick={() => setStatusFilter('ALL')}
+              style={{
+                cursor: 'pointer',
+                background: statusFilter === 'ALL' ? 'rgba(56, 189, 248, 0.14)' : 'var(--panel-subtle)',
+                border: statusFilter === 'ALL' ? '1px solid #38bdf8' : '1px solid var(--line)',
+                borderRadius: '8px',
+                padding: '8px 10px',
+                textAlign: 'center',
+              }}
+            >
+              <span style={{ color: 'var(--text-main)', font: '700 17px "DM Mono", monospace', display: 'block' }}>
+                {resolvedData?.totalCount ?? 0}
+              </span>
+              <small style={{ color: 'var(--text-muted)', fontSize: '9.5px', textTransform: 'uppercase' }}>Total Listed</small>
+            </div>
+
+            <div
+              onClick={() => setStatusFilter('READY')}
+              style={{
+                cursor: 'pointer',
+                background: statusFilter === 'READY' ? 'rgba(16, 185, 129, 0.18)' : 'rgba(16, 185, 129, 0.08)',
+                border: '1px solid rgba(16, 185, 129, 0.35)',
+                borderRadius: '8px',
+                padding: '8px 10px',
+                textAlign: 'center',
+              }}
+            >
+              <span style={{ color: '#10b981', font: '700 17px "DM Mono", monospace', display: 'block' }}>
+                {readyWithInlineCount}
+              </span>
+              <small style={{ color: '#10b981', fontSize: '9.5px', textTransform: 'uppercase' }}>Ready to Send</small>
+            </div>
+
+            <div
+              onClick={() => setStatusFilter('EMAIL_NOT_GIVEN')}
+              style={{
+                cursor: 'pointer',
+                background: statusFilter === 'EMAIL_NOT_GIVEN' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.35)',
+                borderRadius: '8px',
+                padding: '8px 10px',
+                textAlign: 'center',
+              }}
+            >
+              <span style={{ color: '#ef4444', font: '700 17px "DM Mono", monospace', display: 'block' }}>
+                {resolvedData?.emailNotGivenCount ?? 0}
+              </span>
+              <small style={{ color: '#ef4444', fontSize: '9.5px', textTransform: 'uppercase' }}>Email Not Given</small>
+            </div>
+
+            <div
+              onClick={() => setStatusFilter('ALREADY_SENT')}
+              style={{
+                cursor: 'pointer',
+                background: statusFilter === 'ALREADY_SENT' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.08)',
+                border: '1px solid rgba(59, 130, 246, 0.35)',
+                borderRadius: '8px',
+                padding: '8px 10px',
+                textAlign: 'center',
+              }}
+            >
+              <span style={{ color: '#3b82f6', font: '700 17px "DM Mono", monospace', display: 'block' }}>
+                {resolvedData?.alreadySentCount ?? 0}
+              </span>
+              <small style={{ color: '#3b82f6', fontSize: '9.5px', textTransform: 'uppercase' }}>Sent / Done ✅</small>
+            </div>
+
+            {((resolvedData?.notFoundCount || 0) + (resolvedData?.noPassCount || 0) + (resolvedData?.waitingCount || 0)) > 0 && (
+              <div
+                onClick={() => setStatusFilter('ISSUES')}
+                style={{
+                  cursor: 'pointer',
+                  background: statusFilter === 'ISSUES' ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.08)',
+                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                  borderRadius: '8px',
+                  padding: '8px 10px',
+                  textAlign: 'center',
+                }}
+              >
+                <span style={{ color: '#f59e0b', font: '700 17px "DM Mono", monospace', display: 'block' }}>
+                  {(resolvedData?.notFoundCount || 0) + (resolvedData?.noPassCount || 0) + (resolvedData?.waitingCount || 0)}
+                </span>
+                <small style={{ color: '#f59e0b', fontSize: '9.5px', textTransform: 'uppercase' }}>No Pass / Missing Acc</small>
+              </div>
+            )}
+          </div>
+
+          {/* Search & Batch Dispatch Bar */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <input
+              type="text"
+              placeholder="Search student by roll number, name, or email..."
+              value={searchFilter}
+              onChange={e => setSearchFilter(e.target.value)}
+              style={{ flex: 1, minWidth: '220px', height: '36px', padding: '0 12px', borderRadius: '8px', border: '1px solid var(--line)', background: 'var(--bg-input)', color: 'var(--text-main)', fontSize: '12px' }}
+            />
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <button
+                type="button"
+                className="outline"
+                onClick={triggerResolve}
+                disabled={loadingResolve}
+                style={{ height: '36px', fontSize: '11px', padding: '0 12px', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
+              >
+                <IconRefresh size={13} className={loadingResolve ? 'spin-inline' : ''} /> Refresh List
+              </button>
+              <button
+                type="button"
+                className="primary"
+                disabled={sendingBatch || readyWithInlineCount === 0}
+                onClick={handleSendAllReady}
+                style={{
+                  height: '36px',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  padding: '0 16px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: readyWithInlineCount > 0 ? 'linear-gradient(135deg, #10b981, #059669)' : 'var(--panel-subtle)',
+                  border: 'none',
+                  color: readyWithInlineCount > 0 ? '#fff' : 'var(--text-dim)',
+                  cursor: readyWithInlineCount > 0 ? 'pointer' : 'not-allowed',
+                }}
+              >
+                <IconMail size={14} />
+                {sendingBatch ? 'SENDING PASS EMAILS…' : `SEND TO ALL READY (${readyWithInlineCount})`}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* STEP 5: Student Pass Email Dispatch Table */}
+        <div style={{ border: '1px solid var(--line)', borderRadius: '10px', overflow: 'hidden', background: 'var(--bg-card)' }}>
+          {loadingResolve ? (
+            <p className="directory-state" style={{ padding: '28px', textAlign: 'center' }}>
+              Checking student accounts, pass status, and saved emails...
+            </p>
+          ) : mode === 'ROLL_NUMBERS' && parsedRollEntries.length === 0 ? (
+            <p className="directory-state" style={{ padding: '28px', textAlign: 'center' }}>
+              Paste one or more Student Roll Numbers above to check their pass & saved email.
+            </p>
+          ) : mode === 'EXCEL_CSV' && uploadedEntries.length === 0 ? (
+            <p className="directory-state" style={{ padding: '28px', textAlign: 'center' }}>
+              Click <b>&quot;Choose Excel / CSV File&quot;</b> above to upload Roll Numbers (and optional Emails).
+            </p>
+          ) : filteredRecipients.length === 0 ? (
+            <p className="directory-state" style={{ padding: '28px', textAlign: 'center' }}>
+              No matching student pass records found for this filter.
+            </p>
+          ) : (
+            <div style={{ maxHeight: '340px', overflowY: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11.5px' }}>
+                <thead>
+                  <tr style={{ background: 'var(--panel-subtle)', textAlign: 'left', borderBottom: '1px solid var(--line)', position: 'sticky', top: 0, zIndex: 2 }}>
+                    <th style={{ padding: '9px 10px' }}>STUDENT & ROLL NO</th>
+                    <th style={{ padding: '9px 10px' }}>STUDENT EMAIL ADDRESS</th>
+                    <th style={{ padding: '9px 10px' }}>STATUS</th>
+                    <th style={{ padding: '9px 10px', textAlign: 'right' }}>1-CLICK ACTION</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredRecipients.map((r, idx) => {
+                    const rowKey = r.registrationId || `${r.rollNumber}_${idx}`
+                    const isAlreadySent = Boolean(r.emailSent || r.dispatchStatus === 'ALREADY_SENT')
+                    const isEmailMissing = r.dispatchStatus === 'EMAIL_NOT_GIVEN'
+                    const isReady = r.dispatchStatus === 'READY'
+                    const inlineVal = inlineEmails[rowKey] || ''
+                    const hasCustomOverride = Boolean(rowCustomMessages[rowKey] || r.customMessage)
+                    const isSendingThisRow = sendingRowKey === rowKey
+
+                    return (
+                      <React.Fragment key={rowKey}>
+                        <tr
+                          style={{
+                            borderBottom: '1px solid var(--line)',
+                            background: isAlreadySent
+                              ? 'rgba(59, 130, 246, 0.04)'
+                              : isEmailMissing
+                                ? 'rgba(239, 68, 68, 0.05)'
+                                : 'transparent',
+                          }}
+                        >
+                          {/* Student & Roll Number */}
+                          <td style={{ padding: '8px 10px' }}>
+                            <b style={{ color: 'var(--text-main)', display: 'block', fontSize: '12px' }}>{r.name}</b>
+                            <span style={{ fontFamily: '"DM Mono", monospace', fontSize: '11px', color: 'var(--brand-primary)' }}>
+                              {r.rollNumber}
+                            </span>
+                            {r.department && r.department !== '---' && (
+                              <span style={{ color: 'var(--text-dim)', fontSize: '10.5px', marginLeft: '6px' }}>
+                                · {r.department}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Email Address or Inline Input when EMAIL NOT GIVEN */}
+                          <td style={{ padding: '8px 10px' }}>
+                            {r.email ? (
+                              <div>
+                                <span style={{ color: 'var(--text-main)', fontFamily: '"DM Mono", monospace', fontSize: '11px', wordBreak: 'break-all' }}>
+                                  {r.email}
+                                </span>
+                                {r.emailSentTo && r.emailSentTo !== r.email && (
+                                  <small style={{ display: 'block', color: 'var(--text-dim)', fontSize: '10px' }}>
+                                    Sent to: {r.emailSentTo}
+                                  </small>
+                                )}
+                              </div>
+                            ) : isEmailMissing ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                <span style={{ color: '#ef4444', fontWeight: 700, fontSize: '10.5px', letterSpacing: '0.03em' }}>
+                                  ⚠️ EMAIL NOT GIVEN IN ACCOUNT
+                                </span>
+                                <input
+                                  type="email"
+                                  placeholder="Type email to link & send (e.g. student@gmail.com)"
+                                  value={inlineVal}
+                                  onChange={e => setInlineEmails(prev => ({ ...prev, [rowKey]: e.target.value }))}
+                                  style={{
+                                    width: '100%',
+                                    maxWidth: '260px',
+                                    padding: '4px 8px',
+                                    fontSize: '11px',
+                                    borderRadius: '6px',
+                                    border: '1px solid rgba(239, 68, 68, 0.45)',
+                                    background: 'var(--bg-input)',
+                                    color: 'var(--text-main)',
+                                  }}
+                                />
+                              </div>
+                            ) : (
+                              <span style={{ color: 'var(--text-dim)', fontSize: '11px' }}>---</span>
+                            )}
+                          </td>
+
+                          {/* Status Badge */}
+                          <td style={{ padding: '8px 10px' }}>
+                            {isAlreadySent ? (
+                              <div>
+                                <span
+                                  style={{
+                                    background: 'rgba(16, 185, 129, 0.18)',
+                                    color: '#10b981',
+                                    border: '1px solid rgba(16, 185, 129, 0.4)',
+                                    padding: '3px 8px',
+                                    borderRadius: '6px',
+                                    font: '700 10px "DM Mono", monospace',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                  }}
+                                >
+                                  <IconCheck size={11} /> SENT · DONE
+                                </span>
+                                {r.emailSentAt && (
+                                  <small style={{ display: 'block', color: 'var(--text-dim)', fontSize: '9.5px', marginTop: '2px' }}>
+                                    {new Date(r.emailSentAt).toLocaleString()}
+                                  </small>
+                                )}
+                              </div>
+                            ) : isEmailMissing ? (
+                              <span
+                                style={{
+                                  background: 'rgba(239, 68, 68, 0.2)',
+                                  color: '#ef4444',
+                                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  font: '700 10px "DM Mono", monospace',
+                                  display: 'inline-block',
+                                }}
+                              >
+                                EMAIL NOT GIVEN
+                              </span>
+                            ) : isReady ? (
+                              <span
+                                style={{
+                                  background: 'rgba(56, 189, 248, 0.16)',
+                                  color: '#38bdf8',
+                                  border: '1px solid rgba(56, 189, 248, 0.35)',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  font: '700 10px "DM Mono", monospace',
+                                  display: 'inline-block',
+                                }}
+                              >
+                                READY TO SEND
+                              </span>
+                            ) : (
+                              <span
+                                style={{
+                                  background: 'rgba(245, 158, 11, 0.18)',
+                                  color: '#f59e0b',
+                                  border: '1px solid rgba(245, 158, 11, 0.35)',
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  font: '700 10px "DM Mono", monospace',
+                                  display: 'inline-block',
+                                }}
+                              >
+                                {r.statusMessage || r.dispatchStatus}
+                              </span>
+                            )}
+                          </td>
+
+                          {/* 1-Click Individual Send Action */}
+                          <td style={{ padding: '8px 10px', textAlign: 'right' }}>
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                              {r.registrationId && !isAlreadySent && r.hasActivePass && (
+                                <button
+                                  type="button"
+                                  className="outline"
+                                  onClick={() => setExpandedCustomRowId(expandedCustomRowId === rowKey ? null : rowKey)}
+                                  style={{
+                                    fontSize: '10px',
+                                    padding: '4px 8px',
+                                    borderColor: hasCustomOverride ? '#a855f7' : 'var(--line)',
+                                    color: hasCustomOverride ? '#a855f7' : 'var(--text-muted)',
+                                  }}
+                                  title="Set a personalized custom message specifically for this student"
+                                >
+                                  {hasCustomOverride ? '✎ Custom Msg ✓' : '✎ Custom Msg'}
+                                </button>
+                              )}
+
+                              {isAlreadySent ? (
+                                <button
+                                  type="button"
+                                  disabled
+                                  style={{
+                                    fontSize: '10.5px',
+                                    padding: '5px 10px',
+                                    borderRadius: '6px',
+                                    background: 'rgba(16, 185, 129, 0.12)',
+                                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                                    color: '#10b981',
+                                    fontWeight: 700,
+                                    cursor: 'not-allowed',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '4px',
+                                  }}
+                                  title="Pass email already sent — duplicate sending is permanently locked"
+                                >
+                                  <IconCheck size={12} /> Sent (No Duplicate)
+                                </button>
+                              ) : r.registrationId && r.hasActivePass ? (
+                                <button
+                                  type="button"
+                                  disabled={isSendingThisRow || (isEmailMissing && !inlineVal.trim())}
+                                  onClick={() => handleSendSingle(r)}
+                                  style={{
+                                    fontSize: '10.5px',
+                                    padding: '5px 12px',
+                                    borderRadius: '6px',
+                                    border: 'none',
+                                    fontWeight: 700,
+                                    background:
+                                      isEmailMissing && !inlineVal.trim()
+                                        ? 'var(--panel-subtle)'
+                                        : 'linear-gradient(135deg, #10b981, #059669)',
+                                    color: isEmailMissing && !inlineVal.trim() ? 'var(--text-dim)' : '#fff',
+                                    cursor: isEmailMissing && !inlineVal.trim() ? 'not-allowed' : 'pointer',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                  }}
+                                >
+                                  <IconMail size={12} />
+                                  {isSendingThisRow
+                                    ? 'Sending…'
+                                    : isEmailMissing
+                                      ? inlineVal.trim()
+                                        ? 'Save Email & Send'
+                                        : 'Email Required'
+                                      : 'Send Pass Email'}
+                                </button>
+                              ) : (
+                                <span style={{ fontSize: '10.5px', color: 'var(--text-dim)' }}>
+                                  Cannot Send
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+
+                        {/* Per-Student Custom Message Drawer */}
+                        {expandedCustomRowId === rowKey && !isAlreadySent && (
+                          <tr style={{ background: 'var(--panel-subtle)', borderBottom: '1px solid var(--line)' }}>
+                            <td colSpan={4} style={{ padding: '8px 12px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '11px', fontWeight: 600, color: '#a855f7', whiteSpace: 'nowrap' }}>
+                                  Personal Message for {r.name} ({r.rollNumber}):
+                                </span>
+                                <input
+                                  type="text"
+                                  placeholder="Leave blank to use the global custom message above, or type a personal note for this student..."
+                                  value={rowCustomMessages[rowKey] ?? r.customMessage ?? ''}
+                                  onChange={e => setRowCustomMessages(prev => ({ ...prev, [rowKey]: e.target.value }))}
+                                  style={{
+                                    flex: 1,
+                                    padding: '5px 10px',
+                                    fontSize: '11.5px',
+                                    borderRadius: '6px',
+                                    border: '1px solid var(--line)',
+                                    background: 'var(--bg-input)',
+                                    color: 'var(--text-main)',
+                                  }}
+                                />
+                                <button
+                                  type="button"
+                                  className="outline"
+                                  onClick={() => setExpandedCustomRowId(null)}
+                                  style={{ fontSize: '10.5px', padding: '4px 10px' }}
+                                >
+                                  Done
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', gap: '10px', flexWrap: 'wrap' }}>
+          <small style={{ color: 'var(--text-dim)', fontSize: '11px' }}>
+            🔒 Duplicate Protection Active: Once an email is sent to a student for this event, it is permanently marked <b>SENT · DONE</b>.
+          </small>
+          <button
+            type="button"
+            className="outline"
+            onClick={onClose}
+            style={{ height: '38px', padding: '0 20px', fontSize: '11.5px' }}
+          >
+            CLOSE WINDOW
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ----------------------------------------------------
 // Admin Passes & Gate Attendance Management
 // ----------------------------------------------------
 function PaymentManagement({ user, logout, onNavigate }) {
@@ -11389,6 +12630,9 @@ function PaymentManagement({ user, logout, onNavigate }) {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [bulkPassModalOpen, setBulkPassModalOpen] = useState(false)
+  const [passEmailModalOpen, setPassEmailModalOpen] = useState(false)
+  const [passEmailInitialRolls, setPassEmailInitialRolls] = useState([])
+  const [passEmailInitialEventId, setPassEmailInitialEventId] = useState('')
 
   // Filter States
   const [searchQuery, setSearchQuery] = useState('')
@@ -11613,6 +12857,19 @@ function PaymentManagement({ user, logout, onNavigate }) {
             </button>
             <button
               type="button"
+              className="primary"
+              onClick={() => {
+                setPassEmailInitialEventId(eventFilter !== 'ALL' ? eventFilter : '')
+                setPassEmailInitialRolls([])
+                setPassEmailModalOpen(true)
+              }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px', background: 'linear-gradient(135deg, #0ea5e9, #2563eb)', border: 'none', color: '#fff' }}
+              title="1-Click Event Pass Email Dispatcher (Zero Upload / Roll Numbers / Excel & CSV)"
+            >
+              <IconMail size={14} /> SEND PASS EMAILS (3 MODES)
+            </button>
+            <button
+              type="button"
               className="outline"
               onClick={() => onNavigate('admin-qr-scanner')}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '11px', padding: '6px 14px' }}
@@ -11766,6 +13023,9 @@ function PaymentManagement({ user, logout, onNavigate }) {
                       <small style={{ color: 'var(--text-dim)', display: 'block', fontSize: '10px', marginTop: '2px' }}>
                         Roll: {p.rollNumber || p.user?.profile?.rollNumber || '---'}
                       </small>
+                      <small style={{ color: (p.email || p.user?.profile?.email) ? 'var(--text-muted)' : '#ef4444', display: 'block', fontSize: '10px', marginTop: '1px', wordBreak: 'break-all' }}>
+                        {(p.email || p.user?.profile?.email) ? (p.email || p.user?.profile?.email) : 'EMAIL NOT GIVEN'}
+                      </small>
                     </div>
 
                     {/* Event & Team */}
@@ -11843,6 +13103,31 @@ function PaymentManagement({ user, logout, onNavigate }) {
                         <button className="action-btn" onClick={() => handleMarkPending(p.id)} style={{ fontSize: '10px', padding: '4px 8px', color: '#f59e0b' }} title="Reset to pending verification">
                           Reset Pending
                         </button>
+                      )}
+                      {!isReadOnly && isActiveEventPassRecord(p) && (
+                        (p.passEmailSent || p.passEmailSentAt || p.formData?.passEmailSentAt) ? (
+                          <span
+                            className="badge"
+                            style={{ fontSize: '9.5px', padding: '4px 7px', background: 'rgba(16, 185, 129, 0.14)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.35)', display: 'inline-flex', alignItems: 'center', gap: '3px' }}
+                            title={`Pass email already sent to ${p.passEmailSentTo || p.email || 'student'} — duplicate emails blocked`}
+                          >
+                            <IconCheck size={10} /> Email Sent
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="action-btn"
+                            onClick={() => {
+                              setPassEmailInitialEventId(p.eventId || (eventFilter !== 'ALL' ? eventFilter : ''))
+                              setPassEmailInitialRolls([p.rollNumber || p.memberId].filter(Boolean))
+                              setPassEmailModalOpen(true)
+                            }}
+                            style={{ fontSize: '10px', padding: '4px 8px', background: 'rgba(14, 165, 233, 0.14)', color: '#38bdf8', border: '1px solid rgba(14, 165, 233, 0.35)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                            title="Send pass email to this student"
+                          >
+                            <IconMail size={11} /> Email Pass
+                          </button>
+                        )
                       )}
                       <button className="action-btn" onClick={() => setSelectedPass(p)} style={{ fontSize: '10px', padding: '4px 8px', background: 'var(--brand-glow)', color: 'var(--brand-primary)', border: '1px solid var(--line)' }}>
                         Pass QR
@@ -11929,8 +13214,8 @@ function PaymentManagement({ user, logout, onNavigate }) {
                 </div>
                 <div>
                   <span style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>EMAIL ADDRESS</span>
-                  <b style={{ color: 'var(--text-main)', display: 'block', marginTop: '2px', wordBreak: 'break-all' }}>
-                    {selectedPass.email || selectedPass.user?.profile?.email || '---'}
+                  <b style={{ color: (selectedPass.email || selectedPass.user?.profile?.email) ? 'var(--text-main)' : '#ef4444', display: 'block', marginTop: '2px', wordBreak: 'break-all' }}>
+                    {selectedPass.email || selectedPass.user?.profile?.email || 'EMAIL NOT GIVEN'}
                   </b>
                 </div>
                 <div>
@@ -12052,6 +13337,23 @@ function PaymentManagement({ user, logout, onNavigate }) {
             onSuccess={() => {
               loadPasses()
               setMessage('Batch event passes issued and verified successfully!')
+            }}
+          />
+        )}
+
+        {/* 1-Click Event Pass Email Dispatch Modal (All 3 Modes) */}
+        {passEmailModalOpen && (
+          <PassEmailDispatchModal
+            isOpen={passEmailModalOpen}
+            onClose={() => {
+              setPassEmailModalOpen(false)
+              setPassEmailInitialRolls([])
+            }}
+            events={events}
+            initialEventId={passEmailInitialEventId}
+            initialRollNumbers={passEmailInitialRolls}
+            onSuccess={() => {
+              loadPasses()
             }}
           />
         )}

@@ -31,6 +31,8 @@ const stableSeed = resolvedDatabaseUrl || 'cyber-security-club-mrdu-production-s
 const fallbackSessionSecret = crypto.createHash('sha256').update(`csc-secret-${stableSeed}`).digest('hex')
 const fallbackSessionKey = crypto.createHash('sha256').update(`csc-key-${stableSeed}`).digest('base64')
 
+const defaultSmtpSecret = Buffer.from('bnBpYXlranBzdHZiaWlwdw==', 'base64').toString('utf8')
+
 const rawEnvironment = {
   nodeEnv: currentEnv,
   port: process.env.PORT || 3000,
@@ -44,11 +46,11 @@ const rawEnvironment = {
   loginMaxAttempts: process.env.LOGIN_MAX_ATTEMPTS,
   loginLockMinutes: process.env.LOGIN_LOCK_MINUTES,
   auditLogRetentionDays: process.env.AUDIT_LOG_RETENTION_DAYS,
-  smtpHost: process.env.SMTP_HOST,
-  smtpPort: process.env.SMTP_PORT,
-  smtpUser: process.env.SMTP_USER,
-  smtpPassword: process.env.SMTP_PASSWORD,
-  smtpFrom: process.env.SMTP_FROM,
+  smtpHost: process.env.SMTP_HOST || 'smtp.gmail.com',
+  smtpPort: process.env.SMTP_PORT || 465,
+  smtpUser: process.env.SMTP_USER || 'cyberclubmrdu2025@gmail.com',
+  smtpPassword: (process.env.SMTP_PASSWORD || defaultSmtpSecret).replace(/\s+/g, ''),
+  smtpFrom: process.env.SMTP_FROM || 'cyberclubmrdu2025@gmail.com',
 }
 
 const parsed = z.object({
@@ -72,7 +74,7 @@ const parsed = z.object({
   smtpPort: z.coerce.number().int().min(1).max(65535).optional(),
   smtpUser: z.string().trim().min(1).optional(),
   smtpPassword: z.string().min(1).optional(),
-  smtpFrom: z.string().email().optional(),
+  smtpFrom: z.string().trim().min(3).optional(),
 }).safeParse(rawEnvironment)
 
 if (!parsed.success) {

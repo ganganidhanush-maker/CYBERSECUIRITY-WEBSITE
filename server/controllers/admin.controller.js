@@ -11,6 +11,7 @@ import { createUserNotification } from '../services/notification.service.js'
 import { getActivePlatformMode, invalidatePlatformModeCache } from '../services/platform-role.service.js'
 import { authUserCache } from '../services/auth-cache.service.js'
 import { generateFullDatabaseSqlDump } from '../services/database-dump.service.js'
+import { sendEventPassEmail } from '../services/mailer.service.js'
 import { formatCsvValue as fmt } from '../../shared/csv.js'
 import QRCode from 'qrcode'
 import { hasActiveEventPass, isDraftRegistration, isPaymentAwaitingReview, isRejectedPayment, resolveEventRegistrationMode, submittedRegistrationWhere } from '../utils/event-registration.js'
@@ -893,7 +894,7 @@ export async function listAllEventPasses(request, response) {
       memberId: u?.memberId,
       name: u?.profile?.name || reg.formData?.fullName || reg.formData?.name || u?.memberId || 'Student',
       memberName: u?.profile?.name || reg.formData?.fullName || reg.formData?.name || u?.memberId || 'Student',
-      email: u?.profile?.email || null,
+      email: u?.profile?.email || reg.formData?.email || null,
       phone: u?.profile?.phone || null,
       rollNumber: u?.profile?.rollNumber || reg.formData?.rollNumber || u?.memberId,
       department: u?.profile?.department || reg.branch || 'CSE',
@@ -909,6 +910,10 @@ export async function listAllEventPasses(request, response) {
       isTeamLeader: Boolean(reg.isTeamLeader),
       selectedActivities: reg.selectedActivities || [],
       formData: reg.formData || null,
+      passEmailSent: Boolean(reg.formData?.passEmailSentAt),
+      passEmailSentAt: reg.formData?.passEmailSentAt || null,
+      passEmailSentTo: reg.formData?.passEmailSentTo || null,
+      passEmailCustomMessage: reg.formData?.passEmailCustomMessage || null,
       paymentStatus: reg.paymentStatus,
       paymentReference: reg.paymentReference,
       paymentProofUrl: reg.paymentProofUrl,
@@ -980,7 +985,11 @@ export async function getEventDetailsWithStats(request, response) {
       memberName: u?.profile?.name || reg.formData?.fullName || reg.formData?.name || u?.memberId || 'Student',
       memberId: u?.memberId,
       name: u?.profile?.name || reg.formData?.fullName || reg.formData?.name || u?.memberId || 'Student',
-      email: u?.profile?.email || null,
+      email: u?.profile?.email || reg.formData?.email || null,
+      passEmailSent: Boolean(reg.formData?.passEmailSentAt),
+      passEmailSentAt: reg.formData?.passEmailSentAt || null,
+      passEmailSentTo: reg.formData?.passEmailSentTo || null,
+      passEmailCustomMessage: reg.formData?.passEmailCustomMessage || null,
       phone: u?.profile?.phone || null,
       rollNumber: u?.profile?.rollNumber || reg.formData?.rollNumber || null,
       department: u?.profile?.department || reg.branch || null,
@@ -1849,6 +1858,681 @@ export async function bulkIssueEventPasses(request, response) {
     ],
     skipped: alreadyHadPassList,
     notFound: notFoundList,
+  })
+}
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+export async function resolveEventPassEmails(request, response) {
+  const { eventId } = request.params
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: {
+      id: true,
+      title: true,
+      eventType: true,
+      dateTime: true,
+      venue: true,
+      location: true,
+      status: true,
+    },
+  })
+  if (!event) {
+    return response.status(404).json({ message: 'Event not found.' })
+  }
+
+  const mode = String(request.body?.mode || request.query?.mode || 'EVENT_ROSTER').trim().toUpperCase()
+  const rawEntries = Array.isArray(request.body?.entries)
+    ? request.body.entries
+    : Array.isArray(request.body?.rollNumbers)
+      ? request.body.rollNumbers.map(r => ({ rollNumber: r }))
+      : []
+
+  // MODE 1: ZERO UPLOAD (Automatic Event Pass Roster)
+  if (mode === 'EVENT_ROSTER') {
+    const registrations = await prisma.eventRegistration.findMany({
+      where: {
+        eventId: event.id,
+        ...submittedRegistrationWhere(),
+      },
+      orderBy: { registeredAt: 'desc' },
+    })
+
+    const userIds = [...new Set(registrations.map(r => r.userId))]
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      include: { profile: true },
+    })
+    const userMap = new Map(users.map(u => [u.id, u]))
+
+    const recipients = registrations.map(reg => {
+      const u = userMap.get(reg.userId)
+      const isPassActive = hasActiveEventPass(reg)
+      const formObj = (reg.formData && typeof reg.formData === 'object') ? reg.formData : {}
+      const effectiveEmail = (u?.profile?.email || formObj.email || '').trim() || null
+      const isAlreadySent = Boolean(formObj.passEmailSentAt)
+      const rollNumber = u?.profile?.rollNumber || formObj.rollNumber || u?.memberId || 'UNKNOWN'
+      const name = u?.profile?.name || formObj.fullName || formObj.name || u?.memberId || 'Student'
+
+      let dispatchStatus = 'READY'
+      let statusMessage = 'Ready to Send'
+      if (isAlreadySent) {
+        dispatchStatus = 'ALREADY_SENT'
+        statusMessage = `SENT / DONE (${formObj.passEmailSentTo || effectiveEmail || 'Sent'})`
+      } else if (!isPassActive) {
+        dispatchStatus = 'PASS_WAITING_VERIFICATION'
+        statusMessage = 'Pass Not Issued / Waiting Verification'
+      } else if (!effectiveEmail) {
+        dispatchStatus = 'EMAIL_NOT_GIVEN'
+        statusMessage = 'EMAIL NOT GIVEN'
+      }
+
+      return {
+        registrationId: reg.id,
+        userId: u?.id || reg.userId,
+        memberId: u?.memberId || rollNumber,
+        rollNumber,
+        name,
+        department: u?.profile?.department || reg.branch || 'CSE',
+        year: u?.profile?.year || reg.year || 1,
+        email: effectiveEmail,
+        hasActivePass: isPassActive,
+        passStatus: isPassActive ? 'ISSUED' : (reg.paymentStatus || reg.status),
+        emailSent: isAlreadySent,
+        emailSentAt: formObj.passEmailSentAt || null,
+        emailSentTo: formObj.passEmailSentTo || null,
+        emailCustomMessage: formObj.passEmailCustomMessage || null,
+        dispatchStatus,
+        statusMessage,
+      }
+    })
+
+    return response.status(200).json({
+      mode: 'EVENT_ROSTER',
+      event,
+      senderEmail: env.smtpUser || 'cyberclubmrdu2025@gmail.com',
+      totalCount: recipients.length,
+      readyCount: recipients.filter(r => r.dispatchStatus === 'READY').length,
+      emailNotGivenCount: recipients.filter(r => r.dispatchStatus === 'EMAIL_NOT_GIVEN').length,
+      alreadySentCount: recipients.filter(r => r.dispatchStatus === 'ALREADY_SENT').length,
+      waitingCount: recipients.filter(r => r.dispatchStatus === 'PASS_WAITING_VERIFICATION').length,
+      noPassCount: 0,
+      notFoundCount: 0,
+      emailsLinkedCount: 0,
+      recipients,
+    })
+  }
+
+  // MODE 2 (ROLL NUMBERS) & MODE 3 (EXCEL / CSV WITH OPTIONAL EMAILS)
+  const normalizedEntries = []
+  const seenKeys = new Set()
+  for (const item of rawEntries) {
+    const rawRoll = String(typeof item === 'string' ? item : (item?.rollNumber || item?.memberId || '')).trim().replace(/^["']|["']$/g, '')
+    if (!rawRoll || rawRoll.length < 2) continue
+    const dedupeKey = rawRoll.toUpperCase()
+    if (seenKeys.has(dedupeKey)) continue
+    seenKeys.add(dedupeKey)
+
+    const rawEmail = typeof item === 'object' && item?.email ? String(item.email).trim().toLowerCase().replace(/^["']|["']$/g, '') : ''
+    const validProvidedEmail = EMAIL_REGEX.test(rawEmail) ? rawEmail : null
+    const rowCustomMessage = typeof item === 'object' && item?.customMessage ? String(item.customMessage).trim() : null
+
+    normalizedEntries.push({
+      rawRoll,
+      cleanAlpha: rawRoll.toUpperCase().replace(/[^A-Z0-9]/g, ''),
+      providedEmail: validProvidedEmail,
+      rawInvalidEmail: rawEmail && !validProvidedEmail ? rawEmail : null,
+      customMessage: rowCustomMessage,
+    })
+  }
+
+  if (normalizedEntries.length === 0) {
+    return response.status(400).json({ message: 'Please provide at least one valid Roll Number.' })
+  }
+
+  const searchTokens = new Set()
+  for (const entry of normalizedEntries) {
+    searchTokens.add(entry.rawRoll)
+    searchTokens.add(entry.rawRoll.toUpperCase())
+    searchTokens.add(entry.rawRoll.toLowerCase())
+    if (entry.cleanAlpha) searchTokens.add(entry.cleanAlpha)
+  }
+  const searchTokenArray = Array.from(searchTokens)
+
+  const foundUsers = await prisma.user.findMany({
+    where: {
+      accountStatus: 'ACTIVE',
+      OR: [
+        { memberId: { in: searchTokenArray } },
+        { profile: { rollNumber: { in: searchTokenArray } } },
+        { profile: { email: { in: searchTokenArray } } },
+      ],
+    },
+    include: { profile: true },
+  })
+
+  const userByExactKey = new Map()
+  for (const u of foundUsers) {
+    if (u.memberId) {
+      userByExactKey.set(u.memberId.trim().toLowerCase(), u)
+      const alpha = u.memberId.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+      if (alpha) userByExactKey.set(alpha, u)
+    }
+    if (u.profile?.rollNumber) {
+      userByExactKey.set(u.profile.rollNumber.trim().toLowerCase(), u)
+      const alpha = u.profile.rollNumber.trim().toUpperCase().replace(/[^A-Z0-9]/g, '')
+      if (alpha) userByExactKey.set(alpha, u)
+    }
+    if (u.profile?.email) {
+      userByExactKey.set(u.profile.email.trim().toLowerCase(), u)
+    }
+  }
+
+  // Partial / suffix fallback for any unmatched roll numbers
+  const unmatchedEntries = normalizedEntries.filter(
+    e => !userByExactKey.has(e.rawRoll.toLowerCase()) && !userByExactKey.has(e.cleanAlpha)
+  )
+  if (unmatchedEntries.length > 0) {
+    const partialFilters = []
+    for (const ue of unmatchedEntries) {
+      if (ue.cleanAlpha.length >= 4) {
+        partialFilters.push(
+          { memberId: { contains: ue.cleanAlpha } },
+          { profile: { rollNumber: { contains: ue.cleanAlpha } } }
+        )
+      }
+    }
+    if (partialFilters.length > 0) {
+      const partialUsers = await prisma.user.findMany({
+        where: { accountStatus: 'ACTIVE', OR: partialFilters },
+        include: { profile: true },
+      })
+      for (const pu of partialUsers) {
+        if (!foundUsers.some(u => u.id === pu.id)) foundUsers.push(pu)
+      }
+    }
+  }
+
+  // Fetch all registrations for matched users for this event
+  const allFoundUserIds = foundUsers.map(u => u.id)
+  const existingRegs = await prisma.eventRegistration.findMany({
+    where: {
+      eventId: event.id,
+      userId: { in: allFoundUserIds },
+      ...submittedRegistrationWhere(),
+    },
+  })
+  const regByUserId = new Map(existingRegs.map(r => [r.userId, r]))
+
+  let emailsLinkedCount = 0
+  const recipients = []
+
+  for (const entry of normalizedEntries) {
+    let user = userByExactKey.get(entry.rawRoll.toLowerCase()) || userByExactKey.get(entry.cleanAlpha)
+    if (!user && entry.cleanAlpha.length >= 4) {
+      const candidates = foundUsers.filter(u => {
+        const mClean = (u.memberId || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+        const rClean = (u.profile?.rollNumber || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
+        return (
+          mClean.endsWith(entry.cleanAlpha) ||
+          entry.cleanAlpha.endsWith(mClean) ||
+          rClean.endsWith(entry.cleanAlpha) ||
+          entry.cleanAlpha.endsWith(rClean) ||
+          mClean.includes(entry.cleanAlpha) ||
+          rClean.includes(entry.cleanAlpha)
+        )
+      })
+      if (candidates.length === 1) {
+        user = candidates[0]
+      } else if (candidates.length > 1) {
+        recipients.push({
+          registrationId: null,
+          userId: null,
+          memberId: entry.rawRoll,
+          rollNumber: entry.rawRoll,
+          name: 'Ambiguous Roll Number',
+          department: '---',
+          year: null,
+          email: entry.providedEmail || null,
+          hasActivePass: false,
+          passStatus: 'AMBIGUOUS',
+          emailSent: false,
+          emailSentAt: null,
+          emailSentTo: null,
+          customMessage: entry.customMessage || null,
+          dispatchStatus: 'AMBIGUOUS_ROLL_NUMBER',
+          statusMessage: `Matches multiple accounts (${candidates.map(c => c.memberId).join(', ')}). Enter full roll number.`,
+        })
+        continue
+      }
+    }
+
+    if (!user) {
+      recipients.push({
+        registrationId: null,
+        userId: null,
+        memberId: entry.rawRoll,
+        rollNumber: entry.rawRoll,
+        name: 'Account Not Found',
+        department: '---',
+        year: null,
+        email: entry.providedEmail || null,
+        hasActivePass: false,
+        passStatus: 'NOT_FOUND',
+        emailSent: false,
+        emailSentAt: null,
+        emailSentTo: null,
+        customMessage: entry.customMessage || null,
+        dispatchStatus: 'ACCOUNT_NOT_FOUND',
+        statusMessage: `Account does not exist for "${entry.rawRoll}"`,
+      })
+      continue
+    }
+
+    // If Excel/CSV provided a valid email, automatically link it to the student's profile if missing or updated
+    let currentProfileEmail = (user.profile?.email || '').trim() || null
+    if (entry.providedEmail && request.body?.linkEmails !== false) {
+      if (!currentProfileEmail || currentProfileEmail.toLowerCase() !== entry.providedEmail.toLowerCase()) {
+        try {
+          await prisma.profile.upsert({
+            where: { userId: user.id },
+            update: { email: entry.providedEmail },
+            create: {
+              userId: user.id,
+              rollNumber: user.profile?.rollNumber || user.memberId,
+              name: user.profile?.name || `Student (${user.memberId})`,
+              email: entry.providedEmail,
+              department: 'CSE',
+              year: 1,
+            },
+          })
+          currentProfileEmail = entry.providedEmail
+          if (user.profile) user.profile.email = entry.providedEmail
+          authUserCache.invalidate(user.id)
+          emailsLinkedCount++
+        } catch {
+          // If email is already bound to another profile, still use it for this pass dispatch
+          currentProfileEmail = entry.providedEmail
+        }
+      }
+    }
+
+    const reg = regByUserId.get(user.id)
+    const rollNumber = user.profile?.rollNumber || user.memberId || entry.rawRoll
+    const name = user.profile?.name || `Student (${rollNumber})`
+
+    if (!reg) {
+      recipients.push({
+        registrationId: null,
+        userId: user.id,
+        memberId: user.memberId,
+        rollNumber,
+        name,
+        department: user.profile?.department || 'CSE',
+        year: user.profile?.year || 1,
+        email: currentProfileEmail,
+        hasActivePass: false,
+        passStatus: 'NO_PASS',
+        emailSent: false,
+        emailSentAt: null,
+        emailSentTo: null,
+        customMessage: entry.customMessage || null,
+        dispatchStatus: 'NO_PASS_ISSUED',
+        statusMessage: 'No pass issued for this event yet',
+      })
+      continue
+    }
+
+    const formObj = (reg.formData && typeof reg.formData === 'object') ? reg.formData : {}
+    // Also persist providedEmail onto registration formData if not already there
+    if (entry.providedEmail && formObj.email !== entry.providedEmail) {
+      try {
+        await prisma.eventRegistration.update({
+          where: { id: reg.id },
+          data: {
+            formData: { ...formObj, email: entry.providedEmail },
+          },
+        })
+        formObj.email = entry.providedEmail
+      } catch {}
+    }
+
+    const effectiveEmail = (entry.providedEmail || currentProfileEmail || formObj.email || '').trim() || null
+    const isPassActive = hasActiveEventPass(reg)
+    const isAlreadySent = Boolean(formObj.passEmailSentAt)
+
+    let dispatchStatus = 'READY'
+    let statusMessage = 'Ready to Send'
+    if (isAlreadySent) {
+      dispatchStatus = 'ALREADY_SENT'
+      statusMessage = `SENT / DONE (${formObj.passEmailSentTo || effectiveEmail || 'Sent'})`
+    } else if (!isPassActive) {
+      dispatchStatus = 'PASS_WAITING_VERIFICATION'
+      statusMessage = 'Pass Not Active / Waiting Verification'
+    } else if (!effectiveEmail) {
+      dispatchStatus = 'EMAIL_NOT_GIVEN'
+      statusMessage = 'EMAIL NOT GIVEN'
+    }
+
+    recipients.push({
+      registrationId: reg.id,
+      userId: user.id,
+      memberId: user.memberId,
+      rollNumber,
+      name: user.profile?.name || formObj.fullName || formObj.name || name,
+      department: user.profile?.department || reg.branch || 'CSE',
+      year: user.profile?.year || reg.year || 1,
+      email: effectiveEmail,
+      hasActivePass: isPassActive,
+      passStatus: isPassActive ? 'ISSUED' : (reg.paymentStatus || reg.status),
+      emailSent: isAlreadySent,
+      emailSentAt: formObj.passEmailSentAt || null,
+      emailSentTo: formObj.passEmailSentTo || null,
+      emailCustomMessage: formObj.passEmailCustomMessage || entry.customMessage || null,
+      customMessage: entry.customMessage || null,
+      dispatchStatus,
+      statusMessage,
+    })
+  }
+
+  return response.status(200).json({
+    mode,
+    event,
+    senderEmail: env.smtpUser || 'cyberclubmrdu2025@gmail.com',
+    totalCount: recipients.length,
+    readyCount: recipients.filter(r => r.dispatchStatus === 'READY').length,
+    emailNotGivenCount: recipients.filter(r => r.dispatchStatus === 'EMAIL_NOT_GIVEN').length,
+    alreadySentCount: recipients.filter(r => r.dispatchStatus === 'ALREADY_SENT').length,
+    waitingCount: recipients.filter(r => r.dispatchStatus === 'PASS_WAITING_VERIFICATION').length,
+    noPassCount: recipients.filter(r => r.dispatchStatus === 'NO_PASS_ISSUED').length,
+    notFoundCount: recipients.filter(r => ['ACCOUNT_NOT_FOUND', 'AMBIGUOUS_ROLL_NUMBER'].includes(r.dispatchStatus)).length,
+    emailsLinkedCount,
+    recipients,
+  })
+}
+
+export async function sendEventPassEmails(request, response) {
+  const { eventId } = request.params
+  const event = await prisma.event.findUnique({
+    where: { id: eventId },
+    select: {
+      id: true,
+      title: true,
+      eventType: true,
+      dateTime: true,
+      venue: true,
+      location: true,
+    },
+  })
+  if (!event) {
+    return response.status(404).json({ message: 'Event not found.' })
+  }
+
+  const globalCustomMessage = String(request.body?.customMessage || '').trim()
+  const requestedRecipients = Array.isArray(request.body?.recipients) ? request.body.recipients : []
+
+  if (requestedRecipients.length === 0) {
+    return response.status(400).json({ message: 'No student recipients specified for email dispatch.' })
+  }
+
+  const regIds = requestedRecipients.map(r => r?.registrationId).filter(Boolean)
+  const registrations = await prisma.eventRegistration.findMany({
+    where: {
+      eventId: event.id,
+      ...(regIds.length > 0 ? { id: { in: regIds } } : {}),
+      ...submittedRegistrationWhere(),
+    },
+  })
+  const regById = new Map(registrations.map(r => [r.id, r]))
+
+  const userIds = [...new Set(registrations.map(r => r.userId))]
+  const users = await prisma.user.findMany({
+    where: { id: { in: userIds } },
+    include: { profile: true },
+  })
+  const userById = new Map(users.map(u => [u.id, u]))
+
+  const sentList = []
+  const alreadySentList = []
+  const missingEmailList = []
+  const skippedList = []
+  const failedList = []
+
+  for (const item of requestedRecipients) {
+    const reg = item?.registrationId ? regById.get(item.registrationId) : null
+    if (!reg) {
+      skippedList.push({
+        registrationId: item?.registrationId || null,
+        rollNumber: item?.rollNumber || 'UNKNOWN',
+        name: item?.name || 'Student',
+        status: 'NO_PASS_ISSUED',
+        message: 'No active event pass registration found for this student.',
+      })
+      continue
+    }
+
+    const u = userById.get(reg.userId)
+    const formObj = (reg.formData && typeof reg.formData === 'object') ? reg.formData : {}
+    const resolvedRoll = u?.profile?.rollNumber || formObj.rollNumber || u?.memberId || item?.rollNumber || 'STUDENT'
+    const resolvedName = u?.profile?.name || formObj.fullName || formObj.name || item?.name || u?.memberId || 'Student'
+
+    // 1. Strict No-Duplicate Guard: Never send again if passEmailSentAt is already recorded
+    if (formObj.passEmailSentAt) {
+      alreadySentList.push({
+        registrationId: reg.id,
+        rollNumber: resolvedRoll,
+        name: resolvedName,
+        email: formObj.passEmailSentTo || u?.profile?.email || formObj.email || null,
+        emailSentAt: formObj.passEmailSentAt,
+        status: 'ALREADY_SENT',
+        message: `Already sent on ${new Date(formObj.passEmailSentAt).toLocaleString()} — duplicate email blocked.`,
+      })
+      continue
+    }
+
+    // 2. Must hold an active issued pass
+    if (!hasActiveEventPass(reg)) {
+      skippedList.push({
+        registrationId: reg.id,
+        rollNumber: resolvedRoll,
+        name: resolvedName,
+        status: 'PASS_NOT_ACTIVE',
+        message: 'Student pass is not active/verified yet.',
+      })
+      continue
+    }
+
+    // 3. Resolve email (inline provided email > profile.email > formData.email)
+    const inlineEmail = item?.email ? String(item.email).trim().toLowerCase() : ''
+    const effectiveEmail = inlineEmail || (u?.profile?.email || formObj.email || '').trim().toLowerCase()
+
+    if (!effectiveEmail) {
+      missingEmailList.push({
+        registrationId: reg.id,
+        rollNumber: resolvedRoll,
+        name: resolvedName,
+        email: null,
+        status: 'EMAIL_NOT_GIVEN',
+        message: 'EMAIL NOT GIVEN — Student has not provided an email address.',
+      })
+      continue
+    }
+
+    if (!EMAIL_REGEX.test(effectiveEmail)) {
+      failedList.push({
+        registrationId: reg.id,
+        rollNumber: resolvedRoll,
+        name: resolvedName,
+        email: effectiveEmail,
+        status: 'INVALID_EMAIL',
+        message: `Invalid email format: "${effectiveEmail}".`,
+      })
+      continue
+    }
+
+    // 4. If admin provided/updated the email inline or via Excel/CSV, link it to the student's profile
+    if (inlineEmail && u && u.profile?.email !== inlineEmail) {
+      try {
+        await prisma.profile.upsert({
+          where: { userId: u.id },
+          update: { email: inlineEmail },
+          create: {
+            userId: u.id,
+            rollNumber: resolvedRoll,
+            name: resolvedName,
+            email: inlineEmail,
+            department: 'CSE',
+            year: 1,
+          },
+        })
+        if (u.profile) u.profile.email = inlineEmail
+        authUserCache.invalidate(u.id)
+      } catch {}
+    }
+
+    // 5. Ensure QR Code image exists on the active pass
+    let qrCodeData = reg.qrCodeData
+    if (!qrCodeData) {
+      try {
+        qrCodeData = await QRCode.toDataURL(`EVENT_PASS:${reg.id}`, {
+          margin: 2,
+          width: 300,
+          color: { dark: '#000000', light: '#ffffff' },
+        })
+      } catch {}
+    }
+
+    const customMsgForStudent = (item?.customMessage && String(item.customMessage).trim()) || globalCustomMessage
+
+    // 6. Dispatch email from cyberclubmrdu2025@gmail.com
+    try {
+      await sendEventPassEmail({
+        recipient: effectiveEmail,
+        studentName: resolvedName,
+        rollNumber: resolvedRoll,
+        memberId: u?.memberId || resolvedRoll,
+        eventTitle: event.title,
+        eventType: event.eventType,
+        eventDate: event.dateTime,
+        venue: event.venue || event.location || 'MRDU Campus',
+        passId: reg.id,
+        qrCodeData,
+        customMessage: customMsgForStudent,
+      })
+
+      const sentAtIso = new Date().toISOString()
+      const updatedFormObj = {
+        ...formObj,
+        email: effectiveEmail,
+        passEmailSent: true,
+        passEmailSentAt: sentAtIso,
+        passEmailSentTo: effectiveEmail,
+        passEmailSentBy: request.user.memberId,
+        passEmailCustomMessage: customMsgForStudent || null,
+      }
+
+      await prisma.eventRegistration.update({
+        where: { id: reg.id },
+        data: {
+          qrCodeData,
+          formData: updatedFormObj,
+        },
+      })
+
+      // Update local map so even if duplicate registrationId was passed in same array, it's blocked
+      reg.formData = updatedFormObj
+
+      createUserNotification({
+        userId: reg.userId,
+        type: 'PASS_EMAIL_SENT',
+        title: `Pass Sent to Email: ${event.title}`,
+        message: customMsgForStudent
+          ? `${customMsgForStudent} (Sent to ${effectiveEmail})`
+          : `Your official event pass for ${event.title} has been sent to ${effectiveEmail}.`,
+        linkUrl: '/student-passes',
+      }).catch(() => {})
+
+      sentList.push({
+        registrationId: reg.id,
+        rollNumber: resolvedRoll,
+        name: resolvedName,
+        email: effectiveEmail,
+        emailSentAt: sentAtIso,
+        emailSentTo: effectiveEmail,
+        status: 'SENT',
+        message: `Pass email sent to ${effectiveEmail}.`,
+      })
+    } catch (mailErr) {
+      failedList.push({
+        registrationId: reg.id,
+        rollNumber: resolvedRoll,
+        name: resolvedName,
+        email: effectiveEmail,
+        status: 'SEND_ERROR',
+        message: mailErr?.message || 'Failed to send email via SMTP server.',
+      })
+    }
+  }
+
+  await tryWriteAuditLog({
+    actorUserId: request.user.id,
+    action: 'EVENT_PASS_EMAILS_DISPATCHED',
+    metadata: {
+      eventId: event.id,
+      eventTitle: event.title,
+      sentCount: sentList.length,
+      alreadySentCount: alreadySentList.length,
+      missingEmailCount: missingEmailList.length,
+      failedCount: failedList.length,
+    },
+    ...auditRequest(request),
+  })
+
+  // Build clear human-readable summary message without hiding any status
+  const summaryParts = []
+  if (sentList.length > 0) summaryParts.push(`${sentList.length} pass email(s) sent from ${env.smtpUser || 'cyberclubmrdu2025@gmail.com'}`)
+  if (missingEmailList.length > 0) summaryParts.push(`${missingEmailList.length} student(s) skipped (EMAIL NOT GIVEN)`)
+  if (alreadySentList.length > 0) summaryParts.push(`${alreadySentList.length} student(s) skipped (ALREADY SENT — no duplicate)`)
+  if (skippedList.length > 0) summaryParts.push(`${skippedList.length} student(s) skipped (no active pass)`)
+  if (failedList.length > 0) summaryParts.push(`${failedList.length} failed (${failedList[0]?.message || 'SMTP error'})`)
+
+  const isSingle = requestedRecipients.length === 1
+  if (isSingle && sentList.length === 0) {
+    const singleIssue =
+      missingEmailList[0]?.message ||
+      alreadySentList[0]?.message ||
+      failedList[0]?.message ||
+      skippedList[0]?.message ||
+      'Could not send pass email.'
+    return response.status(400).json({
+      success: false,
+      message: singleIssue,
+      sentCount: 0,
+      alreadySentCount: alreadySentList.length,
+      missingEmailCount: missingEmailList.length,
+      failedCount: failedList.length,
+      sent: sentList,
+      alreadySent: alreadySentList,
+      missingEmail: missingEmailList,
+      skipped: skippedList,
+      failed: failedList,
+    })
+  }
+
+  return response.status(200).json({
+    success: sentList.length > 0 || (failedList.length === 0 && missingEmailList.length === 0),
+    message: summaryParts.join(' · ') || 'No emails were dispatched.',
+    senderEmail: env.smtpUser || 'cyberclubmrdu2025@gmail.com',
+    sentCount: sentList.length,
+    alreadySentCount: alreadySentList.length,
+    missingEmailCount: missingEmailList.length,
+    skippedCount: skippedList.length,
+    failedCount: failedList.length,
+    sent: sentList,
+    alreadySent: alreadySentList,
+    missingEmail: missingEmailList,
+    skipped: skippedList,
+    failed: failedList,
   })
 }
 

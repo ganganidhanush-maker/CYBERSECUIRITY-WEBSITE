@@ -228,6 +228,8 @@ export const adminApi = {
   getEventDetailsWithStats: eventId => request(`/admin/events/${eventId}/details`),
   listEventRegistrations: eventId => request(`/admin/events/${eventId}/registrations`),
   bulkIssueEventPasses: (eventId, data) => request(`/admin/events/${eventId}/bulk-passes`, { method: 'POST', body: JSON.stringify(data) }),
+  resolveEventPassEmails: (eventId, data = {}) => request(`/admin/events/${eventId}/pass-emails/resolve`, { method: 'POST', body: JSON.stringify(data), timeoutMs: 30000 }),
+  sendEventPassEmails: (eventId, data = {}) => request(`/admin/events/${eventId}/pass-emails/send`, { method: 'POST', body: JSON.stringify(data), timeoutMs: 90000 }),
 
   // Payments & Subscriptions
   listPayments: () => request('/admin/payments'),

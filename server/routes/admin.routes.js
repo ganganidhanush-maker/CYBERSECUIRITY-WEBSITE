@@ -61,6 +61,8 @@ import {
   getPresidentDirectives,
   updatePresidentDirectives,
   togglePresidentDirectiveTodo,
+  resolveEventPassEmails,
+  sendEventPassEmails,
 } from '../controllers/admin.controller.js'
 import {
   listAdminSubscriptions,
@@ -116,6 +118,9 @@ adminRouter.get('/events/:eventId/details', requireAnyPermission('EVENT_MANAGE',
 adminRouter.get('/events/:eventId/export-csv', requireAnyPermission('EVENT_MANAGE', 'REGISTRATIONS_VIEW', 'EVENTS_VIEW'), asyncHandler(exportEventRegistrationsCsv))
 adminRouter.get('/events/:eventId/registrations', requirePermission('REGISTRATIONS_VIEW'), asyncHandler(listEventRegistrations))
 adminRouter.post('/events/:eventId/bulk-passes', requireAnyPermission('EVENT_MANAGE', 'PAYMENTS_VERIFY'), adminWriteRateLimiter, asyncHandler(bulkIssueEventPasses))
+adminRouter.get('/events/:eventId/pass-emails', requireAnyPermission('EVENT_MANAGE', 'REGISTRATIONS_VIEW', 'PAYMENTS_VERIFY'), asyncHandler(resolveEventPassEmails))
+adminRouter.post('/events/:eventId/pass-emails/resolve', requireAnyPermission('EVENT_MANAGE', 'REGISTRATIONS_VIEW', 'PAYMENTS_VERIFY'), adminWriteRateLimiter, asyncHandler(resolveEventPassEmails))
+adminRouter.post('/events/:eventId/pass-emails/send', requireAnyPermission('EVENT_MANAGE', 'REGISTRATIONS_VIEW', 'PAYMENTS_VERIFY'), adminWriteRateLimiter, asyncHandler(sendEventPassEmails))
 
 // Event Passes & Attendance Roster
 adminRouter.get('/passes', requirePermission('REGISTRATIONS_VIEW'), asyncHandler(listAllEventPasses))
