@@ -43,7 +43,7 @@ import {
   getStudentSubscriptionStatus,
   submitStudentSubscription,
 } from '../controllers/subscription.controller.js'
-import { requireAuth, requirePermission } from '../middleware/auth.js'
+import { requireAuth, requirePermission, requireAnyPermission } from '../middleware/auth.js'
 import { authenticatedRateLimiter } from '../middleware/rate-limit.js'
 import { requireActiveSubscription } from '../middleware/subscription.js'
 import { requireActiveSite } from '../middleware/hibernation.js'

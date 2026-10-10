@@ -413,5 +413,18 @@ describe('Bulk Event Pass Issuance & Solo Event Validation', () => {
     assert.equal(enabledAutoCreate[0].rollNumber, '23CS999')
     assert.equal(enabledNotFound.length, 0)
   })
+
+  it('guarantees all route modules and app load cleanly without ReferenceError', async () => {
+    const [memberRoutes, adminRoutes, authRoutes, appModule] = await Promise.all([
+      import('../server/routes/member.routes.js'),
+      import('../server/routes/admin.routes.js'),
+      import('../server/routes/auth.routes.js'),
+      import('../server/app.js'),
+    ])
+    assert.ok(memberRoutes.memberRouter)
+    assert.ok(adminRoutes.adminRouter)
+    assert.ok(authRoutes.authRouter)
+    assert.equal(typeof appModule.createApp, 'function')
+  })
 })
 
