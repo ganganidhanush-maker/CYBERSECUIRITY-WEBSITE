@@ -2387,8 +2387,9 @@ export async function sendEventPassEmails(request, response) {
     const resolvedRoll = u?.profile?.rollNumber || formObj.rollNumber || u?.memberId || item?.rollNumber || 'STUDENT'
     const resolvedName = u?.profile?.name || formObj.fullName || formObj.name || item?.name || u?.memberId || 'Student'
 
-    // 1. Strict No-Duplicate Guard: Never send again if passEmailSentAt is already recorded
-    if (formObj.passEmailSentAt) {
+    // 1. Duplicate Guard: blocked unless forceResend is explicitly requested
+    const allowResend = Boolean(request.body?.forceResend || item?.forceResend)
+    if (formObj.passEmailSentAt && !allowResend) {
       alreadySentList.push({
         registrationId: reg.id,
         rollNumber: resolvedRoll,
@@ -2396,7 +2397,7 @@ export async function sendEventPassEmails(request, response) {
         email: formObj.passEmailSentTo || u?.profile?.email || formObj.email || null,
         emailSentAt: formObj.passEmailSentAt,
         status: 'ALREADY_SENT',
-        message: `Already sent on ${new Date(formObj.passEmailSentAt).toLocaleString()} — duplicate email blocked.`,
+        message: `Already sent on ${new Date(formObj.passEmailSentAt).toLocaleString()} — duplicate email blocked (enable Re-send to send again).`,
       })
       continue
     }

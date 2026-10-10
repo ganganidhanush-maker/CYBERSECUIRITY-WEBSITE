@@ -11941,18 +11941,14 @@ function PassEmailDispatchModal({
     }
   }
 
-  // 1-Click Send to a SINGLE student
-  async function handleSendSingle(recipient) {
+  // 1-Click Send to a SINGLE student (supports unlimited re-sending)
+  async function handleSendSingle(recipient, isForceResend = false) {
     if (!selectedEventId || !recipient?.registrationId) return
     const rowKey = recipient.registrationId
     const inlineEmail = (inlineEmails[rowKey] || '').trim()
     const effectiveEmail = inlineEmail || recipient.email || ''
     if (!effectiveEmail) {
       setError(`EMAIL NOT GIVEN for ${recipient.rollNumber} (${recipient.name}). Please type their email in the row input box first.`)
-      return
-    }
-    if (recipient.emailSent || recipient.dispatchStatus === 'ALREADY_SENT') {
-      setError(`Duplicate Blocked: Pass email was already sent to ${recipient.rollNumber} (${recipient.emailSentTo || recipient.email}).`)
       return
     }
 
@@ -11968,6 +11964,7 @@ function PassEmailDispatchModal({
       const res = await adminApi.sendEventPassEmails(selectedEventId, {
         customMessage: globalCustomMessage,
         gmailRelayUrl: gmailRelayUrlInput.trim() || undefined,
+        forceResend: isForceResend,
         recipients: [
           {
             registrationId: recipient.registrationId,
@@ -11975,6 +11972,7 @@ function PassEmailDispatchModal({
             name: recipient.name,
             email: inlineEmail || recipient.email,
             customMessage: studentCustomMsg.trim() || undefined,
+            forceResend: isForceResend,
           },
         ],
       })
@@ -11983,9 +11981,11 @@ function PassEmailDispatchModal({
         const sentInfo = res.sent?.[0]
         setFeedback({
           type: 'success',
-          text: `✅ Pass email sent to ${recipient.name} (${recipient.rollNumber}) at ${sentInfo?.email || effectiveEmail}! Marked as DONE (no duplicate can be sent).`,
+          text: isForceResend
+            ? `✅ Pass email re-sent successfully to ${recipient.name} (${recipient.rollNumber}) at ${sentInfo?.email || effectiveEmail}!`
+            : `✅ Pass email sent to ${recipient.name} (${recipient.rollNumber}) at ${sentInfo?.email || effectiveEmail}!`,
         })
-        // Update local state immediately so button locks to SENT / DONE
+        // Update local state immediately
         setResolvedData(prev => {
           if (!prev) return prev
           const updatedRecipients = (prev.recipients || []).map(r => {
@@ -11998,7 +11998,7 @@ function PassEmailDispatchModal({
               emailSentAt: sentInfo?.emailSentAt || new Date().toISOString(),
               emailSentTo: sentInfo?.email || effectiveEmail,
               dispatchStatus: 'ALREADY_SENT',
-              statusMessage: `SENT / DONE (${sentInfo?.email || effectiveEmail})`,
+              statusMessage: `SENT · DONE (${sentInfo?.email || effectiveEmail})`,
               _wasMissingEmail: wasMissingEmail,
             }
           })
@@ -12014,7 +12014,7 @@ function PassEmailDispatchModal({
       } else if ((res.alreadySentCount || 0) > 0) {
         setFeedback({
           type: 'warning',
-          text: `Duplicate Blocked: Email was already sent to ${recipient.rollNumber}.`,
+          text: `Email was already sent to ${recipient.rollNumber}. Click "Re-send Pass ↺" to send again.`,
         })
         triggerResolve()
       } else if ((res.missingEmailCount || 0) > 0) {
@@ -12801,26 +12801,46 @@ function PassEmailDispatchModal({
                               )}
 
                               {isAlreadySent ? (
-                                <button
-                                  type="button"
-                                  disabled
-                                  style={{
-                                    fontSize: '10.5px',
-                                    padding: '5px 10px',
-                                    borderRadius: '6px',
-                                    background: 'rgba(16, 185, 129, 0.12)',
-                                    border: '1px solid rgba(16, 185, 129, 0.3)',
-                                    color: '#10b981',
-                                    fontWeight: 700,
-                                    cursor: 'not-allowed',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                  }}
-                                  title="Pass email already sent — duplicate sending is permanently locked"
-                                >
-                                  <IconCheck size={12} /> Sent (No Duplicate)
-                                </button>
+                                <>
+                                  <button
+                                    type="button"
+                                    disabled={isSendingThisRow}
+                                    onClick={() => handleSendSingle(r, true)}
+                                    style={{
+                                      fontSize: '10.5px',
+                                      padding: '5px 10px',
+                                      borderRadius: '6px',
+                                      background: 'rgba(56, 189, 248, 0.12)',
+                                      border: '1px solid rgba(56, 189, 248, 0.35)',
+                                      color: '#38bdf8',
+                                      fontWeight: 700,
+                                      cursor: isSendingThisRow ? 'not-allowed' : 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                    }}
+                                    title="Click to re-send this pass email to the student again"
+                                  >
+                                    <IconRefresh size={11} /> {isSendingThisRow ? 'Sending…' : 'Re-send Pass ↺'}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="outline"
+                                    onClick={() => handleOpenGmailAndMarkSent(r)}
+                                    style={{
+                                      fontSize: '10.5px',
+                                      padding: '4px 8px',
+                                      borderColor: 'rgba(56, 189, 248, 0.35)',
+                                      color: '#38bdf8',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                    }}
+                                    title="Open directly in Gmail web to send again"
+                                  >
+                                    <IconMail size={11} /> Gmail ↗
+                                  </button>
+                                </>
                               ) : r.registrationId && r.hasActivePass ? (
                                 <>
                                   <button
